@@ -1,14 +1,9 @@
 <h1>Welcome to the Single Digital Entry Point (SDEP)</h1>
 
-SDEP Netherlands (reference impl. for this repo):
-
-- https://sdep.gov.nl/api/v0/docs
-
-**DISCLAIMER** - API endpoints are work in progress => subject to change (yet without versioning)
-
 Overview:
 
-- [Quick start](#quick-start)
+- [Reference impl. (production)](#reference-impl-production)
+- [Quick start (local workstation)](#quick-start-local-workstation)
 - [Background](#background)
 - [Main functionality](#main-functionality)
 - [Unit tests](#unit-tests)
@@ -16,7 +11,15 @@ Overview:
 - [Design](#design)
 - [Discussion](#discussion)
 
-## Quick start
+## Reference impl. (production)
+
+The reference impl. for this repo is SDEP Netherlands:
+
+https://sdep.gov.nl/api/v0/docs
+
+DISCLAIMER - the API is yet subject to change (without versioning).
+
+## Quick start (local workstation)
 
 On a local workstation (tested on Linux; for Windows, consider using WSL).
 
