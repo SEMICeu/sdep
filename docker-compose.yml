@@ -1,0 +1,86 @@
+#
+# See ./env for environment variables being used
+#
+
+volumes:
+  postgres_data:
+
+services:
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB_NAME}
+      POSTGRES_USER: ${POSTGRES_SUPER_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPER_PASSWORD}
+    container_name: ${POSTGRES_CONTAINER_NAME}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-keycloak.sql:/docker-entrypoint-initdb.d/init-keycloak.sql
+      - ./postgres/init-app.sql:/docker-entrypoint-initdb.d/init-app.sql
+      - ./test-data:/test-data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPER_USER} -d ${POSTGRES_DB_NAME}"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:${KC_VERSION}
+    container_name: ${KC_CONTAINER_NAME}
+    ports:
+      - "${KC_PORT}:8080"
+    environment:
+      # https://www.keycloak.org/server/configuration#_creating_the_initial_admin_user
+      # KC_BOOTSTRAP_ADMIN_USERNAME is a fixed Keycloak variable name, do not rename
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_REALM_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_REALM_ADMIN_PASSWORD}
+      # https://www.keycloak.org/server/containers
+      KC_DB_URL: ${KC_DB_URL}
+      KC_DB: ${KC_DB}
+      KC_DB_USERNAME: ${KC_DB_USERNAME}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      # https://www.keycloak.org/server/all-config#category-hostname_v2
+      KC_HOSTNAME_STRICT_HTTPS: ${KC_HOSTNAME_STRICT_HTTPS}
+      KC_HOSTNAME_STRICT: ${KC_HOSTNAME_STRICT}
+      KC_HTTP_ENABLED: ${KC_HTTP_ENABLED}
+    command: start
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      network: host
+      # Use public Docker Hub image for local development (avoids dependency on custom image registry)
+      args:
+        PYTHON_IMAGE: python:3.13-slim
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 10.10.12.5
+    image: ${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_VERSION:-latest}
+    container_name: ${BACKEND_CONTAINER_NAME}
+    ports:
+      - "${BACKEND_PORT}:8000"
+    environment:
+      KC_BASE_URL: ${BACKEND_KC_BASE_URL}
+      POSTGRES_HOST: ${POSTGRES_CONTAINER_NAME}
+      POSTGRES_PORT: 5432
+      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}
+      POSTGRES_DB_USER: ${POSTGRES_DB_USER}
+      POSTGRES_DB_PASSWORD: ${POSTGRES_DB_PASSWORD}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f ${BACKEND_BASE_URL}/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy

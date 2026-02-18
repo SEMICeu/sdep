@@ -1,0 +1,251 @@
+[project]
+name = "sdep-backend"
+version = "0.1.0"
+description = "SDEP backend"
+authors = [
+    {name = "ICTU"}
+]
+license = {text = "MIT"}
+requires-python = ">=3.13,<3.14"  # Pin to 3.13 until psycopg2-binary has wheels for 3.14
+keywords = ["fastapi", "pydantic", "sqlalchemy", "alembic"]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: FastAPI",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
+
+dependencies = [
+    # Core FastAPI dependencies
+    "fastapi>=0.115.6",
+    "uvicorn[standard]>=0.34.0",
+    "python-multipart>=0.0.20",
+    # Database dependencies
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14.0",
+    "psycopg2-binary>=2.9.10",
+    "asyncpg>=0.30.0",
+    "greenlet>=3.1.1",
+    # Data validation and settings
+    "pydantic>=2.10.3",
+    "pydantic-settings>=2.7.0",
+    "email-validator>=2.2.0",
+    # Authentication and security
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=3.2.0,<4.0.0",
+    # Configuration
+    "python-dotenv>=1.0.1",
+    "httpx>=0.28.1",
+    "python-keycloak>=5.6.0",
+    "secure>=1.0.1",
+    "pyjwt[crypto]>=2.10.1",
+    # Storage
+    "aiofiles>=24.1.0",
+    "aiohttp>=3.12.15",
+    "cachetools>=6.1.0",
+    "jsonschema>=4.25.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "pytest-env>=1.1.5",
+    "httpx>=0.28.1",
+    "ruff>=0.10.4",
+    "pyright>=1.1.390",
+    "pre-commit>=4.0.1",
+    "factory-boy>=3.3.1",
+    "faker>=33.1.0",
+]
+
+[project.scripts]
+sdep-server = "app.main:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "pytest-env>=1.1.5",
+    "httpx>=0.28.1",
+    "ruff>=0.10.4",
+    "pyright>=1.1.390",
+    "pre-commit>=4.0.1",
+    "factory-boy>=3.3.1",
+    "faker>=33.1.0",
+    "pytest-xdist>=3.8.0",
+    "aiosqlite>=0.20.0",
+]
+
+[tool.uv.sources]
+# Ensure we use the restructured backend source
+app = { workspace = true }
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+src = ["backend"]
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "frontend",
+    "alembic/versions",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "RUF",  # ruff-specific rules
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+]
+
+ignore = [
+    "E203",  # whitespace before ':'
+    "E501",  # line too long
+    "E712",  # avoid equality comparisons to False - needed for SQLAlchemy boolean queries
+    "RUF012", # mutable class attributes
+    "TC003", # datetime is needed at runtime for models
+    "B008",  # function call in argument defaults - standard FastAPI Depends() pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"backend/app/schemas/*.py" = ["TCH002"]  # Allow third-party imports in runtime
+"app/schemas/*.py" = ["TCH002", "N815"]  # Allow runtime imports and camelCase for API contracts
+"**/tests/**" = ["S101"]  # Allow assert statements in tests
+"app/api/v0/main.py" = ["E402"]  # Allow imports after app configuration
+"app/api/common/routers/str_activities.py" = ["TC002"]  # datetime needed at runtime
+"app/api/common/routers/*.py" = ["N803"]  # Path parameters must match URL (e.g., areaId)
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ty.environment]
+python-version = "3.13"
+
+# Ignore rules that produce false positives for Pydantic/FastAPI patterns
+[tool.ty.rules]
+invalid-argument-type = "ignore"  # Pydantic model_construct and FastAPI middleware patterns
+invalid-assignment = "ignore"     # FastAPI openapi override
+unused-ignore-comment = "ignore"  # Alembic generated code has type: ignore comments
+
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+include = ["app"]
+exclude = [
+    "**/__pycache__",
+    "**/node_modules",
+    ".venv",
+    "alembic/versions",
+]
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedVariable = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+    "-v",
+    "-n", "auto",  # Enable parallel execution
+]
+
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "auth: marks tests that require authentication",
+    "database: marks tests that require database access",
+]
+
+# Suppress warnings in tests
+filterwarnings = [
+    # Suppress Pydantic serialization warnings for intentionally invalid test data
+    # These warnings occur when validation errors include the original invalid data
+    # (e.g., string where int expected). The validation errors array shows what's wrong.
+    "ignore:Pydantic serializer warnings:UserWarning:pydantic.main",
+    # Suppress coroutine warnings
+    "ignore:coroutine 'Connection._cancel' was never awaited:RuntimeWarning",
+    "ignore:coroutine '.*' was never awaited:RuntimeWarning",
+    "ignore:.*coroutine.*was never awaited:RuntimeWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+    # Suppress SQLAlchemy DISTINCT ON PostgreSQL-specific warning
+    # We intentionally use DISTINCT ON as this project uses PostgreSQL exclusively
+    "ignore:DISTINCT ON is currently supported only by the PostgreSQL dialect:sqlalchemy.exc.SADeprecationWarning",
+]
+
+env = [
+    "API_MODE=internal",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+    "app/tests/*",
+    "alembic/*",
+    "*/__init__.py",
+    "*/orm_integration.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend/app"]
+sources = ["backend"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "backend/app/**/*.py",
+    "backend/pyproject.toml",
+]
+
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"

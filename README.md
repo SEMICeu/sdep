@@ -1,6 +1,6 @@
 <h1>Welcome to the Single Digital Entry Point (SDEP)</h1>
 
-SDEP Netherlands:
+SDEP Netherlands (reference impl. for this repo):
 
 - https://sdep.gov.nl/api/v0/docs
 
@@ -120,4 +120,4 @@ The tests can also be re-used/run against real deployments (TST, ACC, PRE, PRD; 
 ## Discussion
 
 - [Approach](./docs/APPROACH.md)
-- [Issues](https://github.com/MinBZK/sdep.gov.nl/issues)
+- [Issues](https://github.com/SEMICeu/sdep/issues)

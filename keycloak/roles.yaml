@@ -1,0 +1,9 @@
+roles:
+  - name: "sdep_read"
+    description: "Permission to read"
+  - name: "sdep_write"
+    description: "Permission to write"
+  - name: "sdep_ca"
+    description: "Competent authority (CA)"
+  - name: "sdep_str"
+    description: "Short-term rental platform (STR)"

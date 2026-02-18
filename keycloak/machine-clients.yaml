@@ -1,0 +1,72 @@
+clients:
+
+  # -- Test clients (automated testruns, ephemeral) => naming convention sdep-test-*
+
+  # Short-term rental platforms (STR)
+  - id: "sdep-test-str01"
+    secret: "sdep-test-str01"
+    name: "Test STR 01 (test automation, ephemeral)"
+    description: "STR client with read-write access"
+    service_account_roles:
+      - sdep_str
+      - sdep_read
+      - sdep_write
+
+  # Competent authorities (CA)
+  - id: "sdep-test-ca01"
+    secret: "sdep-test-ca01"
+    name: "Test CA 01 (test automation, ephemeral)"
+    description: "CA client with read-write access"
+    service_account_roles:
+      - sdep_ca
+      - sdep_read
+      - sdep_write
+
+  # -- Test clients (interactive usage, persistent) => naming convention sdep-* => NOT to be prefixed with "test"
+
+  # Short-term rental platforms (STR)
+  - id: "sdep-str01"
+    secret: "sdep-str01"
+    name: "Test STR 01 (interactive usage, persistent)"
+    description: "STR client with read-write access"
+    service_account_roles:
+      - sdep_str
+      - sdep_read
+      - sdep_write
+
+  # Competent authorities (CA)
+  - id: "sdep-ca01"
+    secret: "sdep-ca01"
+    name: "Test CA 01 (interactive usage, persistent)"
+    description: "CA client with read-write access"
+    service_account_roles:
+      - sdep_ca
+      - sdep_read
+      - sdep_write
+
+  # -- Real clients (interactive usage, persistent) => naming convention sdep-<ca|str>* => NOT to be prefixed with "test"
+
+  - id: "sdep-ca0363"
+    secret: "sdep-ca0363"
+    name: "Gemeente Amsterdam"
+    description: "CA client with read-write access"
+    service_account_roles:
+      - sdep_ca
+      - sdep_read
+      - sdep_write
+  - id: "sdep-ca0599"
+    secret: "sdep-ca0599"
+    name: "Gemeente Rotterdam"
+    description: "CA client with read-write access"
+    service_account_roles:
+      - sdep_ca
+      - sdep_read
+      - sdep_write
+  - id: "sdep-ca0518"
+    secret: "sdep-ca0518"
+    name: "Gemeente Den Haag"
+    description: "CA client with read-write access"
+    service_account_roles:
+      - sdep_ca
+      - sdep_read
+      - sdep_write
