@@ -1,14 +1,15 @@
 <h1>Data Model</h1>
 
-This class model represents the SDEP **internal view** (implementation).
+The class model on this page represents the SDEP **internal view** (implementation).
 
 The OpenAPI/Swagger API docs expose this model as the **external view**.
 
-**Machine clients** should ONLY look at the **external view.**
+**API clients** should ONLY look at the **external view.** \
+https://sdep.gov.nl/api/v0/docs
 
 <h2>Table of Contents</h2>
 
-- [Classes](#classes)
+- [Classes (internal view)](#classes-internal-view)
   - [Competent Authority](#competent-authority)
   - [Platform](#platform)
   - [Area](#area)
@@ -22,7 +23,7 @@ The OpenAPI/Swagger API docs expose this model as the **external view**.
   - [Soft-Delete](#soft-delete)
   - [Authorization](#authorization)
 
-## Classes
+## Classes (internal view)
 
 ![](./DATAMODEL.svg)
 
