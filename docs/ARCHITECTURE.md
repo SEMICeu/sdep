@@ -26,7 +26,7 @@ This document provides an overview of the SDEP (Single Digital Entry Point) proj
 - [Testing Strategy](#testing-strategy)
   - [Unit Tests (`backend/tests/`)](#unit-tests-backendtests)
   - [Integration Tests (`tests/`)](#integration-tests-tests)
-  - [Test Coverage](#test-coverage)
+- [SQLite vs PostgreSQL](#sqlite-vs-postgresql)
 - [Key Configuration Files](#key-configuration-files)
 - [Authentication \& Authorization](#authentication-authorization)
 
@@ -347,9 +347,25 @@ make
 - Test security headers (OWASP compliance)
 - Test validation (Pydantic + business logic)
 - **Run:** `make test`
+- See [tests/README.md](../tests/README.md) for detailed test documentation
 
-### Test Coverage
-See [tests/README.md](../tests/README.md) for detailed test documentation.
+## SQLite vs PostgreSQL
+
+**Unit tests** (`backend/tests/`) automatically switch to an in-memory SQLite database (`sqlite+aiosqlite:///:memory:`) when no `DATABASE_URL` environment variable is set. This lets developers run unit tests without PostgreSQL installed or running.
+
+**Integration tests** (`tests/`) and **Production** both use PostgreSQL (`postgresql+asyncpg`) configured via environment variables (`POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB_NAME`, etc.).
+
+|                 | Production | Integration tests (`tests/`) | Unit tests (`backend/tests/`) |
+| --------------- | ---------- | ---------------------------- | ----------------------------- |
+| **Database**    | PostgreSQL | PostgreSQL                   | SQLite (in-memory)            |
+| **Trigger**     | always     | always                       | `DATABASE_URL` not set        |
+| **Persistence** | persistent | persistent                   | ephemeral (per test)          |
+| **Dependency**  | `asyncpg`  | `asyncpg`                    | `aiosqlite` (dev only)        |
+
+Because SQLite lacks some PostgreSQL features, the models include **dialect adaptors**:
+
+- **`StringArray`** (`backend/app/models/activity.py`) — uses `ARRAY(String)` on PostgreSQL and JSON-serialized `Text` on SQLite
+- **`CheckConstraint`** — marked `.ddl_if(dialect="postgresql")` so they are skipped on SQLite
 
 ## Key Configuration Files
 

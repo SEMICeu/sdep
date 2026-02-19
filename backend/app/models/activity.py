@@ -38,26 +38,37 @@ class StringArray(TypeDecorator):
 
     def load_dialect_impl(self, dialect):
         """Load the appropriate type based on dialect."""
-        if dialect.name == "postgresql":
-            return dialect.type_descriptor(ARRAY(String(32)))
-        else:
-            return dialect.type_descriptor(Text())
+        match dialect.name:
+            case "postgresql":
+                return dialect.type_descriptor(ARRAY(String(32)))
+            case "sqlite":
+                return dialect.type_descriptor(Text())
+            case _:
+                raise NotImplementedError(f"StringArray not supported for dialect: {dialect.name}")
 
     def process_bind_param(self, value, dialect):
         """Convert list to JSON string for SQLite."""
         if value is None:
             return None
-        if dialect.name == "postgresql":
-            return value
-        return json.dumps(value)
+        match dialect.name:
+            case "postgresql":
+                return value
+            case "sqlite":
+                return json.dumps(value)
+            case _:
+                raise NotImplementedError(f"StringArray not supported for dialect: {dialect.name}")
 
     def process_result_value(self, value, dialect):
         """Convert JSON string back to list for SQLite."""
         if value is None:
             return None
-        if dialect.name == "postgresql":
-            return value
-        return json.loads(value)
+        match dialect.name:
+            case "postgresql":
+                return value
+            case "sqlite":
+                return json.loads(value)
+            case _:
+                raise NotImplementedError(f"StringArray not supported for dialect: {dialect.name}")
 
 
 class Activity(Base):
