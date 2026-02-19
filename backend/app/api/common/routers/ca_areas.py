@@ -54,7 +54,7 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
     description="""Submit a single area for the current authenticated competent authority (competentAuthorityId).
 
 **ID Pattern:**
-- `areaId`: provided by competent authority as business identifier (optional), otherwise generated as UUID (RFC 9562 compliant)
+- `areaId`: provided by competent authority as business identifier (optional), otherwise generated as UUID (RFC 9562)
 
 **Versioning:**
 - Same `areaId` can be resubmitted → creates new version with different timestamp

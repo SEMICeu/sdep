@@ -43,7 +43,7 @@ router = APIRouter(tags=["str"])
     description="""Submit a single activity for the current authenticated platform (platformId).
 
 **ID Pattern:**
-- `activityId`: provided by platform as business identifier (optional), otherwise generated as UUID (RFC 9562 compliant)
+- `activityId`: provided by platform as business identifier (optional), otherwise generated as UUID (RFC 9562)
 
 **Versioning:**
 - Same `activityId` can be resubmitted → creates new version with different timestamp
