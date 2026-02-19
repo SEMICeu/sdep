@@ -14,8 +14,6 @@
 PROPOSAL
 
 - **Anyone** can enter new issues
-- **Issues** are characterized by (exactly one) **label** and organized by **milestones** (due date)
-  - Team SDEP will monitor this
-  - https://github.com/SEMICeu/sdep/milestones
-- **Kanban boards** maintains **work in progress** in **milestones**
-  - https://github.com/orgs/SEMICeu/projects/3/views/1?groupedBy%5BcolumnId%5D=Milestone
+- **Team SDSEP** assigns (exactly one) **label** and puts it into the SDEP **project**
+- **Team SDSEP** maintains work in progress on **Kanban boards** in **milestones**
+- https://github.com/orgs/SEMICeu/projects/3/views/1?groupedBy%5BcolumnId%5D=Milestone
