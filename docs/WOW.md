@@ -18,5 +18,4 @@ PROPOSAL
   - Team SDEP will monitor this
   - https://github.com/SEMICeu/sdep/milestones
 - **Kanban boards** maintains **work in progress** in **milestones**
-  - https://github.com/orgs/SEMICeu/projects/3
-  - https://github.com/orgs/SEMICeu/projects/3/views/1?filterQuery=milestone%3A260305
+  - https://github.com/orgs/SEMICeu/projects/3/views/1?groupedBy%5BcolumnId%5D=Milestone
