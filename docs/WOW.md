@@ -9,7 +9,7 @@
 - Use GitHub tags for initial versioning
 - Use API versioning later (once competent authorities and platforms are connected)
 
-## Process
+## Issue management
 
 PROPOSAL
 
