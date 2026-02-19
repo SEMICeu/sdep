@@ -100,13 +100,3 @@ def create_async_session() -> AbstractAsyncContextManager[AsyncSession]:
     """Create an async session for use outside of FastAPI dependencies."""
     return AsyncSessionLocal()
 
-
-async def init_async_db() -> None:
-    """Initialize async database (create tables if needed)."""
-    async with async_engine.begin() as _:
-        pass
-
-
-async def close_async_db() -> None:
-    """Close async database connections."""
-    await async_engine.dispose()

@@ -365,7 +365,7 @@ make
 Because SQLite lacks some PostgreSQL features, the models include **dialect adaptors**:
 
 - **`StringArray`** (`backend/app/models/activity.py`) — uses `ARRAY(String)` on PostgreSQL and JSON-serialized `Text` on SQLite
-- **`CheckConstraint`** — marked `.ddl_if(dialect="postgresql")` so they are skipped on SQLite
+- **`CheckConstraint`** — marked `.ddl_if(dialect="postgresql")` so they are only applied to PostgreSQL
 
 ## Key Configuration Files
 

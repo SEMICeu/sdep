@@ -9,7 +9,7 @@ Overview:
 - [Unit tests](#unit-tests)
 - [Integration tests](#integration-tests)
 - [Design](#design)
-- [Discussion](#discussion)
+- [Process](#process)
 
 ## Reference impl. (production)
 
@@ -120,7 +120,6 @@ The tests can also be re-used/run against real deployments (TST, ACC, PRE, PRD; 
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Design log](./docs/DESIGN.md)
 
-## Discussion
+## Process
 
-- [Approach](./docs/APPROACH.md)
-- [Issues](https://github.com/SEMICeu/sdep/issues)
+- [Way Of Working](./docs/WOW.md)
