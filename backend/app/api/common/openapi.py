@@ -84,6 +84,7 @@ def sort_schemas_by_namespace(openapi_schema: dict[str, Any]) -> dict[str, Any]:
 
     # Create a sorting key function that extracts namespace from title
     def get_sort_key(item: tuple[str, dict]) -> tuple[str, str]:
+        """Return (namespace, name) sort key extracted from a schema's title."""
         schema_name, schema_def = item
         title = schema_def.get("title", schema_name)
         # Split by '.' to get namespace and name

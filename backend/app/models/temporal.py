@@ -12,8 +12,8 @@ class Temporal:
     This is a composite type (not a standalone entity) used inline in Activity.
     Represents a duration with start and end datetimes.
     Constraints:
-    - startDatetime < endDatetime
-    - startDatetime year must be >= 2025
+    - start_date_time < end_date_time
+    - start_date_time year must be >= 2025
     """
 
     def __init__(

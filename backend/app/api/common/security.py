@@ -70,7 +70,7 @@ def validate_jwt_token(token: str) -> dict[str, Any]:
         jwks = get_keycloak_public_key()
 
         # Decode and validate the token
-        # python-jose will automatically select the correct key from JWKS
+        # The library selects the correct key from JWKS automatically
         payload = jwt.decode(
             token,
             jwks,
