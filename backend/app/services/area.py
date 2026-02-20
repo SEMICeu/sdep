@@ -134,6 +134,33 @@ async def get_area_by_id(session: AsyncSession, area_id: str) -> dict | None:
     }
 
 
+async def get_own_area_by_id(
+    session: AsyncSession,
+    area_id: str,
+    competent_authority_id_str: str,
+) -> dict | None:
+    """
+    Get a specific area by functional ID, scoped to the authenticated CA.
+
+    Args:
+        session: Async database session
+        area_id: Functional area ID
+        competent_authority_id_str: Competent authority functional ID from JWT
+
+    Returns:
+        Dictionary with filename and filedata, or None if not found / not owned by CA
+    """
+    area = await area_crud.get_by_area_id_and_competent_authority_id_str(
+        session, area_id, competent_authority_id_str
+    )
+    if area is None:
+        return None
+    return {
+        "filename": area.filename,
+        "filedata": area.filedata,
+    }
+
+
 async def create_area(
     session: AsyncSession,
     area_id: str | None,

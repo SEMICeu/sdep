@@ -76,6 +76,7 @@ See [../Makefile](../Makefile). Available targets:
 - `POST /api/v0/ca/areas`
 - `GET /api/v0/ca/areas`
 - `GET /api/v0/ca/areas/count`
+- `GET /api/v0/ca/areas/{areaId}`
 - `GET /api/v0/ca/activities`
 - `GET /api/v0/ca/activities/count`
 
@@ -112,11 +113,14 @@ See [../Makefile](../Makefile). Available targets:
 - **Test 7:** Versioning - submit same areaId twice
 - **Test 8:** DELETE area (soft-delete) → 204
 - **Test 9:** DELETE nonexistent area → 404
+- **Test 10:** GET own area by ID → 200 OK
+- **Test 11:** GET nonexistent own area by ID → 404
 
 **Endpoints:**
 - `POST /api/{API_VERSION}/ca/areas`
 - `GET /api/{API_VERSION}/ca/areas`
 - `GET /api/{API_VERSION}/ca/areas/count`
+- `GET /api/{API_VERSION}/ca/areas/{areaId}`
 - `DELETE /api/{API_VERSION}/ca/areas/{areaId}`
 
 **Content-Type:** `multipart/form-data` (POST)
