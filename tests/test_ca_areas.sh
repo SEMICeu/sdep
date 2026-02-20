@@ -410,6 +410,75 @@ fi
 
 echo
 
+# Test 10: GET own area by ID (success)
+echo "Test 10: GET own area by ID (success)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+if [ -n "$BEARER_TOKEN" ]; then
+    GET_AREA_ID="sdep-test-area-get-$(date +%s)"
+
+    # Create area first
+    curl -s -o /dev/null -w "" \
+        -X POST \
+        -H "Authorization: Bearer ${BEARER_TOKEN}" \
+        -F "file=@${SHAPEFILE_PATH}" \
+        -F "areaId=${GET_AREA_ID}" \
+        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas"
+
+    # GET area by ID
+    response=$(curl -s -w "\n%{http_code}" \
+        -X GET \
+        -H "Authorization: Bearer ${BEARER_TOKEN}" \
+        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas/${GET_AREA_ID}")
+
+    http_code=$(echo "$response" | tail -n1)
+
+    echo "HTTP Status: $http_code"
+    echo
+
+    if [ "$http_code" -eq 200 ]; then
+        echo "✅ Test 10 passed: GET /ca/areas/{areaId} returned area (200 OK)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "❌ Test 10 failed: Expected 200 but got $http_code"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+    fi
+else
+    echo "⏭️  Skipping Test 10 (requires authentication)"
+fi
+
+echo
+
+# Test 11: GET nonexistent own area returns 404
+echo "Test 11: GET nonexistent own area returns 404"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+if [ -n "$BEARER_TOKEN" ]; then
+    response=$(curl -s -w "\n%{http_code}" \
+        -X GET \
+        -H "Authorization: Bearer ${BEARER_TOKEN}" \
+        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas/nonexistent-area-$(date +%s)")
+
+    http_code=$(echo "$response" | tail -n1)
+
+    echo "HTTP Status: $http_code"
+    echo
+
+    if [ "$http_code" -eq 404 ]; then
+        echo "✅ Test 11 passed: Nonexistent area correctly returned 404"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "❌ Test 11 failed: Expected 404 but got $http_code"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+    fi
+else
+    echo "⏭️  Skipping Test 11 (requires authentication)"
+fi
+
+echo
+
 # Summary
 echo "═══════════════════════════════════════"
 echo "Test Summary:"

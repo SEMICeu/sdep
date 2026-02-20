@@ -391,6 +391,98 @@ async def count_own_areas(
     return AreasCountResponse(count=total_count)
 
 
+@router.get(
+    "/ca/areas/{areaId}",
+    response_class=Response,
+    status_code=status.HTTP_200_OK,
+    summary="Get area (shapefile) for the current authenticated competent authority",
+    description="Get area (shapefile) based on functional ID, scoped to the authenticated CA\n\n"
+    "**Response Codes:**\n"
+    "- **200 OK:** Area shapefile returned successfully\n"
+    "- **401 Unauthorized:** Invalid or missing token\n"
+    "- **403 Forbidden:** Missing required authorization roles\n"
+    "- **404 Not Found:** Area not found or belongs to a different CA",
+    operation_id="getOwnArea",
+    responses={
+        "200": {
+            "content": {"application/zip": {}},
+            "description": "Binary area",
+        },
+        "401": {
+            "model": UnauthorizedError,
+            "description": "Unauthorized - Invalid or missing token",
+        },
+        "403": {
+            "description": "Forbidden - Missing required authorization roles",
+        },
+        "404": {
+            "description": "Area not found or belongs to a different CA",
+        },
+    },
+)
+async def get_own_area(
+    areaId: str,
+    session: AsyncSession = Depends(get_async_db_read_only),
+    token_payload: dict[str, Any] = Depends(verify_bearer_token),
+) -> Response:
+    """
+    Get specific area for the current authenticated competent authority.
+
+    Authorization:
+    - Requires valid bearer token with "sdep_ca" and "sdep_read" roles in realm_access
+    - Competent authority ID extracted from token's "client_id" claim
+
+    Returns raw binary area, or 404 if not found / not owned by the CA.
+    """
+    # Authorization check: Verify user has "sdep_ca" and "sdep_read" roles
+    realm_access = token_payload.get("realm_access", {})
+    roles = realm_access.get("roles", [])
+
+    if "sdep_ca" not in roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: 'sdep_ca' role required",
+        )
+
+    if "sdep_read" not in roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: 'sdep_read' role required",
+        )
+
+    # Extract competent authority ID from token
+    competent_authority_id = token_payload.get("client_id")
+    if not competent_authority_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: missing 'client_id' claim",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Get the area scoped to this CA
+    area_data = await area_service.get_own_area_by_id(
+        session,
+        area_id=areaId,
+        competent_authority_id_str=competent_authority_id,
+    )
+
+    if area_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Area with areaId '{areaId}' not found",
+        )
+
+    # Return raw binary data (or empty bytes if filedata is None)
+    binary_data = area_data["filedata"] if area_data["filedata"] is not None else b""
+    filename = area_data.get("filename", "area.zip")
+
+    return Response(
+        content=binary_data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.delete(
     "/ca/areas/{areaId}",
     summary="Delete (deactivate) an area for the current authenticated competent authority",

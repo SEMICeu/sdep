@@ -3,10 +3,11 @@
 ## 260220
 
 - Removed redundant submitter id/name from POST response
+- Added GET area by ID endpoint for CA (`GET /ca/areas/{areaId}`)
 
 ## 260218
 
-- Added DELETE area endpoint
+- Added DELETE area endpoint for CA (`DELETE /ca/areas/{areaId}`)
 
 ## 260217
 
@@ -21,7 +22,8 @@
 - Added `endedAt` next to `createdAt` (for stacking purposes)
 - Extended unique constraints on Area  (because CAs may use the same business identifiers)
 - Extended unique constraints on Activity (because STRs may use the same business identifiers)
-- Added new endpoints for CA and STR, so they can get their own areas/activities (this will also streamline testing by CA and STR)
+- Added list and count endpoints for CA (`GET /ca/areas`, `GET /ca/areas/count`, `GET /ca/activities`, `GET /ca/activities/count`)
+- Added list and count endpoints for STR (`GET /str/areas`, `GET /str/areas/count`, `GET /str/areas/{areaId}`, `GET /str/activities`, `GET /str/activities/count`)
 - Changed default sorting for GET into `createdAt`, descending
 
 ## 251228

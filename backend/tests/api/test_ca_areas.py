@@ -600,3 +600,171 @@ class TestCAAreaAPI:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["count"] == 0  # CA "0363" has no areas
+
+    # Tests for GET /ca/areas/{areaId}
+
+    async def test_get_own_area_success(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test GET /ca/areas/{areaId} returns binary area (200 OK) with correct headers."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            # Create an area first
+            post_response = await client.post(
+                "/ca/areas",
+                files={"file": ("MyArea.zip", b"zipbinary", "application/zip")},
+                data={"areaId": "get-area-test"},
+                headers={"Authorization": "Bearer test_token"},
+            )
+            assert post_response.status_code == status.HTTP_201_CREATED
+
+            # GET the area by ID
+            response = await client.get(
+                "/ca/areas/get-area-test",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == b"zipbinary"
+        assert "application/zip" in response.headers["content-type"]
+        assert 'filename="MyArea.zip"' in response.headers["content-disposition"]
+
+    async def test_get_own_area_not_found(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test GET /ca/areas/{areaId} returns 404 for non-existent areaId."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/ca/areas/nonexistent-area",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    async def test_get_own_area_other_ca(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test GET /ca/areas/{areaId} returns 404 for area belonging to a different CA."""
+        from tests.fixtures.factories import AreaFactory
+
+        # Create area for another CA directly
+        await AreaFactory.create_async(
+            async_session,
+            area_id="other-ca-area",
+            competent_authority_id="9999",
+            competent_authority_name="Other Authority",
+        )
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/ca/areas/other-ca-area",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    async def test_get_own_area_deleted(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test GET /ca/areas/{areaId} returns 404 for a soft-deleted area."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            # Create an area, delete it, then try to GET it
+            await client.post(
+                "/ca/areas",
+                files={"file": ("ToDelete.zip", b"data", "application/zip")},
+                data={"areaId": "get-deleted-area"},
+                headers={"Authorization": "Bearer test_token"},
+            )
+            await client.delete(
+                "/ca/areas/get-deleted-area",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+            response = await client.get(
+                "/ca/areas/get-deleted-area",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    async def test_get_own_area_forbidden_missing_ca_role(
+        self, async_session: AsyncSession
+    ):
+        """Test GET /ca/areas/{areaId} returns 403 without sdep_ca role."""
+
+        def mock_token_without_ca_role():
+            return {
+                "sub": "test_user",
+                "client_id": "0363",
+                "client_name": "Gemeente Amsterdam",
+                "realm_access": {"roles": ["sdep_str", "sdep_read"]},  # Missing sdep_ca
+            }
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_ca_role
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/ca/areas/some-area",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "sdep_ca" in response.json()["detail"][0]["msg"]
+
+    async def test_get_own_area_forbidden_missing_read_role(
+        self, async_session: AsyncSession
+    ):
+        """Test GET /ca/areas/{areaId} returns 403 without sdep_read role."""
+
+        def mock_token_without_read_role():
+            return {
+                "sub": "test_user",
+                "client_id": "0363",
+                "client_name": "Gemeente Amsterdam",
+                "realm_access": {
+                    "roles": ["sdep_ca", "sdep_write"]
+                },  # Missing sdep_read
+            }
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/ca/areas/some-area",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "sdep_read" in response.json()["detail"][0]["msg"]
+
+    async def test_get_own_area_unauthorized_no_token(
+        self, async_session: AsyncSession, setup_db_only
+    ):
+        """Test GET /ca/areas/{areaId} returns 401 without authentication token."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.get("/ca/areas/some-area")
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED

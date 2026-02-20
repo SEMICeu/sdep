@@ -281,6 +281,7 @@ POST /ca/areas (multipart/form-data: file + optional areaId, areaName)
 - `POST /api/v0/ca/areas` - Submit a single area (multipart/form-data: file + optional areaId, areaName)
 - `GET /api/v0/ca/areas` - List own areas (pagination: offset, limit)
 - `GET /api/v0/ca/areas/count` - Count own areas
+- `GET /api/v0/ca/areas/{areaId}` - Download shapefile for own area
 - `DELETE /api/v0/ca/areas/{areaId}` - Delete (soft-delete) an own area
 - `GET /api/v0/ca/activities` - Query rental activities (pagination: offset, limit)
 - `GET /api/v0/ca/activities/count` - Count activities
