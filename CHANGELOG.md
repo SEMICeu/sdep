@@ -4,6 +4,7 @@
 
 - Removed redundant submitter id/name from POST response
 - Added GET area by ID endpoint for CA (`GET /ca/areas/{areaId}`)
+- Made `Activity.url` mandatory
 
 ## 260218
 
