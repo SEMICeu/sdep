@@ -42,7 +42,7 @@ SDEP is a FastAPI-based REST API that enables:
 
 **Production (NL):** https://sdep.gov.nl/api/v0/docs
 
-- This is reference implementation for this repo
+- This is the reference implementation for this repo
 
 ## Technology Stack
 

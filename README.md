@@ -116,7 +116,7 @@ The tests can also be re-used/run against real deployments (TST, ACC, PRE, PRD; 
 
 ## Design
 
-- [Datamodel (internal)](./docs/DATAMODEL.md)
+- [Datamodel](./docs/DATAMODEL.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Design log](./docs/DESIGN.md)
 
