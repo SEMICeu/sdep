@@ -695,6 +695,34 @@ class TestSTRActivitiesAPI:
 
         assert response.status_code == 422
 
+    async def test_post_activity_validation_error_missing_url(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test POST /str/activities without url returns 422 (url is mandatory)."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities",
+                json={
+                    "areaId": "some-area-id",
+                    "registrationNumber": "REG123",
+                    "address": {
+                        "street": "Main Street",
+                        "number": 123,
+                        "postalCode": "1000AA",
+                        "city": "Amsterdam",
+                    },
+                    "temporal": {
+                        "startDatetime": "2025-06-01T14:00:00Z",
+                        "endDatetime": "2025-06-07T11:00:00Z",
+                    },
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == 422
+
     async def test_post_activity_platform_from_token(
         self, async_session: AsyncSession, setup_overrides, test_areas
     ):

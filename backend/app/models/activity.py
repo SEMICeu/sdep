@@ -138,9 +138,9 @@ class Activity(Base):
         ForeignKey("area.id"), nullable=False, index=True
     )  # Reference - foreign key to Area
 
-    url: Mapped[str | None] = mapped_column(
-        String(128), nullable=True
-    )  # Optional, for example "http://example.com/my-advertisement"
+    url: Mapped[str] = mapped_column(
+        String(128), nullable=False
+    )  # Mandatory, for example "http://example.com/my-advertisement"
 
     # Composite attributes - Address
     address_street: Mapped[str] = mapped_column(String(64), nullable=False)

@@ -215,11 +215,11 @@ class ActivityRequest(BaseModel):
         examples=["7c9e6679-7425-40de-944b-e07fc1f90ae7"],
     )  # Functional ID reference
 
-    url: str | None = Field(
-        None,
+    url: str = Field(
+        ...,
         min_length=1,
         max_length=128,
-        description="Unique URL of the advertisement (optional)",
+        description="URL of the advertisement (mandatory)",
         examples=["http://example.com/amsterdam-myhouse-1"],
     )  # Attribute
 
@@ -386,9 +386,7 @@ class ActivityResponse(BaseModel):
         pattern=r"^[a-z0-9-]+$",
         description="Area functional ID (lowercase alphanumeric with hyphens, max 64 chars)",
     )  # Functional ID reference
-    url: str | None = Field(
-        None, description="URL of the advertisement (optional)"
-    )  # Attribute
+    url: str = Field(..., description="URL of the advertisement")  # Attribute
     address: AddressResponse = Field(..., description="Address composite")  # Composite
     registration_number: str = Field(
         ...,
@@ -473,7 +471,7 @@ class ActivityOwnResponse(BaseModel):
         pattern=r"^[a-z0-9-]+$",
         description="Area functional ID (lowercase alphanumeric with hyphens, max 64 chars)",
     )
-    url: str | None = Field(None, description="URL of the advertisement (optional)")
+    url: str = Field(..., description="URL of the advertisement")
     address: AddressResponse = Field(..., description="Address composite")
     registration_number: str = Field(
         ...,

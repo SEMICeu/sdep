@@ -83,10 +83,10 @@ https://sdep.gov.nl/api/v0/docs
 | **areaName**           | string      | optional, length <= 64, e.g. "Amsterdam-Noord"                                                                          |
 | **createdAt**          | datetime    | mandatory, UTC                                                                                                          |
 | **endedAt**            | datetime    | optional, UTC                                                                                                           |
-| **competentAuthority** | reference   | mandatory, references single Competent Authority                                                                               |
+| **competentAuthority** | reference   | mandatory, references single Competent Authority                                                                        |
 | **filename**           | string      | mandatory, length <= 64, e.g. "Amsterdam.zip"                                                                           |
 | **filedata**           | largeBinary | mandatory, max size 1MiB, e.g. a .zip with a collection of ESRI shapefile files                                         |
-| **activities**         | reference   | optional, references many Activity                                                                                           |
+| **activities**         | reference   | optional, references many Activity                                                                                      |
 
 **Class Constraints:**
 
@@ -111,12 +111,12 @@ https://sdep.gov.nl/api/v0/docs
 | **endedAt**            | datetime        | optional, UTC                                                                                                           |
 | **platform**           | reference       | mandatory, references single Platform                                                                                   |
 | **area**               | reference       | mandatory, references single Area                                                                                       |
-| **url**                | string          | optional, length <= 128, e.g. http://example.com/my-advertisement                                                       |
-| **address**            | reference       | mandatory, references single Address composite                                                                                 |
+| **url**                | string          | mandatory, length <= 128, e.g. http://example.com/my-advertisement                                                      |
+| **address**            | reference       | mandatory, references single Address composite                                                                          |
 | **registrationNumber** | string          | mandatory, length <= 32                                                                                                 |
 | **numberOfGuests**     | int             | optional, min 1, max 1024                                                                                               |
 | **countryOfGuests**    | array of string | optional, min 1, max 1024, each ISO 3166-1 alpha-3                                                                      |
-| **temporal**           | reference       | mandatory, references single Temporal composite                                                                                |
+| **temporal**           | reference       | mandatory, references single Temporal composite                                                                         |
 
 **Class Constraints:**
 

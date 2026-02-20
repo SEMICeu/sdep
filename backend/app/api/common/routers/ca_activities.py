@@ -31,7 +31,7 @@ router = APIRouter(tags=["ca"])
     "- `activityId`: Functional ID identifying this activity\n"
     "- `activityName`: Optional human-readable name for this activity\n"
     "- `areaId`: Functional ID referencing the area where this activity took place\n"
-    "- `url`: URL of the advertisement (optional)\n"
+    "- `url`: URL of the advertisement\n"
     "- `address`: Address composite (`street`, `number`, `letter`, `addition`, `postalCode`, `city`)\n"
     "- `registrationNumber`: Registration number for the address\n"
     "- `numberOfGuests`: Number of guests (optional)\n"

@@ -52,7 +52,7 @@ router = APIRouter(tags=["str"])
 - `activityId`: Functional ID identifying this activity (optional, auto-generated UUID if not provided)
 - `activityName`: Optional human-readable name for this activity (max 64 chars)
 - `areaId`: Functional ID referencing the area where this activity took place (required)
-- `url`: URL of the advertisement (optional)
+- `url`: URL of the advertisement (mandatory)
 - `address`: Address composite (`street`, `number`, `letter`, `addition`, `postalCode`, `city`)
 - `registrationNumber`: Registration number for the address
 - `numberOfGuests`: Number of guests (optional)
@@ -63,7 +63,7 @@ router = APIRouter(tags=["str"])
 - `activityId`: Functional ID identifying this activity
 - `activityName`: Optional human-readable name for this activity
 - `areaId`: Functional ID referencing the area where this activity took place
-- `url`: URL of the advertisement (optional)
+- `url`: URL of the advertisement
 - `address`: Address composite (`street`, `number`, `letter`, `addition`, `postalCode`, `city`)
 - `registrationNumber`: Registration number for the address
 - `numberOfGuests`: Number of guests (optional)
@@ -195,7 +195,7 @@ async def post_activity(
 - `activityId`: Functional ID identifying this activity
 - `activityName`: Optional human-readable name for this activity
 - `areaId`: Functional ID referencing the area where this activity took place
-- `url`: URL of the advertisement (optional)
+- `url`: URL of the advertisement
 - `address`: Address composite (`street`, `number`, `letter`, `addition`, `postalCode`, `city`)
 - `registrationNumber`: Registration number for the address
 - `numberOfGuests`: Number of guests (optional)

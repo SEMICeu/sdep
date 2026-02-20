@@ -74,7 +74,7 @@ def upgrade() -> None:
         sa.Column("activity_name", sa.String(length=64), nullable=True),
         sa.Column("platform_id", sa.Integer(), nullable=False),
         sa.Column("area_id", sa.Integer(), nullable=False),
-        sa.Column("url", sa.String(length=128), nullable=True),
+        sa.Column("url", sa.String(length=128), nullable=False),
         sa.Column("address_street", sa.String(length=64), nullable=False),
         sa.Column("address_number", sa.Integer(), nullable=False),
         sa.Column("address_letter", sa.String(length=1), nullable=True),
