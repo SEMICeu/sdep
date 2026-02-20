@@ -1,5 +1,9 @@
 # Changelog
 
+## 260220
+
+- Removed redundant submitter id/name from POST response
+
 ## 260218
 
 - Added DELETE area endpoint

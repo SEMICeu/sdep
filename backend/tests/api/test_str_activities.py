@@ -135,8 +135,8 @@ class TestSTRActivitiesAPI:
         data = response.json()
         assert "activityId" in data
         assert "createdAt" in data
-        assert data["platformId"] == "str01"
-        assert data["platformName"] == "STR Platform 01"
+        assert "platformId" not in data
+        assert "platformName" not in data
         assert data["areaId"] == test_areas["0363"].area_id
         assert data["url"] == "http://example.com/listing-001"
         assert data["registrationNumber"] == "REG123456"
@@ -726,8 +726,8 @@ class TestSTRActivitiesAPI:
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert data["platformId"] == "str01"
-        assert data["platformName"] == "STR Platform 01"
+        assert "platformId" not in data
+        assert "platformName" not in data
 
     async def test_post_activity_nonexistent_area(
         self, async_session: AsyncSession, setup_overrides

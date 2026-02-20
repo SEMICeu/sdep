@@ -17,3 +17,4 @@ PROPOSAL
 - **Team SDEP (NL)** assigns (exactly one) **label** to the issue and puts it into the SDEP **project**
 - **Team SDEP (NL)** maintains work in progress on **Kanban boards** in **milestones**
 - https://github.com/orgs/SEMICeu/projects/3/views/1?groupedBy%5BcolumnId%5D=Milestone
+- **Anyone** can enter comments in (closed) issues

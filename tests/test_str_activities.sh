@@ -110,14 +110,14 @@ echo "HTTP Status: $http_code"
 echo
 
 if [ "$http_code" -eq 201 ]; then
-    # Check for ActivityResponse format with activityId and createdAt
+    # Check for ActivityOwnResponse format with activityId and createdAt (no platformId)
     if echo "$body" | grep -q '"activityId"' && \
        echo "$body" | grep -q '"createdAt"' && \
-       echo "$body" | grep -q '"platformId"'; then
+       ! echo "$body" | grep -q '"platformId"'; then
         echo "✅ Test 1 passed: Activity successfully submitted"
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else
-        echo "❌ Test 1 failed: Expected ActivityResponse format in response"
+        echo "❌ Test 1 failed: Expected ActivityOwnResponse format in response (no platformId)"
         FAILED_TESTS=$((FAILED_TESTS + 1))
     fi
 elif [ "$http_code" -eq 401 ] && [ -z "$BEARER_TOKEN" ]; then
@@ -181,14 +181,14 @@ EOF
     echo
 
     if [ "$http_code" -eq 201 ]; then
-        # Check for ActivityResponse format
+        # Check for ActivityOwnResponse format (no platformId)
         if echo "$body" | grep -q '"activityId"' && \
            echo "$body" | grep -q '"createdAt"' && \
-           echo "$body" | grep -q '"platformId"'; then
+           ! echo "$body" | grep -q '"platformId"'; then
             echo "✅ Test 2 passed: Activity with custom activityId successfully submitted"
             PASSED_TESTS=$((PASSED_TESTS + 1))
         else
-            echo "❌ Test 2 failed: Expected ActivityResponse format"
+            echo "❌ Test 2 failed: Expected ActivityOwnResponse format (no platformId)"
             FAILED_TESTS=$((FAILED_TESTS + 1))
         fi
     else

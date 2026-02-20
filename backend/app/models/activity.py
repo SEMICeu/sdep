@@ -44,7 +44,9 @@ class StringArray(TypeDecorator):
             case "sqlite":
                 return dialect.type_descriptor(Text())
             case _:
-                raise NotImplementedError(f"StringArray not supported for dialect: {dialect.name}")
+                raise NotImplementedError(
+                    f"StringArray not supported for dialect: {dialect.name}"
+                )
 
     def process_bind_param(self, value, dialect):
         """Convert list to JSON string for SQLite."""
@@ -56,7 +58,9 @@ class StringArray(TypeDecorator):
             case "sqlite":
                 return json.dumps(value)
             case _:
-                raise NotImplementedError(f"StringArray not supported for dialect: {dialect.name}")
+                raise NotImplementedError(
+                    f"StringArray not supported for dialect: {dialect.name}"
+                )
 
     def process_result_value(self, value, dialect):
         """Convert JSON string back to list for SQLite."""
@@ -68,7 +72,9 @@ class StringArray(TypeDecorator):
             case "sqlite":
                 return json.loads(value)
             case _:
-                raise NotImplementedError(f"StringArray not supported for dialect: {dialect.name}")
+                raise NotImplementedError(
+                    f"StringArray not supported for dialect: {dialect.name}"
+                )
 
 
 class Activity(Base):
