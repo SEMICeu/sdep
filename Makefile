@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 .PHONY: help up down restart status test test-quiet logs postgres-up postgres-down keycloak-up keycloak-down backend-up backend-down \
-        postgres-clean postgres-load .build .is-up .clean-stale .drop-database .migrate-database .generate-area-sql \
+        postgres-clean postgres-load generate-area-sql .build .is-up .clean-stale .drop-database .migrate-database \
         .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles .keycloak-machine-clients .get-client-credentials \
         .clean-testrun test-security test-str test-ca \
         postgres-login postgres-status postgres-full \
@@ -29,11 +29,6 @@ SHELL := /bin/bash
 	@echo "🔄 Running database migrations..."
 	@docker exec -i $$(docker compose ps -q backend) alembic upgrade head
 	@echo "✅ Database migrations completed!"
-
-.generate-area-sql: ## Helper to generate 02-area-generated.sql with embedded shapefile data
-	@echo "🔄 Generating area SQL file with embedded shapefile data..."
-	@./test-data/generate-area-sql.sh
-	@echo "✅ Area SQL file generated"
 
 .keycloak-wait: ## Wait until keycloak allows to authenticate
 	@./keycloak/wait.sh
@@ -155,7 +150,12 @@ postgres-clean: .clean-stale ## Clean postgres (drop, migrate)
 	@$(MAKE) --no-print-directory .drop-database .migrate-database
 	@echo "✅ SDEP database reset!"
 
-postgres-load: .generate-area-sql ## Load test data
+generate-area-sql: ## Generate test-data/02-area-generated.sql (run manually when shapefile data changes)
+	@echo "🔄 Generating area SQL file with embedded shapefile data..."
+	@./test-data/generate-area-sql.sh
+	@echo "✅ Area SQL file generated"
+
+postgres-load: ## Load test data
 	@echo "🐳 Initializing test data..."
 	@set -a && source .env && set +a && \
 	echo "Using PostgreSQL user: $$POSTGRES_SUPER_USER" && \
