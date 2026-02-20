@@ -24,7 +24,6 @@ from app.schemas.activity import (
     ActivityOwnListResponse,
     ActivityOwnResponse,
     ActivityRequest,
-    ActivityResponse,
     AddressResponse,
     TemporalResponse,
 )
@@ -70,8 +69,6 @@ router = APIRouter(tags=["str"])
 - `numberOfGuests`: Number of guests (optional)
 - `countryOfGuests`: Array of country codes of guests (optional)
 - `temporal`: Temporal composite (`startDatetime`, `endDatetime`)
-- `platformId`: Functional ID identifying the platform that submitted this activity (convenience)
-- `platformName`: Display name of the platform (convenience)
 - `createdAt`: Timestamp when this activity version was created (UTC)
 
 **Response Codes:**
@@ -81,12 +78,12 @@ router = APIRouter(tags=["str"])
 - **422 Unprocessable Entity:** Validation error
 """,
     operation_id="postActivity",
-    response_model=ActivityResponse,
+    response_model=ActivityOwnResponse,
     status_code=status.HTTP_201_CREATED,
     responses={
         "201": {
             "description": "Activity created successfully",
-            "model": ActivityResponse,
+            "model": ActivityOwnResponse,
         },
         "401": {
             "model": UnauthorizedError,
@@ -153,11 +150,11 @@ async def post_activity(
     # Create activity via service layer
     activity_obj = await activity_service.create_activity(session, activity_data)
 
-    # Eager-load relationships for response building
-    await session.refresh(activity_obj, ["platform", "area"])
+    # Eager-load area relationship for response building
+    await session.refresh(activity_obj, ["area"])
 
     # Build response from ORM object
-    response = ActivityResponse(
+    response = ActivityOwnResponse(
         activityId=activity_obj.activity_id,
         activityName=activity_obj.activity_name,
         areaId=activity_obj.area.area_id,
@@ -177,8 +174,6 @@ async def post_activity(
             startDatetime=activity_obj.temporal_start_date_time,
             endDatetime=activity_obj.temporal_end_date_time,
         ),
-        platformId=activity_obj.platform.platform_id,
-        platformName=activity_obj.platform.platform_name,
         createdAt=activity_obj.created_at,
     )
 

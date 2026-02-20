@@ -32,7 +32,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.config import get_async_db, get_async_db_read_only
 from app.schemas.area import (
     AreaOwnResponse,
-    AreaResponse,
     AreasCountResponse,
     AreasOwnListResponse,
 )
@@ -73,8 +72,6 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 - `areaId`: Functional ID identifying this area
 - `areaName`: Optional human-readable name for this area
 - `filename`: Name of the shapefile (e.g., 'area.zip')
-- `competentAuthorityId`: Functional ID identifying the competent authority that submitted this area (convenience)
-- `competentAuthorityName`: Display name of the competent authority (convenience)
 - `createdAt`: Timestamp when this area version was created (UTC)
 
 **Response Codes:**
@@ -84,12 +81,12 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 - **422 Unprocessable Entity:** Validation error
 """,
     operation_id="postArea",
-    response_model=AreaResponse,
+    response_model=AreaOwnResponse,
     status_code=status.HTTP_201_CREATED,
     responses={
         "201": {
             "description": "Area created successfully",
-            "model": AreaResponse,
+            "model": AreaOwnResponse,
         },
         "401": {
             "model": UnauthorizedError,
@@ -197,15 +194,11 @@ async def post_area(
         competent_authority_name=competent_authority_name,
     )
 
-    # Build response - need to eager-load the competent_authority relationship
-    await session.refresh(area_obj, ["competent_authority"])
-
-    response = AreaResponse(
+    # Build response
+    response = AreaOwnResponse(
         areaId=area_obj.area_id,
         areaName=area_obj.area_name,
         filename=area_obj.filename,
-        competentAuthorityId=area_obj.competent_authority.competent_authority_id,
-        competentAuthorityName=area_obj.competent_authority.competent_authority_name,
         createdAt=area_obj.created_at,
     )
 

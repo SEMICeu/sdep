@@ -76,8 +76,8 @@ class TestCAAreaAPI:
         assert "areaId" in data
         assert data["filename"] == "Area.zip"
         assert "createdAt" in data
-        assert data["competentAuthorityId"] == "0363"
-        assert data["competentAuthorityName"] == "Gemeente Amsterdam"
+        assert "competentAuthorityId" not in data
+        assert "competentAuthorityName" not in data
 
     async def test_post_area_with_area_id(
         self, async_session: AsyncSession, setup_overrides
@@ -148,8 +148,8 @@ class TestCAAreaAPI:
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert data["competentAuthorityId"] == "0363"
-        assert data["competentAuthorityName"] == "Gemeente Amsterdam"
+        assert "competentAuthorityId" not in data
+        assert "competentAuthorityName" not in data
 
     async def test_post_area_file_too_large(
         self, async_session: AsyncSession, setup_overrides

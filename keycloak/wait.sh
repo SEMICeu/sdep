@@ -18,9 +18,27 @@ POLL_SECONDS="${KC_WAIT_POLL_SECONDS:-2}"
 HTTP_TIMEOUT_SECONDS="${KC_WAIT_HTTP_TIMEOUT_SECONDS:-180}"
 OIDC_TIMEOUT_SECONDS="${KC_WAIT_OIDC_TIMEOUT_SECONDS:-120}"
 AUTH_MAX_RETRIES="${KC_WAIT_AUTH_MAX_RETRIES:-30}"
+KC_CONTAINER_NAME="${KC_CONTAINER_NAME:-sdep-keycloak}"
+DIAG_INTERVAL=30  # print diagnostics every N seconds
+
+_kc_diagnostics() {
+    echo "" >&2
+    echo "── Keycloak container state ──────────────────────────" >&2
+    docker inspect --format='  Status:     {{.State.Status}}
+  Running:    {{.State.Running}}
+  ExitCode:   {{.State.ExitCode}}
+  Error:      {{.State.Error}}
+  StartedAt:  {{.State.StartedAt}}
+  FinishedAt: {{.State.FinishedAt}}' "${KC_CONTAINER_NAME}" 2>&1 >&2 || echo "  (could not inspect container)" >&2
+    echo "" >&2
+    echo "── Last 50 Keycloak log lines ────────────────────────" >&2
+    docker logs --tail 50 "${KC_CONTAINER_NAME}" 2>&1 >&2 || echo "  (could not retrieve logs)" >&2
+    echo "──────────────────────────────────────────────────────" >&2
+}
 
 # First wait for HTTP endpoint
 HTTP_WAIT_START=$(date +%s)
+LAST_DIAG=$HTTP_WAIT_START
 until curl -sf "${KC_BASE_URL}" > /dev/null 2>&1; do
     NOW=$(date +%s)
     ELAPSED=$((NOW - HTTP_WAIT_START))
@@ -29,7 +47,17 @@ until curl -sf "${KC_BASE_URL}" > /dev/null 2>&1; do
         echo "❌ Timed out waiting for Keycloak HTTP endpoint" >&2
         echo "  URL: ${KC_BASE_URL}" >&2
         echo "  Timeout: ${HTTP_TIMEOUT_SECONDS}s" >&2
+        _kc_diagnostics
         exit 1
+    fi
+    # Periodic progress report
+    SINCE_DIAG=$((NOW - LAST_DIAG))
+    if [ "$SINCE_DIAG" -ge "$DIAG_INTERVAL" ]; then
+        echo "" >&2
+        echo "  [${ELAPSED}s elapsed] Still waiting for ${KC_BASE_URL} ..." >&2
+        CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' "${KC_CONTAINER_NAME}" 2>/dev/null || echo "unknown")
+        echo "  Container status: ${CONTAINER_STATUS}" >&2
+        LAST_DIAG=$NOW
     fi
     printf "."
     sleep "$POLL_SECONDS"

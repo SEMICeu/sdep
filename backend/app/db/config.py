@@ -99,4 +99,3 @@ async def get_async_db_read_only() -> AsyncGenerator[AsyncSession]:
 def create_async_session() -> AbstractAsyncContextManager[AsyncSession]:
     """Create an async session for use outside of FastAPI dependencies."""
     return AsyncSessionLocal()
-
