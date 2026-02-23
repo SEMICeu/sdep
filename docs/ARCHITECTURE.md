@@ -231,7 +231,7 @@ The backend follows a **layered architecture** pattern:
 - Database table definitions
 - Relationships and constraints
 
-For key patterns, see also [Datamodel](./docs/DATAMODEL.md),
+For key patterns, see also [Datamodel](./DATAMODEL.md),
 
 ## Request Flow
 
