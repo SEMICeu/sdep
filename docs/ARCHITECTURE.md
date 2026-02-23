@@ -20,6 +20,7 @@ This document provides an overview of the SDEP (Single Digital Entry Point) proj
   - [Competent Authority (CA) - Requires `sdep_ca` role](#competent-authority-ca-requires-sdep_ca-role)
   - [Short-Term Rental Platform (STR) - Requires `sdep_str` role](#short-term-rental-platform-str-requires-sdep_str-role)
   - [Health](#health)
+- [Security](#security)
 - [Transaction Management](#transaction-management)
 - [Exception Handling](#exception-handling)
 - [Development Workflow](#development-workflow)
@@ -28,7 +29,6 @@ This document provides an overview of the SDEP (Single Digital Entry Point) proj
   - [Integration Tests (`tests/`)](#integration-tests-tests)
 - [SQLite vs PostgreSQL](#sqlite-vs-postgresql)
 - [Key Configuration Files](#key-configuration-files)
-- [Authentication \& Authorization](#authentication-authorization)
 
 
 ## Overview
@@ -231,6 +231,8 @@ The backend follows a **layered architecture** pattern:
 - Database table definitions
 - Relationships and constraints
 
+For key patterns, see also [Datamodel](./docs/DATAMODEL.md),
+
 ## Request Flow
 
 ```
@@ -297,6 +299,21 @@ POST /ca/areas (multipart/form-data: file + optional areaId, areaName)
 ### Health
 - `GET /api/health` - Health check (unauthenticated)
 - `GET /api/v0/ping` - Ping endpoint (authenticated)
+
+## Security
+
+- **Protocol:** OAuth2 Client Credentials flow
+- **Identity Provider:** Keycloak
+- **Token Type:** JWT Bearer tokens
+- **Roles:**
+  - `sdep_ca` - Competent Authority access
+  - `sdep_str` - STR Platform access
+  - `sdep_read` - Read operations
+  - `sdep_write` - Write operations
+- **JWT Claims:**
+  - `client_id` - Maps to platform/competent authority functional ID
+  - `client_name` - Maps to platform/competent authority name
+  - `realm_access.roles` - Role-based authorization
 
 ## Transaction Management
 
@@ -377,18 +394,3 @@ Because SQLite lacks some PostgreSQL features, the models include **dialect adap
 - **`keycloak/machine-clients.yaml`** - Test machine client definitions (OAuth2)
 - **`keycloak/roles.yaml`** - Test role definitions
 - **`Makefile`** - Development automation
-
-## Authentication & Authorization
-
-- **Protocol:** OAuth2 Client Credentials flow
-- **Identity Provider:** Keycloak
-- **Token Type:** JWT Bearer tokens
-- **Roles:**
-  - `sdep_ca` - Competent Authority access
-  - `sdep_str` - STR Platform access
-  - `sdep_read` - Read operations
-  - `sdep_write` - Write operations
-- **JWT Claims used:**
-  - `client_id` - Maps to platform/competent authority functional ID
-  - `client_name` - Maps to platform/competent authority name
-  - `realm_access.roles` - Role-based authorization

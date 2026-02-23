@@ -21,7 +21,7 @@ https://sdep.gov.nl/api/v0/docs
   - [ID Management](#id-management)
   - [Versioning](#versioning)
   - [Soft-Delete](#soft-delete)
-  - [Authorization](#authorization)
+  - [Lazy load](#lazy-load)
 
 ## Classes (internal view)
 
@@ -194,10 +194,18 @@ https://datatracker.ietf.org/doc/rfc9562/
 - This prevents "resurrecting" soft-deleted entities
 - The guard applies to: `competentAuthorityId`, `platformId`, `areaId`, and `activityId`
 
-### Authorization
-- **Platforms:** Require `sdep_str` role
-  - `sdep_write` for POST operations (submitting activities)
-  - `sdep_read` for GET operations (reading areas)
-- **Competent Authorities:** Require `sdep_ca` role
-  - `sdep_write` for POST operations (submitting areas)
-  - `sdep_read` for GET operations (reading activities)
+### Lazy load
+
+- **Default lazy loading**
+  - Relationships have no explicit `lazy=` parameter (uses SQLAlchemy defaults)
+- **Custom eager loading** via `selectinload()` at query time
+  - When relationships are needed, CRUD functions explicitly load them, e.g.:
+    ```python
+    stmt = select(Activity).options(
+        selectinload(Activity.platform),
+        selectinload(Activity.area).selectinload(Area.competent_authority),
+    )
+    ```
+- **Benefits**
+  - Eager-when-needed (loads relationships in bulk via `selectinload`)
+  - Idiomatic (reduced boilerplate, less-verbose than manual queries)
