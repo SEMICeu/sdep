@@ -138,6 +138,8 @@ class TestSTRActivitiesAPI:
         assert "platformId" not in data
         assert "platformName" not in data
         assert data["areaId"] == test_areas["0363"].area_id
+        assert data["competentAuthorityId"] == "test"
+        assert data["competentAuthorityName"] == "Test Authority"
         assert data["url"] == "http://example.com/listing-001"
         assert data["registrationNumber"] == "REG123456"
         assert data["address"]["street"] == "Turfmarkt"
@@ -1009,6 +1011,8 @@ class TestSTRActivitiesAPI:
         data = response.json()
         assert len(data["activities"]) == 1
         assert data["activities"][0]["activityId"] == "my-activity"
+        assert data["activities"][0]["competentAuthorityId"] == "test"
+        assert data["activities"][0]["competentAuthorityName"] == "Test Authority"
         # Should NOT contain platformId/Name (STR knows who it is)
         assert "platformId" not in data["activities"][0]
         assert "platformName" not in data["activities"][0]

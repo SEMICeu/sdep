@@ -260,6 +260,8 @@ async def get_activities_by_platform(
             "address_city": activity.address_city,
             "registration_number": activity.registration_number,
             "area_id": activity.area.area_id,
+            "competent_authority_id": activity.area.competent_authority.competent_authority_id,
+            "competent_authority_name": activity.area.competent_authority.competent_authority_name,
             "number_of_guests": activity.number_of_guests,
             "country_of_guests": activity.country_of_guests,
             "temporal_start_date_time": activity.temporal_start_date_time,

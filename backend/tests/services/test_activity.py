@@ -831,6 +831,8 @@ class TestActivityService:
         # Assert
         assert len(p1_activities) == 1
         assert p1_activities[0]["activity_id"] == "p1-activity"
+        assert p1_activities[0]["competent_authority_id"] == "0363"
+        assert p1_activities[0]["competent_authority_name"] == "Gemeente Amsterdam"
         assert "platform_id" not in p1_activities[0]  # Not in own response
 
         assert len(p2_activities) == 1

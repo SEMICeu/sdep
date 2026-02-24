@@ -37,7 +37,7 @@ router = APIRouter(tags=["ca"])
     "- `numberOfGuests`: Number of guests (optional)\n"
     "- `countryOfGuests`: Array of country codes of guests (optional)\n"
     "- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n"
-    "- `platformId`: Functional ID identifying the platform that submitted this activity\n"
+    "- `platformId`: Functional ID identifying the platform who owns the activity\n"
     "- `platformName`: Display name of the platform\n"
     "- `createdAt`: Timestamp when this activity version was created (UTC)\n\n"
     "**Response Codes:**\n"

@@ -110,9 +110,10 @@ echo "HTTP Status: $http_code"
 echo
 
 if [ "$http_code" -eq 201 ]; then
-    # Check for ActivityOwnResponse format with activityId and createdAt (no platformId)
+    # Check for ActivityOwnResponse format with activityId, createdAt, competentAuthorityId (no platformId)
     if echo "$body" | grep -q '"activityId"' && \
        echo "$body" | grep -q '"createdAt"' && \
+       echo "$body" | grep -q '"competentAuthorityId"' && \
        ! echo "$body" | grep -q '"platformId"'; then
         echo "✅ Test 1 passed: Activity successfully submitted"
         PASSED_TESTS=$((PASSED_TESTS + 1))
@@ -181,9 +182,10 @@ EOF
     echo
 
     if [ "$http_code" -eq 201 ]; then
-        # Check for ActivityOwnResponse format (no platformId)
+        # Check for ActivityOwnResponse format with competentAuthorityId (no platformId)
         if echo "$body" | grep -q '"activityId"' && \
            echo "$body" | grep -q '"createdAt"' && \
+           echo "$body" | grep -q '"competentAuthorityId"' && \
            ! echo "$body" | grep -q '"platformId"'; then
             echo "✅ Test 2 passed: Activity with custom activityId successfully submitted"
             PASSED_TESTS=$((PASSED_TESTS + 1))

@@ -471,6 +471,20 @@ class ActivityOwnResponse(BaseModel):
         pattern=r"^[a-z0-9-]+$",
         description="Area functional ID (lowercase alphanumeric with hyphens, max 64 chars)",
     )
+    competent_authority_id: str = Field(
+        ...,
+        alias="competentAuthorityId",
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z0-9-]+$",
+        description="Competent authority functional ID who owns the referenced area (convenience; lowercase alphanumeric with hyphens, max 64 chars)",
+    )
+    competent_authority_name: str | None = Field(
+        None,
+        alias="competentAuthorityName",
+        max_length=64,
+        description="Competent authority name (convenience; optional, max 64 chars)",
+    )
     url: str = Field(..., description="URL of the advertisement")
     address: AddressResponse = Field(..., description="Address composite")
     registration_number: str = Field(

@@ -63,6 +63,8 @@ router = APIRouter(tags=["str"])
 - `activityId`: Functional ID identifying this activity
 - `activityName`: Optional human-readable name for this activity
 - `areaId`: Functional ID referencing the area where this activity took place
+- `competentAuthorityId`: Functional ID of the competent authority who owns the referenced area (convenience)
+- `competentAuthorityName`: Display name of the competent authority (convenience)
 - `url`: URL of the advertisement
 - `address`: Address composite (`street`, `number`, `letter`, `addition`, `postalCode`, `city`)
 - `registrationNumber`: Registration number for the address
@@ -150,14 +152,17 @@ async def post_activity(
     # Create activity via service layer
     activity_obj = await activity_service.create_activity(session, activity_data)
 
-    # Eager-load area relationship for response building
+    # Eager-load area and competent_authority relationships for response building
     await session.refresh(activity_obj, ["area"])
+    await session.refresh(activity_obj.area, ["competent_authority"])
 
     # Build response from ORM object
     response = ActivityOwnResponse(
         activityId=activity_obj.activity_id,
         activityName=activity_obj.activity_name,
         areaId=activity_obj.area.area_id,
+        competentAuthorityId=activity_obj.area.competent_authority.competent_authority_id,
+        competentAuthorityName=activity_obj.area.competent_authority.competent_authority_name,
         url=activity_obj.url,
         address=AddressResponse(
             street=activity_obj.address_street,
@@ -195,6 +200,8 @@ async def post_activity(
 - `activityId`: Functional ID identifying this activity
 - `activityName`: Optional human-readable name for this activity
 - `areaId`: Functional ID referencing the area where this activity took place
+- `competentAuthorityId`: Functional ID of the competent authority who owns the referenced area (convenience)
+- `competentAuthorityName`: Display name of the competent authority (convenience)
 - `url`: URL of the advertisement
 - `address`: Address composite (`street`, `number`, `letter`, `addition`, `postalCode`, `city`)
 - `registrationNumber`: Registration number for the address
@@ -291,6 +298,8 @@ async def get_own_activities(
             activityId=act["activity_id"],
             activityName=act["activity_name"],
             areaId=act["area_id"],
+            competentAuthorityId=act["competent_authority_id"],
+            competentAuthorityName=act["competent_authority_name"],
             url=act["url"],
             address=AddressResponse(
                 street=act["address_street"],

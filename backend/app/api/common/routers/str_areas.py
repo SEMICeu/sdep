@@ -29,7 +29,7 @@ router = APIRouter(tags=["str"])
     "- `areaId`: Functional ID identifying this area\n"
     "- `areaName`: Optional human-readable name for this area\n"
     "- `filename`: Name of the shapefile (e.g., 'area.zip')\n"
-    "- `competentAuthorityId`: Functional ID identifying the competent authority that submitted this area\n"
+    "- `competentAuthorityId`: Functional ID identifying the competent authority who owns the area\n"
     "- `competentAuthorityName`: Display name of the competent authority\n"
     "- `createdAt`: Timestamp when this area version was created (UTC)\n\n"
     "**Response Codes:**\n"

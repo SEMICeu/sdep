@@ -1,6 +1,6 @@
 .PHONY: install \
         upgrade upgrade-sql downgrade revision show-history show-current \
-        clean-stale up down \
+        clean-stale up dev down \
         test-crud test-services test-api test-security test test-coverage \
         format lint typecheck check \
         clean help
@@ -84,17 +84,19 @@ clean-stale: # Kill any stale uvicorn/backend processes
 	done
 	@echo "✅ Stale processes cleaned!"
 
-up: clean-stale ## Start backend
-	@# Safety check: prevent running as root
+_start: clean-stale
 	@if [ "$$(id -u)" = "0" ]; then \
 		echo "❌ Error: Do not run uvicorn as root!"; \
-		echo "   Please run 'make up' as a regular user, not with sudo."; \
 		exit 1; \
 	fi
 	@echo "🚀 Starting backend..."
 	@echo "API docs running at http://localhost:8000/api/v0/docs"
 	uv run uvicorn app.main:app --reload --no-server-header
 	@echo "✅ Backend started!"
+
+up: _start ## Start backend
+
+dev: _start ## Start backend (alias for up)
 
 down: ## Stop backend
 	@echo "🛑 Stopping backend..."
