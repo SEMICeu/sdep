@@ -57,7 +57,7 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 
 **Versioning:**
 - Same `areaId` can be resubmitted → creates new version with different timestamp
-- Unique constraint: (areaId, createdAt, competent authority)
+- Unique constraint: (areaId, createdAt, current authenticated competent authority)
 
 **Limiting:**
 - Max. 1 MiB (1,048,576 bytes) per file

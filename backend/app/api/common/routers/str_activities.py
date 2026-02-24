@@ -46,7 +46,7 @@ router = APIRouter(tags=["str"])
 
 **Versioning:**
 - Same `activityId` can be resubmitted → creates new version with different timestamp
-- Unique constraint: (activityId, createdAt, platform)
+- Unique constraint: (activityId, createdAt, current authenticated platform)
 
 **The request contains:**
 - `activityId`: Functional ID identifying this activity (optional, auto-generated UUID if not provided; lowercase alphanumeric with hyphens `^[a-z0-9-]+$`, max 64 chars)

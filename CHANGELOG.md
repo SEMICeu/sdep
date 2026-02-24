@@ -3,7 +3,7 @@
 ## 260224
 
 - Unified exception handling and HTTP status codes
-- Added `competentAuthorityId` and `competentAuthorityName` to (owning the `areaId` in) the activity responses
+- Added `competentAuthorityId` and `competentAuthorityName` to (who own the `areaId` in) the activity responses
 
 ## 260220
 
