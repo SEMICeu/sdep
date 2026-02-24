@@ -64,9 +64,9 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 - This is to ensure predictable performance, reduce abuse risk, and improve overall reliability
 
 **The request contains (multipart/form-data):**
-- `areaId`: Functional ID identifying this area (optional, auto-generated UUID if not provided)
-- `areaName`: Optional human-readable name for this area (max 64 chars)
-- `file`: Shapefile upload (required)
+- `areaId`: Functional ID identifying this area (optional, auto-generated UUID if not provided; lowercase alphanumeric with hyphens `^[a-z0-9-]+$`, max 64 chars)
+- `areaName`: Optional human-readable name for this area (optional, max 64 chars)
+- `file`: Shapefile upload (required, max 1 MiB)
 
 **The response contains:**
 - `areaId`: Functional ID identifying this area
