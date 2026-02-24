@@ -7,12 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.config import get_async_db_read_only
 from app.schemas.area import (
+    AreaCountResponse,
+    AreaListResponse,
     AreaResponse,
-    AreasCountResponse,
-    AreasListResponse,
 )
-from app.schemas.auth import UnauthorizedError
-from app.schemas.validation import HTTPBadRequestError
+from app.schemas.error import ErrorResponse
 from app.security import verify_bearer_token
 from app.services import area
 
@@ -21,7 +20,7 @@ router = APIRouter(tags=["str"])
 
 @router.get(
     "/str/areas",
-    response_model=AreasListResponse,
+    response_model=AreaListResponse,
     status_code=status.HTTP_200_OK,
     summary="Get all areas",
     description="Get all areas. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.\n\n"
@@ -29,25 +28,21 @@ router = APIRouter(tags=["str"])
     "- `areaId`: Functional ID identifying this area\n"
     "- `areaName`: Optional human-readable name for this area\n"
     "- `filename`: Name of the shapefile (e.g., 'area.zip')\n"
-    "- `competentAuthorityId`: Functional ID identifying the competent authority who owns the area\n"
+    "- `competentAuthorityId`: Functional ID identifying the competent authority who submitted the area\n"
     "- `competentAuthorityName`: Display name of the competent authority\n"
-    "- `createdAt`: Timestamp when this area version was created (UTC)\n\n"
-    "**Response Codes:**\n"
-    "- **200 OK:** Areas retrieved successfully\n"
-    "- **401 Unauthorized:** Invalid or missing token\n"
-    "- **403 Forbidden:** Missing required authorization roles",
+    "- `createdAt`: Timestamp when this area version was created (UTC)",
     operation_id="getAreas",
     responses={
         "400": {
-            "model": HTTPBadRequestError,
-            "description": "Bad Request - Invalid query parameters",
+            "model": ErrorResponse,
+            "description": "Bad request - invalid query parameters",
         },
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
     },
 )
@@ -65,7 +60,7 @@ async def get_areas(
     ] = None,
     session: AsyncSession = Depends(get_async_db_read_only),
     token_payload: dict[str, Any] = Depends(verify_bearer_token),
-) -> AreasListResponse:
+) -> AreaListResponse:
     """
     Get areas in context of the current SDEP/member state.
 
@@ -116,34 +111,30 @@ async def get_areas(
         for area_dict in areas_data
     ]
 
-    return AreasListResponse(areas=area_responses)
+    return AreaListResponse(areas=area_responses)
 
 
 @router.get(
     "/str/areas/count",
-    response_model=AreasCountResponse,
+    response_model=AreaCountResponse,
     status_code=status.HTTP_200_OK,
     summary="Get areas count (optional, to support pagination)",
-    description="Get areas count (optional, to support pagination)\n\n"
-    "**Response Codes:**\n"
-    "- **200 OK:** Count retrieved successfully\n"
-    "- **401 Unauthorized:** Invalid or missing token\n"
-    "- **403 Forbidden:** Missing required authorization roles",
+    description="Get areas count (optional, to support pagination)",
     operation_id="countAreas",
     responses={
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
     },
 )
 async def count_areas(
     session: AsyncSession = Depends(get_async_db_read_only),
     token_payload: dict[str, Any] = Depends(verify_bearer_token),
-) -> AreasCountResponse:
+) -> AreaCountResponse:
     """
     Count all areas in context of the current SDEP/member state.
 
@@ -172,7 +163,7 @@ async def count_areas(
     # Call business service
     total_count = await area.count_areas(session)
 
-    return AreasCountResponse(count=total_count)
+    return AreaCountResponse(count=total_count)
 
 
 @router.get(
@@ -180,31 +171,21 @@ async def count_areas(
     response_class=Response,
     status_code=status.HTTP_200_OK,
     summary="Get area (shapefile)",
-    description="Get area (shapefile) based on functional ID\n\n"
-    "**Response Codes:**\n"
-    "- **200 OK:** Area shapefile returned successfully\n"
-    "- **401 Unauthorized:** Invalid or missing token\n"
-    "- **403 Forbidden:** Missing required authorization roles\n"
-    "- **404 Not Found:** Area not found",
+    description="Get area (shapefile) based on functional ID",
     operation_id="getArea",
     responses={
         "200": {
             "content": {"application/zip": {}},
-            "description": "Binary area",
-        },
-        "400": {
-            "model": HTTPBadRequestError,
-            "description": "Bad Request - Invalid query parameters",
         },
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
         "404": {
-            "description": "Area not found",
+            "description": "Resource Not Found - area unavailable",
         },
     },
 )

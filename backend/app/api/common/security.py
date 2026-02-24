@@ -15,6 +15,7 @@ from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError
 
 from app.config import settings
+from app.exceptions.infrastructure import AuthorizationServerOperationalError
 
 
 @lru_cache(maxsize=1)
@@ -30,10 +31,7 @@ def get_keycloak_public_key() -> dict[str, Any]:
         HTTPException: If unable to fetch public key
     """
     if not settings.KC_BASE_URL:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Keycloak URL is not configured",
-        )
+        raise AuthorizationServerOperationalError("Keycloak URL is not configured")
 
     # Construct the certs endpoint URL
     certs_url = (
@@ -45,9 +43,8 @@ def get_keycloak_public_key() -> dict[str, Any]:
         response.raise_for_status()
         return response.json()
     except httpx.HTTPError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Failed to fetch Keycloak public key: {e!s}",
+        raise AuthorizationServerOperationalError(
+            f"Failed to fetch Keycloak public key: {e!s}"
         ) from e
 
 

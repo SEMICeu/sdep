@@ -3,23 +3,25 @@
 from .auth import AuthenticationError, AuthorizationError, InvalidTokenError
 from .base import SDEPError
 from .business import (
-    BusinessLogicError,
+    ApplicationValidationError,
     DuplicateResourceError,
     InvalidOperationError,
     ResourceNotFoundError,
 )
-from .validation import DataValidationError, FileValidationError, ValidationError
+from .infrastructure import (
+    AuthorizationServerOperationalError,
+    DatabaseOperationalError,
+)
 
 __all__ = [
+    "ApplicationValidationError",
     "AuthenticationError",
     "AuthorizationError",
-    "BusinessLogicError",
-    "DataValidationError",
+    "AuthorizationServerOperationalError",
+    "DatabaseOperationalError",
     "DuplicateResourceError",
-    "FileValidationError",
     "InvalidOperationError",
     "InvalidTokenError",
     "ResourceNotFoundError",
     "SDEPError",
-    "ValidationError",
 ]

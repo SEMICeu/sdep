@@ -17,7 +17,7 @@ making it simple and straightforward for typical REST APIs.
 Exception Handling:
 - Service layer catches database exceptions and converts to domain exceptions
 - DuplicateResourceError for unique constraint violations (HTTP 409)
-- BusinessLogicError for other database constraint violations (HTTP 422)
+- ApplicationValidationError for other database constraint violations (HTTP 422)
 """
 
 from sqlalchemy import select

@@ -18,6 +18,8 @@ from pydantic import (
 __all__ = [
     "ActivityCountResponse",
     "ActivityListResponse",
+    "ActivityOwnListResponse",
+    "ActivityOwnResponse",
     "ActivityRequest",
     "ActivityResponse",
     "AddressRequest",

@@ -27,7 +27,7 @@ from app.schemas.activity import (
     AddressResponse,
     TemporalResponse,
 )
-from app.schemas.auth import UnauthorizedError
+from app.schemas.error import ErrorResponse
 from app.security import verify_bearer_token
 from app.services import activity as activity_service
 
@@ -38,8 +38,8 @@ router = APIRouter(tags=["str"])
 
 @router.post(
     "/str/activities",
-    summary="Submit a single activity for the current authenticated platform",
-    description="""Submit a single activity for the current authenticated platform (platformId).
+    summary="Submit a single activity into the activities collection for the current authenticated platform",
+    description="""Submit a single activity into the activities collection for the current authenticated platform (platformId).
 
 **ID Pattern:**
 - `activityId`: provided by platform as business identifier (optional), otherwise generated as UUID (RFC 9562)
@@ -73,11 +73,6 @@ router = APIRouter(tags=["str"])
 - `temporal`: Temporal composite (`startDatetime`, `endDatetime`)
 - `createdAt`: Timestamp when this activity version was created (UTC)
 
-**Response Codes:**
-- **201 Created:** Activity created successfully
-- **401 Unauthorized:** Invalid or missing token
-- **403 Forbidden:** Missing required authorization roles
-- **422 Unprocessable Entity:** Validation error
 """,
     operation_id="postActivity",
     response_model=ActivityOwnResponse,
@@ -88,14 +83,15 @@ router = APIRouter(tags=["str"])
             "model": ActivityOwnResponse,
         },
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
         "422": {
-            "description": "Unprocessable Entity - Validation error",
+            "model": ErrorResponse,
+            "description": "Validation Error - busines rule violation",
         },
     },
 )
@@ -214,25 +210,21 @@ async def post_activity(
 - `offset`: Number of records to skip (default: 0)
 - `limit`: Maximum number of records to return (default: unlimited)
 
-**Response Codes:**
-- **200 OK:** Activities retrieved successfully
-- **401 Unauthorized:** Invalid or missing token
-- **403 Forbidden:** Missing required authorization roles
 """,
     operation_id="getOwnActivities",
     response_model=ActivityOwnListResponse,
     status_code=status.HTTP_200_OK,
     responses={
-        "200": {
-            "description": "Activities retrieved successfully",
-            "model": ActivityOwnListResponse,
+        "400": {
+            "model": ErrorResponse,
+            "description": "Bad request - invalid query parameters",
         },
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
     },
 )
@@ -338,11 +330,11 @@ async def get_own_activities(
     operation_id="countOwnActivities",
     responses={
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
     },
 )

@@ -7,7 +7,6 @@ from fastapi.responses import Response
 
 from app.api.common.openapi import create_custom_openapi
 from app.config import settings
-from app.schemas.validation import HTTPValidationError
 
 # Create sub-application (v0)
 app_v0 = FastAPI(
@@ -16,9 +15,11 @@ app_v0 = FastAPI(
     version=f"{settings.DTAP}-{settings.IMAGE_TAG}",
     root_path="/api/v0",
     responses={
-        422: {
-            "model": HTTPValidationError,
-            "description": "Validation Error",
+        500: {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+        },
+        503: {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
         },
     },
 )

@@ -85,10 +85,10 @@ class AreaResponse(BaseModel):
         return data
 
 
-class AreasListResponse(BaseModel):
+class AreaListResponse(BaseModel):
     """List of areas response schema."""
 
-    model_config = ConfigDict(title="area.AreasListResponse")
+    model_config = ConfigDict(title="area.AreaListResponse")
 
     areas: list[AreaResponse] = Field(
         ...,
@@ -142,10 +142,10 @@ class AreaOwnResponse(BaseModel):
         return data
 
 
-class AreasOwnListResponse(BaseModel):
+class AreaOwnListResponse(BaseModel):
     """List of own areas response schema (for CA)."""
 
-    model_config = ConfigDict(title="area.AreasOwnListResponse")
+    model_config = ConfigDict(title="area.AreaOwnListResponse")
 
     areas: list[AreaOwnResponse] = Field(
         ...,
@@ -153,10 +153,10 @@ class AreasOwnListResponse(BaseModel):
     )
 
 
-class AreasCountResponse(BaseModel):
+class AreaCountResponse(BaseModel):
     """Count of areas response schema."""
 
-    model_config = ConfigDict(title="area.AreasCountResponse")
+    model_config = ConfigDict(title="area.AreaCountResponse")
 
     count: int = Field(
         ...,

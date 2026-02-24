@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request, status
@@ -13,14 +12,21 @@ from app.schemas.error import ErrorDetail, ErrorResponse
 if TYPE_CHECKING:
     from fastapi.exceptions import RequestValidationError
     from pydantic import ValidationError as PydanticValidationError
+    from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
 
     from app.exceptions.auth import (
         AuthenticationError,
         AuthorizationError,
         InvalidTokenError,
     )
-    from app.exceptions.business import BusinessLogicError, ResourceNotFoundError
-    from app.exceptions.validation import ValidationError as AppValidationError
+    from app.exceptions.business import (
+        ApplicationValidationError,
+        ResourceNotFoundError,
+    )
+    from app.exceptions.infrastructure import (
+        AuthorizationServerOperationalError,
+        DatabaseOperationalError,
+    )
 
 
 def _get_logger():
@@ -60,39 +66,16 @@ async def validation_exception_handler(
 
     error_response = ErrorResponse(
         detail=details,
-        timestamp=datetime.now(UTC),
-        path=str(request.url.path),
-        status_code=status_code,
     )
 
     return JSONResponse(
         status_code=status_code,
-        content=error_response.model_dump(mode="json"),
-    )
-
-
-async def app_validation_exception_handler(
-    request: Request, exc: AppValidationError
-) -> JSONResponse:
-    """Handle application validation errors."""
-    logger = _get_logger()
-    logger.warning(f"Application validation error on {request.url.path}: {exc}")
-
-    error_response = ErrorResponse(
-        detail=[ErrorDetail(msg=str(exc), type="validation_error")],
-        timestamp=datetime.now(UTC),
-        path=str(request.url.path),
-        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-    )
-
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content=error_response.model_dump(mode="json"),
     )
 
 
 async def business_logic_exception_handler(
-    request: Request, exc: BusinessLogicError
+    request: Request, exc: ApplicationValidationError
 ) -> JSONResponse:
     """Handle business logic errors."""
     logger = _get_logger()
@@ -111,9 +94,6 @@ async def business_logic_exception_handler(
 
     error_response = ErrorResponse(
         detail=[ErrorDetail(msg=str(exc), type=error_type)],
-        timestamp=datetime.now(UTC),
-        path=str(request.url.path),
-        status_code=status_code,
     )
 
     return JSONResponse(
@@ -136,9 +116,6 @@ async def authentication_exception_handler(
                 type="authentication_error",
             )
         ],
-        timestamp=datetime.now(UTC),
-        path=str(request.url.path),
-        status_code=status.HTTP_401_UNAUTHORIZED,
     )
 
     return JSONResponse(
@@ -157,9 +134,6 @@ async def authorization_exception_handler(
 
     error_response = ErrorResponse(
         detail=[ErrorDetail(msg=str(exc), type="authorization_error")],
-        timestamp=datetime.now(UTC),
-        path=str(request.url.path),
-        status_code=status.HTTP_403_FORBIDDEN,
     )
 
     return JSONResponse(
@@ -177,9 +151,6 @@ async def resource_not_found_exception_handler(
 
     error_response = ErrorResponse(
         detail=[ErrorDetail(msg=str(exc), type="not_found_error")],
-        timestamp=datetime.now(UTC),
-        path=str(request.url.path),
-        status_code=status.HTTP_404_NOT_FOUND,
     )
 
     return JSONResponse(
@@ -212,9 +183,6 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
     error_response = ErrorResponse(
         detail=[ErrorDetail(msg=str(exc.detail), type=error_type)],
-        timestamp=datetime.now(UTC),
-        path=str(request.url.path),
-        status_code=exc.status_code,
     )
 
     response = JSONResponse(
@@ -227,6 +195,47 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         response.headers["WWW-Authenticate"] = "Bearer"
 
     return response
+
+
+async def database_unavailable_exception_handler(
+    request: Request, exc: DatabaseOperationalError | SQLAlchemyOperationalError
+) -> JSONResponse:
+    """Handle database operational errors (DB connection failures) as 503."""
+    logger = _get_logger()
+    logger.error(f"Database unavailable on {request.url.path}: {exc}")
+
+    error_response = ErrorResponse(
+        detail=[
+            ErrorDetail(
+                msg="Database is temporarily unavailable", type="service_unavailable"
+            )
+        ],
+    )
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=error_response.model_dump(mode="json"),
+    )
+
+
+async def authorization_server_unavailable_exception_handler(
+    request: Request, exc: AuthorizationServerOperationalError
+) -> JSONResponse:
+    """Handle authorization server (Keycloak) unavailability as 503."""
+    logger = _get_logger()
+    logger.error(f"Authorization server unavailable on {request.url.path}: {exc}")
+
+    error_response = ErrorResponse(
+        detail=[
+            ErrorDetail(
+                msg="Authorization server is temporarily unavailable",
+                type="service_unavailable",
+            )
+        ],
+    )
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=error_response.model_dump(mode="json"),
+    )
 
 
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -248,9 +257,6 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
                 type="internal_error",
             )
         ],
-        timestamp=datetime.now(UTC),
-        path=str(request.url.path),
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
 
     return JSONResponse(

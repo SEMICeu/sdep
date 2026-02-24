@@ -1,5 +1,10 @@
 # Changelog
 
+## 260224
+
+- Unified exception handling and HTTP status codes
+- Added `competentAuthorityId` and `competentAuthorityName` to (owning the `areaId` in) the activity responses
+
 ## 260220
 
 - Removed redundant submitter id/name from POST response

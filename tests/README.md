@@ -111,7 +111,7 @@ See [../Makefile](../Makefile). Available targets:
 - **Test 5:** GET own areas count (`GET /ca/areas/count`)
 - **Test 6:** GET own areas does not contain endedAt
 - **Test 7:** Versioning - submit same areaId twice
-- **Test 8:** DELETE area (soft-delete) → 204
+- **Test 8:** DELETE area (deactivate) → 204
 - **Test 9:** DELETE nonexistent area → 404
 - **Test 10:** GET own area by ID → 200 OK
 - **Test 11:** GET nonexistent own area by ID → 404
@@ -131,7 +131,7 @@ See [../Makefile](../Makefile). Available targets:
 
 **HTTP Status Codes:**
 - `201 Created` - Area successfully created
-- `204 No Content` - Area successfully deleted (soft-deleted)
+- `204 No Content` - Area successfully deleted (deactivated)
 - `401 Unauthorized` - No/invalid authentication
 - `404 Not Found` - Area not found (DELETE)
 - `422 Unprocessable Content` - Validation error

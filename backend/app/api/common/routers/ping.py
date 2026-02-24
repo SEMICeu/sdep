@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, status
 
-from app.schemas.auth import UnauthorizedError
+from app.schemas.error import ErrorResponse
 from app.schemas.health import Status
 from app.security import verify_bearer_token
 
@@ -20,8 +20,8 @@ router = APIRouter(tags=["health"])
     operation_id="ping",
     responses={
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
     },
 )

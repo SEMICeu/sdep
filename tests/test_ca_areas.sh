@@ -341,8 +341,8 @@ fi
 
 echo
 
-# Test 8: DELETE area (soft-delete)
-echo "Test 8: DELETE area (soft-delete)"
+# Test 8: DELETE area (deactivate)
+echo "Test 8: DELETE area (deactivate)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 

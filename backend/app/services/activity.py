@@ -13,7 +13,7 @@ Pattern:
 
 Exception Handling:
 - Service layer raises domain exceptions for business rule violations
-- BusinessLogicError for business logic violations (HTTP 422)
+- ApplicationValidationError for business logic violations (HTTP 422)
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import activity as activity_crud
 from app.crud import area as area_crud
 from app.crud import platform as platform_crud
-from app.exceptions.business import BusinessLogicError, InvalidOperationError
+from app.exceptions.business import ApplicationValidationError, InvalidOperationError
 from app.models.activity import Activity
 
 
@@ -41,12 +41,12 @@ async def create_activity(session: AsyncSession, activity_data: dict) -> Activit
         Created Activity object
 
     Raises:
-        BusinessLogicError: If the referenced area does not exist
+        ApplicationValidationError: If the referenced area does not exist
     """
     # Validate area exists by functional ID
     area = await area_crud.get_by_area_id(session, activity_data["area_id"])
     if area is None:
-        raise BusinessLogicError(
+        raise ApplicationValidationError(
             f"Area with areaId '{activity_data['area_id']}' not found"
         )
 

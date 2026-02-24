@@ -6,7 +6,9 @@ import httpx
 from fastapi import APIRouter, Form, HTTPException, Request, status
 
 from app.config import settings
+from app.exceptions.infrastructure import AuthorizationServerOperationalError
 from app.schemas.auth import TokenResponse
+from app.schemas.error import ErrorResponse
 
 router = APIRouter(tags=["auth"])
 
@@ -17,6 +19,16 @@ router = APIRouter(tags=["auth"])
     summary="Get access token (JWT bearer)",
     description="Token endpoint for machine-to-machine authentication using OAuth 2.0 Client Credentials Grant. Supports both HTTP Basic Authentication and form parameters",
     operation_id="post_auth_token",
+    responses={
+        "400": {
+            "model": ErrorResponse,
+            "description": "Bad Request - missing client credentials",
+        },
+        "401": {
+            "model": ErrorResponse,
+            "description": "Unauthorized - authentication failed",
+        },
+    },
 )
 async def post_auth_token(
     request: Request,
@@ -61,10 +73,7 @@ async def post_auth_token(
         )
     # Check if Keycloak URL is configured
     if not settings.KC_BASE_URL:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Keycloak URL is not configured",
-        )
+        raise AuthorizationServerOperationalError("Keycloak URL is not configured")
 
     # Prepare the token request payload with client_credentials grant type
     token_data = {
@@ -111,7 +120,6 @@ async def post_auth_token(
             )
 
     except httpx.RequestError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Failed to connect to Keycloak: {e!s}",
+        raise AuthorizationServerOperationalError(
+            f"Failed to connect to Keycloak: {e!s}"
         ) from e

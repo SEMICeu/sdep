@@ -13,8 +13,7 @@ from app.schemas.activity import (
     AddressResponse,
     TemporalResponse,
 )
-from app.schemas.auth import UnauthorizedError
-from app.schemas.validation import HTTPBadRequestError
+from app.schemas.error import ErrorResponse
 from app.security import verify_bearer_token
 from app.services import activity
 
@@ -37,88 +36,22 @@ router = APIRouter(tags=["ca"])
     "- `numberOfGuests`: Number of guests (optional)\n"
     "- `countryOfGuests`: Array of country codes of guests (optional)\n"
     "- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n"
-    "- `platformId`: Functional ID identifying the platform who owns the activity\n"
+    "- `platformId`: Functional ID identifying the platform who submitted the activity\n"
     "- `platformName`: Display name of the platform\n"
-    "- `createdAt`: Timestamp when this activity version was created (UTC)\n\n"
-    "**Response Codes:**\n"
-    "- **200 OK:** Activities retrieved successfully\n"
-    "- **401 Unauthorized:** Invalid or missing token\n"
-    "- **403 Forbidden:** Missing required authorization roles",
+    "- `createdAt`: Timestamp when this activity version was created (UTC)",
     operation_id="getActivityByCompetentAuthority",
     responses={
         "400": {
-            "model": HTTPBadRequestError,
-            "description": "Bad Request - Invalid query parameters",
+            "model": ErrorResponse,
+            "description": "Bad request - invalid query parameters",
         },
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
-    },
-    openapi_extra={
-        "responses": {
-            "200": {
-                "content": {
-                    "application/json": {
-                        "example": {
-                            "activities": [
-                                {
-                                    "activityId": "550e8400-e29b-41d4-a716-446655440000",
-                                    "activityName": "Amsterdam Summer Rental 2025",
-                                    "areaId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-                                    "url": "https://example.com/listing/amsterdam-001",
-                                    "address": {
-                                        "street": "Prinsengracht",
-                                        "number": 263,
-                                        "letter": "A",
-                                        "addition": "2",
-                                        "postalCode": "1016HV",
-                                        "city": "Amsterdam",
-                                    },
-                                    "registrationNumber": "REG-AMS-2025-001",
-                                    "numberOfGuests": 4,
-                                    "countryOfGuests": ["NLD", "DEU", "BEL"],
-                                    "temporal": {
-                                        "startDatetime": "2025-07-01T15:00:00Z",
-                                        "endDatetime": "2025-07-07T11:00:00Z",
-                                    },
-                                    "platformId": "sdep-test-str01",
-                                    "platformName": "Example Platform",
-                                    "createdAt": "2025-06-15T14:30:00Z",
-                                },
-                                {
-                                    "activityId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-                                    "activityName": "Rotterdam City Center Rental",
-                                    "areaId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-                                    "url": "https://example.com/listing/amsterdam-002",
-                                    "address": {
-                                        "street": "Keizersgracht",
-                                        "number": 123,
-                                        "letter": None,
-                                        "addition": None,
-                                        "postalCode": "1015CJ",
-                                        "city": "Amsterdam",
-                                    },
-                                    "registrationNumber": "REG-AMS-2025-002",
-                                    "numberOfGuests": 2,
-                                    "countryOfGuests": ["FRA", "ITA"],
-                                    "temporal": {
-                                        "startDatetime": "2025-07-10T16:00:00Z",
-                                        "endDatetime": "2025-07-15T12:00:00Z",
-                                    },
-                                    "platformId": "sdep-test-str01",
-                                    "platformName": "Example Platform",
-                                    "createdAt": "2025-06-16T10:15:00Z",
-                                },
-                            ]
-                        }
-                    }
-                }
-            }
-        }
     },
 )
 async def get_activities(
@@ -231,19 +164,15 @@ async def get_activities(
     response_model=ActivityCountResponse,
     status_code=status.HTTP_200_OK,
     summary="Get activities count for the current authenticated competent authority (optional, to support pagination)",
-    description="Get activities count for the current authenticated competent authority (optional, to support pagination)\n\n"
-    "**Response Codes:**\n"
-    "- **200 OK:** Count retrieved successfully\n"
-    "- **401 Unauthorized:** Invalid or missing token\n"
-    "- **403 Forbidden:** Missing required authorization roles",
+    description="Get activities count for the current authenticated competent authority (optional, to support pagination)",
     operation_id="countActivities",
     responses={
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
     },
 )

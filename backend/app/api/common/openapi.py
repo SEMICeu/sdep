@@ -62,11 +62,65 @@ def replace_auto_generated_body_schemas(
     return openapi_schema
 
 
+def remove_fastapi_validation_schemas(
+    openapi_schema: dict[str, Any],
+) -> dict[str, Any]:
+    """Remove FastAPI's built-in validation error schemas.
+
+    FastAPI auto-registers HTTPValidationError and ValidationError in components/schemas.
+    Since all validation errors are handled by custom exception handlers returning
+    ErrorResponse, these schemas are unused and misleading.
+
+    Args:
+        openapi_schema: The generated OpenAPI schema dictionary
+
+    Returns:
+        Modified OpenAPI schema with FastAPI validation schemas removed
+    """
+    schemas = openapi_schema.get("components", {}).get("schemas", {})
+    schemas.pop("HTTPValidationError", None)
+    schemas.pop("ValidationError", None)
+    return openapi_schema
+
+
+def remove_inapplicable_422_responses(
+    openapi_schema: dict[str, Any],
+) -> dict[str, Any]:
+    """Remove auto-generated 422 responses from endpoints that never emit them.
+
+    FastAPI automatically adds a 422 response to any endpoint with parameters or
+    request bodies. This function removes 422 from:
+    - All GET endpoints: validation errors on GET requests return 400, not 422
+    - Specific POST endpoints where 422 is never emitted (e.g. /auth/token)
+
+    Args:
+        openapi_schema: The generated OpenAPI schema dictionary
+
+    Returns:
+        Modified OpenAPI schema with 422 removed from inapplicable endpoints
+    """
+    # Specific (method, path) combinations where 422 is never emitted
+    inapplicable: list[tuple[str, str]] = [
+        ("post", "/auth/token"),
+    ]
+
+    for path, path_item in openapi_schema.get("paths", {}).items():
+        # Remove 422 from all GET operations (GET validation errors return 400)
+        path_item.get("get", {}).get("responses", {}).pop("422", None)
+
+        # Remove 422 from specific non-GET endpoints
+        for method, specific_path in inapplicable:
+            if path == specific_path:
+                path_item.get(method, {}).get("responses", {}).pop("422", None)
+
+    return openapi_schema
+
+
 def sort_schemas_by_namespace(openapi_schema: dict[str, Any]) -> dict[str, Any]:
     """Sort schemas by namespace (title prefix) first, then alphabetically.
 
     Schemas are sorted by their title attribute (e.g., 'area.AreaResponse', 'auth.TokenRequest').
-    First by namespace (area, auth, health, validation), then alphabetically within each namespace.
+    First by namespace (area, auth, health), then alphabetically within each namespace.
 
     Args:
         openapi_schema: The generated OpenAPI schema dictionary
@@ -129,6 +183,12 @@ def create_custom_openapi(app: FastAPI) -> Callable:
 
         # Replace auto-generated Body_* schemas with proper namespaced schemas
         openapi_schema = replace_auto_generated_body_schemas(openapi_schema)
+
+        # Remove FastAPI's built-in validation schemas (replaced by ErrorResponse)
+        openapi_schema = remove_fastapi_validation_schemas(openapi_schema)
+
+        # Remove 422 from endpoints that never emit it
+        openapi_schema = remove_inapplicable_422_responses(openapi_schema)
 
         # Sort schemas by namespace first, then alphabetically
         openapi_schema = sort_schemas_by_namespace(openapi_schema)

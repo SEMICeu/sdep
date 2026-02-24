@@ -3,7 +3,7 @@
 from datetime import datetime
 
 import pytest
-from app.exceptions.business import BusinessLogicError, InvalidOperationError
+from app.exceptions.business import ApplicationValidationError, InvalidOperationError
 from app.services import activity as activity_service
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -235,7 +235,9 @@ class TestActivityService:
         }
 
         # Act & Assert
-        with pytest.raises(BusinessLogicError, match=r"Area with areaId.*not found"):
+        with pytest.raises(
+            ApplicationValidationError, match=r"Area with areaId.*not found"
+        ):
             await activity_service.create_activity(async_session, activity_data)
 
     async def test_create_activity_with_optional_fields(

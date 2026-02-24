@@ -31,11 +31,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.config import get_async_db, get_async_db_read_only
 from app.schemas.area import (
+    AreaCountResponse,
+    AreaOwnListResponse,
     AreaOwnResponse,
-    AreasCountResponse,
-    AreasOwnListResponse,
 )
-from app.schemas.auth import UnauthorizedError
+from app.schemas.error import ErrorResponse
 from app.security import verify_bearer_token
 from app.services import area as area_service
 
@@ -49,8 +49,8 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 
 @router.post(
     "/ca/areas",
-    summary="Submit a single area for the current authenticated competent authority",
-    description="""Submit a single area for the current authenticated competent authority (competentAuthorityId).
+    summary="Submit a single area into the areas collection for the current authenticated competent authority",
+    description="""Submit a single area into the areas collection for the current authenticated competent authority (competentAuthorityId).
 
 **ID Pattern:**
 - `areaId`: provided by competent authority as business identifier (optional), otherwise generated as UUID (RFC 9562)
@@ -74,11 +74,6 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 - `filename`: Name of the shapefile (e.g., 'area.zip')
 - `createdAt`: Timestamp when this area version was created (UTC)
 
-**Response Codes:**
-- **201 Created:** Area created successfully
-- **401 Unauthorized:** Invalid or missing token
-- **403 Forbidden:** Missing required authorization roles
-- **422 Unprocessable Entity:** Validation error
 """,
     operation_id="postArea",
     response_model=AreaOwnResponse,
@@ -89,14 +84,15 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
             "model": AreaOwnResponse,
         },
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
         "422": {
-            "description": "Unprocessable Entity - Validation error",
+            "model": ErrorResponse,
+            "description": "Validation Error - busines rule violation",
         },
     },
 )
@@ -226,25 +222,21 @@ async def post_area(
 - `offset`: Number of records to skip (default: 0)
 - `limit`: Maximum number of records to return (default: unlimited)
 
-**Response Codes:**
-- **200 OK:** Areas retrieved successfully
-- **401 Unauthorized:** Invalid or missing token
-- **403 Forbidden:** Missing required authorization roles
 """,
     operation_id="getOwnAreas",
-    response_model=AreasOwnListResponse,
+    response_model=AreaOwnListResponse,
     status_code=status.HTTP_200_OK,
     responses={
-        "200": {
-            "description": "Areas retrieved successfully",
-            "model": AreasOwnListResponse,
+        "400": {
+            "model": ErrorResponse,
+            "description": "Bad request - invalid query parameters",
         },
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
     },
 )
@@ -315,7 +307,7 @@ async def get_own_areas(
         for area_dict in area_dicts
     ]
 
-    response = AreasOwnListResponse(areas=areas)
+    response = AreaOwnListResponse(areas=areas)
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -325,29 +317,25 @@ async def get_own_areas(
 
 @router.get(
     "/ca/areas/count",
-    response_model=AreasCountResponse,
+    response_model=AreaCountResponse,
     status_code=status.HTTP_200_OK,
     summary="Get areas count for the current authenticated competent authority (optional, to support pagination)",
-    description="Get areas count for the current authenticated competent authority (optional, to support pagination)\n\n"
-    "**Response Codes:**\n"
-    "- **200 OK:** Count retrieved successfully\n"
-    "- **401 Unauthorized:** Invalid or missing token\n"
-    "- **403 Forbidden:** Missing required authorization roles",
+    description="Get areas count for the current authenticated competent authority (optional, to support pagination)",
     operation_id="countOwnAreas",
     responses={
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
     },
 )
 async def count_own_areas(
     session: AsyncSession = Depends(get_async_db_read_only),
     token_payload: dict[str, Any] = Depends(verify_bearer_token),
-) -> AreasCountResponse:
+) -> AreaCountResponse:
     """
     Count areas for the current authenticated competent authority.
 
@@ -388,7 +376,7 @@ async def count_own_areas(
         session, competent_authority_id
     )
 
-    return AreasCountResponse(count=total_count)
+    return AreaCountResponse(count=total_count)
 
 
 @router.get(
@@ -396,27 +384,21 @@ async def count_own_areas(
     response_class=Response,
     status_code=status.HTTP_200_OK,
     summary="Get area (shapefile) for the current authenticated competent authority",
-    description="Get area (shapefile) based on functional ID, scoped to the authenticated CA\n\n"
-    "**Response Codes:**\n"
-    "- **200 OK:** Area shapefile returned successfully\n"
-    "- **401 Unauthorized:** Invalid or missing token\n"
-    "- **403 Forbidden:** Missing required authorization roles\n"
-    "- **404 Not Found:** Area not found or belongs to a different CA",
+    description="Get area (shapefile) based on functional ID, scoped to the authenticated CA",
     operation_id="getOwnArea",
     responses={
         "200": {
             "content": {"application/zip": {}},
-            "description": "Binary area",
         },
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
         "404": {
-            "description": "Area not found or belongs to a different CA",
+            "description": "Resource Not Found - area unavailable, deleted, or not owned by this CA",
         },
     },
 )
@@ -485,39 +467,34 @@ async def get_own_area(
 
 @router.delete(
     "/ca/areas/{areaId}",
-    summary="Delete (deactivate) an area for the current authenticated competent authority",
-    description="""Delete (soft-delete) an area by marking it as ended (now, UTC).
+    summary="Delete (deactivate) an area from the areas collection for the current authenticated competent authority",
+    description="""Delete (deactivate) an area by marking it as ended (now, UTC).
 
 **Behavior:**
 - Soft-deletes the current version of the area (marks it as ended (now, UTC)
 - The area will no longer appear in area listings
 - Deleting an already-deleted area returns 404
 
-**Response Codes:**
-- **204 No Content:** Area successfully deleted (soft-deleted)
-- **401 Unauthorized:** Invalid or missing token
-- **403 Forbidden:** Missing required authorization roles
-- **404 Not Found:** Area not found, already deleted, or belongs to a different CA
-- **422 Unprocessable Entity:** Invalid areaId format
 """,
     operation_id="deleteOwnArea",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         "204": {
-            "description": "Area successfully deleted (soft-deleted)",
+            "description": "Success - area deleted (deactivate)",
         },
         "401": {
-            "model": UnauthorizedError,
-            "description": "Unauthorized - Invalid or missing token",
+            "model": ErrorResponse,
+            "description": "Unauthorized - missing or invalid token",
         },
         "403": {
-            "description": "Forbidden - Missing required authorization roles",
+            "description": "Forbidden - insufficient permissions",
         },
         "404": {
-            "description": "Not Found - Area not found, already deleted, or belongs to a different CA",
+            "description": "Resource Not Found - area unavailable, already deleted, or not owned by this CA",
         },
         "422": {
-            "description": "Unprocessable Entity - Invalid areaId format",
+            "model": ErrorResponse,
+            "description": "Validation Error - busines rule violation",
         },
     },
 )
@@ -527,7 +504,7 @@ async def delete_area(
     token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> Response:
     """
-    Delete (soft-delete) an area for the current authenticated competent authority.
+    Delete (deactivate) an area for the current authenticated competent authority.
 
     Authorization:
     - Requires valid bearer token with "sdep_ca" and "sdep_write" roles in realm_access
@@ -571,7 +548,7 @@ async def delete_area(
             detail="areaId must match pattern ^[a-z0-9-]+$ (lowercase alphanumeric with hyphens).",
         )
 
-    # Delete the area (soft-delete)
+    # Delete the area (deactivate)
     await area_service.delete_area(
         session=session,
         area_id=areaId,

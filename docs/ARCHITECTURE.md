@@ -217,7 +217,7 @@ The backend follows a **layered architecture** pattern:
 ### Service Layer (`app/services/`)
 - Business logic implementation
 - Validation (Layer 2: business rules, e.g. area exists, platform lookup/creation)
-- Raises `BusinessLogicError` for domain-level errors (e.g. area not found)
+- Raises `ApplicationValidationError` for domain-level errors (e.g. area not found)
 - No transaction management (delegated to API layer)
 
 ### CRUD Layer (`app/crud/`)
@@ -246,7 +246,7 @@ POST /str/activities (single JSON body)
   │
   ├── Service Layer (activity.py)
   │   ├── create_activity(session, activity_data)
-  │   ├── Validate area exists → BusinessLogicError if not
+  │   ├── Validate area exists → ApplicationValidationError if not
   │   ├── Lookup/create platform from JWT claims
   │   └── Create activity via CRUD
   │
@@ -284,7 +284,7 @@ POST /ca/areas (multipart/form-data: file + optional areaId, areaName)
 - `GET /api/v0/ca/areas` - List own areas (pagination: offset, limit)
 - `GET /api/v0/ca/areas/count` - Count own areas
 - `GET /api/v0/ca/areas/{areaId}` - Download shapefile for own area
-- `DELETE /api/v0/ca/areas/{areaId}` - Delete (soft-delete) an own area
+- `DELETE /api/v0/ca/areas/{areaId}` - Delete (deactivate) an own area
 - `GET /api/v0/ca/activities` - Query rental activities (pagination: offset, limit)
 - `GET /api/v0/ca/activities/count` - Count activities
 
@@ -328,19 +328,29 @@ POST endpoints use `get_async_db` which wraps the entire request in a single tra
 
 ## Exception Handling
 
-All exceptions are handled by global exception handlers registered in `app/exceptions/handlers.py`:
+All exceptions are handled by global exception handlers defined in `app/exceptions/handlers.py` and registered in `app/api/common/exception_handlers.py`:
 
-| Exception                | HTTP Status            | Description                                    |
-| ------------------------ | ---------------------- | ---------------------------------------------- |
-| `RequestValidationError` | 400 (GET) / 422 (POST) | Pydantic validation errors                     |
-| `AppValidationError`     | 422                    | Custom application validation errors           |
-| `BusinessLogicError`     | 422                    | Business rule violations (e.g. area not found) |
-| `DuplicateResourceError` | 409                    | Duplicate resource conflict                    |
-| `AuthenticationError`    | 401                    | Invalid or expired token                       |
-| `AuthorizationError`     | 403                    | Insufficient permissions                       |
-| `ResourceNotFoundError`  | 404                    | Resource not found                             |
-| `HTTPException`          | varies                 | Generic HTTP errors                            |
-| `Exception`              | 500                    | Catch-all (no stack trace exposed)             |
+| HTTP Status                 | Exception                             | Description                                                                                                   |
+| --------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 400                         | `RequestValidationError`              | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`)                                   |
+| 400 / 401 / 403 / 404 / 422 | `HTTPException`                       | Missing/invalid token claims, missing roles, missing credentials, inline input validation, resource not found |
+| 401                         | `InvalidTokenError`                   | Invalid token (subtype of AuthenticationError)                                                                |
+| 401                         | `AuthenticationError`                 | Invalid or expired token                                                                                      |
+| 403                         | `AuthorizationError`                  | Insufficient permissions                                                                                      |
+| 404                         | `ResourceNotFoundError`               | Resource not found                                                                                            |
+| 409                         | `DuplicateResourceError`              | Duplicate resource conflict                                                                                   |
+| 422                         | `RequestValidationError`              | Invalid request body on a POST request (e.g. missing required field or wrong value type)                      |
+| 422                         | `ApplicationValidationError`          | Business rule violations (e.g. start time later than end time is NOK )                                        |
+| 500                         | `Exception`                           | Catch-all (unexpected code failure)                                                                           |
+| 503                         | `DatabaseOperationalError`            | Database temporarily unavailable                                                                              |
+| 503                         | `AuthorizationServerOperationalError` | Authorization server temporarily unavailable                                                                  |
+
+Additional infrastructure errors (not handled by application exceptions):
+
+| HTTP Status | Description                                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| 500         | Internal server error (unexpected condition that prevented fulfilling a request) |
+| 503         | currently unable to handle requests (overload, maintenance, or experiencing a temporary breakdown) |
 
 ## Development Workflow
 

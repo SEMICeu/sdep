@@ -3,7 +3,7 @@
 from .base import SDEPError
 
 
-class BusinessLogicError(SDEPError):
+class ApplicationValidationError(SDEPError):
     """Raised when business logic validation fails."""
 
     pass
@@ -15,13 +15,13 @@ class ResourceNotFoundError(SDEPError):
     pass
 
 
-class DuplicateResourceError(BusinessLogicError):
+class DuplicateResourceError(ApplicationValidationError):
     """Raised when attempting to create a duplicate resource."""
 
     pass
 
 
-class InvalidOperationError(BusinessLogicError):
+class InvalidOperationError(ApplicationValidationError):
     """Raised when an operation is not valid in the current context.
 
     This exception is raised when:
