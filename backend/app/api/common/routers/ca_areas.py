@@ -471,7 +471,7 @@ async def get_own_area(
     description="""Delete (deactivate) an area by marking it as ended (now, UTC).
 
 **Behavior:**
-- Soft-deletes the current version of the area (marks it as ended (now, UTC)
+- Deletes (deactivates) the area
 - The area will no longer appear in area listings
 - Deleting an already-deleted area returns 404
 
