@@ -214,7 +214,7 @@ class ActivityRequest(BaseModel):
         max_length=64,
         pattern=r"^[a-z0-9-]+$",
         description="Area functional ID (lowercase alphanumeric with hyphens, max 64 chars)",
-        examples=["7c9e6679-7425-40de-944b-e07fc1f90ae7"],
+        examples=["842be2b4-cd0c-4019-a9d5-71c9140a5eff"],
     )  # Functional ID reference
 
     url: str = Field(

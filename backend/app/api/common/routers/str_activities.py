@@ -89,6 +89,32 @@ router = APIRouter(tags=["str"])
         "201": {
             "description": "Activity created successfully",
             "model": ActivityOwnResponse,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                        "activityName": "Amsterdam Summer Rental",
+                        "areaId": "842be2b4-cd0c-4019-a9d5-71c9140a5eff",
+                        "competentAuthorityId": "sdep-ca0363",
+                        "competentAuthorityName": "Gemeente Amsterdam",
+                        "url": "http://example.com/amsterdam-myhouse-1",
+                        "address": {
+                            "street": "Prinsengracht",
+                            "number": 263,
+                            "postalCode": "1016HV",
+                            "city": "Amsterdam",
+                        },
+                        "registrationNumber": "REG0001",
+                        "numberOfGuests": 4,
+                        "countryOfGuests": ["NLD", "DEU", "BEL"],
+                        "temporal": {
+                            "startDatetime": "2025-06-01T14:00:00Z",
+                            "endDatetime": "2025-06-07T11:00:00Z",
+                        },
+                        "createdAt": "2025-06-01T12:00:00Z",
+                    }
+                }
+            },
         },
         "401": {
             "model": ErrorResponse,
@@ -223,6 +249,38 @@ async def post_activity(
     response_model=ActivityOwnListResponse,
     status_code=status.HTTP_200_OK,
     responses={
+        "200": {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "activities": [
+                            {
+                                "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                                "activityName": "Amsterdam Summer Rental",
+                                "areaId": "842be2b4-cd0c-4019-a9d5-71c9140a5eff",
+                                "competentAuthorityId": "sdep-ca0363",
+                                "competentAuthorityName": "Gemeente Amsterdam",
+                                "url": "http://example.com/amsterdam-myhouse-1",
+                                "address": {
+                                    "street": "Prinsengracht",
+                                    "number": 263,
+                                    "postalCode": "1016HV",
+                                    "city": "Amsterdam",
+                                },
+                                "registrationNumber": "REG0001",
+                                "numberOfGuests": 4,
+                                "countryOfGuests": ["NLD", "DEU", "BEL"],
+                                "temporal": {
+                                    "startDatetime": "2025-06-01T14:00:00Z",
+                                    "endDatetime": "2025-06-07T11:00:00Z",
+                                },
+                                "createdAt": "2025-06-01T12:00:00Z",
+                            }
+                        ]
+                    }
+                }
+            }
+        },
         "400": {
             "model": ErrorResponse,
             "description": "Bad request - invalid query parameters",

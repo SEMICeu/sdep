@@ -41,6 +41,38 @@ router = APIRouter(tags=["ca"])
     "- `createdAt`: Timestamp when this activity version was created (UTC)",
     operation_id="getActivityByCompetentAuthority",
     responses={
+        "200": {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "activities": [
+                            {
+                                "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                                "activityName": "Amsterdam Summer Rental",
+                                "areaId": "842be2b4-cd0c-4019-a9d5-71c9140a5eff",
+                                "url": "http://example.com/amsterdam-myhouse-1",
+                                "address": {
+                                    "street": "Prinsengracht",
+                                    "number": 263,
+                                    "postalCode": "1016HV",
+                                    "city": "Amsterdam",
+                                },
+                                "registrationNumber": "REG0001",
+                                "numberOfGuests": 4,
+                                "countryOfGuests": ["NLD", "DEU", "BEL"],
+                                "temporal": {
+                                    "startDatetime": "2025-06-01T14:00:00Z",
+                                    "endDatetime": "2025-06-07T11:00:00Z",
+                                },
+                                "platformId": "sdep-str01",
+                                "platformName": "Test STR 01 (interactive usage, persistent)",
+                                "createdAt": "2025-06-01T12:00:00Z",
+                            }
+                        ]
+                    }
+                }
+            }
+        },
         "400": {
             "model": ErrorResponse,
             "description": "Bad request - invalid query parameters",
