@@ -2,7 +2,7 @@
 
 ## 260225
 
-- Made the OpenAPI examples for POST/GET activities ready to use (test)
+- Improved the OpenAPI examples for POST/GET activities
 
 ## 260224
 
