@@ -3,6 +3,7 @@
 Overview:
 
 - [Reference impl. (production)](#reference-impl-production)
+- [Quick start (pre-production)](#quick-start-pre-production)
 - [Quick start (local workstation)](#quick-start-local-workstation)
 - [Background](#background)
 - [Main functionality](#main-functionality)
@@ -19,9 +20,19 @@ https://sdep.gov.nl/api/v0/docs
 
 DISCLAIMER - the API is yet subject to change (without versioning).
 
+## Quick start (pre-production)
+
+The reference impl. is also running in pre-production.
+
+To request **test accounts**, please reach out via email. For contact details, visit:
+
+https://pre-sdep.minvro.nl/api/v0/docs
+
 ## Quick start (local workstation)
 
-On a local workstation (tested on Linux; for Windows, consider using WSL).
+The reference impl. can also be run **fullstack** on a local workstation.
+
+*Tested on Linux; for Windows, consider using WSL.*
 
 **Pre-requistes**
 
@@ -33,7 +44,7 @@ On a local workstation (tested on Linux; for Windows, consider using WSL).
 
 To your local workstation.
 
-**Run SDEP fullstack**
+**Run SDEP (fullstack)**
 
 Incl. local infra (postgres + keycloak + backend):
 ```
@@ -59,7 +70,7 @@ Authorize in Swagger UI:
 Explore endpoints in your current role (ca, str).
 
 
-**Run SDEP backend only**
+**Run SDEP (backend only)**
 
 Excl. local infra:
 ```
