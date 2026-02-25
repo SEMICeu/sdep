@@ -1,5 +1,9 @@
 # Changelog
 
+## 260225
+
+- Made the OpenAPI examples for POST/GET activities ready to use (test)
+
 ## 260224
 
 - Unified exception handling and HTTP status codes
