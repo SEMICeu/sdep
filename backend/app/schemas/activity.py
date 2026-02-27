@@ -18,7 +18,6 @@ from pydantic import (
 __all__ = [
     "ActivityCountResponse",
     "ActivityListResponse",
-    "ActivityOwnListResponse",
     "ActivityOwnResponse",
     "ActivityRequest",
     "ActivityResponse",
@@ -514,16 +513,6 @@ class ActivityOwnResponse(BaseModel):
         if data.get("activityName") is None:
             data.pop("activityName", None)
         return data
-
-
-class ActivityOwnListResponse(BaseModel):
-    """List of own activities response schema (for STR)."""
-
-    model_config = ConfigDict(title="activity.ActivityOwnListResponse")
-
-    activities: list[ActivityOwnResponse] = Field(
-        ..., description="List of activities for the current platform"
-    )
 
 
 class ActivityCountResponse(BaseModel):

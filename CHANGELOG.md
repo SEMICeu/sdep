@@ -1,5 +1,9 @@
 # Changelog
 
+## 260227
+
+- Reverted the list and count endpoints for STR to retrieve their own data (`GET /str/activities`, `GET /str/activities/count`) => discuss
+
 ## 260225
 
 - Improved the OpenAPI examples for POST/GET activities

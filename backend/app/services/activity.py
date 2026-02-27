@@ -148,22 +148,6 @@ async def count_activity_by_competent_authority(
     )
 
 
-async def count_activities_by_platform(
-    session: AsyncSession, platform_id_str: str
-) -> int:
-    """
-    Count activities for a specific platform (own activities).
-
-    Args:
-        session: Async database session (read-only)
-        platform_id_str: Platform functional ID string
-
-    Returns:
-        Total number of current activities for the given platform
-    """
-    return await activity_crud.count_by_platform_id_str(session, platform_id_str)
-
-
 async def get_activity_list(
     session: AsyncSession,
     competent_authority_id: str,
@@ -222,51 +206,4 @@ async def get_activity_list(
             "created_at": activity.created_at,
         }
         for activity in activity_list
-    ]
-
-
-async def get_activities_by_platform(
-    session: AsyncSession,
-    platform_id_str: str,
-    offset: int = 0,
-    limit: int | None = None,
-) -> list[dict]:
-    """
-    Get activities for a specific platform (own activities).
-
-    Args:
-        session: Async database session
-        platform_id_str: Platform functional ID
-        offset: Number of records to skip (default: 0)
-        limit: Maximum number of records to return (default: no limit)
-
-    Returns:
-        List of activity dictionaries (without platformId/Name)
-    """
-    activities = await activity_crud.get_by_platform_id_str(
-        session, platform_id_str, offset=offset, limit=limit
-    )
-
-    return [
-        {
-            "activity_id": activity.activity_id,
-            "activity_name": activity.activity_name,
-            "url": activity.url,
-            "address_street": activity.address_street,
-            "address_number": activity.address_number,
-            "address_letter": activity.address_letter,
-            "address_addition": activity.address_addition,
-            "address_postal_code": activity.address_postal_code,
-            "address_city": activity.address_city,
-            "registration_number": activity.registration_number,
-            "area_id": activity.area.area_id,
-            "competent_authority_id": activity.area.competent_authority.competent_authority_id,
-            "competent_authority_name": activity.area.competent_authority.competent_authority_name,
-            "number_of_guests": activity.number_of_guests,
-            "country_of_guests": activity.country_of_guests,
-            "temporal_start_date_time": activity.temporal_start_date_time,
-            "temporal_end_date_time": activity.temporal_end_date_time,
-            "created_at": activity.created_at,
-        }
-        for activity in activities
     ]

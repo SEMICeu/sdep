@@ -9,7 +9,6 @@ from sqlalchemy.orm import selectinload
 from app.models.activity import Activity
 from app.models.area import Area
 from app.models.competent_authority import CompetentAuthority
-from app.models.platform import Platform
 
 
 async def create(
@@ -266,46 +265,6 @@ async def get_by_platform_id(
     return list(result.scalars().all())
 
 
-async def get_by_platform_id_str(
-    session: AsyncSession,
-    platform_id_str: str,
-    offset: int = 0,
-    limit: int | None = None,
-) -> list[Activity]:
-    """
-    Get current activities by platform functional ID (ended_at IS NULL).
-
-    Eagerly loads Area and CompetentAuthority relationships.
-
-    Args:
-        session: Async database session
-        platform_id_str: Platform functional ID string (e.g., "platform01")
-        offset: Number of records to skip (default: 0)
-        limit: Maximum number of records to return (default: no limit)
-
-    Returns:
-        List of current Activity instances for the given platform
-    """
-    stmt = (
-        select(Activity)
-        .options(
-            selectinload(Activity.area).selectinload(Area.competent_authority),
-        )
-        .join(Platform, Activity.platform_id == Platform.id)
-        .where(
-            Platform.platform_id == platform_id_str,
-            Activity.ended_at.is_(None),
-        )
-        .order_by(Activity.created_at.desc())
-        .offset(offset)
-    )
-    if limit is not None:
-        stmt = stmt.limit(limit)
-
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
 async def get_by_area_id(
     session: AsyncSession, area_id: int, offset: int = 0, limit: int | None = None
 ) -> list[Activity]:
@@ -395,33 +354,6 @@ async def count_by_competent_authority_id(
         .join(CompetentAuthority, Area.competent_authority_id == CompetentAuthority.id)
         .where(
             CompetentAuthority.competent_authority_id == competent_authority_id,
-            Activity.ended_at.is_(None),
-        )
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one()
-
-
-async def count_by_platform_id_str(
-    session: AsyncSession,
-    platform_id_str: str,
-) -> int:
-    """
-    Count current activities by platform functional ID (ended_at IS NULL).
-
-    Args:
-        session: Async database session
-        platform_id_str: Platform functional ID string (e.g., "platform01")
-
-    Returns:
-        Total number of current activities for the given platform
-    """
-    stmt = (
-        select(func.count())
-        .select_from(Activity)
-        .join(Platform, Activity.platform_id == Platform.id)
-        .where(
-            Platform.platform_id == platform_id_str,
             Activity.ended_at.is_(None),
         )
     )

@@ -71,8 +71,6 @@ See [../Makefile](../Makefile). Available targets:
 - `GET /api/v0/str/areas/count`
 - `GET /api/v0/str/areas/amsterdam-area0363`
 - `POST /api/v0/str/activities`
-- `GET /api/v0/str/activities`
-- `GET /api/v0/str/activities/count`
 - `POST /api/v0/ca/areas`
 - `GET /api/v0/ca/areas`
 - `GET /api/v0/ca/areas/count`
@@ -197,15 +195,10 @@ See [../Makefile](../Makefile). Available targets:
 - **Test 2:** POST with custom activityId field
 - **Test 3:** POST with validation error (missing required `registrationNumber` field) - expects 422
 - **Test 4:** POST with non-existent areaId (business logic error) - expects 422
-- **Test 5:** GET own activities (`GET /str/activities`)
-- **Test 6:** GET own activities count (`GET /str/activities/count`)
-- **Test 7:** GET own activities does not contain endedAt
-- **Test 8:** Versioning - submit same activityId twice
+- **Test 5:** Versioning - submit same activityId twice
 
 **Endpoints:**
 - `POST /api/{API_VERSION}/str/activities`
-- `GET /api/{API_VERSION}/str/activities`
-- `GET /api/{API_VERSION}/str/activities/count`
 
 **Content-Type (POST):** `application/json`
 

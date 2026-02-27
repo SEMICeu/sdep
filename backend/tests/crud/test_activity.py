@@ -448,35 +448,6 @@ class TestActivityCRUD:
         # Assert
         assert result is None
 
-    async def test_count_by_platform_id_str(self, async_session: AsyncSession):
-        """Test counting activities by platform functional ID."""
-        # Arrange
-        platform = await PlatformFactory.create_async(
-            async_session,
-            platform_id="test-platform",
-            platform_name="Test Platform",
-        )
-        for _ in range(3):
-            await ActivityFactory.create_async(async_session, platform_id=platform.id)
-
-        # Act
-        total = await activity.count_by_platform_id_str(async_session, "test-platform")
-
-        # Assert
-        assert total == 3
-
-    async def test_count_by_platform_id_str_not_found(
-        self, async_session: AsyncSession
-    ):
-        """Test counting activities by non-existent platform functional ID."""
-        # Act
-        total = await activity.count_by_platform_id_str(
-            async_session, "nonexistent-platform"
-        )
-
-        # Assert
-        assert total == 0
-
     async def test_exists_any_by_activity_id_true_for_ended(
         self, async_session: AsyncSession
     ):
