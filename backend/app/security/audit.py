@@ -23,10 +23,10 @@ audit_logger = logging.getLogger("audit")
 SKIP_PATHS = frozenset(
     {
         "/",
+        "/api/docs",
         "/api/health",
         "/api/v0/openapi.json",
         "/api/v0/docs",
-        "/api/v0/redoc",
     }
 )
 

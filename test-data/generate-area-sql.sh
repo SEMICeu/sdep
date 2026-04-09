@@ -110,11 +110,12 @@ for area_def in "${AREAS[@]}"; do
     # Write SQL INSERT statement
     cat >> "${OUTPUT_FILE}" <<EOF
 -- ${comment}
-INSERT INTO area (competent_authority_id, area_id, area_name, filename, filedata, created_at)
+INSERT INTO area (competent_authority_id, area_id, area_name, regulation, filename, filedata, created_at)
 VALUES (
   (SELECT id FROM competent_authority WHERE competent_authority_id = '${ca_id}'),
   '${area_uuid}',
   '${area_name}',
+  'all',
   '${filename}',
   ${hex_bytea},
   '2025-01-01 00:00:00+00'::timestamptz

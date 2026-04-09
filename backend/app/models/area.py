@@ -15,9 +15,13 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy import (
+    Enum as SAEnum,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.config import Base
+from app.enums import Regulation
 
 if TYPE_CHECKING:
     from app.models.activity import Activity
@@ -65,6 +69,10 @@ class Area(Base):
     area_name: Mapped[str | None] = mapped_column(
         String(64), nullable=True
     )  # Functional name (optional, human-readable, max 64 chars) e.g., "Amsterdam Central"
+
+    regulation: Mapped[Regulation] = mapped_column(
+        SAEnum(Regulation, native_enum=True, length=16), nullable=False
+    )  # Mandatory, one of: 'listing', 'activity', 'all'
 
     competent_authority_id: Mapped[int] = mapped_column(
         ForeignKey("competent_authority.id"), nullable=False, index=True

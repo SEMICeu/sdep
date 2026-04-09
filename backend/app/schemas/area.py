@@ -3,26 +3,35 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     model_serializer,
 )
 
+from app.enums import Regulation
 from app.schemas.common import FunctionalId  # noqa: TC001
 
 
 def empty_string_to_none(v: str | None) -> str | None:
-    """Convert empty string to None for optional ID fields.
+    """Convert empty string to None for optional fields.
 
-    This allows clients to send "" instead of omitting the field,
-    and the ID will be auto-generated as UUID downstream.
+    This allows clients (notably the Swagger "--" dropdown option) to send ""
+    instead of omitting the field; downstream layers then apply the default.
     """
     if v == "":
         return None
     return v
+
+
+OptionalRegulation = Annotated[
+    Regulation | None,
+    BeforeValidator(empty_string_to_none),
+]
 
 
 class AreaResponse(BaseModel):
@@ -46,6 +55,11 @@ class AreaResponse(BaseModel):
         description="Area name (optional, max 64 chars)",
         examples=["Amsterdam Central"],
     )  # Functional name
+    regulation: Regulation = Field(
+        default=Regulation.all,
+        description="Regulation type: listing, activity, or all",
+        examples=["all"],
+    )
     filename: str = Field(
         ...,
         max_length=64,
@@ -112,6 +126,11 @@ class AreaOwnResponse(BaseModel):
         max_length=64,
         description="Area name (optional, max 64 chars)",
         examples=["Amsterdam Central"],
+    )
+    regulation: Regulation = Field(
+        default=Regulation.all,
+        description="Regulation type: listing, activity, or all",
+        examples=["all"],
     )
     filename: str = Field(
         ...,

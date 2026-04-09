@@ -26,8 +26,11 @@ from sqlalchemy.orm import selectinload
 
 from app.crud import area as area_crud
 from app.crud import competent_authority as competent_authority_crud
+from app.enums import Regulation
 from app.exceptions.business import InvalidOperationError, ResourceNotFoundError
 from app.models.area import Area
+
+REGULATION_DEFAULT = Regulation.all
 
 
 async def get_areas(
@@ -69,6 +72,7 @@ async def get_areas(
         {
             "areaId": area.area_id,  # Functional UUID
             "areaName": area.area_name,  # Functional name (optional)
+            "regulation": area.regulation,
             "competentAuthorityId": area.competent_authority.competent_authority_id,
             "competentAuthorityName": area.competent_authority.competent_authority_name,
             "filename": area.filename,
@@ -169,6 +173,7 @@ async def create_area(
     filedata: bytes,
     competent_authority_id_str: str,
     competent_authority_name: str,
+    regulation: Regulation | None = None,
 ) -> Area:
     """
     Create a single area.
@@ -185,10 +190,13 @@ async def create_area(
         filedata: Binary file data
         competent_authority_id_str: Competent authority ID from JWT token
         competent_authority_name: Competent authority name from JWT token
+        regulation: Regulation type (defaults to 'all' when None)
 
     Returns:
         Created Area object
     """
+    if regulation is None:
+        regulation = REGULATION_DEFAULT
     # Look up or create CompetentAuthority
     competent_authority = await competent_authority_crud.get_by_competent_authority_id(
         session, competent_authority_id_str
@@ -232,6 +240,7 @@ async def create_area(
         session=session,
         area_id=area_id,
         area_name=area_name,
+        regulation=regulation,
         filename=filename,
         filedata=filedata,
         competent_authority_id=competent_authority.id,  # Use the FK (int)
@@ -266,6 +275,7 @@ async def get_areas_by_competent_authority(
         {
             "areaId": area.area_id,
             "areaName": area.area_name,
+            "regulation": area.regulation,
             "filename": area.filename,
             "createdAt": area.created_at,
         }

@@ -2,9 +2,12 @@
 
 ## 260409
 
+- Added Area.regulation (listing, address, all) conform Regulation, Article 13 >> default is all
 - Improved functional ID validation >> accepts uppercase alphanumeric IDs too
-- Made local Postgres port configurable per developer
 - Improved documentation for performance test data
+- Improved some makefile test targets
+- Improved the version-independent endpoint for /api/docs
+- Made local Postgres port configurable per developer
 
 ## 260401
 

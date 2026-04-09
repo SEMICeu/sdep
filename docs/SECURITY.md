@@ -88,10 +88,10 @@ Unmatched paths fall back to action `unknown`.
 The following paths are **not** audited (high-frequency, low-value):
 
 - `/` (root)
+- `/api/docs` (landing page)
 - `/api/health`
 - `/api/v0/openapi.json`
 - `/api/v0/docs`
-- `/api/v0/redoc`
 
 ### Retention
 

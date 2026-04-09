@@ -21,6 +21,7 @@ https://sdep.gov.nl/api/v0/docs
   - [Versioning](#versioning)
   - [Soft-Delete](#soft-delete)
   - [Lazy load](#lazy-load)
+  - [Compatibility](#compatibility)
 
 ## Data model
 
@@ -84,6 +85,7 @@ Diagram:
 | **id**                 | int         | is technical id, mandatory                                                                                                          |
 | **areaId**             | string      | is functional id, mandatory, length <= 64, lowercase alphanumeric, is supplied or auto-provisioned otherwise (RFC 9562/4122 UUIDv4) |
 | **areaName**           | string      | optional, length <= 64, e.g. "Amsterdam-Noord"                                                                                      |
+| **regulation**         | enum        | mandatory, one of {'listing', 'activity', 'all'}, defaults to 'all' when not supplied                                               |
 | **createdAt**          | datetime    | mandatory, UTC                                                                                                                      |
 | **endedAt**            | datetime    | optional, UTC                                                                                                                       |
 | **competentAuthority** | reference   | mandatory, references single Competent Authority                                                                                    |
@@ -98,6 +100,13 @@ Diagram:
 **Notes:**
 - The same `areaId` (business identifier, optional) can be resubmitted to create new versions with different timestamps
 - The UNIQUE class constraint allows the same `areaId` to be used (owned) by multiple competent authorities
+- Regarding `regulation`:
+  - Per EU STR Regulation Article 13, there are two types of areas:
+  - (1) areas where the registration procedure applies ("listing"), which require platforms to perform random checks and enforce registration numbers on host listings, and
+  - (2) areas for which competent authorities have requested activity data ("activity"), which require platforms to forward activity data to the SDEP
+  - Depending on Member State context, these areas may not overlap and the authority for defining them may not be the same entity
+  - The `regulation` field allows the same Area to be supplied for all use cases: one CA for both purposes ("all"), or multiple CAs supplying the same geographic area for different purposes ("listing" or "activity")
+  - See SEMICeu/sdep#5 for the originating discussion
 
 ---
 
@@ -239,3 +248,47 @@ https://datatracker.ietf.org/doc/rfc9562/
 - **Benefits**
   - Eager-when-needed (loads relationships in bulk via `selectinload`)
   - Idiomatic (reduced boilerplate, less-verbose than manual queries)
+
+### Compatibility
+
+The internal data model targets **PostgreSQL** as the production database.
+
+**SQLite** is used for unit tests (in-memory) to keep the test cycle fast and self-contained.
+
+SQLAlchemy abstracts most of the differences, but a few PostgreSQL-specific types and constructs require dialect-aware handling to keep both engines green.
+
+| Concern                                        | PostgreSQL                                                        | SQLite (tests)                                                |
+| :--------------------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------------ |
+| **Enum (`regulation`)**                        | Native `ENUM` type via `CREATE TYPE`                              | Emulated as `VARCHAR` with a `CHECK (col IN (...))`           |
+| **String array (`countryOfGuests`)**           | Native `ARRAY(String)`                                            | Emulated as JSON text via custom `StringArray` type decorator |
+| **Functional IDs (`areaId`, `activityId`, …)** | Stored as `VARCHAR(64)` deliberately, not `UUID` — see note below | Stored as `VARCHAR(64)`                                       |
+| **`largeBinary` (`filedata`)**                 | `BYTEA`                                                           | `BLOB`                                                        |
+| **`timestamptz` (`createdAt`, `endedAt`)**     | `TIMESTAMP WITH TIME ZONE`                                        | `TEXT` (ISO-8601)                                             |
+| **`func.now()` defaults**                      | `now()` (transaction time)                                        | `CURRENT_TIMESTAMP`                                           |
+| **CHECK constraints**                          | Fully supported                                                   | Fully supported                                               |
+| **`ddl_if(dialect=...)`**                      | Used to gate PG-only DDL                                          | Skipped on SQLite                                             |
+
+**Bridging dialect gaps with SQLAlchemy `TypeDecorator`**
+
+Where a PostgreSQL-only type has no equivalent in another engine, the project bridges the gap with a custom `TypeDecorator` instead of branching the model layer.
+
+- The `StringArray` decorator in `app/models/types.py` is the canonical example
+- It stores a `list[str]` as a native PostgreSQL `ARRAY(String)` in production and as JSON text in SQLite, transparently to the rest of the code
+- The same pattern can be reused for any other type that needs an engine-specific representation — keep the decorator next to the model layer so all dialect awareness lives in one place
+
+For built-in enum support, prefer SQLAlchemy's `Enum(..., native_enum=True)` over a custom decorator: it emits `CREATE TYPE` on engines that have native enums and falls back to `VARCHAR` + `CHECK` elsewhere, with no application-level branching.
+
+**Why functional IDs are `VARCHAR(64)` and not `UUID`**
+
+Clients are allowed to submit their own functional IDs (alphanumeric with hyphens, ≤ 64 chars, e.g. `"amsterdam-area0363"`). These are not required to be UUIDs, so the column type must accept arbitrary short strings.
+
+**Porting checklist when adding a new database engine:**
+
+1. **Driver** — verify SQLAlchemy has a working async driver for the target engine, and that it is compatible with the project's SQLAlchemy version.
+2. **Dialect-specific imports** — audit the model layer for `postgresql.*` (or any other dialect-specific) imports; replace them with a `TypeDecorator` (see `app/models/types.py`) so the same model definition works on every engine.
+3. **Native types vs. fallbacks** — review the table above and confirm each "PostgreSQL" cell has a working equivalent on the target engine. For types without a native equivalent, decide between (a) a `TypeDecorator` that emulates the type, or (b) a normalized child table.
+4. **Default-value functions** — confirm that any `server_default` / `func.*` calls resolve to a valid expression on the target engine (timestamps, UUIDs, sequence-style identifiers).
+5. **Migrations** — re-run the Alembic migrations against a clean instance of the target engine. Pay attention to operations that PostgreSQL allows but other engines do not (e.g. creating an enum type, transactional DDL, deferred constraints) and gate them with `op.get_bind().dialect.name` or `ddl_if(dialect=...)`.
+6. **Constraints** — verify that CHECK, UNIQUE, and FOREIGN KEY constraints are enforced (some older engine versions parse but ignore CHECK constraints).
+7. **Transaction & isolation semantics** — test concurrency-sensitive code paths (versioning, soft-delete, bulk insert) on a real instance of the target engine; isolation defaults and locking behaviour vary considerably between engines.
+8. **Run the full test suite** — point the test config at a real instance of the target engine and run `make test`. SQLite-only validation is not enough to catch dialect-specific behaviour.

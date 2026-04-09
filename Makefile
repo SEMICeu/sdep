@@ -352,9 +352,10 @@ status: ## Show status
 	@echo ""
 	@echo "🔍 Use these URLs when images are running:"
 	@set -a && source .env && set +a && \
-	printf "  %-30s %s\n" "Backend API docs:" "$$BACKEND_BASE_URL/api/v0/docs" && \
-	printf "  %-30s %s\n" "Backend health:" "$$BACKEND_BASE_URL/api/health" && \
-	printf "  %-30s %s\n" "Keycloak:" "$$KC_BASE_URL/admin"
+	printf "  %-42s %s\n" "Backend API docs (version independent):" "$$BACKEND_BASE_URL/api/docs" && \
+	printf "  %-42s %s\n" "Backend API docs (versioned):" "$$BACKEND_BASE_URL/api/v0/docs" && \
+	printf "  %-42s %s\n" "Backend health:" "$$BACKEND_BASE_URL/api/health" && \
+	printf "  %-42s %s\n" "Keycloak:" "$$KC_BASE_URL/admin"
 	@echo ""
 
 logs: ## Show logs
@@ -367,10 +368,13 @@ logs: ## Show logs
 	docker exec -i sdep-postgres psql -U $$POSTGRES_SUPER_USER -d $$POSTGRES_DB_NAME \
 		-v ON_ERROR_STOP=1 < postgres/clean-testrun.sql
 
-generate-area-sql: ## Generate test-data/02-area-generated.sql (run  when shapefile data changes)
-	@echo "🔄 Generating area SQL file with embedded shapefile data..."
-	@./test-data/generate-area-sql.sh
-	@echo "✅ Area SQL file generated"
+test: .is-up ## Test all (quiet)
+	@set -a && source ./.env && set +a && \
+	set -o pipefail && \
+	$(MAKE) --no-print-directory test-verbose 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
+
+test-verbose: .is-up .get-client-credentials ## Test all (verbose)
+	@$(CURDIR)/scripts/run-tests.sh
 
 test-security: .is-up .get-client-credentials ## Test security (headers, unauthorized, credentials)
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
@@ -425,13 +429,11 @@ test-str: .is-up .get-client-credentials ## Test STR endpoints
 	./tests/test_str_activities.sh 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ STR endpoints tested"
 
-test-verbose: .is-up .get-client-credentials ## Test all (verbose)
-	@$(CURDIR)/scripts/run-tests.sh
 
-test: .is-up ## Test all (quiet)
-	@set -a && source ./.env && set +a && \
-	set -o pipefail && \
-	$(MAKE) --no-print-directory test-verbose 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
+generate-area-sql: ## Generate test-data/02-area-generated.sql (run  when shapefile data changes)
+	@echo "🔄 Generating area SQL file with embedded shapefile data..."
+	@./test-data/generate-area-sql.sh
+	@echo "✅ Area SQL file generated"
 
 ##@ Performance
 

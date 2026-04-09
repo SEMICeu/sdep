@@ -114,40 +114,40 @@ down: ## Stop backend
 
 ##@ Unit testing
 
-test-crud: ## Run CRUD tests only
-	@echo "🧪 Running CRUD tests..."
-	uv run python -m pytest tests/crud/ -n auto
-	@echo "✅ CRUD tests completed!"
-
-test-services: ## Run service tests only
-	@echo "🧪 Running service tests..."
-	uv run python -m pytest tests/services/ -n auto
-	@echo "✅ Service tests completed!"
-
-test-api: ## Run API tests only
-	@echo "🧪 Running API tests..."
-	uv run python -m pytest tests/api/ -n auto
-	@echo "✅ API tests completed!"
-
-test-security: ## Run security tests only
-	@echo "🧪 Running security tests..."
-	uv run python -m pytest tests/security/ -n auto
-	@echo "✅ Security tests completed!"
-
-test-verbose: ## Run all tests
-	@echo "🧪 Running tests... (please wait)"
-	uv run python -m pytest -n auto
-	@echo "✅ All tests completed!"
-
-test: ## Run all tests (quiet)
+test: ## Test all (quiet)
 	@echo "🧪 Running tests... (please wait)"
 	@uv run python -m pytest -n auto -q --tb=line --no-header 2>&1 | tail -20
 	@echo "✅ All tests completed!"
 
-test-coverage: ## Run tests with coverage report
+test-verbose: ## Test all (verbose)
+	@echo "🧪 Running tests... (please wait)"
+	uv run python -m pytest -n auto
+	@echo "✅ All tests completed!"
+
+test-coverage: ## Test all (coverage)
 	@echo "🧪 Running tests with coverage..."
 	uv run python -m pytest -n auto --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
 	@echo "✅ Coverage tests completed! Coverage report in htmlcov/"
+
+test-crud: ## Test CRUD only
+	@echo "🧪 Running CRUD tests..."
+	uv run python -m pytest tests/crud/ -n auto
+	@echo "✅ CRUD tests completed!"
+
+test-services: ## Test services only
+	@echo "🧪 Running service tests..."
+	uv run python -m pytest tests/services/ -n auto
+	@echo "✅ Service tests completed!"
+
+test-api: ## Test API only
+	@echo "🧪 Running API tests..."
+	uv run python -m pytest tests/api/ -n auto
+	@echo "✅ API tests completed!"
+
+test-security: ## Test security only
+	@echo "🧪 Running security tests..."
+	uv run python -m pytest tests/security/ -n auto
+	@echo "✅ Security tests completed!"
 
 ##@ Housekeeping
 

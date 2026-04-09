@@ -1,6 +1,7 @@
 """Tests for Area business service"""
 
 import pytest
+from app.enums import Regulation
 from app.exceptions.business import InvalidOperationError, ResourceNotFoundError
 from app.services import area
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -137,6 +138,7 @@ class TestAreaService:
         assert set(area_dict.keys()) == {
             "areaId",
             "areaName",
+            "regulation",
             "competentAuthorityId",
             "competentAuthorityName",
             "filename",
@@ -332,6 +334,65 @@ class TestAreaService:
 
         count = await area.count_areas(async_session)
         assert count == 1
+
+    async def test_create_area_regulation_defaults_to_all(
+        self, async_session: AsyncSession
+    ):
+        """Test that regulation defaults to 'all' when not supplied."""
+        area_obj = await area.create_area(
+            session=async_session,
+            area_id="test-area-reg-default",
+            area_name=None,
+            filename="area.zip",
+            filedata=b"data",
+            competent_authority_id_str="0363",
+            competent_authority_name="Gemeente Amsterdam",
+        )
+        assert area_obj.regulation == Regulation.all
+
+    async def test_create_area_regulation_listing(self, async_session: AsyncSession):
+        """Test creating an area with regulation=listing."""
+        area_obj = await area.create_area(
+            session=async_session,
+            area_id="test-area-reg-listing",
+            area_name=None,
+            filename="area.zip",
+            filedata=b"data",
+            competent_authority_id_str="0363",
+            competent_authority_name="Gemeente Amsterdam",
+            regulation=Regulation.listing,
+        )
+        assert area_obj.regulation == Regulation.listing
+
+    async def test_create_area_regulation_activity(self, async_session: AsyncSession):
+        """Test creating an area with regulation=activity."""
+        area_obj = await area.create_area(
+            session=async_session,
+            area_id="test-area-reg-activity",
+            area_name=None,
+            filename="area.zip",
+            filedata=b"data",
+            competent_authority_id_str="0363",
+            competent_authority_name="Gemeente Amsterdam",
+            regulation=Regulation.activity,
+        )
+        assert area_obj.regulation == Regulation.activity
+
+    async def test_create_area_regulation_all_explicit(
+        self, async_session: AsyncSession
+    ):
+        """Test creating an area with regulation=all explicitly."""
+        area_obj = await area.create_area(
+            session=async_session,
+            area_id="test-area-reg-all",
+            area_name=None,
+            filename="area.zip",
+            filedata=b"data",
+            competent_authority_id_str="0363",
+            competent_authority_name="Gemeente Amsterdam",
+            regulation=Regulation.all,
+        )
+        assert area_obj.regulation == Regulation.all
 
     async def test_create_area_auto_generates_id(self, async_session: AsyncSession):
         """Test that area_id is auto-generated when None"""

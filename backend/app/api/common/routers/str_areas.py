@@ -27,6 +27,7 @@ router = APIRouter(tags=["str"])
     "**Each area contains:**\n"
     "- `areaId`: Functional ID identifying this area\n"
     "- `areaName`: Optional human-readable name for this area\n"
+    "- `regulation`: Regulation type — 'listing', 'activity', or 'all'\n"
     "- `filename`: Name of the shapefile (e.g., 'area.zip')\n"
     "- `competentAuthorityId`: Functional ID identifying the competent authority who submitted the area\n"
     "- `competentAuthorityName`: Display name of the competent authority\n"
@@ -103,6 +104,7 @@ async def get_areas(
         AreaResponse(
             areaId=area_dict["areaId"],
             areaName=area_dict["areaName"],
+            regulation=area_dict["regulation"],
             filename=area_dict["filename"],
             competentAuthorityId=area_dict["competentAuthorityId"],
             competentAuthorityName=area_dict["competentAuthorityName"],

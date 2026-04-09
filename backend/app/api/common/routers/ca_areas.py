@@ -34,8 +34,13 @@ from app.schemas.area import (
     AreaCountResponse,
     AreaOwnListResponse,
     AreaOwnResponse,
+    OptionalRegulation,
 )
-from app.schemas.common import FunctionalId, OptionalFunctionalId, validate_functional_id
+from app.schemas.common import (
+    FunctionalId,
+    OptionalFunctionalId,
+    validate_functional_id,
+)
 from app.schemas.error import ErrorResponse
 from app.security import verify_bearer_token
 from app.services import area as area_service
@@ -66,11 +71,13 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 **The request contains (multipart/form-data):**
 - `areaId`: Functional ID identifying this area (optional, auto-generated UUID if not provided; alphanumeric with hyphens `^[A-Za-z0-9-]+$`, max 64 chars)
 - `areaName`: Optional human-readable name for this area (optional, max 64 chars)
+- `regulation`: Regulation type — 'listing', 'activity', or 'all' (optional, defaults to 'all' when not supplied)
 - `file`: Shapefile upload (required, max 1 MiB)
 
 **The response contains:**
 - `areaId`: Functional ID identifying this area
 - `areaName`: Optional human-readable name for this area
+- `regulation`: Regulation type — 'listing', 'activity', or 'all'
 - `filename`: Name of the shapefile (e.g., 'area.zip')
 - `createdAt`: Timestamp when this area version was created (UTC)
 
@@ -101,6 +108,7 @@ async def post_area(
     token_payload: dict[str, Any] = Depends(verify_bearer_token),
     areaId: Annotated[OptionalFunctionalId, Form()] = None,
     areaName: str | None = Form(None),
+    regulation: Annotated[OptionalRegulation, Form()] = None,
     file: UploadFile = File(...),
 ) -> Response:
     """
@@ -178,6 +186,7 @@ async def post_area(
         session=session,
         area_id=area_id,
         area_name=area_name,
+        regulation=regulation,
         filename=filename,
         filedata=filedata,
         competent_authority_id_str=competent_authority_id,
@@ -188,6 +197,7 @@ async def post_area(
     response = AreaOwnResponse(
         areaId=area_obj.area_id,
         areaName=area_obj.area_name,
+        regulation=area_obj.regulation,
         filename=area_obj.filename,
         createdAt=area_obj.created_at,
     )
@@ -209,6 +219,7 @@ async def post_area(
 **Each area contains:**
 - `areaId`: Functional ID identifying this area
 - `areaName`: Optional human-readable name for this area
+- `regulation`: Regulation type: 'listing', 'activity', or 'all'
 - `filename`: Name of the shapefile (e.g., 'area.zip')
 - `createdAt`: Timestamp when this area version was created (UTC)
 
@@ -302,6 +313,7 @@ async def get_own_areas(
         AreaOwnResponse(
             areaId=area_dict["areaId"],
             areaName=area_dict["areaName"],
+            regulation=area_dict["regulation"],
             filename=area_dict["filename"],
             createdAt=area_dict["createdAt"],
         )

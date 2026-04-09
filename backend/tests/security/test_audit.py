@@ -168,9 +168,9 @@ class TestAuditMiddleware:
         """Test that skip paths match the documented set."""
         expected = {
             "/",
+            "/api/docs",
             "/api/health",
             "/api/v0/openapi.json",
             "/api/v0/docs",
-            "/api/v0/redoc",
         }
         assert expected == SKIP_PATHS

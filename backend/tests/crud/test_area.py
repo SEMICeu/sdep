@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 from app.crud import area
+from app.enums import Regulation
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.fixtures.factories import AreaFactory, CompetentAuthorityFactory
@@ -25,6 +26,7 @@ class TestAreaCRUD:
             async_session,
             area_id=None,
             area_name=None,
+            regulation=Regulation.all,
             competent_authority_id=ca.id,
             filename=filename,
             filedata=filedata,
@@ -36,6 +38,7 @@ class TestAreaCRUD:
         assert result.area_id is not None  # Should be auto-generated UUID
         assert len(result.area_id) == 36  # UUID format
         assert result.area_name is None  # Should be None when not provided
+        assert result.regulation == Regulation.all
         assert result.competent_authority_id == ca.id
         assert result.filename == filename
         assert result.filedata == filedata
@@ -56,6 +59,7 @@ class TestAreaCRUD:
             async_session,
             area_id=explicit_area_id,
             area_name=area_name,
+            regulation=Regulation.listing,
             competent_authority_id=ca.id,
             filename=filename,
             filedata=filedata,
@@ -71,6 +75,48 @@ class TestAreaCRUD:
         assert result.filedata == filedata
         assert result.created_at is not None
         assert isinstance(result.created_at, datetime)
+
+    async def test_create_area_regulation_listing(self, async_session: AsyncSession):
+        """Test creating an area with regulation=listing."""
+        ca = await CompetentAuthorityFactory.create_async(async_session)
+        result = await area.create(
+            async_session,
+            area_id=None,
+            area_name=None,
+            regulation=Regulation.listing,
+            competent_authority_id=ca.id,
+            filename="area.zip",
+            filedata=b"data",
+        )
+        assert result.regulation == Regulation.listing
+
+    async def test_create_area_regulation_activity(self, async_session: AsyncSession):
+        """Test creating an area with regulation=activity."""
+        ca = await CompetentAuthorityFactory.create_async(async_session)
+        result = await area.create(
+            async_session,
+            area_id=None,
+            area_name=None,
+            regulation=Regulation.activity,
+            competent_authority_id=ca.id,
+            filename="area.zip",
+            filedata=b"data",
+        )
+        assert result.regulation == Regulation.activity
+
+    async def test_create_area_regulation_all(self, async_session: AsyncSession):
+        """Test creating an area with regulation=all."""
+        ca = await CompetentAuthorityFactory.create_async(async_session)
+        result = await area.create(
+            async_session,
+            area_id=None,
+            area_name=None,
+            regulation=Regulation.all,
+            competent_authority_id=ca.id,
+            filename="area.zip",
+            filedata=b"data",
+        )
+        assert result.regulation == Regulation.all
 
     async def test_delete_area(self, async_session: AsyncSession):
         """Test deleting an existing area."""
@@ -451,6 +497,7 @@ class TestAreaCRUD:
             async_session,
             area_id=area_id,
             area_name="Version 1",
+            regulation=Regulation.all,
             competent_authority_id=ca.id,
             filename="area_v1.zip",
             filedata=b"data_v1",
@@ -465,6 +512,7 @@ class TestAreaCRUD:
             async_session,
             area_id=area_id,
             area_name="Version 2",
+            regulation=Regulation.all,
             competent_authority_id=ca.id,
             filename="area_v2.zip",
             filedata=b"data_v2",

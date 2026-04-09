@@ -132,6 +132,77 @@ class TestCAAreaAPI:
         data = response.json()
         assert data["areaName"] == "Amsterdam Central"
 
+    async def test_post_area_regulation_omitted_defaults_to_all(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test POST /ca/areas without regulation field defaults to 'all'."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/ca/areas",
+                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["regulation"] == "all"
+
+    async def test_post_area_regulation_empty_string_defaults_to_all(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test POST /ca/areas with empty regulation form value defaults to 'all'.
+
+        Swagger's dropdown sends `regulation=` when the user picks the empty
+        '--' option; this must be treated as 'not supplied' and fall back to
+        the service-layer default instead of returning 422.
+        """
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/ca/areas",
+                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                data={"regulation": ""},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["regulation"] == "all"
+
+    async def test_post_area_regulation_explicit_listing(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test POST /ca/areas with regulation='listing' is preserved."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/ca/areas",
+                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                data={"regulation": "listing"},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["regulation"] == "listing"
+
+    async def test_post_area_regulation_invalid_value_rejected(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test POST /ca/areas with an invalid regulation value returns 422."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/ca/areas",
+                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                data={"regulation": "nonsense"},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
     async def test_post_area_auto_generates_id(
         self, async_session: AsyncSession, setup_overrides
     ):

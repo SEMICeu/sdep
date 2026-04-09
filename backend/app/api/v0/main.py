@@ -11,9 +11,10 @@ from app.config import settings
 # Create sub-application (v0)
 app_v0 = FastAPI(
     title="Short Term Rental (STR) - Single Digital Entry Point (SDEP)",
-    description="SDEP is a gateway for the electronic transmission of data between online short-term rental platforms (STR) and competent authorities (CA), ensuring timely, reliable and efficient data sharing processes.\n\n- [Github (open source)](https://github.com/SEMICeu/sdep)\n\n- [EU legislation](https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng)\n\n- [STR Application Profile (STR-AP)](https://semiceu.github.io/STR-AP/releases/1.0.1/)\n\n- [STR prototype v0.0.65](https://eu-str.sdep-pilot.eu/swagger/index.html)\n\nContact:\n\n- [boris.dijkmans@rijksoverheid.nl](mailto:boris.dijkmans@rijksoverheid.nl)",
+    description="SDEP is a gateway for the electronic transmission of data between online short-term rental platforms (STR) and competent authorities (CA), ensuring timely, reliable and efficient data sharing processes.\n\n- [Github (open source)](https://github.com/SEMICeu/sdep)\n\n- [EU legislation](https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng)\n\n- [STR Application Profile (STR-AP)](https://semiceu.github.io/STR-AP/releases/1.0.1/)\n\n- [STR origin prototype v0.0.67](https://eu-str.sdep-pilot.eu/swagger/index.html)\n\nContact:\n\n- [boris.dijkmans@rijksoverheid.nl](mailto:boris.dijkmans@rijksoverheid.nl)",
     version=f"{settings.DTAP}-{settings.IMAGE_TAG}",
     root_path="/api/v0",
+    redoc_url=None,
     responses={
         500: {
             "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
