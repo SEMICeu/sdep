@@ -12,12 +12,13 @@ Pattern:
 """
 
 import logging
-from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.common.auth_dependencies import NamedClientDependency, RequireRoles
+from app.api.common.security import Role
 from app.db.config import get_async_db
 from app.schemas.activity import (
     ActivityOwnResponse,
@@ -25,9 +26,7 @@ from app.schemas.activity import (
     AddressResponse,
     TemporalResponse,
 )
-from app.schemas.common import validate_functional_id
 from app.schemas.error import ErrorResponse
-from app.security import verify_bearer_token
 from app.services import activity as activity_service
 
 logger = logging.getLogger(__name__)
@@ -124,14 +123,15 @@ router = APIRouter(tags=["str"])
         },
         "422": {
             "model": ErrorResponse,
-            "description": "Validation Error - busines rule violation",
+            "description": "Validation Error - business rule violation",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.STR, Role.WRITE))],
 )
 async def post_activity(
     activity: ActivityRequest,
+    client: NamedClientDependency,
     session: AsyncSession = Depends(get_async_db),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> Response:
     """
     Submit a single rental activity.
@@ -141,49 +141,8 @@ async def post_activity(
     - Platform ID extracted from token's "client_id" claim
     - Platform name extracted from token's "client_name" claim
     """
-
-    # Authorization check: Verify user has "sdep_str" and "sdep_write" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_str" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_str' role required",
-        )
-
-    if "sdep_write" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_write' role required",
-        )
-
-    # Extract and validate platform ID and name from token
-    platform_id = token_payload.get("client_id")
-    if not platform_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_id' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        validate_functional_id(platform_id, "client_id")
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(e),
-        ) from e
-
-    platform_name = token_payload.get("client_name")
-    if not platform_name:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_name' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
     # Convert request to service layer format
-    activity_data = activity.to_service_dict(platform_id, platform_name)
+    activity_data = activity.to_service_dict(client.id, client.name)
 
     # Create activity via service layer
     activity_obj = await activity_service.create_activity(session, activity_data)

@@ -5,17 +5,29 @@ across different API versions (v0, v1, etc.).
 """
 
 from collections.abc import Callable
+from enum import StrEnum
 from functools import lru_cache
 from typing import Any
 
 import httpx
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.openapi.models import OAuthFlowClientCredentials, OAuthFlows
 from fastapi.security import OAuth2
+from fastapi.security.utils import get_authorization_scheme_param
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError
 
 from app.config import settings
 from app.exceptions.infrastructure import AuthorizationServerOperationalError
+
+
+class Role(StrEnum):
+    """Keycloak realm roles for SDEP authorization."""
+
+    CA = "sdep_ca"
+    STR = "sdep_str"
+    READ = "sdep_read"
+    WRITE = "sdep_write"
 
 
 @lru_cache(maxsize=1)
@@ -137,3 +149,50 @@ def create_verify_bearer_token(
         return validate_jwt_token(token)
 
     return verify_bearer_token
+
+
+class OAuth2ClientCredentials(OAuth2):
+    """OAuth2 Client Credentials flow with token extraction from Authorization header.
+
+    This extends FastAPI's OAuth2 base class to support extracting Bearer tokens
+    from the Authorization header for the Client Credentials flow.
+    """
+
+    async def __call__(self, request: Request) -> str | None:
+        """Extract Bearer token from Authorization header.
+
+        Args:
+            request: FastAPI request object
+
+        Returns:
+            The Bearer token string
+
+        Raises:
+            HTTPException: If token is missing or invalid format
+        """
+        authorization = request.headers.get("Authorization")
+        scheme, param = get_authorization_scheme_param(authorization)
+
+        if not authorization or scheme.lower() != "bearer":
+            if self.auto_error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            else:
+                return None
+
+        return param
+
+
+def get_oauth_schema(version_number: int):
+    return OAuth2ClientCredentials(
+        flows=OAuthFlows(
+            clientCredentials=OAuthFlowClientCredentials(
+                tokenUrl=f"{settings.BACKEND_BASE_URL}/api/v{version_number}/auth/token",
+                scopes={},
+            )
+        ),
+        auto_error=True,
+    )

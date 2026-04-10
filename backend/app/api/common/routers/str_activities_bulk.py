@@ -12,20 +12,19 @@ Pattern:
 """
 
 import logging
-from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.common.auth_dependencies import NamedClientDependency, RequireRoles
+from app.api.common.security import Role
 from app.db.config import get_async_db
 from app.schemas.activity_bulk import (
     BulkActivityRequest,
     BulkActivityResponse,
 )
-from app.schemas.common import validate_functional_id
 from app.schemas.error import ErrorResponse
-from app.security import verify_bearer_token
 from app.services import activity_bulk as activity_bulk_service
 
 logger = logging.getLogger(__name__)
@@ -198,11 +197,12 @@ Per-item results with summary counts. HTTP status varies:
             }
         }
     },
+    dependencies=[Depends(RequireRoles(Role.STR, Role.WRITE))],
 )
 async def post_activities_bulk(
     request: BulkActivityRequest,
+    client: NamedClientDependency,
     session: AsyncSession = Depends(get_async_db),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> Response:
     """
     Submit rental activities in bulk.
@@ -212,53 +212,12 @@ async def post_activities_bulk(
     - Platform ID extracted from token's "client_id" claim
     - Platform name extracted from token's "client_name" claim
     """
-
-    # Authorization check: Verify user has "sdep_str" and "sdep_write" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_str" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_str' role required",
-        )
-
-    if "sdep_write" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_write' role required",
-        )
-
-    # Extract and validate platform ID and name from token
-    platform_id = token_payload.get("client_id")
-    if not platform_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_id' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        validate_functional_id(platform_id, "client_id")
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(e),
-        ) from e
-
-    platform_name = token_payload.get("client_name")
-    if not platform_name:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_name' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
     # Process bulk activities via service layer
     result = await activity_bulk_service.create_activities_bulk(
         session=session,
         activities_raw=request.activities,
-        platform_id_str=platform_id,
-        platform_name=platform_name,
+        platform_id_str=client.id,
+        platform_name=client.name,
     )
 
     # Determine HTTP status based on results

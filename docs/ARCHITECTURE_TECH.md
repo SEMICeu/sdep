@@ -103,7 +103,9 @@ sdep-app/
 │   │   │   │   │   ├── health.py           # Health check router
 │   │   │   │   │   ├── ping.py             # Ping endpoint
 │   │   │   │   │   ├── str_activities.py   # STR activity endpoints
+│   │   │   │   │   ├── str_activities_bulk.py # STR bulk activity endpoints
 │   │   │   │   │   └── str_areas.py        # STR area endpoints
+│   │   │   │   ├── auth_dependencies.py    # Shared auth/role dependencies
 │   │   │   │   ├── exception_handlers.py
 │   │   │   │   ├── openapi.py
 │   │   │   │   └── security.py
@@ -144,7 +146,6 @@ sdep-app/
 │   │   ├── security/                       # Security utilities
 │   │   │   ├── audit.py                    # Audit logging middleware
 │   │   │   ├── audit_retention.py          # Background audit log cleanup
-│   │   │   ├── bearer.py                   # Bearer token handling
 │   │   │   └── headers.py                  # Security headers
 │   │   ├── services/                       # Business logic layer
 │   │   │   ├── activity.py
@@ -364,7 +365,7 @@ POST /ca/areas (multipart/form-data: file + optional areaId, areaName)
 - `GET /api/v0/str/areas/count` - Count areas
 - `GET /api/v0/str/areas/{areaId}` - Download shapefile for area
 - `POST /api/v0/str/activities` - Submit a single activity (JSON body)
-- `POST /api/v0/str/activities/bulk` - Submit up to 1000 activities in bulk (JSON body) — see [API.md § Bulk endpoint](./API.md#bulk-endpoint)
+- `POST /api/v0/str/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
 
 ### Health
 - `GET /api/health` - Health check (unauthenticated)

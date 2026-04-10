@@ -1,5 +1,9 @@
 # Changelog
 
+## 260410
+
+- Refactoring: centralize authentication flow to shared dependency
+
 ## 260409
 
 - Added Area.regulation (listing, address, all) conform Regulation, Article 13 >> default is all

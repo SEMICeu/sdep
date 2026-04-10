@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 from app.api.v0.main import app_v0
+from app.api.v0.security import verify_bearer_token
 from app.db.config import get_async_db, get_async_db_read_only
-from app.security import verify_bearer_token
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession

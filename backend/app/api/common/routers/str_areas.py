@@ -1,10 +1,12 @@
 """Areas endpoint."""
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.common.auth_dependencies import RequireRoles
+from app.api.common.security import Role
 from app.db.config import get_async_db_read_only
 from app.schemas.area import (
     AreaCountResponse,
@@ -12,7 +14,6 @@ from app.schemas.area import (
     AreaResponse,
 )
 from app.schemas.error import ErrorResponse
-from app.security import verify_bearer_token
 from app.services import area
 
 router = APIRouter(tags=["str"])
@@ -46,6 +47,7 @@ router = APIRouter(tags=["str"])
             "description": "Forbidden - insufficient permissions",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.STR, Role.READ))],
 )
 async def get_areas(
     offset: Annotated[
@@ -60,7 +62,6 @@ async def get_areas(
         ),
     ] = None,
     session: AsyncSession = Depends(get_async_db_read_only),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> AreaListResponse:
     """
     Get areas in context of the current SDEP/member state.
@@ -80,22 +81,6 @@ async def get_areas(
     - offset: Number of records to skip (default: 0)
     - limit: Maximum number of records to return (default: no limit, max: 1000)
     """
-    # Authorization check: Verify user has "sdep_str" and "sdep_read" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_str" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_str' role required",
-        )
-
-    if "sdep_read" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_read' role required",
-        )
-
     # Call business service
     areas_data = await area.get_areas(session, offset=offset, limit=limit)
 
@@ -132,10 +117,10 @@ async def get_areas(
             "description": "Forbidden - insufficient permissions",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.STR, Role.READ))],
 )
 async def count_areas(
     session: AsyncSession = Depends(get_async_db_read_only),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> AreaCountResponse:
     """
     Count all areas in context of the current SDEP/member state.
@@ -146,22 +131,6 @@ async def count_areas(
     Returns:
     - count: Total number of areas
     """
-    # Authorization check: Verify user has "sdep_str" and "sdep_read" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_str" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_str' role required",
-        )
-
-    if "sdep_read" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_read' role required",
-        )
-
     # Call business service
     total_count = await area.count_areas(session)
 
@@ -190,11 +159,11 @@ async def count_areas(
             "description": "Resource Not Found - area unavailable",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.STR, Role.READ))],
 )
 async def get_area(
     areaId: str,
     session: AsyncSession = Depends(get_async_db_read_only),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> Response:
     """
     Get specific area.
@@ -204,22 +173,6 @@ async def get_area(
 
     Returns raw binary area.
     """
-    # Authorization check: Verify user has "sdep_str" and "sdep_read" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_str" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_str' role required",
-        )
-
-    if "sdep_read" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_read' role required",
-        )
-
     # Call business service with technical area id
     area_data = await area.get_area_by_id(session, areaId)
 

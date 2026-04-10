@@ -5,9 +5,9 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from app.api.v0.main import app_v0
+from app.api.v0.security import verify_bearer_token
 from app.crud import activity as activity_crud
 from app.db.config import get_async_db, get_async_db_read_only
-from app.security import verify_bearer_token
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -320,6 +320,59 @@ class TestSTRActivitiesAPI:
 
         app_v0.dependency_overrides.clear()
 
+    async def test_post_activity_without_write_role(
+        self, async_session: AsyncSession, test_areas
+    ):
+        """Test POST /str/activities without 'sdep_write' role returns 403."""
+
+        def mock_verify_bearer_token_without_write_role() -> dict[str, Any]:
+            return {
+                "sub": "test_user",
+                "client_id": "str01",
+                "client_name": "STR Platform 01",
+                "realm_access": {"roles": ["sdep_str", "sdep_read"]},
+            }
+
+        app_v0.dependency_overrides[verify_bearer_token] = (
+            mock_verify_bearer_token_without_write_role
+        )
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db] = override_get_db
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities",
+                json={
+                    "areaId": test_areas["0363"].area_id,
+                    "url": "http://example.com/test-no-write-role",
+                    "registrationNumber": "REG123",
+                    "address": {
+                        "thoroughfare": "Street",
+                        "locatorDesignatorNumber": 1,
+                        "postCode": "1000AA",
+                        "postName": "City",
+                    },
+                    "temporal": {
+                        "startDatetime": "2025-06-01T14:00:00Z",
+                        "endDatetime": "2025-06-07T11:00:00Z",
+                    },
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        data = response.json()
+        detail_str = str(data["detail"]).lower()
+        assert "sdep_write" in detail_str
+        assert "role" in detail_str
+
+        app_v0.dependency_overrides.clear()
+
     async def test_post_activity_without_client_id_claim(
         self, async_session: AsyncSession, test_areas
     ):
@@ -369,6 +422,57 @@ class TestSTRActivitiesAPI:
         assert "detail" in data
         detail_str = str(data["detail"]).lower()
         assert "client_id" in detail_str
+
+        app_v0.dependency_overrides.clear()
+
+    async def test_post_activity_without_client_name_claim(
+        self, async_session: AsyncSession, test_areas
+    ):
+        """Test POST /str/activities without 'client_name' claim returns 401."""
+
+        def mock_verify_bearer_token_without_client_name() -> dict[str, Any]:
+            return {
+                "sub": "test_user",
+                "client_id": "str01",
+                "realm_access": {"roles": ["sdep_str", "sdep_read", "sdep_write"]},
+            }
+
+        app_v0.dependency_overrides[verify_bearer_token] = (
+            mock_verify_bearer_token_without_client_name
+        )
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db] = override_get_db
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities",
+                json={
+                    "areaId": test_areas["0363"].area_id,
+                    "url": "http://example.com/test-no-client-name",
+                    "registrationNumber": "REG123",
+                    "address": {
+                        "thoroughfare": "Street",
+                        "locatorDesignatorNumber": 1,
+                        "postCode": "1000AA",
+                        "postName": "City",
+                    },
+                    "temporal": {
+                        "startDatetime": "2025-06-01T14:00:00Z",
+                        "endDatetime": "2025-06-07T11:00:00Z",
+                    },
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        data = response.json()
+        detail_str = str(data["detail"]).lower()
+        assert "client_name" in detail_str
 
         app_v0.dependency_overrides.clear()
 

@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from app.api.v0.main import app_v0
+from app.api.v0.security import verify_bearer_token
 from app.db.config import get_async_db_read_only
-from app.security import verify_bearer_token
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -243,6 +243,58 @@ class TestStrAreaAPI:
 
         # Assert
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    async def test_get_areas_without_str_role(self, async_session: AsyncSession):
+        """Test GET /str/areas without sdep_str role returns 403."""
+
+        def mock_token_without_str_role() -> dict[str, Any]:
+            return {"sub": "test_user", "realm_access": {"roles": ["sdep_read"]}}
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_str_role
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app_v0), base_url="http://test"
+            ) as client:
+                response = await client.get(
+                    "/str/areas", headers={"Authorization": "Bearer test_token"}
+                )
+
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            assert "sdep_str" in response.json()["detail"][0]["msg"]
+        finally:
+            app_v0.dependency_overrides.clear()
+
+    async def test_get_areas_without_read_role(self, async_session: AsyncSession):
+        """Test GET /str/areas without sdep_read role returns 403."""
+
+        def mock_token_without_read_role() -> dict[str, Any]:
+            return {"sub": "test_user", "realm_access": {"roles": ["sdep_str"]}}
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app_v0), base_url="http://test"
+            ) as client:
+                response = await client.get(
+                    "/str/areas", headers={"Authorization": "Bearer test_token"}
+                )
+
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            assert "sdep_read" in response.json()["detail"][0]["msg"]
+        finally:
+            app_v0.dependency_overrides.clear()
 
     async def test_get_areas_content_type(
         self, async_session: AsyncSession, setup_overrides, competent_authority
@@ -601,6 +653,58 @@ class TestStrAreaAPI:
         # Assert
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    async def test_count_areas_without_str_role(self, async_session: AsyncSession):
+        """Test GET /str/areas/count without sdep_str role returns 403."""
+
+        def mock_token_without_str_role() -> dict[str, Any]:
+            return {"sub": "test_user", "realm_access": {"roles": ["sdep_read"]}}
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_str_role
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app_v0), base_url="http://test"
+            ) as client:
+                response = await client.get(
+                    "/str/areas/count", headers={"Authorization": "Bearer test_token"}
+                )
+
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            assert "sdep_str" in response.json()["detail"][0]["msg"]
+        finally:
+            app_v0.dependency_overrides.clear()
+
+    async def test_count_areas_without_read_role(self, async_session: AsyncSession):
+        """Test GET /str/areas/count without sdep_read role returns 403."""
+
+        def mock_token_without_read_role() -> dict[str, Any]:
+            return {"sub": "test_user", "realm_access": {"roles": ["sdep_str"]}}
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app_v0), base_url="http://test"
+            ) as client:
+                response = await client.get(
+                    "/str/areas/count", headers={"Authorization": "Bearer test_token"}
+                )
+
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            assert "sdep_read" in response.json()["detail"][0]["msg"]
+        finally:
+            app_v0.dependency_overrides.clear()
+
     async def test_get_area_not_found(
         self, async_session: AsyncSession, setup_overrides
     ):
@@ -699,6 +803,78 @@ class TestStrAreaAPI:
 
         # Assert
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    async def test_get_area_without_str_role(
+        self, async_session: AsyncSession, competent_authority
+    ):
+        """Test GET /str/areas/{areaId} without sdep_str role returns 403."""
+
+        area = await AreaFactory.create_async(
+            async_session,
+            competent_authority_id=competent_authority.id,
+            filename="test.zip",
+            filedata=b"data",
+        )
+
+        def mock_token_without_str_role() -> dict[str, Any]:
+            return {"sub": "test_user", "realm_access": {"roles": ["sdep_read"]}}
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_str_role
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app_v0), base_url="http://test"
+            ) as client:
+                response = await client.get(
+                    f"/str/areas/{area.area_id}",
+                    headers={"Authorization": "Bearer test_token"},
+                )
+
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            assert "sdep_str" in response.json()["detail"][0]["msg"]
+        finally:
+            app_v0.dependency_overrides.clear()
+
+    async def test_get_area_without_read_role(
+        self, async_session: AsyncSession, competent_authority
+    ):
+        """Test GET /str/areas/{areaId} without sdep_read role returns 403."""
+
+        area = await AreaFactory.create_async(
+            async_session,
+            competent_authority_id=competent_authority.id,
+            filename="test.zip",
+            filedata=b"data",
+        )
+
+        def mock_token_without_read_role() -> dict[str, Any]:
+            return {"sub": "test_user", "realm_access": {"roles": ["sdep_str"]}}
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app_v0), base_url="http://test"
+            ) as client:
+                response = await client.get(
+                    f"/str/areas/{area.area_id}",
+                    headers={"Authorization": "Bearer test_token"},
+                )
+
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            assert "sdep_read" in response.json()["detail"][0]["msg"]
+        finally:
+            app_v0.dependency_overrides.clear()
 
     async def test_get_area_with_large_binary_data(
         self, async_session: AsyncSession, setup_overrides, competent_authority

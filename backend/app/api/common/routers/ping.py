@@ -4,9 +4,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, status
 
+from app.api.v0.security import verify_bearer_token
 from app.schemas.error import ErrorResponse
 from app.schemas.health import Status
-from app.security import verify_bearer_token
 
 router = APIRouter(tags=["health"])
 

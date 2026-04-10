@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from app.api.v0.main import app_v0
+from app.api.v0.security import verify_bearer_token
 from app.db.config import get_async_db, get_async_db_read_only
-from app.security import verify_bearer_token
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -309,6 +309,115 @@ class TestSTRActivitiesBulkAPI:
             )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
+        app_v0.dependency_overrides.clear()
+
+    async def test_bulk_without_write_role_403(
+        self, async_session: AsyncSession, test_areas
+    ):
+        """Missing write role -> 403."""
+
+        def mock_no_write_role() -> dict[str, Any]:
+            return {
+                "sub": "test_user",
+                "client_id": "str01",
+                "client_name": "STR Platform 01",
+                "realm_access": {"roles": ["sdep_str", "sdep_read"]},
+            }
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_no_write_role
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db] = override_get_db
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(test_areas["area1"].area_id, "b001"),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "sdep_write" in str(response.json()["detail"]).lower()
+        app_v0.dependency_overrides.clear()
+
+    async def test_bulk_without_client_id_claim_401(
+        self, async_session: AsyncSession, test_areas
+    ):
+        """Missing client_id claim -> 401."""
+
+        def mock_without_client_id() -> dict[str, Any]:
+            return {
+                "sub": "test_user",
+                "client_name": "STR Platform 01",
+                "realm_access": {"roles": ["sdep_str", "sdep_read", "sdep_write"]},
+            }
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_without_client_id
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db] = override_get_db
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(test_areas["area1"].area_id, "b001"),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "client_id" in str(response.json()["detail"]).lower()
+        app_v0.dependency_overrides.clear()
+
+    async def test_bulk_without_client_name_claim_401(
+        self, async_session: AsyncSession, test_areas
+    ):
+        """Missing client_name claim -> 401."""
+
+        def mock_without_client_name() -> dict[str, Any]:
+            return {
+                "sub": "test_user",
+                "client_id": "str01",
+                "realm_access": {"roles": ["sdep_str", "sdep_read", "sdep_write"]},
+            }
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_without_client_name
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db] = override_get_db
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(test_areas["area1"].area_id, "b001"),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "client_name" in str(response.json()["detail"]).lower()
         app_v0.dependency_overrides.clear()
 
     # ── Intra-batch duplicates (last-wins) ───────────────────────────────

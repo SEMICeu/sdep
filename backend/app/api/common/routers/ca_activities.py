@@ -1,10 +1,12 @@
 """Competent authority endpoints."""
 
-from typing import Annotated, Any
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.common.auth_dependencies import ClientDependency, RequireRoles
+from app.api.common.security import Role
 from app.db.config import get_async_db_read_only
 from app.schemas.activity import (
     ActivityCountResponse,
@@ -13,9 +15,7 @@ from app.schemas.activity import (
     AddressResponse,
     TemporalResponse,
 )
-from app.schemas.common import validate_functional_id
 from app.schemas.error import ErrorResponse
-from app.security import verify_bearer_token
 from app.services import activity
 
 router = APIRouter(tags=["ca"])
@@ -86,8 +86,10 @@ router = APIRouter(tags=["ca"])
             "description": "Forbidden - insufficient permissions",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.CA, Role.READ))],
 )
 async def get_activities(
+    client: ClientDependency,
     offset: Annotated[
         int, Query(ge=0, description="Number of records to skip (default: 0)")
     ] = 0,
@@ -100,7 +102,6 @@ async def get_activities(
         ),
     ] = None,
     session: AsyncSession = Depends(get_async_db_read_only),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> ActivityListResponse:
     """
     Get activities for the current authenticated competent authority.
@@ -127,42 +128,10 @@ async def get_activities(
     - offset: Number of records to skip (default: 0)
     - limit: Maximum number of records to return (default: no limit, max: 1000)
     """
-    # Authorization check: Verify user has "sdep_ca" and "sdep_read" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_ca" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_ca' role required",
-        )
-
-    if "sdep_read" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_read' role required",
-        )
-
-    # Extract and validate competent authority ID from token's client_id claim
-    competent_authority_id = token_payload.get("client_id")
-    if not competent_authority_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_id' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        validate_functional_id(competent_authority_id, "client_id")
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(e),
-        ) from e
-
     # Call business service with competent authority ID from token
     activity_list = await activity.get_activity_list(
         session,
-        competent_authority_id=competent_authority_id,
+        competent_authority_id=client.id,
         offset=offset,
         limit=limit,
     )
@@ -221,10 +190,11 @@ async def get_activities(
             "description": "Forbidden - insufficient permissions",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.CA, Role.READ))],
 )
 async def count_activities(
+    client: ClientDependency,
     session: AsyncSession = Depends(get_async_db_read_only),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> ActivityCountResponse:
     """
     Count activities for the current authenticated competent authority.
@@ -236,41 +206,9 @@ async def count_activities(
     Returns:
     - count: Total number of activities for the given competent authority
     """
-    # Authorization check: Verify user has "sdep_ca" and "sdep_read" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_ca" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_ca' role required",
-        )
-
-    if "sdep_read" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_read' role required",
-        )
-
-    # Extract and validate competent authority ID from token's client_id claim
-    competent_authority_id = token_payload.get("client_id")
-    if not competent_authority_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_id' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        validate_functional_id(competent_authority_id, "client_id")
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(e),
-        ) from e
-
     # Call business service with competent authority ID from token
     total_count = await activity.count_activity_by_competent_authority(
-        session, competent_authority_id
+        session, client.id
     )
 
     return ActivityCountResponse(count=total_count)

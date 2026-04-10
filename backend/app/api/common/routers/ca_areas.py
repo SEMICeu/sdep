@@ -12,7 +12,7 @@ Pattern:
 """
 
 import logging
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import (
     APIRouter,
@@ -29,6 +29,12 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.common.auth_dependencies import (
+    ClientDependency,
+    NamedClientDependency,
+    RequireRoles,
+)
+from app.api.common.security import Role
 from app.db.config import get_async_db, get_async_db_read_only
 from app.schemas.area import (
     AreaCountResponse,
@@ -39,10 +45,8 @@ from app.schemas.area import (
 from app.schemas.common import (
     FunctionalId,
     OptionalFunctionalId,
-    validate_functional_id,
 )
 from app.schemas.error import ErrorResponse
-from app.security import verify_bearer_token
 from app.services import area as area_service
 
 logger = logging.getLogger(__name__)
@@ -99,13 +103,14 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
         },
         "422": {
             "model": ErrorResponse,
-            "description": "Validation Error - busines rule violation",
+            "description": "Validation Error - business rule violation",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.CA, Role.WRITE))],
 )
 async def post_area(
+    client: NamedClientDependency,
     session: AsyncSession = Depends(get_async_db),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
     areaId: Annotated[OptionalFunctionalId, Form()] = None,
     areaName: str | None = Form(None),
     regulation: Annotated[OptionalRegulation, Form()] = None,
@@ -119,47 +124,6 @@ async def post_area(
     - Competent authority ID extracted from token's "client_id" claim
     - Competent authority name extracted from token's "client_name" claim
     """
-
-    # Authorization check: Verify user has "sdep_ca" and "sdep_write" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_ca" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_ca' role required",
-        )
-
-    if "sdep_write" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_write' role required",
-        )
-
-    # Extract and validate competent authority ID and name from token
-    competent_authority_id = token_payload.get("client_id")
-    if not competent_authority_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_id' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        validate_functional_id(competent_authority_id, "client_id")
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(e),
-        ) from e
-
-    competent_authority_name = token_payload.get("client_name")
-    if not competent_authority_name:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_name' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
     # Read and validate file
     filedata = await file.read()
     if len(filedata) > MAX_FILE_SIZE:
@@ -189,8 +153,8 @@ async def post_area(
         regulation=regulation,
         filename=filename,
         filedata=filedata,
-        competent_authority_id_str=competent_authority_id,
-        competent_authority_name=competent_authority_name,
+        competent_authority_id_str=client.id,
+        competent_authority_name=client.name,
     )
 
     # Build response
@@ -244,10 +208,11 @@ async def post_area(
             "description": "Forbidden - insufficient permissions",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.CA, Role.READ))],
 )
 async def get_own_areas(
+    client: ClientDependency,
     session: AsyncSession = Depends(get_async_db),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
     offset: Annotated[
         int, Query(ge=0, description="Number of records to skip (default: 0)")
     ] = 0,
@@ -267,43 +232,10 @@ async def get_own_areas(
     - Requires valid bearer token with "sdep_ca" and "sdep_read" roles in realm_access
     - Competent authority ID extracted from token's "client_id" claim
     """
-
-    # Authorization check: Verify user has "sdep_ca" and "sdep_read" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_ca" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_ca' role required",
-        )
-
-    if "sdep_read" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_read' role required",
-        )
-
-    # Extract and validate competent authority ID from token
-    competent_authority_id = token_payload.get("client_id")
-    if not competent_authority_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_id' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        validate_functional_id(competent_authority_id, "client_id")
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(e),
-        ) from e
-
     # Get areas for this CA
     area_dicts = await area_service.get_areas_by_competent_authority(
         session,
-        competent_authority_id_str=competent_authority_id,
+        competent_authority_id_str=client.id,
         offset=offset,
         limit=limit,
     )
@@ -344,10 +276,11 @@ async def get_own_areas(
             "description": "Forbidden - insufficient permissions",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.CA, Role.READ))],
 )
 async def count_own_areas(
+    client: ClientDependency,
     session: AsyncSession = Depends(get_async_db_read_only),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> AreaCountResponse:
     """
     Count areas for the current authenticated competent authority.
@@ -359,41 +292,9 @@ async def count_own_areas(
     Returns:
     - count: Total number of areas for the given competent authority
     """
-    # Authorization check: Verify user has "sdep_ca" and "sdep_read" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_ca" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_ca' role required",
-        )
-
-    if "sdep_read" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_read' role required",
-        )
-
-    # Extract and validate competent authority ID from token's client_id claim
-    competent_authority_id = token_payload.get("client_id")
-    if not competent_authority_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_id' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        validate_functional_id(competent_authority_id, "client_id")
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(e),
-        ) from e
-
     # Call business service with competent authority ID from token
     total_count = await area_service.count_areas_by_competent_authority(
-        session, competent_authority_id
+        session, client.id
     )
 
     return AreaCountResponse(count=total_count)
@@ -421,11 +322,12 @@ async def count_own_areas(
             "description": "Resource Not Found - area unavailable, deleted, or not owned by this CA",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.CA, Role.READ))],
 )
 async def get_own_area(
+    client: ClientDependency,
     areaId: Annotated[FunctionalId, Path(...)],
     session: AsyncSession = Depends(get_async_db_read_only),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> Response:
     """
     Get specific area for the current authenticated competent authority.
@@ -436,43 +338,11 @@ async def get_own_area(
 
     Returns raw binary area, or 404 if not found / not owned by the CA.
     """
-    # Authorization check: Verify user has "sdep_ca" and "sdep_read" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_ca" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_ca' role required",
-        )
-
-    if "sdep_read" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_read' role required",
-        )
-
-    # Extract and validate competent authority ID from token
-    competent_authority_id = token_payload.get("client_id")
-    if not competent_authority_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_id' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        validate_functional_id(competent_authority_id, "client_id")
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(e),
-        ) from e
-
     # Get the area scoped to this CA
     area_data = await area_service.get_own_area_by_id(
         session,
         area_id=areaId,
-        competent_authority_id_str=competent_authority_id,
+        competent_authority_id_str=client.id,
     )
 
     if area_data is None:
@@ -521,14 +391,15 @@ async def get_own_area(
         },
         "422": {
             "model": ErrorResponse,
-            "description": "Validation Error - busines rule violation",
+            "description": "Validation Error - business rule violation",
         },
     },
+    dependencies=[Depends(RequireRoles(Role.CA, Role.WRITE))],
 )
 async def delete_area(
+    client: ClientDependency,
     areaId: Annotated[FunctionalId, Path(...)],
     session: AsyncSession = Depends(get_async_db),
-    token_payload: dict[str, Any] = Depends(verify_bearer_token),
 ) -> Response:
     """
     Delete (deactivate) an area for the current authenticated competent authority.
@@ -537,44 +408,11 @@ async def delete_area(
     - Requires valid bearer token with "sdep_ca" and "sdep_write" roles in realm_access
     - Competent authority ID extracted from token's "client_id" claim
     """
-
-    # Authorization check: Verify user has "sdep_ca" and "sdep_write" roles
-    realm_access = token_payload.get("realm_access", {})
-    roles = realm_access.get("roles", [])
-
-    if "sdep_ca" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_ca' role required",
-        )
-
-    if "sdep_write" not in roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access forbidden: 'sdep_write' role required",
-        )
-
-    # Extract and validate competent authority ID from token
-    competent_authority_id = token_payload.get("client_id")
-    if not competent_authority_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: missing 'client_id' claim",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        validate_functional_id(competent_authority_id, "client_id")
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(e),
-        ) from e
-
     # Delete the area (deactivate)
     await area_service.delete_area(
         session=session,
         area_id=areaId,
-        competent_authority_id_str=competent_authority_id,
+        competent_authority_id_str=client.id,
     )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

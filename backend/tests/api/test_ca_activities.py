@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from app.api.v0.main import app_v0
+from app.api.v0.security import verify_bearer_token
 from app.db.config import get_async_db_read_only
-from app.security import verify_bearer_token
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -541,6 +541,41 @@ class TestCAActivitiesAPI:
             # Clean up overrides
             app_v0.dependency_overrides.clear()
 
+    async def test_get_activities_without_read_role(
+        self, async_session: AsyncSession, test_data
+    ):
+        """Test GET /ca/activities without 'sdep_read' role returns 403 Forbidden."""
+
+        def mock_token_without_read_role() -> dict[str, Any]:
+            return {
+                "sub": "test_user",
+                "client_id": "0363",
+                "client_name": "Gemeente Amsterdam",
+                "realm_access": {"roles": ["sdep_ca"]},
+            }
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+
+        async def override_get_db_read_only():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db_read_only
+
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app_v0), base_url="http://test"
+            ) as client:
+                response = await client.get(
+                    "/ca/activities",
+                    headers={"Authorization": "Bearer test_token"},
+                )
+
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            detail_msg = response.json()["detail"][0]["msg"].lower()
+            assert "sdep_read" in detail_msg
+        finally:
+            app_v0.dependency_overrides.clear()
+
     async def test_get_activities_without_client_id_claim(
         self, async_session: AsyncSession, test_data
     ):
@@ -620,6 +655,41 @@ class TestCAActivitiesAPI:
             assert "sdep_ca" in detail_msg
         finally:
             # Clean up overrides
+            app_v0.dependency_overrides.clear()
+
+    async def test_count_activities_without_read_role(
+        self, async_session: AsyncSession, test_data
+    ):
+        """Test GET /ca/activities/count without 'sdep_read' role returns 403 Forbidden."""
+
+        def mock_token_without_read_role() -> dict[str, Any]:
+            return {
+                "sub": "test_user",
+                "client_id": "0363",
+                "client_name": "Gemeente Amsterdam",
+                "realm_access": {"roles": ["sdep_ca"]},
+            }
+
+        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+
+        async def override_get_db_read_only():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db_read_only
+
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app_v0), base_url="http://test"
+            ) as client:
+                response = await client.get(
+                    "/ca/activities/count",
+                    headers={"Authorization": "Bearer test_token"},
+                )
+
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            detail_msg = response.json()["detail"][0]["msg"].lower()
+            assert "sdep_read" in detail_msg
+        finally:
             app_v0.dependency_overrides.clear()
 
     async def test_count_activities_without_client_id_claim(

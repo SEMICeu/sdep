@@ -10,7 +10,7 @@ from fastapi import FastAPI
 
 from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common_app import app_common
-from app.api.v0 import app_v0
+from app.api.v0.main import app_v0
 from app.config import settings
 from app.db.config import async_engine
 from app.security import AuditLogMiddleware, SecurityHeadersMiddleware

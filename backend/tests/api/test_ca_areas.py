@@ -4,8 +4,8 @@ from typing import Any
 
 import pytest
 from app.api.v0.main import app_v0
+from app.api.v0.security import verify_bearer_token
 from app.db.config import get_async_db, get_async_db_read_only
-from app.security import verify_bearer_token
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -303,6 +303,39 @@ class TestCAAreaAPI:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert "sdep_write" in response.json()["detail"][0]["msg"]
+
+    async def test_post_area_unauthorized_missing_client_name_claim(
+        self, async_session: AsyncSession
+    ):
+        """Test POST /ca/areas without 'client_name' claim returns 401."""
+
+        def mock_token_without_client_name() -> dict[str, Any]:
+            return {
+                "sub": "test_user",
+                "client_id": "0363",
+                "realm_access": {"roles": ["sdep_ca", "sdep_read", "sdep_write"]},
+            }
+
+        app_v0.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_client_name
+        )
+
+        async def override_get_db():
+            yield async_session
+
+        app_v0.dependency_overrides[get_async_db] = override_get_db
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/ca/areas",
+                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "client_name" in response.json()["detail"][0]["msg"]
 
     async def test_post_area_invalid_area_id_pattern(
         self, async_session: AsyncSession, setup_overrides
