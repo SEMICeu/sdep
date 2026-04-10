@@ -2,7 +2,7 @@
 
 ## 260410
 
-- Refactoring: centralize authentication flow to shared dependency
+- Refactored internal authentication handling
 
 ## 260409
 
@@ -20,14 +20,14 @@
 ## 260330
 
 - Removed "proposed" from the bulk activity endpoint >> final (no impact on API)
-- Added config got application connection pool (same defaults as before, no impact on API)
+- Added config for application connection pool (same defaults as before, no impact on API)
 - Improved performance tests
 - Added all validation errors in bulk activity endpoint response (instead of only the first error)
 - Fixed Amsterdam shapefile
 
 ## 260325
 
-- Added a bulk activity endpoint `POST /str/activities/bulk` (up to 1000 items/batch, proposed)
+- Added a bulk activity endpoint `POST /str/activities/bulk` (up to 1000 items/batch)
 
 ## 260323
 
@@ -52,7 +52,7 @@
 
 ## 260227
 
-- Reverted the list and count endpoints for STR to retrieve their own data (`GET /str/activities`, `GET /str/activities/count`) >> discuss
+- Reverted the list and count endpoints for STR to retrieve their own data (`GET /str/activities`, `GET /str/activities/count`)
 
 ## 260225
 

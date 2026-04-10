@@ -92,134 +92,134 @@ SDEP is a FastAPI-based REST API that enables:
 
 ```
 sdep-app/
-├── backend/                                # Python FastAPI application
-│   ├── app/                                # Application code
-│   │   ├── api/                            # API layer (routers, endpoints)
-│   │   │   ├── common/                     # Shared API components (routers, openapi, security)
-│   │   │   │   ├── routers/                # API routers
-│   │   │   │   │   ├── auth.py             # Authentication router
-│   │   │   │   │   ├── ca_activities.py    # CA activity endpoints
-│   │   │   │   │   ├── ca_areas.py         # CA area endpoints
-│   │   │   │   │   ├── health.py           # Health check router
-│   │   │   │   │   ├── ping.py             # Ping endpoint
-│   │   │   │   │   ├── str_activities.py   # STR activity endpoints
-│   │   │   │   │   ├── str_activities_bulk.py # STR bulk activity endpoints
-│   │   │   │   │   └── str_areas.py        # STR area endpoints
-│   │   │   │   ├── auth_dependencies.py    # Shared auth/role dependencies
+├── backend/                                    # Python FastAPI application
+│   ├── app/                                    # Application code
+│   │   ├── api/                                # API layer (routers, endpoints)
+│   │   │   ├── common/                         # Shared API components (routers, openapi, security)
+│   │   │   │   ├── routers/                    # API routers
+│   │   │   │   │   ├── auth.py                 # Authentication router
+│   │   │   │   │   ├── ca_activities.py        # CA activity endpoints
+│   │   │   │   │   ├── ca_areas.py             # CA area endpoints
+│   │   │   │   │   ├── health.py               # Health check router
+│   │   │   │   │   ├── ping.py                 # Ping endpoint
+│   │   │   │   │   ├── str_activities.py       # STR activity endpoints
+│   │   │   │   │   ├── str_activities_bulk.py  # STR bulk activity endpoints
+│   │   │   │   │   └── str_areas.py            # STR area endpoints
+│   │   │   │   ├── auth_dependencies.py        # Shared auth/role dependencies
 │   │   │   │   ├── exception_handlers.py
 │   │   │   │   ├── openapi.py
 │   │   │   │   └── security.py
-│   │   │   ├── common_app.py               # Version-independent sub-app (health)
-│   │   │   └── v0/                         # API version 0
-│   │   │       ├── main.py                 # API v0 entry point
-│   │   │       └── security.py             # v0 security configuration
-│   │   ├── crud/                           # Database operations (CRUD)
+│   │   │   ├── common_app.py                   # Version-independent sub-app (health)
+│   │   │   └── v0/                             # API version 0
+│   │   │       ├── main.py                     # API v0 entry point
+│   │   │       └── security.py                 # v0 security configuration
+│   │   ├── crud/                               # Database operations (CRUD)
 │   │   │   ├── activity.py
 │   │   │   ├── area.py
 │   │   │   ├── competent_authority.py
 │   │   │   └── platform.py
-│   │   ├── db/                             # Database configuration
-│   │   │   └── config.py                   # Database session management
-│   │   ├── exceptions/                     # Custom exceptions
-│   │   │   ├── auth.py                     # Authentication exceptions
-│   │   │   ├── base.py                     # Base exception classes
-│   │   │   ├── business.py                 # Business logic exceptions
-│   │   │   ├── handlers.py                 # Exception handlers
-│   │   │   ├── infrastructure.py           # Infrastructure exceptions (DB, auth server)
-│   │   │   └── validation.py               # Validation exceptions
-│   │   ├── models/                         # SQLAlchemy ORM models
+│   │   ├── db/                                 # Database configuration
+│   │   │   └── config.py                       # Database session management
+│   │   ├── exceptions/                         # Custom exceptions
+│   │   │   ├── auth.py                         # Authentication exceptions
+│   │   │   ├── base.py                         # Base exception classes
+│   │   │   ├── business.py                     # Business logic exceptions
+│   │   │   ├── handlers.py                     # Exception handlers
+│   │   │   ├── infrastructure.py               # Infrastructure exceptions (DB, auth server)
+│   │   │   └── validation.py                   # Validation exceptions
+│   │   ├── models/                             # SQLAlchemy ORM models
 │   │   │   ├── activity.py
 │   │   │   ├── address.py
 │   │   │   ├── area.py
-│   │   │   ├── audit_log.py                # Audit log record
+│   │   │   ├── audit_log.py                    # Audit log record
 │   │   │   ├── competent_authority.py
 │   │   │   ├── platform.py
 │   │   │   └── temporal.py
-│   │   ├── schemas/                        # Pydantic schemas (request/response)
+│   │   ├── schemas/                            # Pydantic schemas (request/response)
 │   │   │   ├── activity.py
 │   │   │   ├── area.py
 │   │   │   ├── auth.py
-│   │   │   ├── common.py                   # Shared types: FunctionalId, validate_functional_id()
+│   │   │   ├── common.py                       # Shared types: FunctionalId, validate_functional_id()
 │   │   │   ├── error.py
 │   │   │   ├── health.py
 │   │   │   └── validation.py
-│   │   ├── security/                       # Security utilities
-│   │   │   ├── audit.py                    # Audit logging middleware
-│   │   │   ├── audit_retention.py          # Background audit log cleanup
-│   │   │   └── headers.py                  # Security headers
-│   │   ├── services/                       # Business logic layer
+│   │   ├── security/                           # Security utilities
+│   │   │   ├── audit.py                        # Audit logging middleware
+│   │   │   ├── audit_retention.py              # Background audit log cleanup
+│   │   │   └── headers.py                      # Security headers
+│   │   ├── services/                           # Business logic layer
 │   │   │   ├── activity.py
 │   │   │   └── area.py
-│   │   ├── config.py                       # Application configuration
-│   │   └── main.py                         # Application entry point
-│   ├── alembic/                            # Database migrations
-│   │   ├── env.py                          # Alembic environment config
-│   │   └── versions/                       # Migration scripts
-│   │       ├── 001_initial.py              # Initial migration
-│   │       └── 002_audit_log.py            # Audit log table
-│   ├── tests/                              # Unit tests (mirrors app/ structure)
-│   │   ├── api/                            # API layer tests
-│   │   ├── crud/                           # CRUD layer tests
-│   │   ├── fixtures/                       # Test fixtures and factories
-│   │   ├── security/                       # Security tests
-│   │   ├── services/                       # Service layer tests
-│   │   └── conftest.py                     # pytest configuration
-│   ├── alembic.ini                         # Alembic configuration
-│   ├── Dockerfile                          # Backend container image
-│   ├── Makefile                            # Backend-specific make targets
-│   ├── pyproject.toml                      # Python project configuration (uv)
-│   └── uv.lock                             # Locked dependencies
+│   │   ├── config.py                           # Application configuration
+│   │   └── main.py                             # Application entry point
+│   ├── alembic/                                # Database migrations
+│   │   ├── env.py                              # Alembic environment config
+│   │   └── versions/                           # Migration scripts
+│   │       ├── 001_initial.py                  # Initial migration
+│   │       └── 002_audit_log.py                # Audit log table
+│   ├── tests/                                  # Unit tests (mirrors app/ structure)
+│   │   ├── api/                                # API layer tests
+│   │   ├── crud/                               # CRUD layer tests
+│   │   ├── fixtures/                           # Test fixtures and factories
+│   │   ├── security/                           # Security tests
+│   │   ├── services/                           # Service layer tests
+│   │   └── conftest.py                         # pytest configuration
+│   ├── alembic.ini                             # Alembic configuration
+│   ├── Dockerfile                              # Backend container image
+│   ├── Makefile                                # Backend-specific make targets
+│   ├── pyproject.toml                          # Python project configuration (uv)
+│   └── uv.lock                                 # Locked dependencies
 │
-├── tests/                                  # Integration tests + performance tests
-│   ├── lib/                                # Test library utilities
-│   │   └── create_fixture_areas.sh         # Area fixture creation
-│   ├── perf/                               # Performance tests (Locust)
-│   │   └── locustfile.py                   # Bulk activity load test
-│   ├── test_auth_client.sh                 # OAuth2 token acquisition utility
-│   ├── test_auth_credentials.sh            # Test client credentials flow
-│   ├── test_auth_headers.sh                # Security headers compliance
-│   ├── test_auth_unauthorized.sh           # Test unauthorized access rejection
-│   ├── test_ca_activities.sh               # Test CA activity endpoints
-│   ├── test_ca_areas.sh                    # Test CA area submission
-│   ├── test_health_ping.sh                 # Health check tests
-│   ├── test_str_activities.sh              # Test STR activity submission
-│   ├── test_str_activities_bulk.sh         # Test STR bulk activity submission
-│   └── test_str_areas.sh                   # Test STR area query endpoints
+├── tests/                                      # Integration tests + performance tests
+│   ├── lib/                                    # Test library utilities
+│   │   └── create_fixture_areas.sh             # Area fixture creation
+│   ├── perf/                                   # Performance tests (Locust)
+│   │   └── locustfile.py                       # Bulk activity load test
+│   ├── test_auth_client.sh                     # OAuth2 token acquisition utility
+│   ├── test_auth_credentials.sh                # Test client credentials flow
+│   ├── test_auth_headers.sh                    # Security headers compliance
+│   ├── test_auth_unauthorized.sh               # Test unauthorized access rejection
+│   ├── test_ca_activities.sh                   # Test CA activity endpoints
+│   ├── test_ca_areas.sh                        # Test CA area submission
+│   ├── test_health_ping.sh                     # Health check tests
+│   ├── test_str_activities.sh                  # Test STR activity submission
+│   ├── test_str_activities_bulk.sh             # Test STR bulk activity submission
+│   └── test_str_areas.sh                       # Test STR area query endpoints
 │
-├── keycloak/                               # Keycloak config
-│   ├── add-realm-admin.sh                  # Create realm admin user
-│   ├── add-realm-machine-clients.sh        # Configure OAuth2 machine clients
-│   ├── add-realm-roles.sh                  # Configure roles
-│   ├── add-realm.sh                        # Initialize realm
-│   ├── get-client-secret.sh                # Retrieve client secret
-│   ├── machine-clients.yaml                # Machine client definitions (CA, STR)
-│   ├── roles.yaml                          # Role definitions
-│   └── wait.sh                             # Wait for Keycloak startup
+├── keycloak/                                   # Keycloak config
+│   ├── add-realm-admin.sh                      # Create realm admin user
+│   ├── add-realm-machine-clients.sh            # Configure OAuth2 machine clients
+│   ├── add-realm-roles.sh                      # Configure roles
+│   ├── add-realm.sh                            # Initialize realm
+│   ├── get-client-secret.sh                    # Retrieve client secret
+│   ├── machine-clients.yaml                    # Machine client definitions (CA, STR)
+│   ├── roles.yaml                              # Role definitions
+│   └── wait.sh                                 # Wait for Keycloak startup
 │
-├── postgres/                               # PostgreSQL initialization
-│   ├── clean-app.sql                       # Database cleanup
-│   ├── clean-testrun.sql                   # Test run cleanup
-│   ├── count-app.sql                       # Row count queries
-│   ├── init-keycloak.sql                   # Keycloak database setup
-│   └── init-app.sql                        # SDEP database setup
+├── postgres/                                   # PostgreSQL initialization
+│   ├── clean-app.sql                           # Database cleanup
+│   ├── clean-testrun.sql                       # Test run cleanup
+│   ├── count-app.sql                           # Row count queries
+│   ├── init-keycloak.sql                       # Keycloak database setup
+│   └── init-app.sql                            # SDEP database setup
 │
-├── test-data/                              # Test data for integration tests
-│   ├── shapefiles/                         # Shapefile test data (zipped)
-│   ├── 01-competent-authority.sql          # Competent authority fixtures
-│   ├── 02-area-generated.sql               # Generated area data
-│   └── generate-area-sql.sh                # Area data generator script
+├── test-data/                                  # Test data for integration tests
+│   ├── shapefiles/                             # Shapefile test data (zipped)
+│   ├── 01-competent-authority.sql              # Competent authority fixtures
+│   ├── 02-area-generated.sql                   # Generated area data
+│   └── generate-area-sql.sh                    # Area data generator script
 │
-├── docs/                                   # Documentation
-│   ├── API.md                              # API documentation
-│   ├── ARCHITECTURE_TECH.md                     # Architecture overview (this file)
-│   ├── DATAMODEL.md                        # Data model documentation
-│   ├── INTEGRATION_TESTS.md               # Integration test documentation
-│   ├── LISTING_ACTIVITY.md                 # Activity listing documentation
-│   ├── PERFORMANCE_TESTS.md               # Performance test documentation
-│   ├── PRE.md                              # Pre-conditions documentation
-│   ├── SECURITY.md                         # Security documentation
-│   ├── WOW.md                              # Ways of working
-│   └── diagrams/                           # Architecture and data model diagrams
+├── docs/                                       # Documentation
+│   ├── API.md                                  # API documentation
+│   ├── ARCHITECTURE_TECH.md                    # Architecture overview (this file)
+│   ├── DATAMODEL.md                            # Data model documentation
+│   ├── INTEGRATION_TESTS.md                    # Integration test documentation
+│   ├── LISTING_ACTIVITY.md                     # Activity listing documentation
+│   ├── PERFORMANCE_TESTS.md                    # Performance test documentation
+│   ├── PRE.md                                  # Pre-conditions documentation
+│   ├── SECURITY.md                             # Security documentation
+│   ├── WOW.md                                  # Ways of working
+│   └── diagrams/                               # Architecture and data model diagrams
 │       ├── ACTIVITY.excalidraw
 │       ├── ACTIVITY.svg
 │       ├── DATAMODEL.excalidraw
@@ -227,18 +227,18 @@ sdep-app/
 │       ├── LISTING.excalidraw
 │       └── LISTING.svg
 │
-├── scripts/                                # Utility scripts
-│   ├── run-tests.sh                        # Integration test runner
-│   └── run-tests-perf.sh                   # Performance test runner (Locust)
+├── scripts/                                    # Utility scripts
+│   ├── run-tests.sh                            # Integration test runner
+│   └── run-tests-perf.sh                       # Performance test runner (Locust)
 │
-├── .env                                    # Environment variables
-├── .gitignore                              # Git ignore rules
-├── .gitlab-ci.yml                          # GitLab CI/CD configuration
-├── CHANGELOG.md                            # Changelog
-├── docker-compose.yml                      # Multi-container orchestration
-├── LICENSE.md                              # EUPL License
-├── Makefile                                # Root-level make targets
-└── README.md                               # Quick start guide
+├── .env                                        # Environment variables
+├── .gitignore                                  # Git ignore rules
+├── .gitlab-ci.yml                              # GitLab CI/CD configuration
+├── CHANGELOG.md                                # Changelog
+├── docker-compose.yml                          # Multi-container orchestration
+├── LICENSE.md                                  # EUPL License
+├── Makefile                                    # Root-level make targets
+└── README.md                                   # Quick start guide
 ```
 
 ---
