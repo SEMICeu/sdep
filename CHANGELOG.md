@@ -1,5 +1,9 @@
 # Changelog
 
+## 260415
+
+- Improved performance test and (validation) documentation
+
 ## 260410
 
 - Refactored internal authentication handling
