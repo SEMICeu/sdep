@@ -131,6 +131,7 @@ make test-verbose
 
 Fullstack:
 ```
+make up
 make test
 make test-verbose
 ```
@@ -147,8 +148,11 @@ The tests can also be re-used/run against real deployments (TST, ACC, PRE, PRD; 
 
 ## Performance tests
 
-Locust-based load testing for the bulk activity endpoint (`POST /str/activities/bulk`):
+Locust-based load testing for the bulk activity endpoint (`POST /str/activities/bulk`).
+
+Fullstack:
 ```
+make up
 make test-perf
 ```
 

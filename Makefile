@@ -3,7 +3,7 @@ SHELL := /bin/bash
 .PHONY: help up down restart status test test-quiet logs postgres-up postgres-down keycloak-up keycloak-down backend-up backend-down \
         postgres-clean postgres-migrate postgres-clean-migrate-load postgres-load generate-area-sql .build .is-up .clean-stale .clean-database .migrate-database \
         .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles .keycloak-machine-clients .get-client-credentials \
-        .clean-testrun test-security test-str test-ca test-perf \
+        .clean-testrun test-security test-str test-ca test-perf test-perf-verbose \
         postgres-login postgres-status postgres-status-full postgres-auditlog postgres-activity-count dbgate-up dbgate-down dbgate-restart dbgate-status dbgate-logs \
         backend-logs postgres-logs keycloak-logs
 
@@ -446,16 +446,20 @@ PERF_KEEP_DATA ?= false
 PERF_STOP_ON_TARGET ?= true
 PERF_YES ?= false
 
+PERF_ENV = PERF_ACTIVITIES_TARGET=$(PERF_ACTIVITIES_TARGET) \
+           PERF_USERS=$(PERF_USERS) \
+           PERF_RAMP_UP=$(PERF_RAMP_UP) \
+           PERF_MAX_DURATION_SECONDS=$(PERF_MAX_DURATION_SECONDS) \
+           PERF_BATCH_SIZE=$(PERF_BATCH_SIZE) \
+           PERF_KEEP_DATA=$(PERF_KEEP_DATA) \
+           PERF_STOP_ON_TARGET=$(PERF_STOP_ON_TARGET) \
+           PERF_YES=$(PERF_YES)
+
 test-perf: .is-up .get-client-credentials ## Run bulk performance test (PERF_YES=true to skip confirmation)
-	@PERF_ACTIVITIES_TARGET=$(PERF_ACTIVITIES_TARGET) \
-	 PERF_USERS=$(PERF_USERS) \
-	 PERF_RAMP_UP=$(PERF_RAMP_UP) \
-	 PERF_MAX_DURATION_SECONDS=$(PERF_MAX_DURATION_SECONDS) \
-	 PERF_BATCH_SIZE=$(PERF_BATCH_SIZE) \
-	 PERF_KEEP_DATA=$(PERF_KEEP_DATA) \
-	 PERF_STOP_ON_TARGET=$(PERF_STOP_ON_TARGET) \
-	 PERF_YES=$(PERF_YES) \
-	 $(CURDIR)/scripts/run-tests-perf.sh
+	@$(PERF_ENV) $(CURDIR)/scripts/run-tests-perf.sh
+
+test-perf-verbose: .is-up .get-client-credentials ## Run bulk performance test with periodic Locust stats
+	@$(PERF_ENV) PERF_VERBOSE=true $(CURDIR)/scripts/run-tests-perf.sh
 
 ##@ Help
 

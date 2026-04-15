@@ -87,14 +87,24 @@ export STR_CLIENT_ID=$STR_CLIENT_ID
 export STR_CLIENT_SECRET=$STR_CLIENT_SECRET
 export PERF_AREA_IDS=$PERF_AREA_IDS
 
+echo "⏳ Spawning users and running tests (please be patient)..."
+echo ""
+
+P_VERBOSE="${PERF_VERBOSE:-false}"
+LOCUST_EXTRA_ARGS=()
+if [ "$P_VERBOSE" != "true" ]; then
+  LOCUST_EXTRA_ARGS+=(--only-summary)
+fi
+
 EXIT_CODE=0
-uvx --from locust locust -f tests/perf/locustfile.py \
+uvx --from 'locust>=2.20' locust -f tests/perf/locustfile.py \
   --headless \
   --host "$BACKEND_BASE_URL" \
   -u "$P_USERS" \
   -r "$P_RAMP_UP" \
   --run-time "${P_DURATION_SECONDS}s" \
-  --only-summary || EXIT_CODE=$?
+  "${LOCUST_EXTRA_ARGS[@]}" \
+  </dev/null || EXIT_CODE=$?
 
 # --- Cleanup ---
 if [ "$P_KEEP_DATA" != "true" ]; then
