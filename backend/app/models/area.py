@@ -72,7 +72,7 @@ class Area(Base):
 
     regulation: Mapped[Regulation] = mapped_column(
         SAEnum(Regulation, native_enum=True, length=16), nullable=False
-    )  # Mandatory, one of: 'listing', 'activity', 'all'
+    )  # Required, one of: 'listing', 'activity', 'all'
 
     competent_authority_id: Mapped[int] = mapped_column(
         ForeignKey("competent_authority.id"), nullable=False, index=True
@@ -80,11 +80,11 @@ class Area(Base):
 
     filename: Mapped[str] = mapped_column(
         String(64), nullable=False
-    )  # Mandatory, for example "Amsterdam.zip"
+    )  # Required, for example "Amsterdam.zip"
 
     filedata: Mapped[bytes] = mapped_column(
         LargeBinary, nullable=False
-    )  # Mandatory, max size 1 MiB, for example: a .zip with a collection of ESRI shapefile files
+    )  # Required, max size 1 MiB, for example: a .zip with a collection of ESRI shapefile files
 
     # Audit attributes
     created_at: Mapped[datetime] = mapped_column(
@@ -97,7 +97,7 @@ class Area(Base):
     # References
     competent_authority: Mapped[CompetentAuthority] = relationship(
         "CompetentAuthority", back_populates="areas"
-    )  # One to one (mandatory)
+    )  # One to one (required)
 
     activities: Mapped[list[Activity]] = relationship(
         "Activity", back_populates="area"

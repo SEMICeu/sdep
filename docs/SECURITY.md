@@ -28,9 +28,9 @@ To log "**who** did **what**, **where**, **when**, **from where**, and with what
 - **Append-only:** The `audit_log` table is insert-only; no updates or deletes
 - **Error-resilient:** Audit write failures are logged but never break the request
 - **Structured JSON to stdout:** Each audit record is also emitted as a single-line JSON object to stdout, providing three complementary access paths:
-  1. **Database audit log** — quick queries and easy access with shorter, application-managed retention
-  2. **Stdout** — real-time observability (e.g. `kubectl logs`, container log streams)
-  3. **Stdout → external log management** — ship to ELK, Loki, Splunk etc. for longer retention than the application's configured retention period
+  1. **Database audit log** - quick queries and easy access with shorter, application-managed retention
+  2. **Stdout** - real-time observability (e.g. `kubectl logs`, container log streams)
+  3. **Stdout → external log management** - ship to ELK, Loki, Splunk etc. for longer retention than the application's configured retention period
 
 ### Audit fields
 
@@ -39,7 +39,7 @@ For each request that matters, capture:
 | Field              | Source                      | Description                              | Answers |
 | :----------------- | :-------------------------- | :--------------------------------------- | :------ |
 | **timestamp**      | Server clock                | UTC, server default `now()`              | When    |
-| **requestId**      | Generated                   | UUID4 correlation ID                     | —       |
+| **requestId**      | Generated                   | UUID4 correlation ID                     | -       |
 | **roles**          | JWT `realm_access.roles`    | Comma-separated role list (nullable)     | Who     |
 | **resourceType**   | Derived from path           | Entity type, e.g. `area`, `activity`     | Where   |
 | **action**         | Derived from method + path  | Semantic action verb, e.g. `create`      | What    |
@@ -47,7 +47,7 @@ For each request that matters, capture:
 | **path**           | Request                     | Request path, e.g. `/api/v0/ca/areas`    | Where   |
 | **httpStatusCode** | Response                    | HTTP status code                         | Result  |
 | **statusCode**     | Derived from httpStatusCode | `OK` if httpStatusCode < 400, else `NOK` | Result  |
-| **durationMs**     | Calculated                  | Request processing time in milliseconds  | —       |
+| **durationMs**     | Calculated                  | Request processing time in milliseconds  | -       |
 
 ### Action mapping
 
@@ -61,7 +61,6 @@ The middleware derives a semantic action and resource type from the HTTP method 
 | GET    | `/*/ca/areas/{id}`       | `area`        | `read`        |
 | DELETE | `/*/ca/areas/{id}`       | `area`        | `delete`      |
 | POST   | `/*/str/activities/bulk` | `activity`    | `create_bulk` |
-| POST   | `/*/str/activities`      | `activity`    | `create`      |
 | GET    | `/*/str/areas`           | `area`        | `list`        |
 | GET    | `/*/str/areas/count`     | `area`        | `count`       |
 | GET    | `/*/str/areas/{id}`      | `area`        | `read`        |
@@ -107,5 +106,5 @@ The retention logic in `audit_retention.py` is split into two functions with dis
 
 | Function                                                   | Responsibility                                                                                                                                                                                                                                                               | Invocation                                                                                                                                                                                                  |
 | :--------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `delete_old_audit_logs(retention_days)`                    | **One-shot deletion.** Deletes all audit log rows older than `retention_days` in batches of 1.000. Returns the total number of deleted rows. This is a pure async function that runs to completion and then returns — it does not loop or sleep.                             | Called by `audit_log_cleanup_loop` on each cycle. Can also be called standalone in scripts, tests, or one-off maintenance tasks.                                                                            |
+| `delete_old_audit_logs(retention_days)`                    | **One-shot deletion.** Deletes all audit log rows older than `retention_days` in batches of 1.000. Returns the total number of deleted rows. This is a pure async function that runs to completion and then returns - it does not loop or sleep.                             | Called by `audit_log_cleanup_loop` on each cycle. Can also be called standalone in scripts, tests, or one-off maintenance tasks.                                                                            |
 | `audit_log_cleanup_loop(retention_days, interval_seconds)` | **Infinite scheduling loop.** Calls `delete_old_audit_logs` once, then sleeps for `interval_seconds` (default 3.600 s = 1 hour), and repeats indefinitely until the task is cancelled. Catches and logs any exceptions so that a single failed cycle does not kill the loop. | Created as an `asyncio.Task` inside the FastAPI `lifespan` context manager in `main.py`. The task starts when the application boots and is cancelled (via `task.cancel()`) when the application shuts down. |

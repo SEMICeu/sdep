@@ -2,10 +2,10 @@
 
 Implements the Application-First Validation flow for bulk activity creation:
 
-1. Pydantic Check — validate each item individually, mark failures as NOK
-2. Referential Integrity Check — single SELECT for area IDs, Python dict lookup
-3. Bulk Insert — single multi-row INSERT for all valid items
-4. Feedback — per-item OK/NOK response preserving original order
+1. Pydantic Check - validate each item individually, mark failures as NOK
+2. Referential Integrity Check - single SELECT for area IDs, Python dict lookup
+3. Bulk Insert - single multi-row INSERT for all valid items
+4. Feedback - per-item OK/NOK response preserving original order
 
 Transaction Management Architecture:
 - Service layer contains business logic only (no transaction management)
@@ -16,6 +16,7 @@ Transaction Management Architecture:
 
 import logging
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
@@ -25,8 +26,14 @@ from app.crud import activity as activity_crud
 from app.crud import area as area_crud
 from app.crud import platform as platform_crud
 from app.exceptions.business import InvalidOperationError
-from app.schemas.activity import ActivityRequest
+from app.schemas.activity import (
+    ActivityRequest,
+    ActivityResponse,
+    AddressResponse,
+    TemporalResponse,
+)
 from app.schemas.activity_bulk import BulkActivityResponse, BulkActivityResultItem
+from app.schemas.error import ErrorDetail, ErrorResponse
 
 logger = logging.getLogger(__name__)
 
@@ -59,29 +66,37 @@ async def create_activities_bulk(
     valid_indexes: list[int] = []
     # validated_items[i] = (ActivityRequest, service_dict) for valid items
     validated_items: dict[int, tuple[ActivityRequest, dict[str, Any]]] = {}
+    # Track the original client-supplied activityId per item (before UUID generation)
+    client_supplied_ids: dict[int, str | None] = {}
 
     # ── Step 1: Pydantic validation (per item) ──────────────────────────
     for i, raw in enumerate(activities_raw):
+        # Track client-supplied activityId before any processing
+        client_supplied_ids[i] = raw.get("activityId")
+
         try:
             activity_req = _activity_request_adapter.validate_python(raw)
         except ValidationError as e:
             # Show all validation errors so the client can fix in one go
-            errors = e.errors()
-            if errors:
-                parts = []
-                for err in errors:
-                    loc = ".".join(str(part) for part in err.get("loc", []))
-                    msg = err.get("msg", str(e))
-                    parts.append(f"{loc}: {msg}" if loc else msg)
-                error_msg = "; ".join(parts)
+            pydantic_errors = e.errors()
+            if pydantic_errors:
+                error_details = [
+                    ErrorDetail(
+                        msg=err.get("msg", str(e)),
+                        type=err.get("type", "validation_error"),
+                        loc=[str(part) for part in err.get("loc", [])] or None,
+                    )
+                    for err in pydantic_errors
+                ]
             else:
-                error_msg = str(e)
+                error_details = [ErrorDetail(msg=str(e), type="validation_error")]
 
             results[i] = BulkActivityResultItem(
                 activityIndex=i,
-                activityId=raw.get("activityId"),
+                activityId=client_supplied_ids[i],
                 status="NOK",
-                errorMessage=error_msg,
+                activity=None,
+                errors=ErrorResponse(detail=error_details),
             )
             continue
 
@@ -129,9 +144,17 @@ async def create_activities_bulk(
                 earlier_idx = activity_id_last_index[aid]
                 results[earlier_idx] = BulkActivityResultItem(
                     activityIndex=earlier_idx,
-                    activityId=aid,
+                    activityId=client_supplied_ids[earlier_idx],
                     status="NOK",
-                    errorMessage=f"Superseded by later item in batch at index {i}",
+                    activity=None,
+                    errors=ErrorResponse(
+                        detail=[
+                            ErrorDetail(
+                                msg=f"Superseded by later item in batch at index {i}",
+                                type="duplicate_error",
+                            )
+                        ]
+                    ),
                 )
             activity_id_last_index[aid] = i
 
@@ -140,18 +163,27 @@ async def create_activities_bulk(
 
     # ── Step 2: Referential Integrity check (single query) ──────────────
     unique_area_ids = list({validated_items[i][1]["area_id"] for i in valid_indexes})
-    area_id_map = await area_crud.get_area_id_map(session, unique_area_ids)
+    area_ca_map = await area_crud.get_area_ca_map(session, unique_area_ids)
 
     still_valid: list[int] = []
     for i in valid_indexes:
         _, service_dict = validated_items[i]
         area_id_str = service_dict["area_id"]
-        if area_id_str not in area_id_map:
+        if area_id_str not in area_ca_map:
             results[i] = BulkActivityResultItem(
                 activityIndex=i,
-                activityId=service_dict.get("activity_id"),
+                activityId=client_supplied_ids[i],
                 status="NOK",
-                errorMessage=f"Area with areaId '{area_id_str}' not found",
+                activity=None,
+                errors=ErrorResponse(
+                    detail=[
+                        ErrorDetail(
+                            msg=f"Area with areaId '{area_id_str}' not found",
+                            type="not_found_error",
+                            loc=["areaId"],
+                        )
+                    ]
+                ),
             )
         else:
             still_valid.append(i)
@@ -178,9 +210,18 @@ async def create_activities_bulk(
                 if aid in deactivated:
                     results[i] = BulkActivityResultItem(
                         activityIndex=i,
-                        activityId=aid,
+                        activityId=client_supplied_ids[i],
                         status="NOK",
-                        errorMessage=f"Activity '{aid}' has been deactivated",
+                        activity=None,
+                        errors=ErrorResponse(
+                            detail=[
+                                ErrorDetail(
+                                    msg=f"Activity '{aid}' has been deactivated",
+                                    type="business_logic_error",
+                                    loc=["activityId"],
+                                )
+                            ]
+                        ),
                     )
                 else:
                     still_valid.append(i)
@@ -201,16 +242,20 @@ async def create_activities_bulk(
                 await activity_crud.bulk_mark_as_ended(session, ids_to_end, platform.id)
 
     # ── Step 3: Bulk Insert ─────────────────────────────────────────────
+    # Use a single timestamp for all items in the batch
+    batch_created_at = datetime.now(UTC)
+
     if valid_indexes:
         insert_dicts = []
         for i in valid_indexes:
             _, service_dict = validated_items[i]
+            area_technical_id = area_ca_map[service_dict["area_id"]][0]
             insert_dicts.append(
                 {
                     "activity_id": service_dict["activity_id"],
                     "activity_name": service_dict.get("activity_name"),
                     "platform_id": platform.id,
-                    "area_id": area_id_map[service_dict["area_id"]],
+                    "area_id": area_technical_id,
                     "url": service_dict["url"],
                     "address_thoroughfare": service_dict["address_thoroughfare"],
                     "address_locator_designator_number": service_dict[
@@ -231,20 +276,58 @@ async def create_activities_bulk(
                         "temporal_start_date_time"
                     ],
                     "temporal_end_date_time": service_dict["temporal_end_date_time"],
+                    "created_at": batch_created_at,
                 }
             )
 
         await activity_crud.bulk_create(session, insert_dicts)
 
     # ── Step 4: Feedback ────────────────────────────────────────────────
-    # Fill in OK results for valid items
+    # Fill in OK results for valid items with embedded ActivityResponse
     for i in valid_indexes:
         _, service_dict = validated_items[i]
+        area_id_str = service_dict["area_id"]
+        _, ca_id, ca_name = area_ca_map[area_id_str]
+
+        activity_response = ActivityResponse(
+            activityId=service_dict["activity_id"],
+            activityName=service_dict.get("activity_name"),
+            areaId=area_id_str,
+            competentAuthorityId=ca_id,
+            competentAuthorityName=ca_name,
+            url=service_dict["url"],
+            address=AddressResponse(
+                thoroughfare=service_dict["address_thoroughfare"],
+                locatorDesignatorNumber=service_dict[
+                    "address_locator_designator_number"
+                ],
+                locatorDesignatorLetter=service_dict.get(
+                    "address_locator_designator_letter"
+                ),
+                locatorDesignatorAddition=service_dict.get(
+                    "address_locator_designator_addition"
+                ),
+                postCode=service_dict["address_post_code"],
+                postName=service_dict["address_post_name"],
+            ),
+            registrationNumber=service_dict["registration_number"],
+            numberOfGuests=service_dict["number_of_guests"],
+            countryOfGuests=service_dict["country_of_guests"],
+            temporal=TemporalResponse(
+                startDatetime=service_dict["temporal_start_date_time"],
+                endDatetime=service_dict["temporal_end_date_time"],
+            ),
+            platformId=platform_id_str,
+            platformName=platform_name,
+            createdAt=batch_created_at,
+        )
+
         results[i] = BulkActivityResultItem(
             activityIndex=i,
-            activityId=service_dict["activity_id"],
+            activityId=client_supplied_ids[i],
             status="OK",
-            errorMessage=None,
+            activity=activity_response,
+            errors=None,
         )
 
     final_results: list[BulkActivityResultItem] = [r for r in results if r is not None]

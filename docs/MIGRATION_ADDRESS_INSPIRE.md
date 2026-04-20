@@ -53,7 +53,7 @@ Some maximum length constraints have been widened to accommodate EU-wide address
 
 ## Required Client Changes
 
-1. **Update all request payloads** (`POST /str/activities`, `POST /str/activities/bulk`):
+1. **Update all request payloads** (`POST /str/activities/bulk`):
    - Replace `"street"` with `"thoroughfare"`
    - Replace `"number"` with `"locatorDesignatorNumber"`
    - Replace `"letter"` with `"locatorDesignatorLetter"`
@@ -75,7 +75,6 @@ Some maximum length constraints have been widened to accommodate EU-wide address
 
 | Endpoint                    | Direction | Change                           |
 | :-------------------------- | :-------- | :------------------------------- |
-| `POST /str/activities`      | Request   | New address field names required |
 | `POST /str/activities/bulk` | Request   | New address field names required |
 | `GET /ca/activities`        | Response  | New address field names returned |
 

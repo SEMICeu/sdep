@@ -22,12 +22,12 @@ class Address:
         """Initialize Address composite.
 
         Args:
-            thoroughfare: Street / public space name (max 80 chars, mandatory), e.g. "Prinsengracht"
-            locator_designator_number: Numeric house number component (mandatory), e.g. 263
+            thoroughfare: Street / public space name (max 80 chars, required), e.g. "Prinsengracht"
+            locator_designator_number: Numeric house number component (required), e.g. 263
             locator_designator_letter: Letter/character suffix (max 10 chars, optional), e.g. "a", "bis"
             locator_designator_addition: Additional qualifier (max 128 chars, optional), e.g. "II", "Apt 3"
-            post_code: Postal code (max 10 chars, alphanumeric, no spaces, mandatory), e.g. "1016GV"
-            post_name: City / town / village (max 80 chars, mandatory), e.g. "Amsterdam"
+            post_code: Postal code (max 10 chars, alphanumeric, no spaces, required), e.g. "1016GV"
+            post_name: City / town / village (max 80 chars, required), e.g. "Amsterdam"
         """
         self.thoroughfare = thoroughfare
         self.locator_designator_number = locator_designator_number

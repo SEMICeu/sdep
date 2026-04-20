@@ -35,7 +35,7 @@ OptionalRegulation = Annotated[
 
 
 class AreaResponse(BaseModel):
-    """Area response schema for STR areas."""
+    """Area response schema."""
 
     model_config = ConfigDict(
         title="area.AreaResponse",
@@ -46,14 +46,14 @@ class AreaResponse(BaseModel):
         ...,
         alias="areaId",
         description="Area functional ID (alphanumeric with hyphens, max 64 chars)",
-        examples=["3ab7c2b9-5c8d-4100-bc3e-00ac115f0495"],
+        examples=["959a7439-7cad-4009-96ec-353b44723db9"],
     )  # Functional ID
     area_name: str | None = Field(
         None,
         alias="areaName",
         max_length=64,
         description="Area name (optional, max 64 chars)",
-        examples=["Amsterdam Central"],
+        examples=["Amsterdam"],
     )  # Functional name
     regulation: Regulation = Field(
         default=Regulation.all,
@@ -69,7 +69,7 @@ class AreaResponse(BaseModel):
     competent_authority_id: FunctionalId = Field(
         ...,
         alias="competentAuthorityId",
-        description="Competent authority functional ID who submitted the area (alphanumeric with hyphens, max 64 chars)",
+        description="Functional ID referencing the competent authority that owns the area (alphanumeric with hyphens, max 64 chars)",
         examples=["sdep-ca0363"],
     )  # Attribute
     competent_authority_name: str | None = Field(
@@ -77,13 +77,13 @@ class AreaResponse(BaseModel):
         alias="competentAuthorityName",
         max_length=64,
         description="Competent authority name (optional, max 64 chars)",
-        examples=["Gemeente Amsterdam"],
+        examples=["Amsterdam (inclusief Weesp)"],
     )  # Attribute
     created_at: datetime = Field(
         ...,
         alias="createdAt",
         description="Timestamp when the area was created",
-        examples=["2025-01-15T10:30:00Z"],
+        examples=["2025-01-01T00:00:00Z"],
     )  # Attribute
 
     @model_serializer(mode="wrap")
@@ -103,65 +103,6 @@ class AreaListResponse(BaseModel):
     areas: list[AreaResponse] = Field(
         ...,
         description="List of areas in context of the current SDEP/member state",
-    )
-
-
-class AreaOwnResponse(BaseModel):
-    """Area response schema for CA's own areas (omits competentAuthorityId/Name)."""
-
-    model_config = ConfigDict(
-        title="area.AreaOwnResponse",
-        from_attributes=True,
-        populate_by_name=True,
-    )
-    area_id: FunctionalId = Field(
-        ...,
-        alias="areaId",
-        description="Area functional ID (alphanumeric with hyphens, max 64 chars)",
-        examples=["3ab7c2b9-5c8d-4100-bc3e-00ac115f0495"],
-    )
-    area_name: str | None = Field(
-        None,
-        alias="areaName",
-        max_length=64,
-        description="Area name (optional, max 64 chars)",
-        examples=["Amsterdam Central"],
-    )
-    regulation: Regulation = Field(
-        default=Regulation.all,
-        description="Regulation type: listing, activity, or all",
-        examples=["all"],
-    )
-    filename: str = Field(
-        ...,
-        max_length=64,
-        description="Area filename",
-        examples=["Amsterdam.zip"],
-    )
-    created_at: datetime = Field(
-        ...,
-        alias="createdAt",
-        description="Timestamp when the area was created",
-        examples=["2025-01-15T10:30:00Z"],
-    )
-
-    @model_serializer(mode="wrap")
-    def _serialize_model(self, serializer, info):
-        """Exclude areaName from response when it's None."""
-        data = serializer(self)
-        if data.get("areaName") is None:
-            data.pop("areaName", None)
-        return data
-
-
-class AreaOwnListResponse(BaseModel):
-    """List of own areas response schema (for CA)."""
-
-    model_config = ConfigDict(title="area.AreaOwnListResponse")
-
-    areas: list[AreaOwnResponse] = Field(
-        ...,
-        description="List of areas for the current competent authority",
     )
 
 

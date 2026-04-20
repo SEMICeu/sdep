@@ -100,7 +100,7 @@ for i in $(seq 0 $((CLIENT_COUNT - 1))); do
     if [[ "$CLIENT_ID" =~ ^${REALM_PREFIX} ]] || { [ -n "$SHORTNAME_PREFIX" ] && [[ "$CLIENT_ID" =~ ^${SHORTNAME_PREFIX} ]]; }; then
         VALID_INDICES+=("$i")
     else
-        echo "⚠️  Rejected: '$CLIENT_ID' — missing required prefix '${REALM_PREFIX}' or '${SHORTNAME_PREFIX}'"
+        echo "⚠️  Rejected: '$CLIENT_ID' - missing required prefix '${REALM_PREFIX}' or '${SHORTNAME_PREFIX}'"
         REJECTED_COUNT=$((REJECTED_COUNT + 1))
         REJECTED_ITEMS="${REJECTED_ITEMS:+$REJECTED_ITEMS, }$CLIENT_ID"
     fi

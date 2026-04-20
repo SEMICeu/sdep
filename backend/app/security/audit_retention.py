@@ -20,7 +20,7 @@ async def delete_old_audit_logs(retention_days: int) -> int:
     Deletes in batches of BATCH_SIZE to avoid long-running transactions and
     excessive lock contention. Each batch runs in its own transaction.
 
-    This is a pure coroutine that runs to completion and returns — it does not
+    This is a pure coroutine that runs to completion and returns - it does not
     loop or sleep. It can be called standalone (e.g. in scripts, tests, or
     one-off maintenance) or by ``audit_log_cleanup_loop`` for recurring use.
 
@@ -59,7 +59,7 @@ async def audit_log_cleanup_loop(
 
     Exceptions in a single cycle are caught and logged so the loop keeps
     running. The loop itself runs until the enclosing ``asyncio.Task`` is
-    cancelled — which happens during FastAPI shutdown via the ``lifespan``
+    cancelled - which happens during FastAPI shutdown via the ``lifespan``
     context manager in ``main.py``.
     """
     # Wait before the first attempt so the database has time to become

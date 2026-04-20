@@ -426,7 +426,6 @@ test-str: .is-up .get-client-credentials ## Test STR endpoints
 	fi && \
 	./tests/test_health_ping.sh 2>&1 | tee $$OUTPUT_FILE && \
 	./tests/test_str_areas.sh 2>&1 | tee $$OUTPUT_FILE && \
-	./tests/test_str_activities.sh 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ STR endpoints tested"
 
 

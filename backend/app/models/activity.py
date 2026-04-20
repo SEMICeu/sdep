@@ -90,7 +90,7 @@ class Activity(Base):
 
     url: Mapped[str] = mapped_column(
         String(128), nullable=False
-    )  # Mandatory, for example "http://example.com/my-advertisement"
+    )  # Required, for example "http://example.com/my-advertisement"
 
     # Composite attributes - Address (INSPIRE/STR-AP field names)
     address_thoroughfare: Mapped[str] = mapped_column(String(80), nullable=False)
@@ -108,7 +108,7 @@ class Activity(Base):
 
     registration_number: Mapped[str] = mapped_column(
         String(32), nullable=False
-    )  # Mandatory, for example "REG123456"
+    )  # Required, for example "REG123456"
 
     number_of_guests: Mapped[int | None] = mapped_column(
         Integer, nullable=True
@@ -151,11 +151,11 @@ class Activity(Base):
     # References
     area: Mapped[Area] = relationship(
         "Area", back_populates="activities"
-    )  # Zero to many to one (mandatory)
+    )  # Zero to many to one (required)
 
     platform: Mapped[Platform] = relationship(
         "Platform", back_populates="activities"
-    )  # Zero to many to one (mandatory)
+    )  # Zero to many to one (required)
 
     def __repr__(self) -> str:
         """String representation of Activity."""

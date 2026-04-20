@@ -24,8 +24,8 @@ class Temporal:
         """Initialize Temporal composite.
 
         Args:
-            start_date_time: Start datetime of the period (mandatory, year >= 2025)
-            end_date_time: End datetime of the period (mandatory)
+            start_date_time: Start datetime of the period (required, year >= 2025)
+            end_date_time: End datetime of the period (required)
 
         Raises:
             ValueError: If start_date_time year is less than 2025

@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     #
     # So the max concurrent DB connections per replica = pool_size + max_overflow.
     # This effectively limits how many concurrent database-bound requests a single
-    # replica can serve — additional requests wait for a connection to be returned.
+    # replica can serve - additional requests wait for a connection to be returned.
     #
     # Pool sizing: must accommodate concurrent bulk requests.
     # PgBouncer allows e.g. 50 server connections (default_pool_size=50),

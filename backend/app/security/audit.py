@@ -42,7 +42,6 @@ _ACTION_RULES: list[tuple[str, re.Pattern, str, str]] = [
     ("GET", re.compile(r"^/api/v\d+/str/areas/([^/]+)$"), "read", "area"),
     ("GET", re.compile(r"^/api/v\d+/str/areas$"), "list", "area"),
     ("POST", re.compile(r"^/api/v\d+/str/activities/bulk$"), "create_bulk", "activity"),
-    ("POST", re.compile(r"^/api/v\d+/str/activities$"), "create", "activity"),
     ("GET", re.compile(r"^/api/v\d+/ca/activities/count$"), "count", "activity"),
     ("GET", re.compile(r"^/api/v\d+/ca/activities$"), "list", "activity"),
     ("POST", re.compile(r"^/api/v\d+/auth/token$"), "token", "auth"),
@@ -167,7 +166,7 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
             )
         )
 
-        # Write asynchronously — never block the response
+        # Write asynchronously - never block the response
         # Store reference to prevent task from being garbage-collected
         task = asyncio.create_task(_write_audit_record(record))
         task.add_done_callback(

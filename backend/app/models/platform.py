@@ -37,11 +37,11 @@ class Platform(Base):
     # Attributes
     platform_id: Mapped[str] = mapped_column(
         String(64), nullable=False, index=True
-    )  # Mandatory, unique with created_at (versioning), lowercase alphanumeric with hyphens, max 64 chars, for example "platform01"
+    )  # Required, unique with created_at (versioning), lowercase alphanumeric with hyphens, max 64 chars, for example "platform01"
 
     platform_name: Mapped[str | None] = mapped_column(
         String(64), nullable=True
-    )  # Optional, human-readable, max 64 chars, for example "Booking.com"
+    )  # Optional, human-readable, max 64 chars, for example "Example.com"
 
     # Audit attributes
     created_at: Mapped[datetime] = mapped_column(

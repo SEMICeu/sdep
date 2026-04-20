@@ -168,7 +168,7 @@ class ActivityFactory(AsyncSQLAlchemyFactory):
     country_of_guests = factory.LazyFunction(
         lambda: ["NLD", "DEU", "BEL"]
     )  # ISO 3166-1 alpha-3
-    # Temporal composite fields (both mandatory)
+    # Temporal composite fields (both required)
     # Use sequence to ensure unique combinations with URL
     # Start from 2025 to satisfy the year >= 2025 constraint
     temporal_start_date_time = factory.Sequence(

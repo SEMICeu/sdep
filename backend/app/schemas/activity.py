@@ -21,7 +21,6 @@ from app.schemas.common import FunctionalId, OptionalFunctionalId  # noqa: TC001
 __all__ = [
     "ActivityCountResponse",
     "ActivityListResponse",
-    "ActivityOwnResponse",
     "ActivityRequest",
     "ActivityResponse",
     "AddressRequest",
@@ -185,7 +184,7 @@ class ActivityRequest(BaseModel):
     - Optional: If not provided, will be auto-generated (RFC 9562 UUID)
 
     Activity Name:
-    - Optional: Human-readable name (max 128 chars)
+    - Optional: Display name (max 64 chars)
 
     Validation Layer:
     - Validates all syntax constraints (lengths, ranges, types)
@@ -205,7 +204,7 @@ class ActivityRequest(BaseModel):
     ] = Field(
         None,
         alias="activityId",
-        description="Activity functional ID (optional, auto-generated UUID if not provided; alphanumeric with hyphens, max 64 chars)",
+        description="Functional ID identifying this activity (optional, auto-generated UUID if not provided; alphanumeric with hyphens `^[A-Za-z0-9-]+$`, max 64 chars)",
         examples=[
             "550e8400-e29b-41d4-a716-446655440000",
             "550E8400-E29B-41D4-A716-446655440000",
@@ -234,7 +233,7 @@ class ActivityRequest(BaseModel):
         ...,
         min_length=1,
         max_length=128,
-        description="URL of the advertisement (mandatory)",
+        description="URL of the originating listing/advertisement (required)",
         examples=["http://example.com/amsterdam-myhouse-1"],
     )  # Attribute
 
@@ -412,7 +411,21 @@ class ActivityResponse(BaseModel):
             "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495",
         ],
     )  # Functional ID reference
-    url: str = Field(..., description="URL of the advertisement")  # Attribute
+    competent_authority_id: FunctionalId = Field(
+        ...,
+        alias="competentAuthorityId",
+        description="Competent authority functional ID who owns the referenced areaId (alphanumeric with hyphens, max 64 chars)",
+        examples=["sdep-ca0363", "SDEP-CA0363"],
+    )  # Attribute
+    competent_authority_name: str | None = Field(
+        None,
+        alias="competentAuthorityName",
+        max_length=64,
+        description="Competent authority name (optional, max 64 chars)",
+    )  # Attribute
+    url: str = Field(
+        ..., description="URL of the originating listing/advertisement"
+    )  # Attribute
     address: AddressResponse = Field(..., description="Address composite")  # Composite
     registration_number: str = Field(
         ...,
@@ -433,7 +446,7 @@ class ActivityResponse(BaseModel):
     platform_id: FunctionalId = Field(
         ...,
         alias="platformId",
-        description="Platform functional ID (alphanumeric with hyphens, max 64 chars)",
+        description="Functional ID referencing the platform that owns the activity (alphanumeric with hyphens, max 64 chars)",
         examples=["str01", "STR01"],
     )  # Attribute
     platform_name: str | None = Field(
@@ -448,10 +461,12 @@ class ActivityResponse(BaseModel):
 
     @model_serializer(mode="wrap")
     def _serialize_model(self, serializer, info):
-        """Exclude activityName from response when it's None."""
+        """Exclude optional name fields from response when they're None."""
         data = serializer(self)
         if data.get("activityName") is None:
             data.pop("activityName", None)
+        if data.get("competentAuthorityName") is None:
+            data.pop("competentAuthorityName", None)
         return data
 
 
@@ -461,80 +476,6 @@ class ActivityListResponse(BaseModel):
     model_config = ConfigDict(title="activity.ActivityListResponse")
 
     activities: list[ActivityResponse] = Field(..., description="List of activities")
-
-
-class ActivityOwnResponse(BaseModel):
-    """Activity response schema for STR's own activities (omits platformId/Name)."""
-
-    model_config = ConfigDict(
-        title="activity.ActivityOwnResponse",
-        from_attributes=True,
-        populate_by_name=True,
-    )
-
-    activity_id: FunctionalId = Field(
-        ...,
-        alias="activityId",
-        description="Activity functional ID (alphanumeric with hyphens, max 64 chars)",
-        examples=[
-            "550e8400-e29b-41d4-a716-446655440000",
-            "550E8400-E29B-41D4-A716-446655440000",
-        ],
-    )
-    activity_name: str | None = Field(
-        None,
-        alias="activityName",
-        max_length=64,
-        description="Activity name (optional, max 64 chars)",
-    )
-    area_id: FunctionalId = Field(
-        ...,
-        alias="areaId",
-        description="Area functional ID (alphanumeric with hyphens, max 64 chars)",
-        examples=[
-            "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
-            "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495",
-        ],
-    )
-    competent_authority_id: FunctionalId = Field(
-        ...,
-        alias="competentAuthorityId",
-        description="Competent authority functional ID who owns the referenced area (convenience; alphanumeric with hyphens, max 64 chars)",
-        examples=["sdep-ca0363", "SDEP-CA0363"],
-    )
-    competent_authority_name: str | None = Field(
-        None,
-        alias="competentAuthorityName",
-        max_length=64,
-        description="Competent authority name (convenience; optional, max 64 chars)",
-    )
-    url: str = Field(..., description="URL of the advertisement")
-    address: AddressResponse = Field(..., description="Address composite")
-    registration_number: str = Field(
-        ...,
-        alias="registrationNumber",
-        description="Registration number for the address",
-    )
-    number_of_guests: int | None = Field(
-        None, alias="numberOfGuests", description="Number of guests (optional)"
-    )
-    country_of_guests: list[CountryAlpha3] | None = Field(
-        None,
-        alias="countryOfGuests",
-        description="Array of country codes of guests (optional)",
-    )
-    temporal: TemporalResponse = Field(..., description="Temporal composite")
-    created_at: datetime = Field(
-        ..., alias="createdAt", description="Creation timestamp"
-    )
-
-    @model_serializer(mode="wrap")
-    def _serialize_model(self, serializer, info):
-        """Exclude activityName from response when it's None."""
-        data = serializer(self)
-        if data.get("activityName") is None:
-            data.pop("activityName", None)
-        return data
 
 
 class ActivityCountResponse(BaseModel):

@@ -18,7 +18,7 @@ class TestPlatformCRUD:
         """Test creating a new platform."""
         # Arrange
         platform_id = "platform01"
-        platform_name = "Booking.com"
+        platform_name = "Example.com"
 
         # Act
         result = await platform.create(

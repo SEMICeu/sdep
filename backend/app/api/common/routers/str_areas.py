@@ -27,14 +27,44 @@ router = APIRouter(tags=["str"])
     description="Get all areas. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.\n\n"
     "**Each area contains:**\n"
     "- `areaId`: Functional ID identifying this area\n"
-    "- `areaName`: Optional human-readable name for this area\n"
-    "- `regulation`: Regulation type — 'listing', 'activity', or 'all'\n"
-    "- `filename`: Name of the shapefile (e.g., 'area.zip')\n"
-    "- `competentAuthorityId`: Functional ID identifying the competent authority who submitted the area\n"
-    "- `competentAuthorityName`: Display name of the competent authority\n"
+    "- `areaName`: Display name (optional) of the area\n"
+    "- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all'\n"
+    "- `filename`: Name of the area shapefile (e.g., 'area.zip')\n"
+    "- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n"
+    "- `competentAuthorityName`: Display name (optional) of the competent authority\n"
     "- `createdAt`: Timestamp when this area version was created (UTC)",
     operation_id="getAreas",
     responses={
+        "200": {
+            "description": "List of areas",
+            "model": AreaListResponse,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "areas": [
+                            {
+                                "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                                "areaName": "Amsterdam",
+                                "regulation": "all",
+                                "filename": "Amsterdam.zip",
+                                "competentAuthorityId": "sdep-ca0363",
+                                "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                                "createdAt": "2025-01-01T00:00:00Z",
+                            },
+                            {
+                                "areaId": "904ee15d-70a6-4e69-a704-6018646803a8",
+                                "areaName": "Rotterdam",
+                                "regulation": "all",
+                                "filename": "Rotterdam.zip",
+                                "competentAuthorityId": "sdep-ca0599",
+                                "competentAuthorityName": "Rotterdam",
+                                "createdAt": "2025-01-01T00:00:00Z",
+                            },
+                        ],
+                    }
+                }
+            },
+        },
         "400": {
             "model": ErrorResponse,
             "description": "Bad request - invalid query parameters",
@@ -70,11 +100,11 @@ async def get_areas(
     - Requires valid bearer token with "sdep_str" and "sdep_read" roles in realm_access
 
     Returns a list of areas, each containing:
-    - areaId: Functional ID - enables retrieval of area shapefile
-    - areaName: Optional human-readable name
-    - filename: Name of the shapefile
-    - competentAuthorityId: Competent authority functional ID who submitted the area
-    - competentAuthorityName: Competent authority name who submitted the area
+    - areaId: Functional ID identifying the area - enables retrieval of area shapefile
+    - areaName: Display name of the area (optional)
+    - filename: Name of the area shapefile
+    - competentAuthorityId: Functional ID referencing the competent authority that owns the area
+    - competentAuthorityName: Display name (optional) of the competent authority
     - createdAt: Timestamp when the area was created
 
     Pagination parameters:

@@ -76,8 +76,8 @@ class TestCAAreaAPI:
         assert "areaId" in data
         assert data["filename"] == "Area.zip"
         assert "createdAt" in data
-        assert "competentAuthorityId" not in data
-        assert "competentAuthorityName" not in data
+        assert data["competentAuthorityId"] == "0363"
+        assert data["competentAuthorityName"] == "Gemeente Amsterdam"
 
     async def test_post_area_with_area_id(
         self, async_session: AsyncSession, setup_overrides
@@ -236,8 +236,8 @@ class TestCAAreaAPI:
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert "competentAuthorityId" not in data
-        assert "competentAuthorityName" not in data
+        assert data["competentAuthorityId"] == "0363"
+        assert data["competentAuthorityName"] == "Gemeente Amsterdam"
 
     async def test_post_area_file_too_large(
         self, async_session: AsyncSession, setup_overrides
@@ -464,9 +464,8 @@ class TestCAAreaAPI:
         data = response.json()
         assert len(data["areas"]) == 1
         assert data["areas"][0]["areaId"] == "my-area"
-        # Should NOT contain competentAuthorityId/Name (CA knows who it is)
-        assert "competentAuthorityId" not in data["areas"][0]
-        assert "competentAuthorityName" not in data["areas"][0]
+        assert data["areas"][0]["competentAuthorityId"] == "0363"
+        assert data["areas"][0]["competentAuthorityName"] == "Gemeente Amsterdam"
         # Should NOT contain endedAt
         assert "endedAt" not in data["areas"][0]
 

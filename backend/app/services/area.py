@@ -46,9 +46,9 @@ async def get_areas(
 
     Returns:
         List of area dictionaries, each containing:
-        - areaId: Area unique identifier
-        - competentAuthorityId: Competent authority (id) who submitted the area
-        - competentAuthorityName: Competent authority (name) who submitted the area
+        - areaId: Functional ID identifying the area
+        - competentAuthorityId: Functional ID referencing the competent authority that owns the area
+        - competentAuthorityName: Display name (optional) of the competent authority
         - filename: Area filename
         - createdAt: Timestamp when the area was created
     """
@@ -185,7 +185,7 @@ async def create_area(
     Args:
         session: Async database session
         area_id: Optional functional ID (auto-generated UUID if None)
-        area_name: Optional human-readable name
+        area_name: Optional display name
         filename: Filename of the uploaded file
         filedata: Binary file data
         competent_authority_id_str: Competent authority ID from JWT token
@@ -265,7 +265,7 @@ async def get_areas_by_competent_authority(
         limit: Maximum number of records to return (default: no limit)
 
     Returns:
-        List of area dictionaries (without competentAuthorityId/Name)
+        List of area dictionaries
     """
     areas = await area_crud.get_by_competent_authority_id_str(
         session, competent_authority_id_str, offset=offset, limit=limit
@@ -277,6 +277,8 @@ async def get_areas_by_competent_authority(
             "areaName": area.area_name,
             "regulation": area.regulation,
             "filename": area.filename,
+            "competentAuthorityId": area.competent_authority.competent_authority_id,
+            "competentAuthorityName": area.competent_authority.competent_authority_name,
             "createdAt": area.created_at,
         }
         for area in areas

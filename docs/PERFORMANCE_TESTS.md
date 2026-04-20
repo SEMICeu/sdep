@@ -69,20 +69,20 @@ Both are invoked via `make test-perf`.
 
 ### Test data generation
 
-No fixture files are used — all test data is generated at runtime by `_generate_activity()` in `locustfile.py`. Each Locust task iteration generates `PERF_BATCH_SIZE` activities (default: 500) per HTTP request.
+No fixture files are used - all test data is generated at runtime by `_generate_activity()` in `locustfile.py`. Each Locust task iteration generates `PERF_BATCH_SIZE` activities (default: 500) per HTTP request.
 
 Each activity contains the following fields:
 
-| Field                | How it is generated                                                                                          |
-| -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `activityId`         | Prefix + 12 random hex characters from `uuid4`. Prefix is `sdep-test-perf-` (throwaway) or `perf-` when `PERF_KEEP_DATA=true` |
-| `url`                | Fake URL using the same unique ID (e.g. `http://sdep-test-perf.example.com/<id>`)                            |
-| `registrationNumber` | `REGPERF` + 8 uppercase hex characters                                                                       |
+| Field                | How it is generated                                                                                                              |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `activityId`         | Prefix + 12 random hex characters from `uuid4`. Prefix is `sdep-test-perf-` (throwaway) or `perf-` when `PERF_KEEP_DATA=true`    |
+| `url`                | Fake URL using the same unique ID (e.g. `http://sdep-test-perf.example.com/<id>`)                                                |
+| `registrationNumber` | `REGPERF` + 8 uppercase hex characters                                                                                           |
 | `address`            | Random Dutch street name (`Prinsengracht`, `Keizersgracht`, etc.), house number (1–999), postcode, and city from hardcoded lists |
-| `temporal`           | `startDatetime` = current UTC timestamp; `endDatetime` = fixed (`2027-12-31T23:59:59Z`)                      |
-| `areaId`             | Randomly picked from `PERF_AREA_IDS` (created by the Makefile via `lib/create_fixture_areas.sh`)             |
-| `numberOfGuests`     | Random integer 1–10                                                                                          |
-| `countryOfGuests`    | Random 1–3 ISO country codes from a fixed set (`NLD`, `DEU`, `BEL`, `FRA`, `GBR`, `ESP`, `ITA`, `USA`)      |
+| `temporal`           | `startDatetime` = current UTC timestamp; `endDatetime` = fixed (`2027-12-31T23:59:59Z`)                                          |
+| `areaId`             | Randomly picked from `PERF_AREA_IDS` (created by the Makefile via `lib/create_fixture_areas.sh`)                                 |
+| `numberOfGuests`     | Random integer 1–10                                                                                                              |
+| `countryOfGuests`    | Random 1–3 ISO country codes from a fixed set (`NLD`, `DEU`, `BEL`, `FRA`, `GBR`, `ESP`, `ITA`, `USA`)                           |
 
 The `activityId` prefix convention controls cleanup:
 
@@ -111,18 +111,18 @@ The same cleanup SQL is used by `make .clean-testrun` for all test types (integr
 
 After running the tests:
 
-| Field                          | Meaning                                                                                            |
-| ------------------------------ | -------------------------------------------------------------------------------------------------- |
-| **Configuration**              | Repeats the parameter values used for this test run                                                |
-| **Total activities processed** | Sum of all per-item OK + NOK results across all HTTP requests, incl. overshoot                     |
-| **HTTP requests**              | Total HTTP requests with per-endpoint breakdown (auth + bulk)                                      |
-| **Throughput**                 | Actual sustained rate of successfully processed activities per second                              |
-| **Bulk requests/sec**          | Actual sustained rate of bulk POST requests per second (x activities per request)                  |
-| **Extrapolated**               | Throughput projected over 24 hours — what the system *can* sustain                                 |
-| **Target**                     | What you *asked* for (`PERF_ACTIVITIES_TARGET`), reached by `PERF_USERS` concurrent users          |
-| **Verdict**                    | Whether extrapolated capacity meets or exceeds the target, with the headroom ratio                 |
-| **Overshoot**                  | Only shown when `PERF_STOP_ON_TARGET=true` and total exceeds target (see explanation below)        |
-| **Correctness (SLI)**          | Post-test verification: samples 10 submitted activities and verifies them via `GET /ca/activities` |
+| Field                          | Meaning                                                                                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Configuration**              | Repeats the parameter values used for this test run                                                                                                          |
+| **Total activities processed** | Sum of all per-item OK + NOK results across all HTTP requests, incl. overshoot                                                                               |
+| **HTTP requests**              | Total HTTP requests with per-endpoint breakdown (auth + bulk)                                                                                                |
+| **Throughput**                 | Actual sustained rate of successfully processed activities per second                                                                                        |
+| **Bulk requests/sec**          | Actual sustained rate of bulk POST requests per second (x activities per request)                                                                            |
+| **Extrapolated**               | Throughput projected over 24 hours - what the system *can* sustain                                                                                           |
+| **Target**                     | What you *asked* for (`PERF_ACTIVITIES_TARGET`), reached by `PERF_USERS` concurrent users                                                                    |
+| **Verdict**                    | Whether extrapolated capacity meets or exceeds the target, with the headroom ratio                                                                           |
+| **Overshoot**                  | Only shown when `PERF_STOP_ON_TARGET=true` and total exceeds target (see explanation below)                                                                  |
+| **Correctness (SLI)**          | Post-test verification: samples 10 submitted activities and verifies them via `GET /ca/activities` (only runs when `PERF_KEEP_DATA=true`; skipped otherwise) |
 
 **Note on target vs extrapolated:** The target controls the *minimum* load (number of concurrent users). Each user fires requests as fast as possible, so actual throughput is whatever the server can sustain. The "extrapolated" value shows real capacity; the ratio tells you how much headroom exists above the target.
 
@@ -130,9 +130,9 @@ After running the tests:
 - **Overshoot (counted):** extra activities recorded in Locust's counter beyond the target (may be 0 if the runner shut down before counting the last responses)
 - **Overshoot (max):** worst-case overshoot = `PERF_USERS x PERF_BATCH_SIZE` (e.g. 10 users x 1000 batch = 10,000 activities)
 
-The actual database row count may be higher than what Locust reports. This is inherent to concurrent load testing — `runner.quit()` cannot cancel in-flight HTTP requests.
+The actual database row count may be higher than what Locust reports. This is inherent to concurrent load testing - `runner.quit()` cannot cancel in-flight HTTP requests.
 
-**Note on `PERF_RAMP_UP`:** Controls how many users are spawned per second (Locust's `-r` flag). Default is `1` (one user per second). With 10 users and ramp-up 1, all users are active within 10 seconds — fast enough for most tests while giving the system time to handle each user's authentication request sequentially. For stress testing with 100+ users, keeping ramp-up at 1/sec is important to avoid overwhelming the auth endpoint at startup. Set to a higher value (e.g. `PERF_RAMP_UP=10`) to spawn all users instantly.
+**Note on `PERF_RAMP_UP`:** Controls how many users are spawned per second (Locust's `-r` flag). Default is `1` (one user per second). With 10 users and ramp-up 1, all users are active within 10 seconds - fast enough for most tests while giving the system time to handle each user's authentication request sequentially. For stress testing with 100+ users, keeping ramp-up at 1/sec is important to avoid overwhelming the auth endpoint at startup. Set to a higher value (e.g. `PERF_RAMP_UP=10`) to spawn all users instantly.
 
 ## Benchmarks
 
@@ -148,7 +148,7 @@ Industry-standard benchmarks for API response times:
 **References:**
 - Google SRE Workbook (Latency & SLOs)
 - AWS Well-Architected Framework (Performance Efficiency)
-- Nielsen Norman Group — [Response Time Limits](https://www.nngroup.com/articles/response-times-3-important-limits/)
+- Nielsen Norman Group - [Response Time Limits](https://www.nngroup.com/articles/response-times-3-important-limits/)
 
 **Contextualisation for bulk endpoints:**
 
@@ -166,7 +166,7 @@ Requests flow through two connection pools before reaching PostgreSQL:
 Locust users ─► sdep-backend (SQLAlchemy pool) ─► PgBouncer ─► PostgreSQL
 ```
 
-Both pools must be sized correctly. If the SQLAlchemy pool is too small, requests queue inside the backend waiting for a database connection — even though PgBouncer and PostgreSQL have plenty of capacity.
+Both pools must be sized correctly. If the SQLAlchemy pool is too small, requests queue inside the backend waiting for a database connection - even though PgBouncer and PostgreSQL have plenty of capacity.
 
 ### SQLAlchemy pool (`backend/app/db/config.py`)
 
@@ -176,7 +176,7 @@ Both pools must be sized correctly. If the SQLAlchemy pool is too small, request
 | `max_overflow` | Extra connections created on demand when `pool_size` is full   |
 | **Total**      | `pool_size + max_overflow` = maximum concurrent DB connections |
 
-The pool must accommodate the number of concurrent requests the backend handles. Each bulk request holds a connection for the duration of its database transaction — which can be several seconds under load. If all connections are in use, new requests wait up to 30 seconds and then fail with:
+The pool must accommodate the number of concurrent requests the backend handles. Each bulk request holds a connection for the duration of its database transaction - which can be several seconds under load. If all connections are in use, new requests wait up to 30 seconds and then fail with:
 
 ```
 sqlalchemy.exc.TimeoutError: QueuePool limit of size N overflow M reached, connection timed out
@@ -208,7 +208,7 @@ If you scale to 2 backend replicas, set SQLAlchemy to `pool_size=10, max_overflo
 
 ## Network tuning
 
-Under sustained load, a small percentage of HTTP requests may fail with connection-level errors (`RemoteDisconnected`, `ChunkedEncodingError`) even though the backend processed the request successfully (HTTP 201). These are not application errors — they are TCP connection drops between the client and the backend, caused by intermediate network components (reverse proxy, load balancer) closing the connection before the client reads the full response.
+Under sustained load, a small percentage of HTTP requests may fail with connection-level errors (`RemoteDisconnected`, `ChunkedEncodingError`) even though the backend processed the request successfully (HTTP 201). These are not application errors - they are TCP connection drops between the client and the backend, caused by intermediate network components (reverse proxy, load balancer) closing the connection before the client reads the full response.
 
 ### Cause
 
@@ -268,9 +268,9 @@ Four SLIs are most relevant for bulk activity ingestion:
 
 **A. Freshness**
 
-Freshness measures how "stale" data is — the time between "data changed at source" and "data is available in our system". It is the most important SLI for systems that **pull** data on a schedule (e.g. a pipeline that polls an external source every 15 minutes).
+Freshness measures how "stale" data is - the time between "data changed at source" and "data is available in our system". It is the most important SLI for systems that **pull** data on a schedule (e.g. a pipeline that polls an external source every 15 minutes).
 
-SDEP is a **push API**: external STR platforms submit activities via HTTP whenever they choose, and the data is persisted within the same request. There is no scheduled pipeline, no polling interval, no batch window. The "freshness" is entirely controlled by the caller, not by SDEP. Any delay in data availability is already captured by the **throughput** and **latency** SLIs — if the system is too slow or backlogged, those metrics will show it.
+SDEP is a **push API**: external STR platforms submit activities via HTTP whenever they choose, and the data is persisted within the same request. There is no scheduled pipeline, no polling interval, no batch window. The "freshness" is entirely controlled by the caller, not by SDEP. Any delay in data availability is already captured by the **throughput** and **latency** SLIs - if the system is too slow or backlogged, those metrics will show it.
 
 - **Relevance to SDEP:** Low. Freshness is not a meaningful SLI for a push-based API.
 - **Current coverage:** Not measured, and not needed.
@@ -305,7 +305,7 @@ Google applies specific patterns to guarantee reliability at large volumes. Here
 
 | Strategy                    | Description                                                                       | SDEP implementation                                                                                                                                                                                                                              |
 | --------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Atomicity**               | A batch request succeeds or fails as a whole, preventing partial states           | Each bulk request is a single database transaction. On error, the entire batch rolls back — no half-written state. Per-item validation failures are reported as NOK without aborting the valid items in the same batch.                          |
+| **Atomicity**               | A batch request succeeds or fails as a whole, preventing partial states           | Each bulk request is a single database transaction. On error, the entire batch rolls back - no half-written state. Per-item validation failures are reported as NOK without aborting the valid items in the same batch.                          |
 | **Idempotency**             | A bulk update can be retried without creating duplicates                          | Implemented via activity versioning: re-submitting an `activityId` marks the previous version as ended (`ended_at = now()`) and inserts a new current version. Duplicate `activityId` values within a single batch are deduplicated (last-wins). |
 | **Side-by-side validation** | Compare output of a new batch version against the previous one before overwriting | Not currently implemented. Could be added as a post-ingestion step that compares record counts and checksums between the previous and current batch for a given platform.                                                                        |
 
@@ -313,18 +313,18 @@ Google applies specific patterns to guarantee reliability at large volumes. Here
 
 Batch errors behave differently in an error budget than request-level errors:
 
-- **Impact:** A single failing daily batch job can consume 100% of the daily error budget in one go — unlike interactive services where errors are distributed across many small requests.
+- **Impact:** A single failing daily batch job can consume 100% of the daily error budget in one go - unlike interactive services where errors are distributed across many small requests.
 - **Alerting:** Set alerts on "time-to-complete". If a batch job takes 2x longer than normal, this is often a precursor to an SLO breach.
-- **SDEP relevance:** The performance test's `Verdict` line is essentially a throughput error budget check — if extrapolated capacity drops below the target, the system cannot sustain the required daily volume. The `10 consecutive failures` abort mechanism acts as an early warning: if the system is degraded enough to fail 10 requests in a row, the test stops rather than burning through the error budget.
+- **SDEP relevance:** The performance test's `Verdict` line is essentially a throughput error budget check - if extrapolated capacity drops below the target, the system cannot sustain the required daily volume. The `10 consecutive failures` abort mechanism acts as an early warning: if the system is degraded enough to fail 10 requests in a row, the test stops rather than burning through the error budget.
 
 ### Summary: SLI measurement gaps
 
 | SLI         | Measured by perf test?                                             | Suggested extension |
 | ----------- | ------------------------------------------------------------------ | ------------------- |
-| Freshness   | N/A — not meaningful for a push-based API                          | —                   |
-| Coverage    | Yes — `Coverage (SLI)` in summary                                  | —                   |
-| Correctness | Yes — `Correctness (SLI)` in summary (post-test sample-and-verify) | —                   |
-| Throughput  | Yes                                                                | —                   |
+| Freshness   | N/A - not meaningful for a push-based API                          | -                   |
+| Coverage    | Yes - `Coverage (SLI)` in summary                                  | -                   |
+| Correctness | Yes - `Correctness (SLI)` in summary (post-test sample-and-verify) | -                   |
+| Throughput  | Yes                                                                | -                   |
 
 ---
 *Based on the Google SRE Workbook & Google Cloud Architecture Framework.*

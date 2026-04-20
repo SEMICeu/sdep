@@ -37,7 +37,7 @@ class CompetentAuthority(Base):
     # Attributes
     competent_authority_id: Mapped[str] = mapped_column(
         String(64), nullable=False, index=True
-    )  # Mandatory, unique with created_at (versioning), lowercase alphanumeric with hyphens, max 64 chars, for example "0363" or "sdep-ca0363"
+    )  # Required, unique with created_at (versioning), lowercase alphanumeric with hyphens, max 64 chars, for example "0363" or "sdep-ca0363"
 
     competent_authority_name: Mapped[str | None] = mapped_column(
         String(64), nullable=True

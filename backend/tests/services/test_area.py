@@ -684,7 +684,7 @@ class TestAreaService:
         # Assert
         assert len(ca1_areas) == 1
         assert ca1_areas[0]["areaId"] == "ca1-area-1"
-        assert "competentAuthorityId" not in ca1_areas[0]  # Not in own response
+        assert ca1_areas[0]["competentAuthorityId"] == "0363"
 
         assert len(ca2_areas) == 1
         assert ca2_areas[0]["areaId"] == "ca2-area-1"
@@ -731,7 +731,7 @@ class TestAreaService:
             competent_authority_name="Gemeente Amsterdam",
         )
 
-        # Act — different CA tries to access
+        # Act - different CA tries to access
         result = await area.get_own_area_by_id(async_session, "ca1-area", "9999")
 
         # Assert

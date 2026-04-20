@@ -110,7 +110,7 @@ for i in $(seq 0 $((ROLE_COUNT - 1))); do
         fi
         DESIRED_ROLE_NAMES="$DESIRED_ROLE_NAMES\"$ROLE_NAME\""
     else
-        echo "⚠️  Rejected: '$ROLE_NAME' — missing required prefix '${REALM_PREFIX}' or '${SHORTNAME_PREFIX}'"
+        echo "⚠️  Rejected: '$ROLE_NAME' - missing required prefix '${REALM_PREFIX}' or '${SHORTNAME_PREFIX}'"
         REJECTED_COUNT=$((REJECTED_COUNT + 1))
         REJECTED_ITEMS="${REJECTED_ITEMS:+$REJECTED_ITEMS, }$ROLE_NAME"
     fi

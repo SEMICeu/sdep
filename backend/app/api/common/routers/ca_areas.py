@@ -38,8 +38,8 @@ from app.api.common.security import Role
 from app.db.config import get_async_db, get_async_db_read_only
 from app.schemas.area import (
     AreaCountResponse,
-    AreaOwnListResponse,
-    AreaOwnResponse,
+    AreaListResponse,
+    AreaResponse,
     OptionalRegulation,
 )
 from app.schemas.common import (
@@ -74,25 +74,25 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 
 **The request contains (multipart/form-data):**
 - `areaId`: Functional ID identifying this area (optional, auto-generated UUID if not provided; alphanumeric with hyphens `^[A-Za-z0-9-]+$`, max 64 chars)
-- `areaName`: Optional human-readable name for this area (optional, max 64 chars)
-- `regulation`: Regulation type — 'listing', 'activity', or 'all' (optional, defaults to 'all' when not supplied)
-- `file`: Shapefile upload (required, max 1 MiB)
+- `areaName`: Display name (optional, max 64 chars)
+- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all' (optional, defaults to 'all' when not supplied)
+- `file`: Shapefile upload (max 1 MiB)
 
 **The response contains:**
 - `areaId`: Functional ID identifying this area
-- `areaName`: Optional human-readable name for this area
-- `regulation`: Regulation type — 'listing', 'activity', or 'all'
-- `filename`: Name of the shapefile (e.g., 'area.zip')
+- `areaName`: Display name (optional) of the area
+- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all'
+- `filename`: Name of the area shapefile (e.g., 'area.zip')
 - `createdAt`: Timestamp when this area version was created (UTC)
 
 """,
     operation_id="postArea",
-    response_model=AreaOwnResponse,
+    response_model=AreaResponse,
     status_code=status.HTTP_201_CREATED,
     responses={
         "201": {
             "description": "Area created successfully",
-            "model": AreaOwnResponse,
+            "model": AreaResponse,
         },
         "401": {
             "model": ErrorResponse,
@@ -158,11 +158,13 @@ async def post_area(
     )
 
     # Build response
-    response = AreaOwnResponse(
+    response = AreaResponse(
         areaId=area_obj.area_id,
         areaName=area_obj.area_name,
         regulation=area_obj.regulation,
         filename=area_obj.filename,
+        competentAuthorityId=client.id,
+        competentAuthorityName=client.name,
         createdAt=area_obj.created_at,
     )
 
@@ -175,17 +177,17 @@ async def post_area(
 @router.get(
     "/ca/areas",
     summary="Get areas for the current authenticated competent authority",
-    description="""Get all areas submitted by the current authenticated competent authority. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.
+    description="""Get all areas owned by the current authenticated competent authority. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.
 
 **Scoping:**
 - Only returns areas belonging to the authenticated CA (based on JWT client_id)
 
 **Each area contains:**
 - `areaId`: Functional ID identifying this area
-- `areaName`: Optional human-readable name for this area
+- `areaName`: Display name (optional) of the area
 - `regulation`: Regulation type: 'listing', 'activity', or 'all'
-- `filename`: Name of the shapefile (e.g., 'area.zip')
-- `createdAt`: Timestamp when this area version was created (UTC)
+- `filename`: Name of the area shapefile (e.g., 'area.zip')
+- `createdAt`: Timestamp the this area version was created (UTC)
 
 **Pagination:**
 - `offset`: Number of records to skip (default: 0)
@@ -193,9 +195,30 @@ async def post_area(
 
 """,
     operation_id="getOwnAreas",
-    response_model=AreaOwnListResponse,
+    response_model=AreaListResponse,
     status_code=status.HTTP_200_OK,
     responses={
+        "200": {
+            "description": "List of areas owned by the authenticated competent authority",
+            "model": AreaListResponse,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "areas": [
+                            {
+                                "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                                "areaName": "Amsterdam",
+                                "regulation": "all",
+                                "filename": "Amsterdam.zip",
+                                "competentAuthorityId": "sdep-ca0363",
+                                "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                                "createdAt": "2025-01-01T00:00:00Z",
+                            },
+                        ],
+                    }
+                }
+            },
+        },
         "400": {
             "model": ErrorResponse,
             "description": "Bad request - invalid query parameters",
@@ -242,17 +265,19 @@ async def get_own_areas(
 
     # Build response
     areas = [
-        AreaOwnResponse(
+        AreaResponse(
             areaId=area_dict["areaId"],
             areaName=area_dict["areaName"],
             regulation=area_dict["regulation"],
             filename=area_dict["filename"],
+            competentAuthorityId=area_dict["competentAuthorityId"],
+            competentAuthorityName=area_dict["competentAuthorityName"],
             createdAt=area_dict["createdAt"],
         )
         for area_dict in area_dicts
     ]
 
-    response = AreaOwnListResponse(areas=areas)
+    response = AreaListResponse(areas=areas)
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,

@@ -16,7 +16,7 @@ from app.db.config import async_engine
 from app.security import AuditLogMiddleware, SecurityHeadersMiddleware
 from app.security.audit_retention import audit_log_cleanup_loop
 
-# Configure dedicated audit logger — message-only formatter so JSON lines are clean
+# Configure dedicated audit logger - message-only formatter so JSON lines are clean
 _audit_logger = logging.getLogger("audit")
 _audit_logger.setLevel(logging.INFO)
 _audit_handler = logging.StreamHandler(sys.stdout)
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     On shutdown (e.g. SIGTERM from Kubernetes during HPA scale-down):
     1. Cancel background tasks (audit log cleanup loop)
-    2. Dispose the SQLAlchemy async engine — this closes all pooled database
+    2. Dispose the SQLAlchemy async engine - this closes all pooled database
        connections gracefully, so the process can exit with code 0 instead of
        being killed by SIGKILL after terminationGracePeriodSeconds.
     """

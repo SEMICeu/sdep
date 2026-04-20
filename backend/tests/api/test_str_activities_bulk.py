@@ -113,7 +113,7 @@ class TestSTRActivitiesBulkAPI:
                 )
                 areas[key] = area
 
-        return areas
+        return {"area1": areas["area1"], "area2": areas["area2"], "ca": ca}
 
     @pytest_asyncio.fixture(autouse=True)
     async def cleanup(self, async_session: AsyncSession):
@@ -125,7 +125,7 @@ class TestSTRActivitiesBulkAPI:
     async def test_bulk_all_valid_201(
         self, async_session: AsyncSession, setup_overrides, test_areas
     ):
-        """All items valid → 201 + all OK."""
+        """All items valid → 201 + all OK with embedded activity."""
         async with AsyncClient(
             transport=ASGITransport(app=app_v0), base_url="http://test"
         ) as client:
@@ -148,15 +148,124 @@ class TestSTRActivitiesBulkAPI:
         assert len(data["results"]) == 2
         for item in data["results"]:
             assert item["status"] == "OK"
-            assert item["activityId"] is not None
-            assert item.get("errorMessage") is None
+            assert "activity" in item
+            assert item["activity"]["activityId"] is not None
+            assert item["activity"]["createdAt"] is not None
+            assert "errors" not in item
+
+    async def test_bulk_ok_item_has_embedded_activity_fields(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """OK item embedded activity contains all expected fields."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(
+                            test_areas["area1"].area_id,
+                            "fields-001",
+                            activityId="my-id-001",
+                            activityName="Test Activity",
+                            numberOfGuests=3,
+                            countryOfGuests=["NLD", "DEU", "BEL"],
+                        ),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        result = data["results"][0]
+        activity = result["activity"]
+
+        # Result-level activityId is the client-supplied ID
+        assert result["activityId"] == "my-id-001"
+
+        # Embedded activity fields
+        assert activity["activityId"] == "my-id-001"
+        assert activity["activityName"] == "Test Activity"
+        assert activity["areaId"] == test_areas["area1"].area_id
+        assert activity["competentAuthorityId"] == "test"
+        assert activity["competentAuthorityName"] == "Test Authority"
+        assert activity["url"] == "http://example.com/bulk-fields-001"
+        assert activity["registrationNumber"] == "REG-fields-001"
+        assert activity["address"]["thoroughfare"] == "Turfmarkt"
+        assert activity["address"]["locatorDesignatorNumber"] == 147
+        assert activity["address"]["postCode"] == "2500EA"
+        assert activity["address"]["postName"] == "Den Haag"
+        assert activity["numberOfGuests"] == 3
+        assert activity["countryOfGuests"] == ["NLD", "DEU", "BEL"]
+        assert activity["temporal"]["startDatetime"] == "2025-06-01T14:00:00Z"
+        assert activity["temporal"]["endDatetime"] == "2025-06-07T11:00:00Z"
+        assert activity["platformId"] == "str01"
+        assert activity["platformName"] == "STR Platform 01"
+        assert activity["createdAt"] is not None
+
+    async def test_bulk_ok_item_without_activity_id_has_null_result_level_id(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """OK item without client-supplied activityId → result-level activityId is null, embedded has generated UUID."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(test_areas["area1"].area_id, "noid-001"),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        result = data["results"][0]
+
+        # Result-level activityId is null (client didn't supply one)
+        assert result["activityId"] is None
+        # Embedded activity has a generated UUID
+        assert result["activity"]["activityId"] is not None
+        assert len(result["activity"]["activityId"]) > 0
+
+    async def test_bulk_ok_item_with_activity_id_has_matching_result_level_id(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """OK item with client-supplied activityId → result-level activityId matches embedded."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(
+                            test_areas["area1"].area_id,
+                            "withid-001",
+                            activityId="supplied-id-123",
+                        ),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        result = data["results"][0]
+
+        assert result["activityId"] == "supplied-id-123"
+        assert result["activity"]["activityId"] == "supplied-id-123"
 
     # ── Failure cases ────────────────────────────────────────────────────
 
     async def test_bulk_all_invalid_422(
         self, async_session: AsyncSession, setup_overrides, test_areas
     ):
-        """All items invalid (bad area) → 422 + all NOK."""
+        """All items invalid (bad area) → 422 + all NOK with errorMessages array."""
         async with AsyncClient(
             transport=ASGITransport(app=app_v0), base_url="http://test"
         ) as client:
@@ -178,7 +287,32 @@ class TestSTRActivitiesBulkAPI:
         assert data["failed"] == 2
         for item in data["results"]:
             assert item["status"] == "NOK"
-            assert "not found" in item["errorMessage"]
+            assert isinstance(item["errors"]["detail"], list)
+            assert any("not found" in d["msg"] for d in item["errors"]["detail"])
+            assert "activity" not in item
+
+    async def test_bulk_nok_item_has_no_activity(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """NOK item has no embedded activity object."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity("nonexistent-area", "b001"),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        data = response.json()
+        result = data["results"][0]
+        assert result["status"] == "NOK"
+        assert "activity" not in result
+        assert "errors" in result
 
     # ── Partial success ──────────────────────────────────────────────────
 
@@ -207,8 +341,11 @@ class TestSTRActivitiesBulkAPI:
         assert data["succeeded"] == 2
         assert data["failed"] == 1
         assert data["results"][0]["status"] == "OK"
+        assert "activity" in data["results"][0]
         assert data["results"][1]["status"] == "NOK"
+        assert "activity" not in data["results"][1]
         assert data["results"][2]["status"] == "OK"
+        assert "activity" in data["results"][2]
 
     # ── Per-item Pydantic validation ─────────────────────────────────────
 
@@ -240,6 +377,10 @@ class TestSTRActivitiesBulkAPI:
         assert data["failed"] == 1
         assert data["results"][0]["status"] == "OK"
         assert data["results"][1]["status"] == "NOK"
+        assert isinstance(data["results"][1]["errors"]["detail"], list)
+        assert (
+            len(data["results"][1]["errors"]["detail"]) > 1
+        )  # Multiple missing fields
         assert data["results"][2]["status"] == "OK"
 
     # ── Empty list ───────────────────────────────────────────────────────
@@ -455,8 +596,12 @@ class TestSTRActivitiesBulkAPI:
         assert data["failed"] == 1
         # Index 0 superseded
         assert data["results"][0]["status"] == "NOK"
-        assert "Superseded" in data["results"][0]["errorMessage"]
-        assert "index 2" in data["results"][0]["errorMessage"]
+        assert any(
+            "Superseded" in d["msg"] for d in data["results"][0]["errors"]["detail"]
+        )
+        assert any(
+            "index 2" in d["msg"] for d in data["results"][0]["errors"]["detail"]
+        )
         # Index 1 OK (different ID)
         assert data["results"][1]["status"] == "OK"
         # Index 2 OK (last occurrence wins)
@@ -471,17 +616,21 @@ class TestSTRActivitiesBulkAPI:
         """activityId exists in DB → old version marked as ended, new version created."""
         import asyncio
 
-        # First: create an activity via single endpoint
+        # First: create an activity via bulk
         async with AsyncClient(
             transport=ASGITransport(app=app_v0), base_url="http://test"
         ) as client:
             response1 = await client.post(
-                "/str/activities",
-                json=_make_activity(
-                    test_areas["area1"].area_id,
-                    "ver-v1",
-                    activityId="versioned-bulk",
-                ),
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(
+                            test_areas["area1"].area_id,
+                            "ver-v1",
+                            activityId="versioned-bulk",
+                        ),
+                    ]
+                },
                 headers={"Authorization": "Bearer test_token"},
             )
         assert response1.status_code == status.HTTP_201_CREATED
@@ -622,11 +771,12 @@ class TestSTRActivitiesBulkAPI:
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert data["results"][0]["activityId"] == "my-custom-id-001"
+        assert data["results"][0]["activity"]["activityId"] == "my-custom-id-001"
 
     async def test_bulk_without_activity_ids_auto_generated(
         self, async_session: AsyncSession, setup_overrides, test_areas
     ):
-        """Activities without activityId get auto-generated UUIDs."""
+        """Activities without activityId get auto-generated UUIDs in embedded activity."""
         async with AsyncClient(
             transport=ASGITransport(app=app_v0), base_url="http://test"
         ) as client:
@@ -642,6 +792,9 @@ class TestSTRActivitiesBulkAPI:
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        activity_id = data["results"][0]["activityId"]
+        # Result-level activityId is null (not supplied by client)
+        assert data["results"][0]["activityId"] is None
+        # Embedded activity has generated UUID
+        activity_id = data["results"][0]["activity"]["activityId"]
         assert activity_id is not None
         assert len(activity_id) > 0

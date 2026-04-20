@@ -16,8 +16,8 @@ async def create(
 
     Args:
         session: Async database session
-        competent_authority_id: Competent authority identifier (64 characters max, unique)
-        competent_authority_name: Competent authority name (128 characters max)
+        competent_authority_id: Competent authority identifier (max 64 characters, unique)
+        competent_authority_name: Competent authority display name (max 64 characters, e.g. "Amsterdam")
 
     Returns:
         Created CompetentAuthority instance

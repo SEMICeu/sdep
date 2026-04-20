@@ -1,5 +1,13 @@
 # Changelog
 
+## 260420
+
+- Simplified STR POST endpoint (kept bulk only)
+- Unified the Activity and Area reponse schemas, the error response schemas, and description terminology
+- Updated examples to latest testdata
+- Added .env.extra.example to allow customization of the Postgres port (for local fullstack)
+- Actualized various documentation (docs/)
+
 ## 260415
 
 - Improved performance test and (validation) documentation

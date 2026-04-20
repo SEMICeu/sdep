@@ -28,7 +28,7 @@ class TestActionMapping:
             ("GET", "/api/v0/ca/areas/count", "count", "area"),
             ("GET", "/api/v0/ca/areas/abc-123", "read", "area"),
             ("DELETE", "/api/v0/ca/areas/abc-123", "delete", "area"),
-            ("POST", "/api/v0/str/activities", "create", "activity"),
+            ("POST", "/api/v0/str/activities/bulk", "create_bulk", "activity"),
             ("GET", "/api/v0/str/areas", "list", "area"),
             ("GET", "/api/v0/str/areas/count", "count", "area"),
             ("GET", "/api/v0/str/areas/xyz-456", "read", "area"),

@@ -33,8 +33,8 @@ async def create(
 
     Args:
         session: Async database session (transaction managed by API layer)
-        platform_id: Platform ID string (unique identifier, e.g., "platform01")
-        platform_name: Platform name (e.g., "Booking.com")
+        platform_id: Platform identifier (max 64 characters, unique, e.g., "platform01")
+        platform_name: Platform display name (max 64 characters, e.g. "Example.com")
 
     Returns:
         Created Platform instance with ID populated

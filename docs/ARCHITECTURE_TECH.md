@@ -102,7 +102,6 @@ sdep-app/
 │   │   │   │   │   ├── ca_areas.py             # CA area endpoints
 │   │   │   │   │   ├── health.py               # Health check router
 │   │   │   │   │   ├── ping.py                 # Ping endpoint
-│   │   │   │   │   ├── str_activities.py       # STR activity endpoints
 │   │   │   │   │   ├── str_activities_bulk.py  # STR bulk activity endpoints
 │   │   │   │   │   └── str_areas.py            # STR area endpoints
 │   │   │   │   ├── auth_dependencies.py        # Shared auth/role dependencies
@@ -134,29 +133,34 @@ sdep-app/
 │   │   │   ├── audit_log.py                    # Audit log record
 │   │   │   ├── competent_authority.py
 │   │   │   ├── platform.py
-│   │   │   └── temporal.py
+│   │   │   ├── temporal.py
+│   │   │   └── types.py                        # Dialect-aware TypeDecorators (e.g. StringArray)
 │   │   ├── schemas/                            # Pydantic schemas (request/response)
 │   │   │   ├── activity.py
+│   │   │   ├── activity_bulk.py
 │   │   │   ├── area.py
 │   │   │   ├── auth.py
 │   │   │   ├── common.py                       # Shared types: FunctionalId, validate_functional_id()
 │   │   │   ├── error.py
-│   │   │   ├── health.py
-│   │   │   └── validation.py
+│   │   │   └── health.py
 │   │   ├── security/                           # Security utilities
 │   │   │   ├── audit.py                        # Audit logging middleware
 │   │   │   ├── audit_retention.py              # Background audit log cleanup
 │   │   │   └── headers.py                      # Security headers
 │   │   ├── services/                           # Business logic layer
 │   │   │   ├── activity.py
+│   │   │   ├── activity_bulk.py
 │   │   │   └── area.py
 │   │   ├── config.py                           # Application configuration
+│   │   ├── enums.py                            # Shared enumerations (e.g. Regulation)
 │   │   └── main.py                             # Application entry point
 │   ├── alembic/                                # Database migrations
 │   │   ├── env.py                              # Alembic environment config
 │   │   └── versions/                           # Migration scripts
 │   │       ├── 001_initial.py                  # Initial migration
-│   │       └── 002_audit_log.py                # Audit log table
+│   │       ├── 002_audit_log.py                # Audit log table
+│   │       ├── 003_address_inspire.py          # INSPIRE/STR-AP address field rename
+│   │       └── 004_area_regulation.py          # Area regulation enum column
 │   ├── tests/                                  # Unit tests (mirrors app/ structure)
 │   │   ├── api/                                # API layer tests
 │   │   ├── crud/                               # CRUD layer tests
@@ -182,7 +186,6 @@ sdep-app/
 │   ├── test_ca_activities.sh                   # Test CA activity endpoints
 │   ├── test_ca_areas.sh                        # Test CA area submission
 │   ├── test_health_ping.sh                     # Health check tests
-│   ├── test_str_activities.sh                  # Test STR activity submission
 │   ├── test_str_activities_bulk.sh             # Test STR bulk activity submission
 │   └── test_str_areas.sh                       # Test STR area query endpoints
 │
@@ -222,10 +225,15 @@ sdep-app/
 │   └── diagrams/                               # Architecture and data model diagrams
 │       ├── ACTIVITY.excalidraw
 │       ├── ACTIVITY.svg
+│       ├── ACTIVITYFLOW.excalidraw
+│       ├── ACTIVITYFLOW.svg
+│       ├── ARCHITECTURE_FUNC.jpg
 │       ├── DATAMODEL.excalidraw
 │       ├── DATAMODEL.svg
 │       ├── LISTING.excalidraw
-│       └── LISTING.svg
+│       ├── LISTING.svg
+│       ├── LISTINGFLOW.excalidraw
+│       └── LISTINGFLOW.svg
 │
 ├── scripts/                                    # Utility scripts
 │   ├── run-tests.sh                            # Integration test runner
@@ -284,25 +292,6 @@ For key patterns, see also [Datamodel](./DATAMODEL.md), [Security](./SECURITY.md
 ## Request Flow
 
 ```
-POST /str/activities (single JSON body)
-  │
-  ├── API Layer (str_activities.py)
-  │   ├── verify_bearer_token() → auth checks (roles, claims)
-  │   ├── ActivityRequest (Pydantic) → syntax validation
-  │   ├── activity.to_service_dict(platform_id, platform_name)
-  │   └── get_async_db → auto-commit/rollback transaction
-  │
-  ├── Service Layer (activity.py)
-  │   ├── create_activity(session, activity_data)
-  │   ├── Validate area exists → ApplicationValidationError if not
-  │   ├── Lookup/create platform from JWT claims
-  │   └── Create activity via CRUD
-  │
-  ├── CRUD Layer (activity.py)
-  │   └── flush (not commit)
-  │
-  └── Response: 201 + ActivityResponse (camelCase JSON)
-
 POST /str/activities/bulk (JSON body with activities array)
   │
   ├── API Layer (str_activities_bulk.py)
@@ -310,7 +299,7 @@ POST /str/activities/bulk (JSON body with activities array)
   │   ├── BulkActivityRequest (Pydantic) → validates wrapper (min 1, max 1000)
   │   └── get_async_db → auto-commit/rollback transaction
   │
-  ├── Service Layer (activity_bulk.py) — Application-First Validation
+  ├── Service Layer (activity_bulk.py) - Application-First Validation
   │   ├── Step 1: Per-item Pydantic validation via TypeAdapter
   │   ├── Platform resolution (once per batch, version on name change only)
   │   ├── Intra-batch dedup (last-wins)
@@ -364,7 +353,6 @@ POST /ca/areas (multipart/form-data: file + optional areaId, areaName)
 - `GET /api/v0/str/areas` - List regulated areas (pagination: offset, limit)
 - `GET /api/v0/str/areas/count` - Count areas
 - `GET /api/v0/str/areas/{areaId}` - Download shapefile for area
-- `POST /api/v0/str/activities` - Submit a single activity (JSON body)
 - `POST /api/v0/str/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
 
 ### Health
@@ -401,20 +389,20 @@ For details, see [Security](./SECURITY.md#audit-log).
 ### Security Headers
 
 **SecurityHeadersMiddleware** (`security/headers.py`) adds OWASP-recommended security headers to all responses:
-- `X-Frame-Options: DENY` — clickjacking protection
-- `X-Content-Type-Options: nosniff` — MIME-sniffing protection
-- `Content-Security-Policy` — XSS protection (optional, configurable)
-- `Strict-Transport-Security` — HTTPS enforcement (optional, usually handled by reverse proxy)
-- `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy` — cross-origin isolation
-- `Permissions-Policy` — restrict browser features
-- `Referrer-Policy: no-referrer` — prevent information leakage
+- `X-Frame-Options: DENY` - clickjacking protection
+- `X-Content-Type-Options: nosniff` - MIME-sniffing protection
+- `Content-Security-Policy` - XSS protection (optional, configurable)
+- `Strict-Transport-Security` - HTTPS enforcement (optional, usually handled by reverse proxy)
+- `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy` - cross-origin isolation
+- `Permissions-Policy` - restrict browser features
+- `Referrer-Policy: no-referrer` - prevent information leakage
 - Strict `Cache-Control` for sensitive endpoints (auth, activities, areas)
 
 ### Middleware Ordering
 
 Starlette processes middleware LIFO (last added = outermost = runs first). In `main.py`:
-1. **SecurityHeadersMiddleware** (outermost) — added last, runs first
-2. **AuditLogMiddleware** (inner) — added first, runs inside security headers
+1. **SecurityHeadersMiddleware** (outermost) - added last, runs first
+2. **AuditLogMiddleware** (inner) - added first, runs inside security headers
 
 ---
 
@@ -465,19 +453,16 @@ This pattern is expressed as two reusable types:
 
 These IDs are submitted by the caller in the request body or form fields and validated **declaratively by Pydantic** before the endpoint function body runs:
 
-| Endpoint                    | Field                    | Type                   | Pydantic validates?                                       | When omitted                                                |
-| --------------------------- | ------------------------ | ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------- |
-| `POST /ca/areas`            | `areaId` (form field)    | `OptionalFunctionalId` | Yes — `Annotated[OptionalFunctionalId, Form()]`           | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
-| `POST /str/activities`      | `activityId` (JSON body) | `OptionalFunctionalId` | Yes — via `ActivityRequest` schema                        | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
-| `POST /str/activities`      | `areaId` (JSON body)     | `FunctionalId`         | Yes — via `ActivityRequest` schema                        | N/A (always required in this case)                          |
-| `POST /str/activities/bulk` | `activityId` per item    | `OptionalFunctionalId` | Yes — via `TypeAdapter(ActivityRequest)` in service layer | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
+| Endpoint                    | Field                 | Type                   | Pydantic validates?                                       | When omitted                                                |
+| --------------------------- | --------------------- | ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------- |
+| `POST /ca/areas`            | `areaId` (form field) | `OptionalFunctionalId` | Yes - `Annotated[OptionalFunctionalId, Form()]`           | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
+| `POST /str/activities/bulk` | `activityId` per item | `OptionalFunctionalId` | Yes - via `TypeAdapter(ActivityRequest)` in service layer | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
 
-**Why `POST /ca/areas` and `POST /str/activities` are coded differently** (see implementation):
+**Why `POST /ca/areas` uses `Form()` instead of a JSON body** (see implementation):
 
-- `POST /str/activities` accepts a JSON body, which FastAPI maps to a Pydantic model (`ActivityRequest`)
-  - All Field constraints work out of the box
 - `POST /ca/areas` accepts **multipart/form-data** (required for file upload), so each field is an individual `Form()` parameter
   - The `Annotated[OptionalFunctionalId, Form()]` type annotation ensures Pydantic still validates the form field declaratively, just like JSON body fields
+- `POST /str/activities/bulk` accepts a JSON body; per-item validation is done via `TypeAdapter(ActivityRequest)` in the service layer
 
 ### Functional IDs (JWT-provisioned)
 
@@ -496,10 +481,9 @@ This function checks the same pattern (`^[A-Za-z0-9-]+$`, 1–64 chars) and rais
 | `DELETE /ca/areas/{areaId}` | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
 | `GET /ca/activities`        | `ca_activities.py`       | `competent_authority_id` | `validate_functional_id()` |
 | `GET /ca/activities/count`  | `ca_activities.py`       | `competent_authority_id` | `validate_functional_id()` |
-| `POST /str/activities`      | `str_activities.py`      | `platform_id`            | `validate_functional_id()` |
 | `POST /str/activities/bulk` | `str_activities_bulk.py` | `platform_id`            | `validate_functional_id()` |
 
-**Why imperative, not declarative:** JWT claims are not part of the request body or form fields — they arrive via the `verify_bearer_token` dependency as a plain `dict`. Pydantic schema validation does not apply to them, so the API layer validates them explicitly before passing them to the service layer.
+**Why imperative, not declarative:** JWT claims are not part of the request body or form fields - they arrive via the `verify_bearer_token` dependency as a plain `dict`. Pydantic schema validation does not apply to them, so the API layer validates them explicitly before passing them to the service layer.
 
 ---
 
@@ -528,14 +512,14 @@ The table below shows how application exceptions map to HTTP status codes:
 
 ## Bulk updates
 
-Next to the single-record `POST /str/activities`, the bulk endpoint `POST /str/activities/bulk` is a complement for high-volume STR platforms.
+The bulk endpoint `POST /str/activities/bulk` is the single entry point for all STR activity submissions.
 
 ### Approach
 
-At high volumes (500K–4M records/day, ~6–46 records/second average), PostgreSQL is not the bottleneck — a standard Postgres instance can process thousands of transactions per second. The actual bottlenecks are:
+At high volumes (500K–4M records/day, ~6–46 records/second average), PostgreSQL is not the bottleneck - a standard Postgres instance can process thousands of transactions per second. The actual bottlenecks are:
 
-1. **Network latency** — solved by batching 500–1000 items per API call
-2. **Disk I/O (WAL pressure)** — solved by multi-row `INSERT ... VALUES` instead of individual inserts
+1. **Network latency** - solved by batching 500–1000 items per API call
+2. **Disk I/O (WAL pressure)** - solved by multi-row `INSERT ... VALUES` instead of individual inserts
 
 Five implementation strategies were evaluated:
 
@@ -552,7 +536,7 @@ Five implementation strategies were evaluated:
 - **Async with staging table (4a):** defers validation to a background worker, which means the client does not get per-item OK/NOK feedback in the HTTP response. Adds operational complexity (worker process, polling/callback for results) without a performance need.
 - **Async with queue (4b):** introduces additional infrastructure (Redis/Kafka + consumer workers). Justified only for extreme peak-absorption or cross-service fan-out, neither of which applies at this volume.
 
-Synchronous bulk gives the client **immediate, per-item feedback** (OK/NOK with error reasons) in the same HTTP response, requires **no extra infrastructure** beyond the API and database, and keeps the architecture simple — validation and insert happen in one transaction with no background workers or message brokers.
+Synchronous bulk gives the client **immediate, per-item feedback** (OK/NOK with error reasons) in the same HTTP response, requires **no extra infrastructure** beyond the API and database, and keeps the architecture simple - validation and insert happen in one transaction with no background workers or message brokers.
 
 ### Validation
 
@@ -571,7 +555,7 @@ Instead of having the database check each record via savepoints, errors are caug
 | **1. Pydantic Check**              | Validate each item individually against the ActivityRequest schema. Mark failed items as NOK with the error reason.                                         | `TypeAdapter(ActivityRequest).validate_python()` per item |
 | **2. Referential Integrity Check** | For the remaining OK records: fetch all referenced area IDs in a single query. Store in a Python `dict` for O(1) lookup. Items with unknown `areaId` → NOK. | `SELECT area_id, id FROM area WHERE area_id IN (...)`     |
 | **3. Bulk Insert**                 | For the remaining OK records: insert in a single database operation.                                                                                        | `session.execute(insert(Activity), list_of_valid_dicts)`  |
-| **4. Feedback**                    | Return per-item OK/NOK response preserving original order, enriched with `status` and `errorMessage`.                                                       | JSON response with summary counts                         |
+| **4. Feedback**                    | Return per-item OK/NOK response preserving original order, enriched with `status`, embedded `activity` (OK) or `errorMessages` array (NOK).                 | JSON response with summary counts                         |
 
 **Motivation for step 2 after step 1:** \
 Prevents unvalidated (untrusted) data from being used in database operations.
@@ -588,14 +572,14 @@ Prevents unvalidated (untrusted) data from being used in database operations.
 
 | #      | Decision                                                                                                                                                                                                          | Rationale                                                                                                                                                               |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D1** | **Per-item Pydantic validation** — the request accepts raw dicts, each validated individually in the service layer                                                                                                | One invalid item should not block the other (999) items in the batch. If one item has a missing field, the rest are still processed.                                    |
-| **D2** | **Intra-batch duplicates: last-wins** — when the same `activityId` appears multiple times in a single batch, only the last occurrence is processed; earlier occurrences receive NOK                               | Deterministic and predictable for clients. Avoids ambiguity about which version "wins".                                                                                 |
-| **D3** | **Versioning: batch UPDATE before INSERT** — existing current versions in the database are marked as ended via a single batch `UPDATE ... WHERE activity_id IN (...)` before the bulk INSERT creates new versions | Consistent with single-endpoint versioning semantics, but uses batch operations (1 UPDATE + 1 INSERT) instead of per-item queries.                                      |
-| **D4** | **Platform resolution: version only on name change** — platform is resolved once per batch; a new version is only created if the JWT claim (`client_name`) has changed                                            | Avoids unnecessary versioning churn when the same platform submits many batches with unchanged credentials.                                                             |
-| **D5** | **Deactivated entities rejected** — if an `activityId` has been deactivated (all versions have `endedAt` set), submitting it again is rejected (NOK)                                                              | Prevents "resurrecting" soft-deleted entities. Consistent with single endpoint behavior.                                                                                |
-| **D6** | **No `ON CONFLICT DO NOTHING`** — SDEP uses explicit versioning (mark-as-ended + new insert) instead of database-level upsert                                                                                     | `ON CONFLICT DO NOTHING` is a general best practice for idempotency in bulk inserts. However, SDEP's data model requires explicit versioning with `endedAt` timestamps. |
-| **D7** | **Single transaction scope** — the entire bulk operation runs in a single transaction; if the bulk INSERT fails, all changes roll back                                                                            | No partial database state. Consistent with the single endpoint's `get_async_db` auto-commit/rollback model.                                                             |
-| **D8** | **SQLite compatibility** — the bulk INSERT and all queries work on both PostgreSQL and SQLite                                                                                                                     | Unit tests run on SQLite in-memory without requiring PostgreSQL. The `StringArray` TypeDecorator handles dialect differences.                                           |
+| **D1** | **Per-item Pydantic validation** - the request accepts raw dicts, each validated individually in the service layer                                                                                                | One invalid item should not block the other (999) items in the batch. If one item has a missing field, the rest are still processed.                                    |
+| **D2** | **Intra-batch duplicates: last-wins** - when the same `activityId` appears multiple times in a single batch, only the last occurrence is processed; earlier occurrences receive NOK                               | Deterministic and predictable for clients. Avoids ambiguity about which version "wins".                                                                                 |
+| **D3** | **Versioning: batch UPDATE before INSERT** - existing current versions in the database are marked as ended via a single batch `UPDATE ... WHERE activity_id IN (...)` before the bulk INSERT creates new versions | Consistent with single-endpoint versioning semantics, but uses batch operations (1 UPDATE + 1 INSERT) instead of per-item queries.                                      |
+| **D4** | **Platform resolution: version only on name change** - platform is resolved once per batch; a new version is only created if the JWT claim (`client_name`) has changed                                            | Avoids unnecessary versioning churn when the same platform submits many batches with unchanged credentials.                                                             |
+| **D5** | **Deactivated entities rejected** - if an `activityId` has been deactivated (all versions have `endedAt` set), submitting it again is rejected (NOK)                                                              | Prevents "resurrecting" soft-deleted entities. Consistent with single endpoint behavior.                                                                                |
+| **D6** | **No `ON CONFLICT DO NOTHING`** - SDEP uses explicit versioning (mark-as-ended + new insert) instead of database-level upsert                                                                                     | `ON CONFLICT DO NOTHING` is a general best practice for idempotency in bulk inserts. However, SDEP's data model requires explicit versioning with `endedAt` timestamps. |
+| **D7** | **Single transaction scope** - the entire bulk operation runs in a single transaction; if the bulk INSERT fails, all changes roll back                                                                            | No partial database state. Consistent with the single endpoint's `get_async_db` auto-commit/rollback model.                                                             |
+| **D8** | **SQLite compatibility** - the bulk INSERT and all queries work on both PostgreSQL and SQLite                                                                                                                     | Unit tests run on SQLite in-memory without requiring PostgreSQL. The `StringArray` TypeDecorator handles dialect differences.                                           |
 
 ---
 
@@ -651,8 +635,8 @@ make
 
 Because SQLite lacks some PostgreSQL features, the models include **dialect adaptors**:
 
-- **`StringArray`** (`backend/app/models/activity.py`) — uses `ARRAY(String)` on PostgreSQL and JSON-serialized `Text` on SQLite
-- **`CheckConstraint`** — marked `.ddl_if(dialect="postgresql")` so they are only applied to PostgreSQL
+- **`StringArray`** (`backend/app/models/types.py`) - uses `ARRAY(String)` on PostgreSQL and JSON-serialized `Text` on SQLite
+- **`CheckConstraint`** - marked `.ddl_if(dialect="postgresql")` so they are only applied to PostgreSQL
 
 ---
 

@@ -18,7 +18,6 @@ These tests verify API functionality, authentication, authorization, and securit
     - [`test_ca_activities.sh`](#test_ca_activitiessh)
   - [Short-Term Rental (STR) Platform tests](#short-term-rental-str-platform-tests)
     - [`test_str_areas.sh`](#test_str_areassh)
-    - [`test_str_activities.sh`](#test_str_activitiessh)
     - [`test_str_activities_bulk.sh`](#test_str_activities_bulksh)
   - [Helper scripts](#helper-scripts)
     - [`lib/create_fixture_areas.sh`](#libcreate_fixture_areassh)
@@ -96,11 +95,12 @@ See [../Makefile](../Makefile). Available targets:
 - `GET /api/v0/str/areas`
 - `GET /api/v0/str/areas/count`
 - `GET /api/v0/str/areas/amsterdam-area0363`
-- `POST /api/v0/str/activities`
+- `POST /api/v0/str/activities/bulk`
 - `POST /api/v0/ca/areas`
 - `GET /api/v0/ca/areas`
 - `GET /api/v0/ca/areas/count`
 - `GET /api/v0/ca/areas/{areaId}`
+- `DELETE /api/v0/ca/areas/{areaId}`
 - `GET /api/v0/ca/activities`
 - `GET /api/v0/ca/activities/count`
 
@@ -211,32 +211,6 @@ See [../Makefile](../Makefile). Available targets:
 - List endpoints: `application/json`
 - Download endpoint: `application/zip` with `Content-Disposition: attachment`
 
-#### `test_str_activities.sh`
-**Purpose:** Test single activity submission for STR platforms
-
-**Setup:** Creates 3 fixture areas via `lib/create_fixture_areas.sh` before running tests.
-
-**Tests:**
-- **Test 1:** POST single activity with full payload (address, temporal, registrationNumber, areaId, countryOfGuests, numberOfGuests)
-- **Test 2:** POST with custom activityId field
-- **Test 3:** POST with validation error (missing required `registrationNumber` field) - expects 422
-- **Test 4:** POST with non-existent areaId (business logic error) - expects 422
-- **Test 5:** Versioning - submit same activityId twice
-
-**Endpoints:**
-- `POST /api/{API_VERSION}/str/activities`
-
-**Content-Type (POST):** `application/json`
-
-**Authentication:** Requires STR client credentials (token loaded from `./tmp/.bearer_token`)
-
-**HTTP Status Codes:**
-- `201 Created` - Activity successfully created
-- `401 Unauthorized` - No/invalid authentication
-- `422 Unprocessable Content` - Validation or business logic error
-
-**Response format:** `{ activityId, activityName?, areaId, url, address, registrationNumber, numberOfGuests, countryOfGuests, temporal, platformId, platformName, createdAt }`
-
 #### `test_str_activities_bulk.sh`
 **Purpose:** Test bulk activity submission for STR platforms
 
@@ -261,7 +235,7 @@ See [../Makefile](../Makefile). Available targets:
 - `401 Unauthorized` - No/invalid authentication
 - `422 Unprocessable Content` - All activities failed validation
 
-**Response format:** `{ totalReceived, succeeded, failed, results: [{ activityIndex, activityId, status, errorMessage }] }`
+**Response format:** `{ totalReceived, succeeded, failed, results: [{ activityIndex, activityId, status, activity?, errorMessages? }] }`
 
 ---
 
@@ -279,7 +253,7 @@ See [../Makefile](../Makefile). Available targets:
 - Outputs created area IDs to stdout (one per line), errors to stderr
 - Does not modify `./tmp/.bearer_token` (uses a local token variable)
 
-**Used by:** `test_str_areas.sh`, `test_str_activities.sh`, `test-perf` (Makefile)
+**Used by:** `test_str_areas.sh`, `test_str_activities_bulk.sh`, `test-perf` (Makefile)
 
 ---
 

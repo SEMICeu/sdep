@@ -6,6 +6,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
+from app.schemas.activity import ActivityResponse  # noqa: TC001
+from app.schemas.error import ErrorResponse  # noqa: TC001
+
 __all__ = [
     "BulkActivityRequest",
     "BulkActivityResponse",
@@ -33,7 +36,7 @@ class BulkActivityRequest(BaseModel):
         ...,
         min_length=1,
         max_length=1000,
-        description="List of activity dicts to process (1-1000 items per batch). Each item is validated individually against the ActivityRequest schema.",
+        description="List of activity objects to process (1-1000 items per batch). Each item is validated individually.",
     )
 
 
@@ -56,7 +59,7 @@ class BulkActivityResultItem(BaseModel):
     activity_id: str | None = Field(
         None,
         alias="activityId",
-        description="Activity functional ID (present for OK items and items that had a valid activityId before failing)",
+        description="Activity functional ID as supplied by the client in the request (null if not provided by client, even when a UUID was auto-generated)",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )
 
@@ -66,19 +69,35 @@ class BulkActivityResultItem(BaseModel):
         examples=["OK"],
     )
 
-    error_message: str | None = Field(
+    activity: ActivityResponse | None = Field(
         None,
-        alias="errorMessage",
-        description="Error description when status is NOK; omitted when status is OK",
-        examples=["Area with areaId 'unknown-id' not found"],
+        description="The full activity object (present for OK items, omitted for NOK items)",
+    )
+
+    errors: ErrorResponse | None = Field(
+        None,
+        description="Structured error details when status is NOK; omitted when status is OK",
+        examples=[
+            {
+                "detail": [
+                    {
+                        "msg": "Area with areaId 'unknown-id' not found",
+                        "type": "not_found_error",
+                        "loc": ["areaId"],
+                    }
+                ]
+            }
+        ],
     )
 
     @model_serializer(mode="wrap")
     def _serialize_model(self, serializer, info):
-        """Exclude errorMessage from response when it's None (OK items)."""
+        """Exclude errors and activity from response when None."""
         data = serializer(self)
-        if data.get("errorMessage") is None:
-            data.pop("errorMessage", None)
+        if data.get("errors") is None:
+            data.pop("errors", None)
+        if data.get("activity") is None:
+            data.pop("activity", None)
         return data
 
 
@@ -125,11 +144,42 @@ class BulkActivityResponse(BaseModel):
                     "activityIndex": 0,
                     "activityId": "550e8400-e29b-41d4-a716-446655440000",
                     "status": "OK",
+                    "activity": {
+                        "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                        "areaId": "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
+                        "competentAuthorityId": "sdep-ca0363",
+                        "competentAuthorityName": "Gemeente Amsterdam",
+                        "url": "http://example.com/amsterdam-myhouse-1",
+                        "address": {
+                            "thoroughfare": "Prinsengracht",
+                            "locatorDesignatorNumber": 263,
+                            "postCode": "1016GV",
+                            "postName": "Amsterdam",
+                        },
+                        "registrationNumber": "REG0001",
+                        "numberOfGuests": 4,
+                        "countryOfGuests": ["NLD", "DEU", "BEL"],
+                        "temporal": {
+                            "startDatetime": "2025-06-01T14:00:00Z",
+                            "endDatetime": "2025-06-07T11:00:00Z",
+                        },
+                        "platformId": "str01",
+                        "platformName": "Test STR 01",
+                        "createdAt": "2025-06-01T12:00:00Z",
+                    },
                 },
                 {
                     "activityIndex": 1,
-                    "activityId": "660f9511-f30c-52e5-b827-557766551111",
-                    "status": "OK",
+                    "status": "NOK",
+                    "errors": {
+                        "detail": [
+                            {
+                                "msg": "Area with areaId 'c5f54e98-226a-411b-b015-ca13070c6dc5' not found",
+                                "type": "not_found_error",
+                                "loc": ["areaId"],
+                            }
+                        ]
+                    },
                 },
             ]
         },

@@ -15,7 +15,7 @@ TIMESTAMP=$(date +%s%N | cut -b1-13)
 FIXTURE_CA_CLIENT_ID="${CA_CLIENT_ID}"
 FIXTURE_CA_CLIENT_SECRET="${CA_CLIENT_SECRET}"
 
-# Get CA token (local variable only — does not modify ./tmp/.bearer_token)
+# Get CA token (local variable only -does not modify ./tmp/.bearer_token)
 CA_TOKEN=$(curl -s -X POST \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data-urlencode "grant_type=client_credentials" \

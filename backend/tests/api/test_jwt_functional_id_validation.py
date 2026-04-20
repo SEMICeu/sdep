@@ -220,39 +220,6 @@ class TestInvalidSTRClientId:
         app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
 
     @pytest.mark.parametrize("invalid_id", INVALID_CLIENT_IDS)
-    async def test_post_activity_rejects_invalid_client_id(
-        self, async_session: AsyncSession, invalid_id: str
-    ):
-        """POST /str/activities returns 422 when JWT client_id is invalid."""
-        self._setup(async_session, invalid_id)
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
-        ) as client:
-            response = await client.post(
-                "/str/activities",
-                json={
-                    "areaId": "some-area",
-                    "url": "http://example.com/test",
-                    "registrationNumber": "REG001",
-                    "address": {
-                        "thoroughfare": "Prinsengracht",
-                        "locatorDesignatorNumber": 263,
-                        "postCode": "1016GV",
-                        "postName": "Amsterdam",
-                    },
-                    "temporal": {
-                        "startDatetime": "2025-06-01T14:00:00Z",
-                        "endDatetime": "2025-06-07T11:00:00Z",
-                    },
-                },
-                headers={"Authorization": "Bearer test_token"},
-            )
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-        assert "client_id" in response.json()["detail"][0]["msg"]
-
-    @pytest.mark.parametrize("invalid_id", INVALID_CLIENT_IDS)
     async def test_post_activities_bulk_rejects_invalid_client_id(
         self, async_session: AsyncSession, invalid_id: str
     ):

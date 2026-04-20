@@ -38,18 +38,20 @@ Diagram:
 
 ![](./diagrams/DATAMODEL.svg)
 
+The datamodel is a logical datamodel: references are expressed as objects instead of foreign keys.
+
 ### Competent Authority
 
 **Purpose:** Regulates short-term rental in geographic areas
 
-| Attribute                  | Type      | Constraints                                                                                              |
-| :------------------------- | :-------- | :------------------------------------------------------------------------------------------------------- |
-| **id**                     | int       | is technical id, mandatory                                                                               |
-| **competentAuthorityId**   | string    | is functional id, mandatory, length <= 64, alphanumeric with hyphens, is auto-provisioned from JWT claim |
-| **competentAuthorityName** | string    | optional, length <= 64, e.g. "Gemeente Amsterdam"                                                        |
-| **createdAt**              | datetime  | mandatory, UTC                                                                                           |
-| **endedAt**                | datetime  | optional, UTC                                                                                            |
-| **areas**                  | reference | optional, references Area                                                                                |
+| Attribute                  | Type      | Constraints                                                                                             |
+| :------------------------- | :-------- | :------------------------------------------------------------------------------------------------------ |
+| **id**                     | int       | required, is technical id                                                                               |
+| **competentAuthorityId**   | string    | required, is functional id, length <= 64, alphanumeric with hyphens, is auto-provisioned from JWT claim |
+| **competentAuthorityName** | string    | optional, length <= 64, e.g. "Gemeente Amsterdam"                                                       |
+| **createdAt**              | datetime  | required, UTC                                                                                           |
+| **endedAt**                | datetime  | optional, UTC                                                                                           |
+| **areas**                  | reference | optional, references many Area                                                                          |
 
 **Class Constraints:**
 
@@ -61,14 +63,14 @@ Diagram:
 
 **Purpose:** Delivers rental activities to competent authorities
 
-| Attribute        | Type      | Constraints                                                                                              |
-| :--------------- | :-------- | :------------------------------------------------------------------------------------------------------- |
-| **id**           | int       | is technical id, mandatory                                                                               |
-| **platformId**   | string    | is functional id, mandatory, length <= 64, alphanumeric with hyphens, is auto-provisioned from JWT claim |
-| **platformName** | string    | optional, length <= 64, e.g. "Example platform"                                                          |
-| **createdAt**    | datetime  | mandatory, UTC                                                                                           |
-| **endedAt**      | datetime  | optional, UTC                                                                                            |
-| **activities**   | reference | optional, references many Activity                                                                       |
+| Attribute        | Type      | Constraints                                                                                             |
+| :--------------- | :-------- | :------------------------------------------------------------------------------------------------------ |
+| **id**           | int       | required, is technical id                                                                               |
+| **platformId**   | string    | required, is functional id, length <= 64, alphanumeric with hyphens, is auto-provisioned from JWT claim |
+| **platformName** | string    | optional, length <= 64, e.g. "Example platform"                                                         |
+| **createdAt**    | datetime  | required, UTC                                                                                           |
+| **endedAt**      | datetime  | optional, UTC                                                                                           |
+| **activities**   | reference | optional, references many Activity                                                                      |
 
 **Class Constraints:**
 
@@ -80,18 +82,18 @@ Diagram:
 
 **Purpose:** Defines a geographic region for short-term rental regulation
 
-| Attribute              | Type        | Constraints                                                                                                                            |
-| :--------------------- | :---------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-| **id**                 | int         | is technical id, mandatory                                                                                                             |
-| **areaId**             | string      | is functional id, mandatory, length <= 64, alphanumeric with hyphens, is supplied or auto-provisioned otherwise (RFC 9562/4122 UUIDv4) |
-| **areaName**           | string      | optional, length <= 64, e.g. "Amsterdam-Noord"                                                                                         |
-| **regulation**         | enum        | mandatory, one of {'listing', 'activity', 'all'}, defaults to 'all' when not supplied                                                  |
-| **createdAt**          | datetime    | mandatory, UTC                                                                                                                         |
-| **endedAt**            | datetime    | optional, UTC                                                                                                                          |
-| **competentAuthority** | reference   | mandatory, references single Competent Authority                                                                                       |
-| **filename**           | string      | mandatory, length <= 64, e.g. "Amsterdam.zip"                                                                                          |
-| **filedata**           | largeBinary | mandatory, max size 1MiB, e.g. a .zip with a collection of ESRI shapefile files                                                        |
-| **activities**         | reference   | optional, references many Activity                                                                                                     |
+| Attribute              | Type        | Constraints                                                                                                                      |
+| :--------------------- | :---------- | :------------------------------------------------------------------------------------------------------------------------------- |
+| **id**                 | int         | required, is technical id                                                                                                        |
+| **areaId**             | string      | required, is functional id, length <= 64, alphanumeric with hyphens, is supplied or auto-provisioned otherwise (UUIDv4 RFC 9562) |
+| **areaName**           | string      | optional, length <= 64, e.g. "Amsterdam-Noord"                                                                                   |
+| **regulation**         | enum        | required, one of {'listing', 'activity', 'all'}, defaults to 'all' when not supplied                                             |
+| **createdAt**          | datetime    | required, UTC                                                                                                                    |
+| **endedAt**            | datetime    | optional, UTC                                                                                                                    |
+| **competentAuthority** | reference   | required, references single Competent Authority                                                                                  |
+| **filename**           | string      | required, length <= 64, e.g. "Amsterdam.zip"                                                                                     |
+| **filedata**           | largeBinary | required, max size 1MiB, e.g. a .zip with a collection of ESRI shapefile files                                                   |
+| **activities**         | reference   | optional, references many Activity                                                                                               |
 
 **Class Constraints:**
 
@@ -99,7 +101,7 @@ Diagram:
 
 **Notes:**
 
-- The same `areaId` (business identifier, optional) can be resubmitted to create new versions with different timestamps
+- The same `areaId` (as business identifier) can be resubmitted to create new versions with different timestamps
 - The UNIQUE class constraint allows the same `areaId` to be used (owned) by multiple competent authorities
 - Regarding `regulation`:
   - Per EU STR Regulation Article 13, there are two types of areas:
@@ -115,28 +117,28 @@ Diagram:
 
 **Purpose:** Represents an actual rental activity submitted by a platform
 
-| Attribute              | Type            | Constraints                                                                                                                            |
-| :--------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-| **id**                 | int             | is technical id, mandatory                                                                                                             |
-| **activityId**         | string          | is functional id, mandatory, length <= 64, alphanumeric with hyphens, is supplied or auto-provisioned otherwise (RFC 9562/4122 UUIDv4) |
-| **activityName**       | string          | optional, length <= 64, e.g. "Summer rental"                                                                                           |
-| **createdAt**          | datetime        | mandatory, UTC                                                                                                                         |
-| **endedAt**            | datetime        | optional, UTC                                                                                                                          |
-| **platform**           | reference       | mandatory, references single Platform                                                                                                  |
-| **area**               | reference       | mandatory, references single Area                                                                                                      |
-| **url**                | string          | mandatory, length <= 128, e.g. http://example.com/my-advertisement                                                                     |
-| **address**            | reference       | mandatory, references single Address composite                                                                                         |
-| **registrationNumber** | string          | mandatory, length <= 32                                                                                                                |
-| **numberOfGuests**     | int             | optional, min 1, max 1024                                                                                                              |
-| **countryOfGuests**    | array of string | optional, min 1, max 1024, each ISO 3166-1 alpha-3                                                                                     |
-| **temporal**           | reference       | mandatory, references single Temporal composite                                                                                        |
+| Attribute              | Type            | Constraints                                                                                                                      |
+| :--------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------- |
+| **id**                 | int             | required, is technical id                                                                                                        |
+| **activityId**         | string          | required, is functional id, length <= 64, alphanumeric with hyphens, is supplied or auto-provisioned otherwise (UUIDv4 RFC 9562) |
+| **activityName**       | string          | optional, length <= 64, e.g. "Summer rental"                                                                                     |
+| **createdAt**          | datetime        | required, UTC                                                                                                                    |
+| **endedAt**            | datetime        | optional, UTC                                                                                                                    |
+| **platform**           | reference       | required, references single Platform                                                                                             |
+| **area**               | reference       | required, references single Area                                                                                                 |
+| **url**                | string          | required, length <= 128, e.g. http://example.com/my-advertisement                                                                |
+| **address**            | reference       | required, references single Address as composite                                                                                 |
+| **registrationNumber** | string          | required, length <= 32                                                                                                           |
+| **numberOfGuests**     | int             | optional, min 1, max 1024                                                                                                        |
+| **countryOfGuests**    | array of string | optional, min 1, max 1024, each ISO 3166-1 alpha-3                                                                               |
+| **temporal**           | reference       | required, references single Temporal as composite                                                                                |
 
 **Class Constraints:**
 
 - UNIQUE (activityId, platform, createdAt)
 
 **Notes:**
-- The same `activityId` (business identifier, optional) can be resubmitted to create new versions with different timestamps
+- The same `activityId` (as business identifier) can be resubmitted to create new versions with different timestamps
 - The UNIQUE class constraint allows the same `activityId` to be used (owned) by multiple platforms
 - Each activity must reference an existing area
 
@@ -146,14 +148,14 @@ Diagram:
 
 **Purpose:** Structured address information for rental activities (INSPIRE/STR-AP format)
 
-| Attribute                     | Type   | Constraints                                                   |
-| :---------------------------- | :----- | :------------------------------------------------------------ |
-| **thoroughfare**              | string | mandatory, length <= 80, e.g. Turfmarkt                       |
-| **locatorDesignatorNumber**   | int    | mandatory, >= 1, e.g. 147                                     |
-| **locatorDesignatorLetter**   | string | optional, length <= 10, alphabetic, e.g. "a", "bis"           |
-| **locatorDesignatorAddition** | string | optional, length <= 128, e.g. "5h"                            |
-| **postCode**                  | string | mandatory, length <= 10, no spaces, alphanumeric, e.g. 2500EA |
-| **postName**                  | string | mandatory, length <= 80, e.g. Den Haag                        |
+| Attribute                     | Type   | Constraints                                                  |
+| :---------------------------- | :----- | :----------------------------------------------------------- |
+| **thoroughfare**              | string | required, length <= 80, e.g. Turfmarkt                       |
+| **locatorDesignatorNumber**   | int    | required, >= 1, e.g. 147                                     |
+| **locatorDesignatorLetter**   | string | optional, length <= 10, alphabetic, e.g. "a", "bis"          |
+| **locatorDesignatorAddition** | string | optional, length <= 128, e.g. "5h"                           |
+| **postCode**                  | string | required, length <= 10, no spaces, alphanumeric, e.g. 2500EA |
+| **postName**                  | string | required, length <= 80, e.g. Den Haag                        |
 
 ---
 
@@ -161,10 +163,10 @@ Diagram:
 
 **Purpose:** Time period information for rental activities
 
-| Attribute         | Type     | Constraints                     |
-| :---------------- | :------- | :------------------------------ |
-| **startDatetime** | datetime | mandatory, year must be >= 2025 |
-| **endDatetime**   | datetime | mandatory                       |
+| Attribute         | Type     | Constraints                    |
+| :---------------- | :------- | :----------------------------- |
+| **startDatetime** | datetime | required, year must be >= 2025 |
+| **endDatetime**   | datetime | required                       |
 
 **Class Constraints:**
 
@@ -176,17 +178,17 @@ Diagram:
 
 | Attribute          | Type     | Constraints                                       |
 | :----------------- | :------- | :------------------------------------------------ |
-| **id**             | int      | is technical id, mandatory                        |
-| **timestamp**      | datetime | mandatory, UTC, server default now()              |
-| **requestId**      | string   | mandatory, UUID4, length <= 64                    |
-| **roles**          | string   | nullable, length <= 256, comma-separated from JWT |
-| **resourceType**   | string   | nullable, length <= 32                            |
-| **action**         | string   | mandatory, length <= 64, semantic action name     |
-| **httpMethod**     | string   | mandatory, length <= 10                           |
-| **path**           | string   | mandatory, length <= 512                          |
-| **httpStatusCode** | int      | mandatory                                         |
-| **statusCode**     | string   | mandatory, length <= 3, "OK" if < 400 else "NOK"  |
-| **durationMs**     | int      | nullable                                          |
+| **id**             | int      | required, is technical id                         |
+| **timestamp**      | datetime | required, UTC, server default now()               |
+| **requestId**      | string   | required, UUID4, length <= 64                     |
+| **roles**          | string   | optional, length <= 256, comma-separated from JWT |
+| **resourceType**   | string   | optional, length <= 32                            |
+| **action**         | string   | required, length <= 64, semantic action name      |
+| **httpMethod**     | string   | required, length <= 10                            |
+| **path**           | string   | required, length <= 512                           |
+| **httpStatusCode** | int      | required                                          |
+| **statusCode**     | string   | required, length <= 3, "OK" if < 400 else "NOK"   |
+| **durationMs**     | int      | optional                                          |
 
 **Notes:**
 - Append-only: no updates or deletes (except automated retention cleanup)
@@ -199,8 +201,7 @@ Diagram:
 ## Key Patterns
 
 ### OLTP
-- Single POST (`POST /str/activities`) — default for all platforms
-- Bulk POST (`POST /str/activities/bulk`) — for high-volume platforms (up to 1000 items/batch)
+- Bulk POST (`POST /str/activities/bulk`) - for all platforms (up to 1000 items/batch)
 - Single concurrency (no optimistic locking)
 
 ### ID Management
@@ -211,7 +212,7 @@ Technical IDs
 
 Functional IDs
 - Represent business identifiers, on the **“outside”**
-- Are client-provided (optional), or auto-provisioned otherwise (RFC 9562/4122 UUIDv4)
+- Are client-provided (optional), or auto-provisioned otherwise (UUIDv4 RFC 9562)
   - Exception: `platformId` and `competentAuthorityId` (these are auto-provisioned from JWT-claim)
 - After a POST, functional IDs are always returned/made visible
 - This allows them to be reused in subsequent submissions
@@ -262,7 +263,7 @@ SQLAlchemy abstracts most of the differences, but a few PostgreSQL-specific type
 | :--------------------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------------ |
 | **Enum (`regulation`)**                        | Native `ENUM` type via `CREATE TYPE`                              | Emulated as `VARCHAR` with a `CHECK (col IN (...))`           |
 | **String array (`countryOfGuests`)**           | Native `ARRAY(String)`                                            | Emulated as JSON text via custom `StringArray` type decorator |
-| **Functional IDs (`areaId`, `activityId`, …)** | Stored as `VARCHAR(64)` deliberately, not `UUID` — see note below | Stored as `VARCHAR(64)`                                       |
+| **Functional IDs (`areaId`, `activityId`, …)** | Stored as `VARCHAR(64)` deliberately, not `UUID` - see note below | Stored as `VARCHAR(64)`                                       |
 | **`largeBinary` (`filedata`)**                 | `BYTEA`                                                           | `BLOB`                                                        |
 | **`timestamptz` (`createdAt`, `endedAt`)**     | `TIMESTAMP WITH TIME ZONE`                                        | `TEXT` (ISO-8601)                                             |
 | **`func.now()` defaults**                      | `now()` (transaction time)                                        | `CURRENT_TIMESTAMP`                                           |
@@ -275,7 +276,7 @@ Where a PostgreSQL-only type has no equivalent in another engine, the project br
 
 - The `StringArray` decorator in `app/models/types.py` is the canonical example
 - It stores a `list[str]` as a native PostgreSQL `ARRAY(String)` in production and as JSON text in SQLite, transparently to the rest of the code
-- The same pattern can be reused for any other type that needs an engine-specific representation — keep the decorator next to the model layer so all dialect awareness lives in one place
+- The same pattern can be reused for any other type that needs an engine-specific representation - keep the decorator next to the model layer so all dialect awareness lives in one place
 
 For built-in enum support, prefer SQLAlchemy's `Enum(..., native_enum=True)` over a custom decorator: it emits `CREATE TYPE` on engines that have native enums and falls back to `VARCHAR` + `CHECK` elsewhere, with no application-level branching.
 
@@ -285,11 +286,11 @@ Clients are allowed to submit their own functional IDs (alphanumeric with hyphen
 
 **Porting checklist when adding a new database engine:**
 
-1. **Driver** — verify SQLAlchemy has a working async driver for the target engine, and that it is compatible with the project's SQLAlchemy version.
-2. **Dialect-specific imports** — audit the model layer for `postgresql.*` (or any other dialect-specific) imports; replace them with a `TypeDecorator` (see `app/models/types.py`) so the same model definition works on every engine.
-3. **Native types vs. fallbacks** — review the table above and confirm each "PostgreSQL" cell has a working equivalent on the target engine. For types without a native equivalent, decide between (a) a `TypeDecorator` that emulates the type, or (b) a normalized child table.
-4. **Default-value functions** — confirm that any `server_default` / `func.*` calls resolve to a valid expression on the target engine (timestamps, UUIDs, sequence-style identifiers).
-5. **Migrations** — re-run the Alembic migrations against a clean instance of the target engine. Pay attention to operations that PostgreSQL allows but other engines do not (e.g. creating an enum type, transactional DDL, deferred constraints) and gate them with `op.get_bind().dialect.name` or `ddl_if(dialect=...)`.
-6. **Constraints** — verify that CHECK, UNIQUE, and FOREIGN KEY constraints are enforced (some older engine versions parse but ignore CHECK constraints).
-7. **Transaction & isolation semantics** — test concurrency-sensitive code paths (versioning, soft-delete, bulk insert) on a real instance of the target engine; isolation defaults and locking behaviour vary considerably between engines.
-8. **Run the full test suite** — point the test config at a real instance of the target engine and run `make test`. SQLite-only validation is not enough to catch dialect-specific behaviour.
+1. **Driver** - verify SQLAlchemy has a working async driver for the target engine, and that it is compatible with the project's SQLAlchemy version.
+2. **Dialect-specific imports** - audit the model layer for `postgresql.*` (or any other dialect-specific) imports; replace them with a `TypeDecorator` (see `app/models/types.py`) so the same model definition works on every engine.
+3. **Native types vs. fallbacks** - review the table above and confirm each "PostgreSQL" cell has a working equivalent on the target engine. For types without a native equivalent, decide between (a) a `TypeDecorator` that emulates the type, or (b) a normalized child table.
+4. **Default-value functions** - confirm that any `server_default` / `func.*` calls resolve to a valid expression on the target engine (timestamps, UUIDs, sequence-style identifiers).
+5. **Migrations** - re-run the Alembic migrations against a clean instance of the target engine. Pay attention to operations that PostgreSQL allows but other engines do not (e.g. creating an enum type, transactional DDL, deferred constraints) and gate them with `op.get_bind().dialect.name` or `ddl_if(dialect=...)`.
+6. **Constraints** - verify that CHECK, UNIQUE, and FOREIGN KEY constraints are enforced (some older engine versions parse but ignore CHECK constraints).
+7. **Transaction & isolation semantics** - test concurrency-sensitive code paths (versioning, soft-delete, bulk insert) on a real instance of the target engine; isolation defaults and locking behaviour vary considerably between engines.
+8. **Run the full test suite** - point the test config at a real instance of the target engine and run `make test`. SQLite-only validation is not enough to catch dialect-specific behaviour.

@@ -29,16 +29,18 @@ router = APIRouter(tags=["ca"])
     description="Get activities for the current authenticated competent authority. By default, returns all activities (unlimited). Use optional pagination parameters to limit results.\n\n"
     "**Each activity contains:**\n"
     "- `activityId`: Functional ID identifying this activity\n"
-    "- `activityName`: Optional human-readable name for this activity\n"
-    "- `areaId`: Functional ID referencing the area where this activity took place\n"
-    "- `url`: URL of the advertisement\n"
-    "- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber`, `locatorDesignatorLetter`, `locatorDesignatorAddition`, `postCode`, `postName`)\n"
+    "- `activityName`: Display name (optional) of the activity\n"
+    "- `areaId`: Functional ID referencing the area where the activity took place\n"
+    "- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area (convenience)\n"
+    "- `competentAuthorityName`: Display name (optional) of the competent authority\n"
+    "- `url`: URL of the originating listing/advertisement\n"
+    "- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber`, `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`)\n"
     "- `registrationNumber`: Registration number for the address\n"
     "- `numberOfGuests`: Number of guests (optional)\n"
     "- `countryOfGuests`: Array of country codes of guests (optional)\n"
     "- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n"
-    "- `platformId`: Functional ID identifying the platform who submitted the activity\n"
-    "- `platformName`: Display name of the platform\n"
+    "- `platformId`: Functional ID referencing the platform that owns the activity\n"
+    "- `platformName`: Display name (optional) of the platform\n"
     "- `createdAt`: Timestamp when this activity version was created (UTC)",
     operation_id="getActivityByCompetentAuthority",
     responses={
@@ -51,6 +53,8 @@ router = APIRouter(tags=["ca"])
                                 "activityId": "550e8400-e29b-41d4-a716-446655440000",
                                 "activityName": "Amsterdam Summer Rental",
                                 "areaId": "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
+                                "competentAuthorityId": "sdep-ca0363",
+                                "competentAuthorityName": "Gemeente Amsterdam",
                                 "url": "http://example.com/amsterdam-myhouse-1",
                                 "address": {
                                     "thoroughfare": "Prinsengracht",
@@ -112,16 +116,18 @@ async def get_activities(
 
     Returns a list of activities, each containing:
     - activityId: Functional ID
-    - activityName: Optional human-readable name
+    - activityName: Display name (optional)
     - areaId: Functional ID
-    - url: URL of the advertisement
-    - address: Address composite (thoroughfare, locatorDesignatorNumber, locatorDesignatorLetter, locatorDesignatorAddition, postCode, postName)
+    - competentAuthorityId: Functional ID identifying the competent authority
+    - competentAuthorityName: Display name (optional) of the competent authority
+    - url: URL of the originating listing/advertisement
+    - address: Address composite (thoroughfare, locatorDesignatorNumber, locatorDesignatorLetter (optional), locatorDesignatorAddition (optional), postCode, postName)
     - registrationNumber: Registration number
     - numberOfGuests: Number of guests (optional)
     - countryOfGuests: Array of country codes (optional)
     - temporal: Temporal composite (startDatetime, endDatetime)
-    - platformId: Platform ID
-    - platformName: Platform name
+    - platformId: Functional ID referencing the platform that owns the activity
+    - platformName: Display name (optional) of the platform
     - createdAt: Creation timestamp
 
     Pagination parameters:
@@ -142,6 +148,8 @@ async def get_activities(
             activityId=activity_dict["activity_id"],
             activityName=activity_dict.get("activity_name"),
             areaId=activity_dict["area_id"],
+            competentAuthorityId=activity_dict["competent_authority_id"],
+            competentAuthorityName=activity_dict.get("competent_authority_name"),
             url=activity_dict["url"],
             address=AddressResponse(
                 thoroughfare=activity_dict["address_thoroughfare"],

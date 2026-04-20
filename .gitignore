@@ -349,3 +349,4 @@ htmlcov/
 # Test
 .bearer_token
 # test-data/02-area-generated.sql
+
