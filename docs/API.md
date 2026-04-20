@@ -30,25 +30,25 @@ Table of contents
 
 ## Patterns
 
-| #               | Decision                                           | Motivation/example                                                                                                        |
-| :-------------- | :------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| **API&nbsp;01** | Support OpenAPI 3.1.0                              | Swagger 2.0 is legacy - https://swagger.io/specification/                                                                 |
-| **API&nbsp;02** | All endpoints are self-explanatory/well-documented |                                                                                                                           |
-| **API&nbsp;03** | Use nouns instead of verbs                         | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                    |
-| **API&nbsp;04** | Use plurals for resources that affect collections  | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                    |
-| **API&nbsp;05** | Consistent datamodel                               | Avoid code duplication, e.g. have unified `Activity`, `Area` and error responses                                          |
-| **API&nbsp;06** | Consistent endpoints                               | Have POST/GET "mirrors": `POST /ca/areas`, `GET /ca/activities`, `POST /str/activities/bulk`, `GET /str/areas`            |
-| **API&nbsp;07** | Consistent pagination                              | Have `offset` and `limit` for all endpoints with (potential) many records                                                 |
-| **API&nbsp;08** | Syntax validation                                  | Example: `postal code`                                                                                                    |
-| **API&nbsp;09** | Semantical validation                              | Example: `begin timestamp < end timestamp`                                                                                |
-| **API&nbsp;10** | Integrity validation                               | Example: can only submit activities for existing areas                                                                    |
-| **API&nbsp;11** | Bulk POST                                          | All STR activity submissions use `/str/activities/bulk` (up to 1000 items/batch)                                          |
-| **API&nbsp;12** | Logical ordering => readability                    | For POST, request and response follow the same ordering, extra data in response (e.g. `createdAt`) is moved to the end    |
-| **API&nbsp;13** | Essentiality                                       | Example: in POST activities, only `areaId` and `competentAuthorityId`, but no `competentAuthorityName`                    |
-| **API&nbsp;14** | Essentiality/security                              | Example: in POST activities, no need to include `platformId`                                                              |
-| **API&nbsp;15** | Consistent HTTP response codes                     | See [HTTP status codes](#http-status-codes) below                                                                         |
-| **API&nbsp;16** | STR and CA: manage area change                     | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                            |
-| **API&nbsp;17** | Unified response format                            | Example: `ActivityResponse` (also contains `competentAuthorityId` and `competentAuthorityName` when used by the CA itself |
+| #               | Decision                                           | Motivation/example                                                                                                     |
+| :-------------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| **API&nbsp;01** | Support OpenAPI 3.1.0                              | Swagger 2.0 is legacy - https://swagger.io/specification/                                                              |
+| **API&nbsp;02** | All endpoints are self-explanatory/well-documented |                                                                                                                        |
+| **API&nbsp;03** | Use nouns instead of verbs                         | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
+| **API&nbsp;04** | Use plurals for resources that affect collections  | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
+| **API&nbsp;05** | Consistent datamodel                               | Avoid code duplication, e.g. have unified `Activity`, `Area` and error responses                                       |
+| **API&nbsp;06** | Consistent endpoints                               | Have POST/GET "mirrors": `POST /ca/areas`, `GET /ca/activities`, `POST /str/activities/bulk`, `GET /str/areas`         |
+| **API&nbsp;07** | Consistent pagination                              | Have `offset` and `limit` for all endpoints with (potential) many records                                              |
+| **API&nbsp;08** | Syntax validation                                  | Example: `postal code`                                                                                                 |
+| **API&nbsp;09** | Semantical validation                              | Example: `begin timestamp < end timestamp`                                                                             |
+| **API&nbsp;10** | Integrity validation                               | Example: can only submit activities for existing areas                                                                 |
+| **API&nbsp;11** | Bulk POST                                          | All STR activity submissions use `/str/activities/bulk` (up to 1000 items/batch)                                       |
+| **API&nbsp;12** | Logical ordering => readability                    | For POST, request and response follow the same ordering, extra data in response (e.g. `createdAt`) is moved to the end |
+| **API&nbsp;13** | Essentiality                                       | Example: in POST activities, only `areaId` and `competentAuthorityId`, but no `competentAuthorityName`                 |
+| **API&nbsp;14** | Essentiality/security                              | Example: in POST activities, no need to include `platformId`                                                           |
+| **API&nbsp;15** | Consistent HTTP response codes                     | See [HTTP status codes](#http-status-codes) below                                                                      |
+| **API&nbsp;16** | STR and CA: manage area change                     | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                         |
+| **API&nbsp;17** | Unified response format                            | Example: `ActivityResponse` (for STR and CA, for both contains `competentAuthorityId` and `competentAuthorityName`')   |
 
 ---
 
@@ -56,11 +56,11 @@ Table of contents
 
 ### Success
 
-| HTTP Status | Meaning    | When                                                               |
-| ----------- | ---------- | ------------------------------------------------------------------ |
-| 200         | OK         | GET request completed successfully; bulk POST with partial success |
-| 201         | Created    | POST request created a new resource                                |
-| 204         | No Content | DELETE request completed successfully (e.g. deactivate area)       |
+| HTTP Status | Meaning    | When                                                                                                |
+| ----------- | ---------- | --------------------------------------------------------------------------------------------------- |
+| 200         | OK         | GET request completed successfully; bulk POST with partial success (created multiple new resources) |
+| 201         | Created    | POST request created a single new resource                                                          |
+| 204         | No Content | DELETE request completed successfully (e.g. deactivate area)                                        |
 
 ### Client errors
 
