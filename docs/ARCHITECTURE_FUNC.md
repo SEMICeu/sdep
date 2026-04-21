@@ -22,4 +22,4 @@ For example, a new Competent Authority want to regulate their area.
 - The regulation should start at the beginning of a month
 - And the platforms should be informed 'timely' about the new regulation for that area
 
-https://github.com/SEMICeu/sdep/issues/22
+See https://github.com/SEMICeu/sdep/issues/22.
