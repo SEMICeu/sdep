@@ -5,7 +5,7 @@
 - Added `Address.fulladdress` as a fallback for CAs to handle cases where STRs incorrectly split address fields (#62)
 - Added `Activity.status` (default `finished`) to handle cases where STRs report an activity as `cancelled` afterwards (#48)
 - Made `Activity.numberOfGuests` and `Activity.countryOfGuests` required, validated that they match, and allowed `N/A` for `Activity.countryOfGuests` (#45)
-- Improved typing of `ActivityBulkRequest` and extended the docs (#68)
+- Improved typing of `ActivityBulkRequest` and extended the docs [#68](https://github.com/SEMICeu/sdep/issues/68)
 - Improved OpenAPI schema titles to qualifier-first dotted form (e.g. `Activity.Request`, `Activity.BulkRequest`, ...)
 - Promoted `Address` and `Temporal` composites to the new `Common` qualifier
 - Renamed Python classes to match the qualifier-first convention (`BulkActivityRequest` → `ActivityBulkRequest`, `AddressRequest` → `CommonAddressRequest`, etc.)
