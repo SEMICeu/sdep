@@ -26,7 +26,7 @@ For example, a new Competent Authority want to regulate their area.
 - The regulation should start at the beginning of a month
 - And the platforms should be informed 'timely' about the new regulation for that area
 
-See https://github.com/SEMICeu/sdep/issues/22.
+See also https://github.com/SEMICeu/sdep/issues/22.
 
 ### Send activity data
 
@@ -45,4 +45,4 @@ Rationale:
 - A stay is only "complete" at check-out, and the data (including duration and guest count) is only fully known at that point
 - It also avoids the complexity of splitting multi-month stays across periods
 
-See https://github.com/SEMICeu/sdep/issues/40.
+See also https://github.com/SEMICeu/sdep/issues/40.
