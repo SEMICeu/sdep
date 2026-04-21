@@ -213,6 +213,7 @@ def _verify_correctness():
         ("locatorDesignatorNumber", "locatorDesignatorNumber"),
         ("postCode", "postCode"),
         ("postName", "postName"),
+        ("fullAddress", "fullAddress"),
     ]
 
     for submitted in sampled_activities:
@@ -379,23 +380,34 @@ def _atexit_handler():
 def _generate_activity(area_id: str, timestamp: str) -> dict:
     """Generate a realistic activity dict for performance testing."""
     unique = uuid.uuid4().hex[:12]
+    thoroughfare = random.choice(["Prinsengracht", "Keizersgracht", "Herengracht", "Damrak", "Rokin"])
+    number = random.randint(1, 999)
+    post_code = f"{random.randint(1000, 9999)}{''.join(random.choices(string.ascii_uppercase, k=2))}"
+    post_name = random.choice(["Amsterdam", "Rotterdam", "Den Haag", "Utrecht", "Eindhoven"])
+    # Cardinality constraint: len(countryOfGuests) must equal numberOfGuests
+    number_of_guests = random.randint(1, 10)
+    country_of_guests = random.choices(
+        ["NLD", "DEU", "BEL", "FRA", "GBR", "ESP", "ITA", "USA", "N/A"],
+        k=number_of_guests,
+    )
     return {
         "activityId": f"{ACTIVITY_ID_PREFIX}-{unique}",
         "url": f"http://{ACTIVITY_ID_PREFIX}.example.com/{unique}",
         "registrationNumber": f"REGPERF{unique[:8].upper()}",
         "address": {
-            "thoroughfare": random.choice(["Prinsengracht", "Keizersgracht", "Herengracht", "Damrak", "Rokin"]),
-            "locatorDesignatorNumber": random.randint(1, 999),
-            "postCode": f"{random.randint(1000, 9999)}{''.join(random.choices(string.ascii_uppercase, k=2))}",
-            "postName": random.choice(["Amsterdam", "Rotterdam", "Den Haag", "Utrecht", "Eindhoven"]),
+            "thoroughfare": thoroughfare,
+            "locatorDesignatorNumber": number,
+            "postCode": post_code,
+            "postName": post_name,
+            "fullAddress": f"{thoroughfare} {number}, {post_code} {post_name}",
         },
         "temporal": {
             "startDatetime": timestamp,
             "endDatetime": "2027-12-31T23:59:59Z",
         },
         "areaId": area_id,
-        "numberOfGuests": random.randint(1, 10),
-        "countryOfGuests": random.sample(["NLD", "DEU", "BEL", "FRA", "GBR", "ESP", "ITA", "USA"], k=random.randint(1, 3)),
+        "numberOfGuests": number_of_guests,
+        "countryOfGuests": country_of_guests,
     }
 
 

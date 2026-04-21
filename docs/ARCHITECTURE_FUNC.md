@@ -4,4 +4,4 @@ The diagram below presents the functional architecture of the SDEP (Single Digit
 
 Arrows indicate information flows.
 
-![](./diagrams/ARCHITECTURE_FUNC.jpg)
+![](./diagrams/ARCHITECTURE_FUNC.png)

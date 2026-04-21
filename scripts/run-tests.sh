@@ -20,9 +20,10 @@ RESULTS_FILE=$(mktemp)
 FAILED_TESTS_FILE=$(mktemp)
 OUTPUT_FILE=$(mktemp)
 SUITE_RESULTS_FILE=$(mktemp)
+PRE_RAW_COUNTS_FILE=$(mktemp)
 PRE_COUNTS_FILE=$(mktemp)
 POST_COUNTS_FILE=$(mktemp)
-trap "rm -f $RESULTS_FILE $FAILED_TESTS_FILE $OUTPUT_FILE $SUITE_RESULTS_FILE $PRE_COUNTS_FILE $POST_COUNTS_FILE" EXIT
+trap "rm -f $RESULTS_FILE $FAILED_TESTS_FILE $OUTPUT_FILE $SUITE_RESULTS_FILE $PRE_RAW_COUNTS_FILE $PRE_COUNTS_FILE $POST_COUNTS_FILE" EXIT
 
 echo "🧪 Running all tests..."
 echo ""
@@ -48,8 +49,8 @@ run_suite() {
   echo ""
 }
 
-# --- Capture PRE-test row counts ---
-echo "📊 Capturing PRE-test row counts..."
+# --- Capture PRE-test row counts (RAW, before any cleanup) ---
+echo "📊 Capturing PRE-test row counts (includes any leftover sdep-test-* rows)..."
 docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
   -t -A -F'|' < postgres/count-app.sql > "$PRE_COUNTS_FILE"
 
@@ -58,15 +59,32 @@ while IFS='|' read -r tname tcount; do
 done < "$PRE_COUNTS_FILE"
 echo ""
 
+# --- Pre-clean leftover sdep-test-* data (unless KEEP_TEST_DATA=true) ---
+# Ensures the isolation baseline is a clean slate even if a prior `make test-keep`
+# left sdep-test-* rows behind. Captured internally (not displayed).
+if [ "${KEEP_TEST_DATA:-false}" != "true" ]; then
+  echo "🧹 Pre-cleaning leftover sdep-test-* data..."
+  docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
+    -v ON_ERROR_STOP=1 < postgres/clean-testrun.sql > /dev/null
+fi
+
+# Internal baseline (post pre-clean) used for the isolation check.
+docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
+  -t -A -F'|' < postgres/count-app.sql > "$PRE_RAW_COUNTS_FILE"
+
 # --- Run test suites ---
 run_suite test-security
 run_suite test-str
 run_suite test-ca
 
-# --- Clean test data ---
-echo "🧹 Cleaning sdep-test-* data..."
-docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
-  -v ON_ERROR_STOP=1 < postgres/clean-testrun.sql
+# --- Clean test data (unless KEEP_TEST_DATA=true) ---
+if [ "${KEEP_TEST_DATA:-false}" = "true" ]; then
+  echo "🧷 KEEP_TEST_DATA=true — skipping sdep-test-* cleanup (isolation check will be skipped)"
+else
+  echo "🧹 Cleaning sdep-test-* data..."
+  docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
+    -v ON_ERROR_STOP=1 < postgres/clean-testrun.sql
+fi
 
 # --- Capture POST-test row counts ---
 echo "📊 Capturing POST-test row counts..."
@@ -102,16 +120,21 @@ echo "    Total tests:  $GRAND_TOTAL"
 echo "    Tests passed: $GRAND_PASSED ✅"
 echo "    Tests failed: $GRAND_FAILED ❌"
 echo ""
-echo "  Test Isolation (PRE/POST row counts):"
-while IFS='|' read -r PRE_NAME PRE_COUNT; do
-  POST_COUNT=$(grep "^$PRE_NAME|" "$POST_COUNTS_FILE" | cut -d'|' -f2)
-  if [ "$PRE_COUNT" = "$POST_COUNT" ]; then
-    printf "    %-25s PRE=%-5s POST=%-5s ✅\n" "$PRE_NAME:" "$PRE_COUNT" "$POST_COUNT"
-  else
-    printf "    %-25s PRE=%-5s POST=%-5s ❌\n" "$PRE_NAME:" "$PRE_COUNT" "$POST_COUNT"
-    ISOLATION_OK=false
-  fi
-done < "$PRE_COUNTS_FILE"
+if [ "${KEEP_TEST_DATA:-false}" = "true" ]; then
+  echo "  Test Isolation: skipped (KEEP_TEST_DATA=true)"
+else
+  echo "  Test Isolation (PRE/POST row counts):"
+  while IFS='|' read -r PRE_NAME PRE_COUNT; do
+    BASELINE_COUNT=$(grep "^$PRE_NAME|" "$PRE_RAW_COUNTS_FILE" | cut -d'|' -f2)
+    POST_COUNT=$(grep "^$PRE_NAME|" "$POST_COUNTS_FILE" | cut -d'|' -f2)
+    if [ "$BASELINE_COUNT" = "$POST_COUNT" ]; then
+      printf "    %-25s PRE=%-5s POST=%-5s ✅\n" "$PRE_NAME:" "$PRE_COUNT" "$POST_COUNT"
+    else
+      printf "    %-25s PRE=%-5s POST=%-5s ❌\n" "$PRE_NAME:" "$PRE_COUNT" "$POST_COUNT"
+      ISOLATION_OK=false
+    fi
+  done < "$PRE_COUNTS_FILE"
+fi
 
 echo ""
 if [ "$ISOLATION_OK" != "true" ]; then

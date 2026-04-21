@@ -2,49 +2,47 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, model_serializer
 
-from app.schemas.activity import ActivityResponse  # noqa: TC001
+from app.schemas.activity import ActivityRequest, ActivityResponse  # noqa: TC001
 from app.schemas.error import ErrorResponse  # noqa: TC001
 
 __all__ = [
-    "BulkActivityRequest",
-    "BulkActivityResponse",
-    "BulkActivityResultItem",
+    "ActivityBulkRequest",
+    "ActivityBulkResponse",
+    "ActivityBulkResultItem",
 ]
 
 
-class BulkActivityRequest(BaseModel):
+class ActivityBulkRequest(BaseModel):
     """Bulk activity request schema.
 
-    Accepts a list of raw dicts (not pre-validated ActivityRequest models)
-    to enable per-item Pydantic validation in the service layer.
-    This way, one invalid item does not block the other items in the batch.
-
-    Validation flow Step 1: each item is validated individually via
-    TypeAdapter(ActivityRequest).validate_python() in the service layer.
-    Failed items are marked NOK; valid items continue to Step 2.
+    The `activities` field is typed as `list[ActivityRequest]` for the OpenAPI
+    contract, but item-level validation is skipped at request-parse time (via
+    `SkipValidation`). This preserves the Application-First Validation flow:
+    each item is validated individually in the service layer, so one invalid
+    item is marked NOK without failing the whole batch.
     """
 
     model_config = ConfigDict(
-        title="activity.BulkActivityRequest",
+        title="Activity.BulkRequest",
     )
 
-    activities: list[dict[str, Any]] = Field(
+    activities: list[SkipValidation[ActivityRequest]] = Field(
         ...,
         min_length=1,
         max_length=1000,
-        description="List of activity objects to process (1-1000 items per batch). Each item is validated individually.",
+        description="List of activity objects to process (1-1000 items per batch). Each item is validated individually in the service layer; invalid items are marked NOK without failing the whole batch.",
     )
 
 
-class BulkActivityResultItem(BaseModel):
+class ActivityBulkResultItem(BaseModel):
     """Result for a single item in a bulk activity response."""
 
     model_config = ConfigDict(
-        title="activity.BulkActivityResultItem",
+        title="Activity.BulkResultItem",
         populate_by_name=True,
     )
 
@@ -65,7 +63,7 @@ class BulkActivityResultItem(BaseModel):
 
     status: Literal["OK", "NOK"] = Field(
         ...,
-        description="Processing result: OK (created successfully) or NOK (failed validation or processing)",
+        description="Processing status for this batch item: OK (created successfully) or NOK (failed validation or processing). This is distinct from `activity.status`, which is the lifecycle status of the created activity record.",
         examples=["OK"],
     )
 
@@ -101,7 +99,7 @@ class BulkActivityResultItem(BaseModel):
         return data
 
 
-class BulkActivityResponse(BaseModel):
+class ActivityBulkResponse(BaseModel):
     """Bulk activity response schema.
 
     Returns per-item OK/NOK feedback with summary counts.
@@ -109,7 +107,7 @@ class BulkActivityResponse(BaseModel):
     """
 
     model_config = ConfigDict(
-        title="activity.BulkActivityResponse",
+        title="Activity.BulkResponse",
         populate_by_name=True,
     )
 
@@ -135,7 +133,7 @@ class BulkActivityResponse(BaseModel):
         examples=[0],
     )
 
-    results: list[BulkActivityResultItem] = Field(
+    results: list[ActivityBulkResultItem] = Field(
         ...,
         description="Per-item results preserving the original request order",
         json_schema_extra={
@@ -146,6 +144,7 @@ class BulkActivityResponse(BaseModel):
                     "status": "OK",
                     "activity": {
                         "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                        "status": "finished",
                         "areaId": "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
                         "competentAuthorityId": "sdep-ca0363",
                         "competentAuthorityName": "Gemeente Amsterdam",
@@ -155,10 +154,11 @@ class BulkActivityResponse(BaseModel):
                             "locatorDesignatorNumber": 263,
                             "postCode": "1016GV",
                             "postName": "Amsterdam",
+                            "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
                         },
                         "registrationNumber": "REG0001",
                         "numberOfGuests": 4,
-                        "countryOfGuests": ["NLD", "DEU", "BEL"],
+                        "countryOfGuests": ["NLD", "DEU", "BEL", "N/A"],
                         "temporal": {
                             "startDatetime": "2025-06-01T14:00:00Z",
                             "endDatetime": "2025-06-07T11:00:00Z",

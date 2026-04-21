@@ -10,6 +10,12 @@ Table of contents
   - [Success](#success)
   - [Client errors](#client-errors)
   - [Server errors](#server-errors)
+- [OpenAPI vs Swagger UI](#openapi-vs-swagger-ui)
+  - [OpenAPI](#openapi)
+  - [Swagger UI](#swagger-ui)
+  - [Interchangeable?](#interchangeable)
+  - [Example](#example)
+  - [Takeaways](#takeaways)
 - [API Gateway?](#api-gateway)
   - [Motivation](#motivation)
   - [When](#when)
@@ -81,6 +87,147 @@ Table of contents
 | 503         | Service Unavailable   | Database or authorization server (Keycloak) temporarily unavailable    |
 
 For the mapping between application exceptions and HTTP status codes, see [Exception Handling](ARCHITECTURE_TECH.md#exception-handling) in the Architecture document.
+
+---
+
+## OpenAPI vs Swagger UI
+
+### OpenAPI
+
+The **[OpenAPI Specification](https://www.openapis.org/)** (formerly *Swagger Specification*) is a language-agnostic standard (currently 3.1.0) for describing HTTP APIs.
+
+- A single document enumerates every endpoint, its request parameters and body, its response shapes per HTTP status code, its authentication scheme, and the data types (`components.schemas`) those endpoints consume and produce
+- With constraints like lengths, patterns, enums, required fields, and examples
+
+SDEP exposes this document at:
+
+```
+GET /api/v0/openapi.json
+```
+
+It is the **authoritative, machine-readable contract** of the API.
+
+- FastAPI generates it automatically from the Pydantic schemas and route definitions in the code, so it is always in sync with the running backend
+- It is what client code generators (e.g. [openapi-generator](https://openapi-generator.tech/), [openapi-typescript](https://github.com/openapi-ts/openapi-typescript)), contract-test tools, mock servers, schema registries, and spec-diff tools consume
+
+Key properties:
+
+- **Versioned, machine-readable** — diffable in git, consumable by tooling.
+- **Single source of truth** — endpoints, schemas, and examples live in one document.
+- **Reusable components** — named schemas (`#/components/schemas/...`) are referenced via `$ref` so the same type can appear in many places without duplication.
+
+### Swagger UI
+
+**[Swagger UI](https://swagger.io/tools/swagger-ui/)** is an interactive, browser-based **renderer** of an OpenAPI document.
+
+- It is *not* a separate specification or a separate source of truth
+- It reads the same `openapi.json` and presents it as a navigable page with collapsible endpoints, schema trees, and a built-in "Try it out" form that submits live requests against the running backend
+
+SDEP serves it at:
+
+```
+GET /api/v0/docs
+```
+
+Swagger UI's audience is humans: developers exploring the API, integrators drafting their first request, reviewers sanity-checking a change.
+
+To keep that audience oriented, Swagger UI **summarizes where the raw spec would overwhelm** — e.g. it may label a field as `array<object>` even when the spec contains a named `$ref` to a typed component. The typed detail is still reachable (one click deeper), but the top-level label is deliberately compact.
+
+### Interchangeable?
+
+The two are not interchangeable:
+
+- When a schema is non-trivial (arrays of typed objects, composed `$ref`s, polymorphism), Swagger UI summarizes while the raw JSON retains the full detail
+- Always treat `openapi.json` as the source of truth
+
+### Example
+
+`POST /str/activities/bulk`
+
+The bulk endpoint's request body is `ActivityBulkRequest`, whose `activities` field is an array of `ActivityRequest`. The contract expresses this precisely; Swagger UI renders it in a more compact way.
+
+**1. Swagger UI (Schema tab)**
+
+Swagger UI shows the request body as `ActivityBulkRequest (object)`. The `activities*` property is labeled:
+
+```
+activities*   array<object>   [1, 1000] items
+```
+
+— i.e. Swagger UI's item-type label is the generic word `object`, not `ActivityRequest`. The typed structure is still there, just one level deeper: expanding `Items` reveals a nested `object` block with every `ActivityRequest` property (`activityId`, `activityName`, `areaId`, `address`, `registrationNumber`, `numberOfGuests`, `countryOfGuests`, `temporal`, …) including their constraints, examples, and descriptions. So Swagger UI does render the full schema; it just does not surface the referenced **type name** at the array level.
+
+**2. openapi.json — request body reference**
+
+In the raw document, the endpoint body points at a named component:
+
+```json
+"/str/activities/bulk": {
+  "post": {
+    "requestBody": {
+      "content": {
+        "application/json": {
+          "schema": { "$ref": "#/components/schemas/ActivityBulkRequest" }
+        }
+      }
+    }
+  }
+}
+```
+
+**3. openapi.json — `ActivityBulkRequest` definition**
+
+The wrapper references another named component for the item type:
+
+```json
+"ActivityBulkRequest": {
+  "type": "object",
+  "required": ["activities"],
+  "title": "Activity.BulkRequest",
+  "properties": {
+    "activities": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "items": { "$ref": "#/components/schemas/ActivityRequest" }
+    }
+  }
+}
+```
+
+**4. openapi.json — `ActivityRequest` definition**
+
+`ActivityRequest` is a top-level, reusable component with every property and its constraints spelled out:
+
+```json
+"ActivityRequest": {
+  "type": "object",
+  "title": "Activity.Request",
+  "required": ["areaId", "url", "address", "registrationNumber",
+               "numberOfGuests", "countryOfGuests", "temporal"],
+  "properties": {
+    "activityId": {
+      "anyOf": [
+        { "type": "string", "minLength": 1, "maxLength": 64,
+          "pattern": "^[A-Za-z0-9-]+$" },
+        { "type": "null" }
+      ],
+      "examples": ["550e8400-e29b-41d4-a716-446655440000"]
+    },
+    "activityName": { "anyOf": [ { "type": "string", "maxLength": 64 },
+                                  { "type": "null" } ] }
+    /* …remaining fields… */
+  }
+}
+```
+
+### Takeaways
+
+- **Typing is explicit in `openapi.json`**, via chained `$ref`s: the endpoint → `ActivityBulkRequest` → `ActivityRequest`. Client code generators, contract-test tools, and spec-diff tools will pick this up and produce typed models.
+- **Swagger UI's `array<object>` label is cosmetic**, not a loss of schema detail. The underlying typed item schema is still available one click deeper under *Items*.
+- **Consume `openapi.json` for machine workflows** (code generation, conformance tests, contract diffs). **Use Swagger UI for exploratory human reading** and manual request submission.
+- **When a spec question arises, check `openapi.json` first.** If a type appears to be "just an object" in Swagger UI, it almost always has a named component behind it — follow the `$ref`.
+
+---
 
 ## API Gateway?
 

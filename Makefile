@@ -1,11 +1,21 @@
 SHELL := /bin/bash
 
-.PHONY: help up down restart status test test-quiet logs postgres-up postgres-down keycloak-up keycloak-down backend-up backend-down \
-        postgres-clean postgres-migrate postgres-clean-migrate-load postgres-load generate-area-sql .build .is-up .clean-stale .clean-database .migrate-database \
+.PHONY: .build .clean-stale \
+        .clean-database .migrate-database .load-test-data \
+        postgres-up postgres-down \
+        postgres-login postgres-status postgres-status-full postgres-auditlog postgres-activity-count \
+        postgres-clean postgres-migrate postgres-load postgres-clean-migrate postgres-clean-migrate-load \
+        generate-area-sql \
+        dbgate-up dbgate-down dbgate-restart dbgate-status \
         .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles .keycloak-machine-clients .get-client-credentials \
-        .clean-testrun test-security test-str test-ca test-perf test-perf-verbose \
-        postgres-login postgres-status postgres-status-full postgres-auditlog postgres-activity-count dbgate-up dbgate-down dbgate-restart dbgate-status dbgate-logs \
-        backend-logs postgres-logs keycloak-logs
+        keycloak-up keycloak-down \
+        backend-up backend-down backend-restart \
+        up down restart status \
+        .is-up .clean-testrun \
+        test test-keep test-verbose test-security test-ca test-str \
+        test-perf test-perf-verbose \
+        postgres-logs keycloak-logs backend-logs dbgate-logs fullstack-logs \
+        help
 
 .DEFAULT_GOAL := help
 
@@ -14,7 +24,14 @@ DOCKER_COMPOSE := docker compose --env-file .env $(if $(wildcard .env.extra),--e
 DBGATE_PID_FILE := /tmp/dbgate.pid
 DBGATE_PROCESS_PATTERN := /tmp/.mount_[d]bgate.*/dbgate|dbgate-7\.1\.2-linux_x86_64\.AppImage
 
-# Helpers
+# Common helpers
+
+.build: ## Build
+	@echo "🐳 Building fullstack..."
+	$(DOCKER_COMPOSE) build
+	@echo "✅ Fullstack built successfully!"
+	@echo "📊 Images"
+	@set -a && source .env && set +a && docker images | grep $$APP_PREFIX
 
 .clean-stale: ## Remove stale containers
 	@echo "🧹 Cleaning stale containers..."
@@ -23,6 +40,7 @@ DBGATE_PROCESS_PATTERN := /tmp/.mount_[d]bgate.*/dbgate|dbgate-7\.1\.2-linux_x86
 	@$(DOCKER_COMPOSE) rm -f initdb 2>/dev/null || true
 	@echo "✅ Stale containers cleaned!"
 
+##@ Postgres
 
 .clean-database: ## Drop database
 	@set -a && source .env && set +a && \
@@ -35,75 +53,17 @@ DBGATE_PROCESS_PATTERN := /tmp/.mount_[d]bgate.*/dbgate|dbgate-7\.1\.2-linux_x86
 	@docker exec -i $$($(DOCKER_COMPOSE) ps -q backend) alembic upgrade head
 	@echo "✅ Database migrations completed!"
 
-.keycloak-wait: ## Wait until keycloak allows to authenticate
-	@./keycloak/wait.sh
-	@set -a && source .env && set +a && echo "✅ $$KC_BASE_URL"
-
-.keycloak-realm: .keycloak-wait ## Create realm
-	@set -a && source .env && set +a && ./keycloak/add-realm.sh
-
-.keycloak-admin: .keycloak-realm ## Create (CI/CD) admin account in realm
-	@mkdir -p ./tmp
+.load-test-data: ## Load test data into database
+	@echo "🐳 Initializing test data..."
 	@set -a && source .env && set +a && \
-	KC_APP_REALM_ADMIN_SECRET=$$(bash keycloak/add-realm-admin.sh | grep "Client Secret:" | cut -d' ' -f3) && \
-	echo "$$KC_APP_REALM_ADMIN_SECRET" > ./tmp/KC_APP_REALM_ADMIN_SECRET.txt
-
-.keycloak-roles: .keycloak-admin ## Create roles in realm (keycloak/roles.yaml)
-	@set -a && source .env && set +a && \
-	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
-	./keycloak/add-realm-roles.sh
-
-.keycloak-machine-clients: .keycloak-roles ## Create machine clients in realm (keycloak/machine-clients.yaml)
-	@set -a && source .env && set +a && \
-	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
-	./keycloak/add-realm-machine-clients.sh
-
-.get-client-credentials: ## Retrieve client credentials from Keycloak
-	@set -a && source .env && set +a && \
-	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
-	source ./keycloak/get-client-secret.sh && \
-	KC_APP_REALM_CLIENT_ID=sdep-test-ca01 && get_client_secret && CA_CLIENT_ID=$$KC_APP_REALM_CLIENT_ID && CA_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
-	KC_APP_REALM_CLIENT_ID=sdep-test-str01 && get_client_secret && STR_CLIENT_ID=$$KC_APP_REALM_CLIENT_ID && STR_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
-	echo "export CA_CLIENT_ID=$$CA_CLIENT_ID" > ./tmp/.credentials && \
-	echo "export CA_CLIENT_SECRET=$$CA_CLIENT_SECRET" >> ./tmp/.credentials && \
-	echo "export STR_CLIENT_ID=$$STR_CLIENT_ID" >> ./tmp/.credentials && \
-	echo "export STR_CLIENT_SECRET=$$STR_CLIENT_SECRET" >> ./tmp/.credentials
-
-.is-up: ## Check if services are running
-	@echo "🔍 Checking if services are up..." && \
-	set -a && source .env && set +a && \
-	POSTGRES_STATUS=$$(docker inspect --format='{{.State.Health.Status}}' $$POSTGRES_CONTAINER_NAME 2>&1 | grep -v "^Error" || echo "not-running"); \
-	KC_STATUS=$$(docker inspect --format='{{.State.Status}}' $$KC_CONTAINER_NAME 2>&1 | grep -v "^Error" || echo "not-running"); \
-	BACKEND_STATUS=$$(docker inspect --format='{{.State.Health.Status}}' $$BACKEND_CONTAINER_NAME 2>&1 | grep -v "^Error" || echo "not-running"); \
-	ALL_UP=true; \
-	echo ""; \
-	printf "  %-15s %s\n" "Postgres:" "$$POSTGRES_STATUS"; \
-	if [ "$$POSTGRES_STATUS" != "healthy" ]; then ALL_UP=false; fi; \
-	printf "  %-15s %s\n" "Keycloak:" "$$KC_STATUS"; \
-	if [ "$$KC_STATUS" != "running" ]; then ALL_UP=false; fi; \
-	printf "  %-15s %s\n" "Backend:" "$$BACKEND_STATUS"; \
-	if [ "$$BACKEND_STATUS" != "healthy" ]; then ALL_UP=false; fi; \
-	echo ""; \
-	if [ "$$ALL_UP" = "true" ]; then \
-		echo "✅ All services are up and healthy!"; \
-		exit 0; \
-	else \
-		echo "❌ Some services are not healthy!"; \
-		echo ""; \
-		echo "Please start all services first with:"; \
-		echo "  make up"; \
-		echo ""; \
-		exit 1; \
-	fi
-
-.build: ## Build
-	@echo "🐳 Building fullstack..."
-	$(DOCKER_COMPOSE) build
-	@echo "✅ Fullstack built successfully!"
-	@echo "📊 Images"
-	@set -a && source .env && set +a && docker images | grep $$APP_PREFIX
-
-##@ Postgres
+	echo "Using PostgreSQL user: $$POSTGRES_SUPER_USER" && \
+	echo "Connecting to database: $$POSTGRES_DB_NAME" && \
+	echo "Executing SQL initialization files..." && \
+	for sql_file in $$(ls test-data/*.sql 2>/dev/null | sort); do \
+		echo "  Executing: $$sql_file"; \
+		docker exec -i sdep-postgres psql -U $$POSTGRES_SUPER_USER -d $$POSTGRES_DB_NAME -v ON_ERROR_STOP=1 < "$$sql_file"; \
+	done
+	@echo "✅ Test data initialized!"
 
 postgres-up: .clean-stale ## Start postgres
 	@echo "🚀 Starting postgres..."
@@ -121,7 +81,7 @@ postgres-login: ## Login to postgres
 	@echo "🔐 Connecting to PostgreSQL..."
 	docker exec -it $$($(DOCKER_COMPOSE) ps -q postgres) psql -U postgres -d sdep-data
 
-postgres-status: ## Show postgres tables (SDEP)
+postgres-status: ## Show postgres tables
 	@set -a && source .env && set +a && \
 	echo "Showing tables for database $$POSTGRES_DB_NAME..." && \
 	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "\\dt"
@@ -137,7 +97,7 @@ postgres-status: ## Show postgres tables (SDEP)
 		fi; \
 	done
 
-postgres-status-full: postgres-status ## Show postgres tables with full details (SDEP)
+postgres-status-full: postgres-status ## Show postgres tables with full details
 	@echo ""
 	@echo "Showing full structure of each table..."
 	@set -a && source .env && set +a && \
@@ -150,7 +110,7 @@ postgres-status-full: postgres-status ## Show postgres tables with full details 
 		fi; \
 	done
 
-postgres-auditlog: ## Show SDEP audit log
+postgres-auditlog: ## Show audit log
 	@set -a && source .env && set +a && \
 	echo "Showing audit log for database $$POSTGRES_DB_NAME..." && \
 	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT * FROM audit_log"
@@ -169,28 +129,27 @@ postgres-migrate: ## Migrate postgres (create/update tables)
 	@$(MAKE) --no-print-directory .migrate-database
 	@echo "✅ SDEP database migrated!"
 
-postgres-load: ## Load test data
-	@echo "🐳 Initializing test data..."
-	@set -a && source .env && set +a && \
-	echo "Using PostgreSQL user: $$POSTGRES_SUPER_USER" && \
-	echo "Connecting to database: $$POSTGRES_DB_NAME" && \
-	sleep 3
-	@echo "Executing SQL initialization files..."
-	@set -a && source .env && set +a && \
-	for sql_file in $$(ls test-data/*.sql 2>/dev/null | sort); do \
-		echo "  Executing: $$sql_file"; \
-		docker exec -i sdep-postgres psql -U $$POSTGRES_SUPER_USER -d $$POSTGRES_DB_NAME -v ON_ERROR_STOP=1 < "$$sql_file"; \
-	done
-	@echo "✅ Test data initialized"
+postgres-load: .clean-stale ## Load test data
+	@echo "🚀 Loading test data into sdep-database..."
+	@$(MAKE) --no-print-directory .load-test-data
+	@echo "✅ SDEP test data loaded!"
 
-postgres-clean-migrate-load: .clean-stale ## Clean postgres (drop + migrate + load)
+postgres-clean-migrate: .clean-stale ## Clean postgres (drop + migrate)
 	@echo "🚀 Resetting sdep-database in postgres ..."
 	@$(MAKE) --no-print-directory .clean-database .migrate-database
-	@$(MAKE) --no-print-directory postgres-load
+	@echo "✅ SDEP database reset!"
+
+postgres-clean-migrate-load: .clean-stale ## Clean postgres (drop + migrate + load)
+	@echo "🚀 Resetting and loading sdep-database in postgres ..."
+	@$(MAKE) --no-print-directory .clean-database .migrate-database .load-test-data
 	@echo "✅ SDEP database reset and loaded!"
 
-postgres-logs: ## Show postgres logs
-	$(DOCKER_COMPOSE) logs -f sdep-postgres
+##@ Postgres testdata
+
+generate-area-sql: ## Generate test-data/02-area-generated.sql (when shapefiles changed)
+	@echo "🔄 Generating area SQL file with embedded shapefile data..."
+	@./test-data/generate-area-sql.sh
+	@echo "✅ Area SQL file generated"
 
 ##@ DBGate (optional)
 
@@ -231,6 +190,7 @@ dbgate-up: ## Launch DBGate and show local PostgreSQL connection details
 	echo "Then click the target DB node (sdep-data or keycloak) and Refresh."
 	@set -a && source .env && set +a && nohup dbgate "postgresql://$$POSTGRES_DB_USER:$$POSTGRES_DB_PASSWORD@localhost:$$POSTGRES_PORT/$$POSTGRES_DB_NAME" >/tmp/dbgate.log 2>&1 & echo $$! > "$(DBGATE_PID_FILE)"
 	@echo "✅ DBGate launched in background (logs: /tmp/dbgate.log)"
+	@echo "🌐 DBGate web UI: http://localhost:3000"
 
 dbgate-down: ## Stop DBGate
 	@PIDS=""; \
@@ -273,17 +233,47 @@ dbgate-status: ## Show DBGate and Postgres status
 	else \
 		printf "  %-16s %s\n" "DBGate:" "stopped"; \
 	fi; \
+	printf "  %-16s %s\n" "DBGate UI:" "http://localhost:3000"; \
 	printf "  %-16s %s\n" "SDEP URL:" "postgresql://$$POSTGRES_DB_USER:$$POSTGRES_DB_PASSWORD@localhost:$$POSTGRES_PORT/$$POSTGRES_DB_NAME"; \
 	printf "  %-16s %s\n" "KC URL:" "postgresql://$$KC_DB_USERNAME:$$KC_DB_PASSWORD@localhost:$$POSTGRES_PORT/keycloak"
 
-dbgate-logs: ## Tail DBGate log file
-	@touch /tmp/dbgate.log
-	@echo "📜 Tailing /tmp/dbgate.log (Ctrl+C to stop)"
-	@tail -f /tmp/dbgate.log
-
 ##@ Keycloak
 
-keycloak-up: postgres-up ## Start keycloak
+.keycloak-wait: ## Wait until keycloak allows to authenticate
+	@./keycloak/wait.sh
+	@set -a && source .env && set +a && echo "✅ $$KC_BASE_URL"
+
+.keycloak-realm: .keycloak-wait ## Create realm
+	@set -a && source .env && set +a && ./keycloak/add-realm.sh
+
+.keycloak-admin: .keycloak-realm ## Create (CI/CD) admin account in realm
+	@mkdir -p ./tmp
+	@set -a && source .env && set +a && \
+	KC_APP_REALM_ADMIN_SECRET=$$(bash keycloak/add-realm-admin.sh | grep "Client Secret:" | cut -d' ' -f3) && \
+	echo "$$KC_APP_REALM_ADMIN_SECRET" > ./tmp/KC_APP_REALM_ADMIN_SECRET.txt
+
+.keycloak-roles: .keycloak-admin ## Create roles in realm (keycloak/roles.yaml)
+	@set -a && source .env && set +a && \
+	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
+	./keycloak/add-realm-roles.sh
+
+.keycloak-machine-clients: .keycloak-roles ## Create machine clients in realm (keycloak/machine-clients.yaml)
+	@set -a && source .env && set +a && \
+	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
+	./keycloak/add-realm-machine-clients.sh
+
+.get-client-credentials: ## Retrieve client credentials from Keycloak
+	@set -a && source .env && set +a && \
+	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
+	source ./keycloak/get-client-secret.sh && \
+	KC_APP_REALM_CLIENT_ID=sdep-test-ca01 && get_client_secret && CA_CLIENT_ID=$$KC_APP_REALM_CLIENT_ID && CA_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	KC_APP_REALM_CLIENT_ID=sdep-test-str01 && get_client_secret && STR_CLIENT_ID=$$KC_APP_REALM_CLIENT_ID && STR_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	echo "export CA_CLIENT_ID=$$CA_CLIENT_ID" > ./tmp/.credentials && \
+	echo "export CA_CLIENT_SECRET=$$CA_CLIENT_SECRET" >> ./tmp/.credentials && \
+	echo "export STR_CLIENT_ID=$$STR_CLIENT_ID" >> ./tmp/.credentials && \
+	echo "export STR_CLIENT_SECRET=$$STR_CLIENT_SECRET" >> ./tmp/.credentials
+
+keycloak-up: postgres-up ## Start and configure keycloak (realm, roles, machine-clients)
 	@echo "🚀 Starting Keycloak..."
 	$(DOCKER_COMPOSE) up -d keycloak
 	@echo "✅ Keycloak started!"
@@ -296,9 +286,6 @@ keycloak-down: ## Stop and remove keycloak (including volumes)
 	$(DOCKER_COMPOSE) stop keycloak
 	$(DOCKER_COMPOSE) rm -f -v keycloak
 	@echo "✅ Keycloak stopped, removed, and volumes cleaned!"
-
-keycloak-logs: ## Show keycloak logs
-	$(DOCKER_COMPOSE) logs -f sdep-keycloak
 
 ##@ Backend
 
@@ -316,10 +303,7 @@ backend-down: ## Stop and remove backend (including volumes)
 
 backend-restart: backend-down backend-up ## Stop and restart backend
 
-backend-logs: ## Show backend logs
-	$(DOCKER_COMPOSE) logs -f backend
-
-##@ Fullstack (keycloak + postgres + backend + testdata)
+##@ Fullstack (keycloak + postgres + backend, and load testdata)
 
 up: .build .clean-stale ## Start
 	@echo "🚀 Starting full-stack..."
@@ -358,10 +342,34 @@ status: ## Show status
 	printf "  %-42s %s\n" "Keycloak:" "$$KC_BASE_URL/admin"
 	@echo ""
 
-logs: ## Show logs
-	$(DOCKER_COMPOSE) logs -f
-
 ##@ Test
+
+.is-up: ## Check if services are running
+	@echo "🔍 Checking if services are up..." && \
+	set -a && source .env && set +a && \
+	POSTGRES_STATUS=$$(docker inspect --format='{{.State.Health.Status}}' $$POSTGRES_CONTAINER_NAME 2>&1 | grep -v "^Error" || echo "not-running"); \
+	KC_STATUS=$$(docker inspect --format='{{.State.Status}}' $$KC_CONTAINER_NAME 2>&1 | grep -v "^Error" || echo "not-running"); \
+	BACKEND_STATUS=$$(docker inspect --format='{{.State.Health.Status}}' $$BACKEND_CONTAINER_NAME 2>&1 | grep -v "^Error" || echo "not-running"); \
+	ALL_UP=true; \
+	echo ""; \
+	printf "  %-15s %s\n" "Postgres:" "$$POSTGRES_STATUS"; \
+	if [ "$$POSTGRES_STATUS" != "healthy" ]; then ALL_UP=false; fi; \
+	printf "  %-15s %s\n" "Keycloak:" "$$KC_STATUS"; \
+	if [ "$$KC_STATUS" != "running" ]; then ALL_UP=false; fi; \
+	printf "  %-15s %s\n" "Backend:" "$$BACKEND_STATUS"; \
+	if [ "$$BACKEND_STATUS" != "healthy" ]; then ALL_UP=false; fi; \
+	echo ""; \
+	if [ "$$ALL_UP" = "true" ]; then \
+		echo "✅ All services are up and healthy!"; \
+		exit 0; \
+	else \
+		echo "❌ Some services are not healthy!"; \
+		echo ""; \
+		echo "Please start all services first with:"; \
+		echo "  make up"; \
+		echo ""; \
+		exit 1; \
+	fi
 
 .clean-testrun: ## Clean sdep-test-* data from database
 	@set -a && source .env && set +a && \
@@ -372,6 +380,11 @@ test: .is-up ## Test all (quiet)
 	@set -a && source ./.env && set +a && \
 	set -o pipefail && \
 	$(MAKE) --no-print-directory test-verbose 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
+
+test-keep: .is-up .get-client-credentials ## Test all (quiet, keep test data)
+	@set -a && source ./.env && set +a && \
+	set -o pipefail && \
+	KEEP_TEST_DATA=true $(CURDIR)/scripts/run-tests.sh 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
 
 test-verbose: .is-up .get-client-credentials ## Test all (verbose)
 	@$(CURDIR)/scripts/run-tests.sh
@@ -426,13 +439,8 @@ test-str: .is-up .get-client-credentials ## Test STR endpoints
 	fi && \
 	./tests/test_health_ping.sh 2>&1 | tee $$OUTPUT_FILE && \
 	./tests/test_str_areas.sh 2>&1 | tee $$OUTPUT_FILE && \
+	./tests/test_str_activities_bulk.sh 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ STR endpoints tested"
-
-
-generate-area-sql: ## Generate test-data/02-area-generated.sql (run  when shapefile data changes)
-	@echo "🔄 Generating area SQL file with embedded shapefile data..."
-	@./test-data/generate-area-sql.sh
-	@echo "✅ Area SQL file generated"
 
 ##@ Performance
 
@@ -459,6 +467,25 @@ test-perf: .is-up .get-client-credentials ## Run bulk performance test (PERF_YES
 
 test-perf-verbose: .is-up .get-client-credentials ## Run bulk performance test with periodic Locust stats
 	@$(PERF_ENV) PERF_VERBOSE=true $(CURDIR)/scripts/run-tests-perf.sh
+
+##@ Logs
+
+postgres-logs: ## Show postgres logs
+	$(DOCKER_COMPOSE) logs -f sdep-postgres
+
+keycloak-logs: ## Show keycloak logs
+	$(DOCKER_COMPOSE) logs -f sdep-keycloak
+
+backend-logs: ## Show backend logs
+	$(DOCKER_COMPOSE) logs -f backend
+
+dbgate-logs: ## Show dbgate logs (optional)
+	@touch /tmp/dbgate.log
+	@echo "📜 Tailing /tmp/dbgate.log (Ctrl+C to stop)"
+	@tail -f /tmp/dbgate.log
+
+fullstack-logs: ## Show fullstack logs
+	$(DOCKER_COMPOSE) logs -f
 
 ##@ Help
 

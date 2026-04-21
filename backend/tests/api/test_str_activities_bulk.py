@@ -7,6 +7,7 @@ import pytest_asyncio
 from app.api.v0.main import app_v0
 from app.api.v0.security import verify_bearer_token
 from app.db.config import get_async_db, get_async_db_read_only
+from app.enums import ActivityStatus
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,11 +36,14 @@ def _make_activity(area_id: str, suffix: str = "001", **overrides) -> dict:
             "locatorDesignatorNumber": 147,
             "postCode": "2500EA",
             "postName": "Den Haag",
+            "fullAddress": "Turfmarkt 147, 2500EA Den Haag",
         },
         "temporal": {
             "startDatetime": "2025-06-01T14:00:00Z",
             "endDatetime": "2025-06-07T11:00:00Z",
         },
+        "numberOfGuests": 2,
+        "countryOfGuests": ["NLD", "NLD"],
     }
     base.update(overrides)
     return base
@@ -150,6 +154,7 @@ class TestSTRActivitiesBulkAPI:
             assert item["status"] == "OK"
             assert "activity" in item
             assert item["activity"]["activityId"] is not None
+            assert item["activity"]["status"] == "finished"
             assert item["activity"]["createdAt"] is not None
             assert "errors" not in item
 
@@ -188,6 +193,7 @@ class TestSTRActivitiesBulkAPI:
         # Embedded activity fields
         assert activity["activityId"] == "my-id-001"
         assert activity["activityName"] == "Test Activity"
+        assert activity["status"] == "finished"
         assert activity["areaId"] == test_areas["area1"].area_id
         assert activity["competentAuthorityId"] == "test"
         assert activity["competentAuthorityName"] == "Test Authority"
@@ -197,6 +203,7 @@ class TestSTRActivitiesBulkAPI:
         assert activity["address"]["locatorDesignatorNumber"] == 147
         assert activity["address"]["postCode"] == "2500EA"
         assert activity["address"]["postName"] == "Den Haag"
+        assert activity["address"]["fullAddress"] == "Turfmarkt 147, 2500EA Den Haag"
         assert activity["numberOfGuests"] == 3
         assert activity["countryOfGuests"] == ["NLD", "DEU", "BEL"]
         assert activity["temporal"]["startDatetime"] == "2025-06-01T14:00:00Z"
@@ -230,6 +237,7 @@ class TestSTRActivitiesBulkAPI:
         assert result["activityId"] is None
         # Embedded activity has a generated UUID
         assert result["activity"]["activityId"] is not None
+        assert result["activity"]["status"] == "finished"
         assert len(result["activity"]["activityId"]) > 0
 
     async def test_bulk_ok_item_with_activity_id_has_matching_result_level_id(
@@ -259,6 +267,76 @@ class TestSTRActivitiesBulkAPI:
 
         assert result["activityId"] == "supplied-id-123"
         assert result["activity"]["activityId"] == "supplied-id-123"
+        assert result["activity"]["status"] == "finished"
+
+    async def test_bulk_accepts_explicit_cancelled_status(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """Explicit cancelled lifecycle status is accepted and returned."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(
+                            test_areas["area1"].area_id,
+                            "cancelled-001",
+                            activityId="cancelled-id-001",
+                            status="cancelled",
+                        ),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        result = response.json()["results"][0]
+        assert result["status"] == "OK"
+        assert result["activity"]["status"] == "cancelled"
+
+    async def test_bulk_ok_without_locator_designator_number(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """Address.locatorDesignatorNumber is optional → item accepted, field is null in response."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        {
+                            "areaId": test_areas["area1"].area_id,
+                            "url": "http://example.com/bulk-no-number",
+                            "registrationNumber": "REG-no-number",
+                            "address": {
+                                "thoroughfare": "Turfmarkt",
+                                "postCode": "2500EA",
+                                "postName": "Den Haag",
+                                "fullAddress": "Turfmarkt, 2500EA Den Haag",
+                            },
+                            "temporal": {
+                                "startDatetime": "2025-06-01T14:00:00Z",
+                                "endDatetime": "2025-06-07T11:00:00Z",
+                            },
+                            "numberOfGuests": 2,
+                            "countryOfGuests": ["NLD", "NLD"],
+                        },
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["succeeded"] == 1
+        assert data["failed"] == 0
+        activity = data["results"][0]["activity"]
+        assert activity["address"]["thoroughfare"] == "Turfmarkt"
+        assert activity["address"]["locatorDesignatorNumber"] is None
+        assert activity["status"] == "finished"
 
     # ── Failure cases ────────────────────────────────────────────────────
 
@@ -613,8 +691,10 @@ class TestSTRActivitiesBulkAPI:
     async def test_bulk_versioning_marks_existing_as_ended(
         self, async_session: AsyncSession, setup_overrides, test_areas
     ):
-        """activityId exists in DB → old version marked as ended, new version created."""
+        """Resubmitting with cancelled creates a new cancelled current version."""
         import asyncio
+
+        from app.crud import activity as activity_crud
 
         # First: create an activity via bulk
         async with AsyncClient(
@@ -650,6 +730,7 @@ class TestSTRActivitiesBulkAPI:
                             test_areas["area1"].area_id,
                             "ver-v2",
                             activityId="versioned-bulk",
+                            status="cancelled",
                         ),
                     ]
                 },
@@ -661,6 +742,22 @@ class TestSTRActivitiesBulkAPI:
         assert data["succeeded"] == 1
         assert data["results"][0]["activityId"] == "versioned-bulk"
         assert data["results"][0]["status"] == "OK"
+        assert data["results"][0]["activity"]["status"] == "cancelled"
+
+        current = await activity_crud.get_by_activity_id(
+            async_session, "versioned-bulk"
+        )
+        assert current is not None
+        assert current.status == ActivityStatus.cancelled
+
+        versions = [
+            record
+            for record in await activity_crud.get_all(async_session)
+            if record.activity_id == "versioned-bulk"
+        ]
+        assert len(versions) == 2
+        assert sum(1 for record in versions if record.ended_at is None) == 1
+        assert sum(1 for record in versions if record.ended_at is not None) == 1
 
     # ── Platform resolution ──────────────────────────────────────────────
 
@@ -798,3 +895,126 @@ class TestSTRActivitiesBulkAPI:
         activity_id = data["results"][0]["activity"]["activityId"]
         assert activity_id is not None
         assert len(activity_id) > 0
+
+    # ── Guest field constraints ──────────────────────────────────────────
+
+    async def test_bulk_rejects_missing_number_of_guests(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """numberOfGuests is required → 422 with loc=numberOfGuests."""
+        item = _make_activity(test_areas["area1"].area_id, "missing-nog-001")
+        del item["numberOfGuests"]
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={"activities": [item]},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        result = response.json()["results"][0]
+        assert result["status"] == "NOK"
+        locs = [tuple(err["loc"] or []) for err in result["errors"]["detail"]]
+        assert any("numberOfGuests" in loc for loc in locs)
+
+    async def test_bulk_rejects_missing_country_of_guests(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """countryOfGuests is required → 422 with loc=countryOfGuests."""
+        item = _make_activity(test_areas["area1"].area_id, "missing-cog-001")
+        del item["countryOfGuests"]
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={"activities": [item]},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        result = response.json()["results"][0]
+        assert result["status"] == "NOK"
+        locs = [tuple(err["loc"] or []) for err in result["errors"]["detail"]]
+        assert any("countryOfGuests" in loc for loc in locs)
+
+    async def test_bulk_rejects_guest_cardinality_mismatch(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """numberOfGuests must equal len(countryOfGuests) → 422."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(
+                            test_areas["area1"].area_id,
+                            "card-001",
+                            numberOfGuests=3,
+                            countryOfGuests=["NLD", "NLD"],
+                        ),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        result = response.json()["results"][0]
+        assert result["status"] == "NOK"
+        msgs = " ".join(err["msg"] for err in result["errors"]["detail"])
+        assert "numberOfGuests" in msgs or "countryOfGuests" in msgs
+
+    async def test_bulk_accepts_na_country_code(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """'N/A' is a valid element of countryOfGuests → 201."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(
+                            test_areas["area1"].area_id,
+                            "na-001",
+                            numberOfGuests=2,
+                            countryOfGuests=["NLD", "N/A"],
+                        ),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        activity = response.json()["results"][0]["activity"]
+        assert activity["countryOfGuests"] == ["NLD", "N/A"]
+
+    async def test_bulk_rejects_lowercase_na_country_code(
+        self, async_session: AsyncSession, setup_overrides, test_areas
+    ):
+        """Lowercase 'n/a' is rejected (uppercase only) → 422."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/str/activities/bulk",
+                json={
+                    "activities": [
+                        _make_activity(
+                            test_areas["area1"].area_id,
+                            "na-lc-001",
+                            numberOfGuests=1,
+                            countryOfGuests=["n/a"],
+                        ),
+                    ]
+                },
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert response.json()["results"][0]["status"] == "NOK"

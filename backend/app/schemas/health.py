@@ -11,6 +11,6 @@ from pydantic import BaseModel, ConfigDict, Field
 class Status(BaseModel):
     """Status response schema"""
 
-    model_config = ConfigDict(title="health.Status")
+    model_config = ConfigDict(title="Health.Status")
 
     status: str | None = Field(None, description="Status message", examples=["ok"])

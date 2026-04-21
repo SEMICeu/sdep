@@ -40,6 +40,27 @@ echo ""
 echo "   Override: make test-perf PERF_ACTIVITIES_TARGET=4000000 PERF_USERS=10 PERF_RAMP_UP=2 PERF_MAX_DURATION_SECONDS=600 PERF_BATCH_SIZE=1000 PERF_STOP_ON_TARGET=true PERF_YES=true"
 echo ""
 
+# Normalize a boolean input: accept true/false/yes/no (case-insensitive).
+# Prints "true"/"false" on success; exits 1 on invalid input.
+normalize_bool() {
+  case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in
+    true|yes|t|y)  echo "true" ;;
+    false|no|f|n)  echo "false" ;;
+    *) echo "   ❌ Invalid value '$1' (expected: true, false, yes, no, t, f, y, n)" >&2; return 1 ;;
+  esac
+}
+
+read_bool() {
+  local prompt=$1 current=$2 val normalized
+  read -p "$prompt" val
+  if [ -n "$val" ]; then
+    normalized=$(normalize_bool "$val") || exit 1
+    echo "$normalized"
+  else
+    echo "$current"
+  fi
+}
+
 # --- Interactive confirmation ---
 if [ "$P_YES" != "true" ]; then
   read -p "   Continue with these settings? [Y/n] " answer
@@ -51,8 +72,8 @@ if [ "$P_YES" != "true" ]; then
       read -p "   PERF_RAMP_UP              [$P_RAMP_UP]: " val && [ -n "$val" ] && P_RAMP_UP=$val
       read -p "   PERF_MAX_DURATION_SECONDS [$P_DURATION_SECONDS]: " val && [ -n "$val" ] && P_DURATION_SECONDS=$val
       read -p "   PERF_BATCH_SIZE           [$P_BATCH_SIZE]: " val && [ -n "$val" ] && P_BATCH_SIZE=$val
-      read -p "   PERF_KEEP_DATA            [$P_KEEP_DATA]: " val && [ -n "$val" ] && P_KEEP_DATA=$val
-      read -p "   PERF_STOP_ON_TARGET       [$P_STOP_ON_TARGET]: " val && [ -n "$val" ] && P_STOP_ON_TARGET=$val
+      P_KEEP_DATA=$(read_bool "   PERF_KEEP_DATA            [$P_KEEP_DATA] (true/false/yes/no or t/f/y/n): " "$P_KEEP_DATA")
+      P_STOP_ON_TARGET=$(read_bool "   PERF_STOP_ON_TARGET       [$P_STOP_ON_TARGET] (true/false/yes/no or t/f/y/n): " "$P_STOP_ON_TARGET")
       echo ""
       ;;
   esac

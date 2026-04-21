@@ -94,6 +94,7 @@ async def get_activity_list(
         {
             "activity_id": activity.activity_id,  # Functional UUID
             "activity_name": activity.activity_name,  # Functional name (optional)
+            "status": activity.status.value,
             "platform_id": activity.platform.platform_id,  # Functional ID via relationship
             "platform_name": activity.platform.platform_name,  # Name via relationship
             "url": activity.url,
@@ -103,6 +104,7 @@ async def get_activity_list(
             "address_locator_designator_addition": activity.address_locator_designator_addition,
             "address_post_code": activity.address_post_code,
             "address_post_name": activity.address_post_name,
+            "address_full_address": activity.address_full_address,
             "registration_number": activity.registration_number,
             "area_id": activity.area.area_id,  # Functional UUID via relationship
             "competent_authority_id": activity.area.competent_authority.competent_authority_id,

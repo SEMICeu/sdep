@@ -122,6 +122,7 @@ The datamodel is a logical datamodel: references are expressed as objects instea
 | **id**                 | int             | required, is technical id                                                                                                        |
 | **activityId**         | string          | required, is functional id, length <= 64, alphanumeric with hyphens, is supplied or auto-provisioned otherwise (UUIDv4 RFC 9562) |
 | **activityName**       | string          | optional, length <= 64, e.g. "Summer rental"                                                                                     |
+| **status**             | string          | required, lifecycle status; `finished` by default when omitted, or `cancelled`                                                   |
 | **createdAt**          | datetime        | required, UTC                                                                                                                    |
 | **endedAt**            | datetime        | optional, UTC                                                                                                                    |
 | **platform**           | reference       | required, references single Platform                                                                                             |
@@ -129,17 +130,19 @@ The datamodel is a logical datamodel: references are expressed as objects instea
 | **url**                | string          | required, length <= 128, e.g. http://example.com/my-advertisement                                                                |
 | **address**            | reference       | required, references single Address as composite                                                                                 |
 | **registrationNumber** | string          | required, length <= 32                                                                                                           |
-| **numberOfGuests**     | int             | optional, min 1, max 1024                                                                                                        |
-| **countryOfGuests**    | array of string | optional, min 1, max 1024, each ISO 3166-1 alpha-3                                                                               |
+| **numberOfGuests**     | int             | required, min 1, max 1024                                                                                                        |
+| **countryOfGuests**    | array of string | required, min 1, max 1024; each ISO 3166-1 alpha-3 or `N/A`                                                                      |
 | **temporal**           | reference       | required, references single Temporal as composite                                                                                |
 
 **Class Constraints:**
 
 - UNIQUE (activityId, platform, createdAt)
+- The `numberOfGuests` must equal the number elements in `countryOfGuests`
 
 **Notes:**
 - The same `activityId` (as business identifier) can be resubmitted to create new versions with different timestamps
 - The UNIQUE class constraint allows the same `activityId` to be used (owned) by multiple platforms
+- A later version may change `status` from `finished` to `cancelled` (allowing STRs to make corrections, vice versa is (yet) also allowed)
 - Each activity must reference an existing area
 
 ---
@@ -148,14 +151,19 @@ The datamodel is a logical datamodel: references are expressed as objects instea
 
 **Purpose:** Structured address information for rental activities (INSPIRE/STR-AP format)
 
-| Attribute                     | Type   | Constraints                                                  |
-| :---------------------------- | :----- | :----------------------------------------------------------- |
-| **thoroughfare**              | string | required, length <= 80, e.g. Turfmarkt                       |
-| **locatorDesignatorNumber**   | int    | required, >= 1, e.g. 147                                     |
-| **locatorDesignatorLetter**   | string | optional, length <= 10, alphabetic, e.g. "a", "bis"          |
-| **locatorDesignatorAddition** | string | optional, length <= 128, e.g. "5h"                           |
-| **postCode**                  | string | required, length <= 10, no spaces, alphanumeric, e.g. 2500EA |
-| **postName**                  | string | required, length <= 80, e.g. Den Haag                        |
+| Attribute                     | Type   | Constraints                                                        |
+| :---------------------------- | :----- | :----------------------------------------------------------------- |
+| **thoroughfare**              | string | required, length <= 80, e.g. "Turfmarkt"                           |
+| **locatorDesignatorNumber**   | int    | optional, >= 1, e.g. 147                                           |
+| **locatorDesignatorLetter**   | string | optional, length <= 10, alphabetic, e.g. "a", "bis"                |
+| **locatorDesignatorAddition** | string | optional, length <= 128, e.g. "5h"                                 |
+| **postCode**                  | string | required, length <= 10, no spaces, alphanumeric, e.g. 2500EA       |
+| **postName**                  | string | required, length <= 80, e.g. Den Haag                              |
+| **fullAddress**               | string | required, length <= 318, e.g. "Turfmarkt 147a-5h, 2500EA Den Haag" |
+
+**Notes:**
+
+- For `fullAddress`, max length is 318 = 80 + 10 (unsigned int 32 bit) + 10 + 128 + 10 + 80
 
 ---
 

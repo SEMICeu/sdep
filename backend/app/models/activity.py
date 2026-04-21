@@ -15,6 +15,9 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy import (
+    Enum as SAEnum,
+)
 from sqlalchemy.orm import Mapped, composite, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -22,6 +25,7 @@ if TYPE_CHECKING:
     from app.models.platform import Platform
 
 from app.db.config import Base
+from app.enums import ActivityStatus
 from app.models.address import Address
 from app.models.temporal import Temporal
 from app.models.types import StringArray
@@ -54,13 +58,19 @@ class Activity(Base):
             name="uq_activity_activity_id_platform_id_created_at",
         ),
         CheckConstraint(
-            "number_of_guests IS NULL OR (number_of_guests >= 1 AND number_of_guests <= 1024)",
+            "number_of_guests >= 1 AND number_of_guests <= 1024",
             name="ck_activity_number_of_guests_range",
         ),
         # PostgreSQL-specific constraint for array length (array_length function not available in SQLite)
         CheckConstraint(
-            "country_of_guests IS NULL OR (array_length(country_of_guests, 1) >= 1 AND array_length(country_of_guests, 1) <= 1024)",
+            "array_length(country_of_guests, 1) >= 1 AND array_length(country_of_guests, 1) <= 1024",
             name="ck_activity_country_of_guests_length",
+        ).ddl_if(dialect="postgresql"),
+        # PostgreSQL-specific cardinality constraint: numberOfGuests must equal
+        # the number of elements in countryOfGuests (DATAMODEL class constraint)
+        CheckConstraint(
+            "number_of_guests = array_length(country_of_guests, 1)",
+            name="ck_activity_guests_cardinality",
         ).ddl_if(dialect="postgresql"),
     )
 
@@ -80,6 +90,17 @@ class Activity(Base):
         String(64), nullable=True
     )  # Functional name (optional, human-readable, max 64 chars), e.g., "Amsterdam Summer Rental"
 
+    status: Mapped[ActivityStatus] = mapped_column(
+        SAEnum(
+            ActivityStatus,
+            native_enum=True,
+            length=16,
+            name="activitystatus",
+        ),
+        nullable=False,
+        default=ActivityStatus.finished,
+    )  # Required lifecycle status: 'finished' (default) or 'cancelled'
+
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platform.id"), nullable=False, index=True
     )  # Reference - foreign key to Platform
@@ -94,8 +115,8 @@ class Activity(Base):
 
     # Composite attributes - Address (INSPIRE/STR-AP field names)
     address_thoroughfare: Mapped[str] = mapped_column(String(80), nullable=False)
-    address_locator_designator_number: Mapped[int] = mapped_column(
-        Integer, nullable=False
+    address_locator_designator_number: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
     )
     address_locator_designator_letter: Mapped[str | None] = mapped_column(
         String(10), nullable=True
@@ -105,18 +126,19 @@ class Activity(Base):
     )
     address_post_code: Mapped[str] = mapped_column(String(10), nullable=False)
     address_post_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    address_full_address: Mapped[str] = mapped_column(String(318), nullable=False)
 
     registration_number: Mapped[str] = mapped_column(
         String(32), nullable=False
     )  # Required, for example "REG123456"
 
-    number_of_guests: Mapped[int | None] = mapped_column(
-        Integer, nullable=True
-    )  # Optional, min 1, max 1024 when provided
+    number_of_guests: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )  # Required, min 1, max 1024
 
-    country_of_guests: Mapped[list[str] | None] = mapped_column(
-        StringArray, nullable=True
-    )  # Optional, min 1, max 1024 when provided
+    country_of_guests: Mapped[list[str]] = mapped_column(
+        StringArray, nullable=False
+    )  # Required, min 1, max 1024; each element ISO 3166-1 alpha-3 or "N/A"; length equals number_of_guests
 
     # Composite attributes - Temporal
     temporal_start_date_time: Mapped[datetime] = mapped_column(
@@ -143,6 +165,7 @@ class Activity(Base):
         address_locator_designator_addition,
         address_post_code,
         address_post_name,
+        address_full_address,
     )
     temporal: Mapped[Temporal] = composite(
         Temporal, temporal_start_date_time, temporal_end_date_time

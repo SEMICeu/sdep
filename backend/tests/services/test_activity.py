@@ -1,6 +1,7 @@
 """Tests for Activity business service"""
 
 import pytest
+from app.enums import ActivityStatus
 from app.services import activity as activity_service
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -164,6 +165,7 @@ class TestActivityService:
         result = await activity_service.get_activity_list(async_session, "0363")
         assert len(result) == 1
         assert result[0]["url"] == "http://example.com/listing-1"
+        assert result[0]["status"] == "finished"
         assert result[0]["platform_id"] == "platform01"
         assert result[0]["platform_name"] == "Test Platform"
 
@@ -187,6 +189,7 @@ class TestActivityService:
         required_keys = {
             "activity_id",
             "activity_name",
+            "status",
             "platform_id",
             "platform_name",
             "url",
@@ -196,6 +199,7 @@ class TestActivityService:
             "address_locator_designator_addition",
             "address_post_code",
             "address_post_name",
+            "address_full_address",
             "registration_number",
             "area_id",
             "competent_authority_id",
@@ -361,3 +365,25 @@ class TestActivityService:
         assert len(result) == 1
         assert result[0]["platform_id"] == "platform99"
         assert result[0]["platform_name"] == "Super Platform"
+
+    async def test_get_activity_list_includes_cancelled_status(
+        self, async_session: AsyncSession
+    ):
+        """Test that cancelled current activities are returned with their lifecycle status."""
+        area = await AreaFactory.create_async(
+            async_session,
+            competent_authority_id="0363",
+            competent_authority_name="Gemeente Amsterdam",
+        )
+        platform = await PlatformFactory.create_async(async_session)
+        await ActivityFactory.create_async(
+            async_session,
+            area_id=area.id,
+            platform_id=platform.id,
+            status=ActivityStatus.cancelled,
+        )
+
+        result = await activity_service.get_activity_list(async_session, "0363")
+
+        assert len(result) == 1
+        assert result[0]["status"] == "cancelled"

@@ -169,7 +169,7 @@ See [../Makefile](../Makefile). Available targets:
 - **Test 1:** Count activities (`GET /ca/activities/count`)
 - **Test 2:** Get all activities
 - **Test 3:** Pagination (offset=0, limit=1)
-- **Test 4:** Verify response structure (activityId, activityName, platformId, platformName, url, registrationNumber, address, temporal, areaId)
+- **Test 4:** Verify response structure (activityId, activityName, status, platformId, platformName, url, registrationNumber, address, temporal, areaId)
 - **Test 5:** GET specific activity by URL filter
 - **Test 6:** GET activities filtered by areaId
 - **Test 7:** GET with non-existent areaId (should return empty list or 404)
@@ -236,6 +236,7 @@ See [../Makefile](../Makefile). Available targets:
 - `422 Unprocessable Content` - All activities failed validation
 
 **Response format:** `{ totalReceived, succeeded, failed, results: [{ activityIndex, activityId, status, activity?, errorMessages? }] }`
+Where `results[].status` is the batch processing status (`OK`/`NOK`) and `results[].activity.status` is the activity lifecycle status (`finished`/`cancelled`).
 
 ---
 

@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 from app.crud import activity
+from app.enums import ActivityStatus
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.fixtures.factories import ActivityFactory, AreaFactory, PlatformFactory
@@ -25,6 +26,7 @@ class TestActivityCRUD:
         address_locator_designator_number = 123
         address_post_code = "1234AB"
         address_post_name = "Amsterdam"
+        address_full_address = "Main Street 123, 1234AB Amsterdam"
         registration_number = "REG123456"
         number_of_guests = 4
         country_of_guests = ["NLD", "DEU"]
@@ -45,6 +47,7 @@ class TestActivityCRUD:
             address_locator_designator_addition=None,
             address_post_code=address_post_code,
             address_post_name=address_post_name,
+            address_full_address=address_full_address,
             registration_number=registration_number,
             number_of_guests=number_of_guests,
             country_of_guests=country_of_guests,
@@ -57,6 +60,7 @@ class TestActivityCRUD:
         assert isinstance(result.id, int)
         assert result.activity_id == activity_id
         assert result.activity_name == activity_name
+        assert result.status == ActivityStatus.finished
         assert result.url == url
         assert result.address_thoroughfare == address_thoroughfare
         assert (
@@ -67,6 +71,7 @@ class TestActivityCRUD:
         assert result.address_locator_designator_addition is None
         assert result.address_post_code == address_post_code
         assert result.address_post_name == address_post_name
+        assert result.address_full_address == address_full_address
         assert result.registration_number == registration_number
         assert result.area_id == area.id
         assert result.number_of_guests == number_of_guests
@@ -99,6 +104,7 @@ class TestActivityCRUD:
             address_locator_designator_addition=None,
             address_post_code="9999ZZ",
             address_post_name="AutoCity",
+            address_full_address="Auto Street 999, 9999ZZ AutoCity",
             registration_number="REGAUTO",
             number_of_guests=2,
             country_of_guests=["NLD"],
@@ -110,6 +116,72 @@ class TestActivityCRUD:
         assert result.activity_id is not None  # Should be auto-generated UUID
         assert len(result.activity_id) == 36  # UUID format
         assert result.activity_name is None  # Should be None when not provided
+        assert result.status == ActivityStatus.finished
+
+    async def test_create_activity_with_explicit_cancelled_status(
+        self, async_session: AsyncSession
+    ):
+        """Test creating activity with explicit cancelled lifecycle status."""
+        area = await AreaFactory.create_async(async_session)
+        platform = await PlatformFactory.create_async(async_session)
+
+        result = await activity.create(
+            session=async_session,
+            activity_id="cancelled-activity-id",
+            activity_name="Cancelled stay",
+            platform_id=platform.id,
+            area_id=area.id,
+            url="http://example.com/listing-cancelled",
+            address_thoroughfare="Cancel Street",
+            address_locator_designator_number=10,
+            address_locator_designator_letter=None,
+            address_locator_designator_addition=None,
+            address_post_code="1234AB",
+            address_post_name="Amsterdam",
+            address_full_address="Cancel Street 10, 1234AB Amsterdam",
+            registration_number="REGCANCELLED",
+            number_of_guests=1,
+            country_of_guests=["NLD"],
+            temporal_start_date_time=datetime(2025, 6, 1, 12, 0, 0),
+            temporal_end_date_time=datetime(2025, 6, 8, 12, 0, 0),
+            status=ActivityStatus.cancelled,
+        )
+
+        assert result.status == ActivityStatus.cancelled
+
+    async def test_create_activity_without_locator_designator_number(
+        self, async_session: AsyncSession
+    ):
+        """Test creating activity with None locator_designator_number (now optional)."""
+        # Arrange
+        area = await AreaFactory.create_async(async_session)
+        platform = await PlatformFactory.create_async(async_session)
+
+        # Act
+        result = await activity.create(
+            session=async_session,
+            activity_id=None,
+            activity_name=None,
+            platform_id=platform.id,
+            area_id=area.id,
+            url="http://example.com/listing-no-number",
+            address_thoroughfare="Nameless Street",
+            address_locator_designator_number=None,
+            address_locator_designator_letter=None,
+            address_locator_designator_addition=None,
+            address_post_code="1234AB",
+            address_post_name="Amsterdam",
+            address_full_address="Nameless Street, 1234AB Amsterdam",
+            registration_number="REGNONUMBER",
+            number_of_guests=1,
+            country_of_guests=["N/A"],
+            temporal_start_date_time=datetime(2025, 6, 1, 12, 0, 0),
+            temporal_end_date_time=datetime(2025, 6, 8, 12, 0, 0),
+        )
+
+        # Assert
+        assert result.id is not None
+        assert result.address_locator_designator_number is None
 
     async def test_create_activity_with_optional_fields(
         self, async_session: AsyncSession
@@ -135,6 +207,7 @@ class TestActivityCRUD:
             address_locator_designator_addition=address_locator_designator_addition,
             address_post_code="5678CD",
             address_post_name="Rotterdam",
+            address_full_address="Side Street 456A-1hoog, 5678CD Rotterdam",
             registration_number="REG789012",
             number_of_guests=2,
             country_of_guests=["BEL"],
@@ -517,6 +590,7 @@ class TestActivityCRUD:
             address_locator_designator_addition=None,
             address_post_code="1234AB",
             address_post_name="Amsterdam",
+            address_full_address="Main Street 123, 1234AB Amsterdam",
             registration_number="REG123",
             number_of_guests=4,
             country_of_guests=["NLD"],
@@ -542,6 +616,7 @@ class TestActivityCRUD:
             address_locator_designator_addition=None,
             address_post_code="1234AB",
             address_post_name="Amsterdam",
+            address_full_address="Main Street 123, 1234AB Amsterdam",
             registration_number="REG124",
             number_of_guests=5,
             country_of_guests=["NLD", "DEU"],

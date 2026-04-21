@@ -28,8 +28,8 @@ def replace_auto_generated_body_schemas(
 
     # Map of auto-generated schema names to their replacements
     replacements = {
-        "Body_post_auth_token": "auth.TokenRequest",
-        "Body_postArea": "area.AreaRequest",
+        "Body_post_auth_token": "Auth.TokenRequest",
+        "Body_postArea": "Area.Request",
     }
 
     schemas = openapi_schema["components"]["schemas"]
@@ -116,11 +116,45 @@ def remove_inapplicable_422_responses(
     return openapi_schema
 
 
+def extract_bulk_activity_item_schema(
+    openapi_schema: dict[str, Any],
+) -> dict[str, Any]:
+    """Extract the inlined ActivityRequest item schema into components.
+
+    `ActivityBulkRequest.activities` uses `SkipValidation[ActivityRequest]` so that
+    items pass through without Pydantic validation at request-parse time. A
+    side-effect is that FastAPI inlines the item schema instead of registering
+    `ActivityRequest` as a separate component. This hook moves the inlined schema
+    to `components.schemas["ActivityRequest"]` and replaces the inline with a
+    `$ref`, giving the common API contract a reusable, concretely-typed item
+    schema (issue #68).
+
+    Args:
+        openapi_schema: The generated OpenAPI schema dictionary
+
+    Returns:
+        Modified OpenAPI schema with ActivityRequest extracted and referenced
+    """
+    schemas = openapi_schema.get("components", {}).get("schemas", {})
+    bulk = schemas.get("ActivityBulkRequest")
+    if not bulk:
+        return openapi_schema
+
+    activities = bulk.get("properties", {}).get("activities", {})
+    items = activities.get("items")
+    if not items or "$ref" in items:
+        return openapi_schema
+
+    schemas["ActivityRequest"] = items
+    activities["items"] = {"$ref": "#/components/schemas/ActivityRequest"}
+    return openapi_schema
+
+
 def sort_schemas_by_namespace(openapi_schema: dict[str, Any]) -> dict[str, Any]:
     """Sort schemas by namespace (title prefix) first, then alphabetically.
 
-    Schemas are sorted by their title attribute (e.g., 'area.AreaResponse', 'auth.TokenRequest').
-    First by namespace (area, auth, health), then alphabetically within each namespace.
+    Schemas are sorted by their title attribute (e.g., 'Area.Response', 'Auth.TokenRequest').
+    First by namespace (Activity, Area, Auth, Common, Error, Health), then alphabetically within each namespace.
 
     Args:
         openapi_schema: The generated OpenAPI schema dictionary
@@ -189,6 +223,9 @@ def create_custom_openapi(app: FastAPI) -> Callable:
 
         # Remove 422 from endpoints that never emit it
         openapi_schema = remove_inapplicable_422_responses(openapi_schema)
+
+        # Extract inlined ActivityRequest item schema into components (issue #68)
+        openapi_schema = extract_bulk_activity_item_schema(openapi_schema)
 
         # Sort schemas by namespace first, then alphabetically
         openapi_schema = sort_schemas_by_namespace(openapi_schema)

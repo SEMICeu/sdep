@@ -73,19 +73,21 @@ if [ -n "$BEARER_TOKEN" ]; then
       "activityId": "sdep-test-bulk-ok1-$TIMESTAMP",
       "url": "http://sdep-test.example.com/bulk-ok1",
       "registrationNumber": "REGBULK001",
-      "address": {"thoroughfare": "Prinsengracht", "locatorDesignatorNumber": 265, "postCode": "1016HV", "postName": "Amsterdam"},
+      "address": {"thoroughfare": "Prinsengracht", "locatorDesignatorNumber": 265, "postCode": "1016HV", "postName": "Amsterdam", "fullAddress": "Prinsengracht 265, 1016HV Amsterdam"},
       "temporal": {"startDatetime": "$START_TIME", "endDatetime": "$END_TIME"},
       "areaId": "$AREA_ID_1",
-      "numberOfGuests": 4
+      "numberOfGuests": 4,
+      "countryOfGuests": ["NLD", "NLD", "DEU", "BEL"]
     },
     {
       "activityId": "sdep-test-bulk-ok2-$TIMESTAMP",
       "url": "http://sdep-test.example.com/bulk-ok2",
       "registrationNumber": "REGBULK002",
-      "address": {"thoroughfare": "Keizersgracht", "locatorDesignatorNumber": 100, "postCode": "1015AA", "postName": "Amsterdam"},
+      "address": {"thoroughfare": "Keizersgracht", "postCode": "1015AA", "postName": "Amsterdam", "fullAddress": "Keizersgracht, 1015AA Amsterdam"},
       "temporal": {"startDatetime": "$START_TIME", "endDatetime": "$END_TIME"},
       "areaId": "$AREA_ID_2",
-      "numberOfGuests": 2
+      "numberOfGuests": 2,
+      "countryOfGuests": ["FRA", "N/A"]
     }
   ]
 }
@@ -139,19 +141,21 @@ if [ -n "$BEARER_TOKEN" ]; then
       "activityId": "sdep-test-bulk-partial1-$TIMESTAMP",
       "url": "http://sdep-test.example.com/bulk-partial1",
       "registrationNumber": "REGPART001",
-      "address": {"thoroughfare": "Prinsengracht", "locatorDesignatorNumber": 265, "postCode": "1016HV", "postName": "Amsterdam"},
+      "address": {"thoroughfare": "Prinsengracht", "locatorDesignatorNumber": 265, "postCode": "1016HV", "postName": "Amsterdam", "fullAddress": "Prinsengracht 265, 1016HV Amsterdam"},
       "temporal": {"startDatetime": "$START_TIME_2", "endDatetime": "$END_TIME_2"},
       "areaId": "$AREA_ID_1",
-      "numberOfGuests": 4
+      "numberOfGuests": 4,
+      "countryOfGuests": ["NLD", "NLD", "DEU", "BEL"]
     },
     {
       "activityId": "sdep-test-bulk-partial2-$TIMESTAMP",
       "url": "http://sdep-test.example.com/bulk-partial2",
       "registrationNumber": "REGPART002",
-      "address": {"thoroughfare": "Bad Street", "locatorDesignatorNumber": 1, "postCode": "0000AA", "postName": "Nowhere"},
+      "address": {"thoroughfare": "Bad Street", "locatorDesignatorNumber": 1, "postCode": "0000AA", "postName": "Nowhere", "fullAddress": "Bad Street 1, 0000AA Nowhere"},
       "temporal": {"startDatetime": "$START_TIME_2", "endDatetime": "$END_TIME_2"},
       "areaId": "nonexistent-area-id",
-      "numberOfGuests": 2
+      "numberOfGuests": 2,
+      "countryOfGuests": ["NLD", "N/A"]
     }
   ]
 }
@@ -205,17 +209,21 @@ if [ -n "$BEARER_TOKEN" ]; then
       "activityId": "sdep-test-bulk-fail1-$TIMESTAMP",
       "url": "http://sdep-test.example.com/bulk-fail1",
       "registrationNumber": "REGFAIL001",
-      "address": {"thoroughfare": "Bad Street", "locatorDesignatorNumber": 1, "postCode": "0000AA", "postName": "Nowhere"},
+      "address": {"thoroughfare": "Bad Street", "locatorDesignatorNumber": 1, "postCode": "0000AA", "postName": "Nowhere", "fullAddress": "Bad Street 1, 0000AA Nowhere"},
       "temporal": {"startDatetime": "$START_TIME_3", "endDatetime": "$END_TIME_3"},
-      "areaId": "nonexistent-area-1"
+      "areaId": "nonexistent-area-1",
+      "numberOfGuests": 1,
+      "countryOfGuests": ["N/A"]
     },
     {
       "activityId": "sdep-test-bulk-fail2-$TIMESTAMP",
       "url": "http://sdep-test.example.com/bulk-fail2",
       "registrationNumber": "REGFAIL002",
-      "address": {"thoroughfare": "Bad Street", "locatorDesignatorNumber": 2, "postCode": "0000BB", "postName": "Nowhere"},
+      "address": {"thoroughfare": "Bad Street", "locatorDesignatorNumber": 2, "postCode": "0000BB", "postName": "Nowhere", "fullAddress": "Bad Street 2, 0000BB Nowhere"},
       "temporal": {"startDatetime": "$START_TIME_3", "endDatetime": "$END_TIME_3"},
-      "areaId": "nonexistent-area-2"
+      "areaId": "nonexistent-area-2",
+      "numberOfGuests": 2,
+      "countryOfGuests": ["N/A", "N/A"]
     }
   ]
 }
@@ -275,6 +283,145 @@ if [ "$http_code" -eq 401 ]; then
 else
     echo "❌ Test 4 failed: Expected 401 but got $http_code"
     FAILED_TESTS=$((FAILED_TESTS + 1))
+fi
+
+echo
+
+# Test 5: Stacked insert + cancel for an Amsterdam activity (CA count unchanged)
+# Step A: POST activityId=X with default status=finished     → CA count = N+1
+# Step B: POST activityId=X with status=cancelled            → CA count still N+1
+#         (cancellation is a new version of the same functional activityId,
+#          not an additional current activity)
+echo "Test 5: Stacked insert + cancel for Amsterdam activity (CA count stays the same)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+if [ -n "$BEARER_TOKEN" ]; then
+    # Use the Amsterdam area pre-loaded by test-data/02-area-generated.sql
+    # (CA: sdep-ca0363 "Amsterdam (inclusief Weesp)") so the test exercises
+    # real seed data.
+    AMSTERDAM_AREA_ID="959a7439-7cad-4009-96ec-353b44723db9"
+    STACKED_ID="sdep-test-bulk-stacked-$TIMESTAMP"
+    START_TIME_5=$(date -u -d "+4 hours" +"%Y-%m-%dT%H:%M:%SZ")
+    END_TIME_5=$(date -u -d "+5 hours" +"%Y-%m-%dT%H:%M:%SZ")
+
+    # Amsterdam CA credentials: on local dev machine-clients.yaml uses a
+    # well-known secret equal to the client id; on deployed envs the caller
+    # (get-client-credentials.sh / CI) must export AMSTERDAM_CA_CLIENT_ID and
+    # AMSTERDAM_CA_CLIENT_SECRET fetched from e.g. Keycloak.
+    AMSTERDAM_CA_CLIENT_ID="${AMSTERDAM_CA_CLIENT_ID:-sdep-ca0363}"
+    AMSTERDAM_CA_CLIENT_SECRET="${AMSTERDAM_CA_CLIENT_SECRET:-sdep-ca0363}"
+
+    CA_TOKEN_RESPONSE=$(curl -s -X POST \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        --data-urlencode "grant_type=client_credentials" \
+        --data-urlencode "client_id=${AMSTERDAM_CA_CLIENT_ID}" \
+        --data-urlencode "client_secret=${AMSTERDAM_CA_CLIENT_SECRET}" \
+        "${BACKEND_BASE_URL}/api/${API_VERSION}/auth/token")
+    CA_BEARER=$(echo "$CA_TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*"' | sed 's/"access_token":"\([^"]*\)"/\1/')
+    if [ -z "$CA_BEARER" ]; then
+        echo "❌ Test 5 failed: could not authenticate as Amsterdam CA (${AMSTERDAM_CA_CLIENT_ID})"
+        echo "   Response: $CA_TOKEN_RESPONSE"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+        echo
+        # Skip rest of Test 5 but keep running remaining suites/summary
+        : # no-op; drop into summary via the outer fi below
+    else
+
+    ca_count() {
+        curl -s -H "Authorization: Bearer ${CA_BEARER}" \
+            "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities/count" \
+            | grep -o '"count"[[:space:]]*:[[:space:]]*[0-9]*' | grep -o '[0-9]*$'
+    }
+
+    COUNT_BEFORE=$(ca_count)
+    if [ -z "$COUNT_BEFORE" ]; then
+        echo "❌ Test 5 failed: could not fetch CA activity count (empty response)"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+        echo
+    else
+    echo "CA activity count BEFORE insert:  $COUNT_BEFORE"
+
+    # Step A: insert (default status=finished)
+    read -r -d '' PAYLOAD_INSERT <<EOF || true
+{"activities":[{
+  "activityId": "$STACKED_ID",
+  "url": "http://sdep-test.example.com/bulk-stacked",
+  "registrationNumber": "REGSTACK001",
+  "address": {"thoroughfare": "Prinsengracht", "locatorDesignatorNumber": 265, "postCode": "1016HV", "postName": "Amsterdam", "fullAddress": "Prinsengracht 265, 1016HV Amsterdam"},
+  "temporal": {"startDatetime": "$START_TIME_5", "endDatetime": "$END_TIME_5"},
+  "areaId": "$AMSTERDAM_AREA_ID",
+  "numberOfGuests": 2,
+  "countryOfGuests": ["NLD", "NLD"]
+}]}
+EOF
+
+    insert_response=$(curl -s -w "\n%{http_code}" \
+        -X POST -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${BEARER_TOKEN}" \
+        -d "$PAYLOAD_INSERT" \
+        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/activities/bulk")
+    insert_code=$(echo "$insert_response" | tail -n1)
+    insert_body=$(echo "$insert_response" | sed '$d')
+    echo "Step A (insert finished)  HTTP=$insert_code  body=$insert_body"
+
+    COUNT_AFTER_INSERT=$(ca_count)
+    echo "CA activity count AFTER  insert:  $COUNT_AFTER_INSERT"
+
+    # Step B: cancel (same activityId, status=cancelled)
+    read -r -d '' PAYLOAD_CANCEL <<EOF || true
+{"activities":[{
+  "activityId": "$STACKED_ID",
+  "status": "cancelled",
+  "url": "http://sdep-test.example.com/bulk-stacked",
+  "registrationNumber": "REGSTACK001",
+  "address": {"thoroughfare": "Prinsengracht", "locatorDesignatorNumber": 265, "postCode": "1016HV", "postName": "Amsterdam", "fullAddress": "Prinsengracht 265, 1016HV Amsterdam"},
+  "temporal": {"startDatetime": "$START_TIME_5", "endDatetime": "$END_TIME_5"},
+  "areaId": "$AMSTERDAM_AREA_ID",
+  "numberOfGuests": 2,
+  "countryOfGuests": ["NLD", "NLD"]
+}]}
+EOF
+
+    cancel_response=$(curl -s -w "\n%{http_code}" \
+        -X POST -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${BEARER_TOKEN}" \
+        -d "$PAYLOAD_CANCEL" \
+        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/activities/bulk")
+    cancel_code=$(echo "$cancel_response" | tail -n1)
+    cancel_body=$(echo "$cancel_response" | sed '$d')
+    echo "Step B (cancel)           HTTP=$cancel_code  body=$cancel_body"
+
+    COUNT_AFTER_CANCEL=$(ca_count)
+    echo "CA activity count AFTER  cancel:  $COUNT_AFTER_CANCEL"
+    echo
+
+    ASSERTIONS_OK=true
+    if [ "$insert_code" != "201" ] || ! echo "$insert_body" | grep -q '"succeeded":1'; then
+        ASSERTIONS_OK=false
+    fi
+    if [ "$cancel_code" != "201" ] || ! echo "$cancel_body" | grep -q '"succeeded":1' \
+       || ! echo "$cancel_body" | grep -q '"status":"cancelled"'; then
+        ASSERTIONS_OK=false
+    fi
+    if [ -z "$COUNT_AFTER_INSERT" ] || [ -z "$COUNT_AFTER_CANCEL" ] \
+       || [ "$COUNT_AFTER_INSERT" != "$COUNT_AFTER_CANCEL" ] \
+       || [ "$((COUNT_AFTER_INSERT - COUNT_BEFORE))" != "1" ]; then
+        ASSERTIONS_OK=false
+    fi
+
+    if [ "$ASSERTIONS_OK" = "true" ]; then
+        echo "✅ Test 5 passed: insert+cancel OK; CA count unchanged ($COUNT_AFTER_INSERT == $COUNT_AFTER_CANCEL)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "❌ Test 5 failed: expected insert=201/succeeded=1, cancel=201/succeeded=1/status=cancelled,"
+        echo "   and CA count to go BEFORE→AFTER_INSERT (+1) then stay equal after cancel."
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+    fi
+    fi  # end COUNT_BEFORE non-empty
+    fi  # end CA_BEARER non-empty
+else
+    echo "⏭️  Skipping Test 5 (requires STR BEARER_TOKEN)"
 fi
 
 echo

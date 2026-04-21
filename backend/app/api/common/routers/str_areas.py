@@ -99,14 +99,6 @@ async def get_areas(
     Authorization:
     - Requires valid bearer token with "sdep_str" and "sdep_read" roles in realm_access
 
-    Returns a list of areas, each containing:
-    - areaId: Functional ID identifying the area - enables retrieval of area shapefile
-    - areaName: Display name of the area (optional)
-    - filename: Name of the area shapefile
-    - competentAuthorityId: Functional ID referencing the competent authority that owns the area
-    - competentAuthorityName: Display name (optional) of the competent authority
-    - createdAt: Timestamp when the area was created
-
     Pagination parameters:
     - offset: Number of records to skip (default: 0)
     - limit: Maximum number of records to return (default: no limit, max: 1000)

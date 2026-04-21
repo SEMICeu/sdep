@@ -153,7 +153,7 @@ fi
 
 # Test 4: Verify response structure
 echo ""
-echo "Test 4: Verify response structure (activityId, activityName, platformId, platformName, url, registrationNumber, address, temporal, areaId)"
+echo "Test 4: Verify response structure (activityId, activityName, status, platformId, platformName, url, registrationNumber, address, temporal, areaId)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
@@ -178,6 +178,7 @@ if [ "$HTTP_STATUS" -eq 200 ]; then
         # Check for required fields
         has_activity_id=$(echo "$BODY" | grep -q '"activityId"' && echo "yes" || echo "no")
         has_activity_name=$(echo "$BODY" | grep -q '"activityName"' && echo "yes" || echo "no")
+        has_status=$(echo "$BODY" | grep -q '"status"' && echo "yes" || echo "no")
         has_platform_id=$(echo "$BODY" | grep -q '"platformId"' && echo "yes" || echo "no")
         has_platform_name=$(echo "$BODY" | grep -q '"platformName"' && echo "yes" || echo "no")
         has_url=$(echo "$BODY" | grep -q '"url"' && echo "yes" || echo "no")
@@ -186,7 +187,7 @@ if [ "$HTTP_STATUS" -eq 200 ]; then
         has_temporal=$(echo "$BODY" | grep -q '"temporal"' && echo "yes" || echo "no")
         has_area_id=$(echo "$BODY" | grep -q '"areaId"' && echo "yes" || echo "no")
 
-        if [ "$has_activity_id" = "yes" ] && [ "$has_platform_id" = "yes" ] && \
+        if [ "$has_activity_id" = "yes" ] && [ "$has_status" = "yes" ] && [ "$has_platform_id" = "yes" ] && \
            [ "$has_platform_name" = "yes" ] && \
            [ "$has_url" = "yes" ] && [ "$has_registration_number" = "yes" ] && \
            [ "$has_address" = "yes" ] && [ "$has_temporal" = "yes" ] && \
@@ -198,6 +199,7 @@ if [ "$HTTP_STATUS" -eq 200 ]; then
             echo "❌ Test 4 failed: Missing required fields in response"
             echo "   - activityId: $has_activity_id"
             echo "   - activityName (optional): $has_activity_name"
+            echo "   - status: $has_status"
             echo "   - platformId: $has_platform_id"
             echo "   - platformName: $has_platform_name"
             echo "   - url: $has_url"

@@ -29,11 +29,11 @@ from app.exceptions.business import InvalidOperationError
 from app.schemas.activity import (
     ActivityRequest,
     ActivityResponse,
-    AddressResponse,
-    TemporalResponse,
 )
-from app.schemas.activity_bulk import BulkActivityResponse, BulkActivityResultItem
+from app.schemas.activity_bulk import ActivityBulkResponse, ActivityBulkResultItem
+from app.schemas.address import CommonAddressResponse
 from app.schemas.error import ErrorDetail, ErrorResponse
+from app.schemas.temporal import CommonTemporalResponse
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ async def create_activities_bulk(
     activities_raw: list[dict[str, Any]],
     platform_id_str: str,
     platform_name: str,
-) -> BulkActivityResponse:
+) -> ActivityBulkResponse:
     """
     Create activities in bulk using Application-First Validation.
 
@@ -57,11 +57,11 @@ async def create_activities_bulk(
         platform_name: Platform name from JWT token (client_name claim)
 
     Returns:
-        BulkActivityResponse with per-item OK/NOK results
+        ActivityBulkResponse with per-item OK/NOK results
     """
     total = len(activities_raw)
     # results[i] will hold the result for the item at index i
-    results: list[BulkActivityResultItem | None] = [None] * total
+    results: list[ActivityBulkResultItem | None] = [None] * total
     # Track which indexes are still valid (not yet marked NOK)
     valid_indexes: list[int] = []
     # validated_items[i] = (ActivityRequest, service_dict) for valid items
@@ -91,7 +91,7 @@ async def create_activities_bulk(
             else:
                 error_details = [ErrorDetail(msg=str(e), type="validation_error")]
 
-            results[i] = BulkActivityResultItem(
+            results[i] = ActivityBulkResultItem(
                 activityIndex=i,
                 activityId=client_supplied_ids[i],
                 status="NOK",
@@ -142,7 +142,7 @@ async def create_activities_bulk(
             if aid in activity_id_last_index:
                 # Mark the earlier occurrence as NOK
                 earlier_idx = activity_id_last_index[aid]
-                results[earlier_idx] = BulkActivityResultItem(
+                results[earlier_idx] = ActivityBulkResultItem(
                     activityIndex=earlier_idx,
                     activityId=client_supplied_ids[earlier_idx],
                     status="NOK",
@@ -170,7 +170,7 @@ async def create_activities_bulk(
         _, service_dict = validated_items[i]
         area_id_str = service_dict["area_id"]
         if area_id_str not in area_ca_map:
-            results[i] = BulkActivityResultItem(
+            results[i] = ActivityBulkResultItem(
                 activityIndex=i,
                 activityId=client_supplied_ids[i],
                 status="NOK",
@@ -208,7 +208,7 @@ async def create_activities_bulk(
             for i in valid_indexes:
                 aid = validated_items[i][1]["activity_id"]
                 if aid in deactivated:
-                    results[i] = BulkActivityResultItem(
+                    results[i] = ActivityBulkResultItem(
                         activityIndex=i,
                         activityId=client_supplied_ids[i],
                         status="NOK",
@@ -254,6 +254,7 @@ async def create_activities_bulk(
                 {
                     "activity_id": service_dict["activity_id"],
                     "activity_name": service_dict.get("activity_name"),
+                    "status": service_dict["status"],
                     "platform_id": platform.id,
                     "area_id": area_technical_id,
                     "url": service_dict["url"],
@@ -269,6 +270,7 @@ async def create_activities_bulk(
                     ),
                     "address_post_code": service_dict["address_post_code"],
                     "address_post_name": service_dict["address_post_name"],
+                    "address_full_address": service_dict["address_full_address"],
                     "registration_number": service_dict["registration_number"],
                     "number_of_guests": service_dict["number_of_guests"],
                     "country_of_guests": service_dict["country_of_guests"],
@@ -292,11 +294,12 @@ async def create_activities_bulk(
         activity_response = ActivityResponse(
             activityId=service_dict["activity_id"],
             activityName=service_dict.get("activity_name"),
+            status=service_dict["status"],
             areaId=area_id_str,
             competentAuthorityId=ca_id,
             competentAuthorityName=ca_name,
             url=service_dict["url"],
-            address=AddressResponse(
+            address=CommonAddressResponse(
                 thoroughfare=service_dict["address_thoroughfare"],
                 locatorDesignatorNumber=service_dict[
                     "address_locator_designator_number"
@@ -309,11 +312,12 @@ async def create_activities_bulk(
                 ),
                 postCode=service_dict["address_post_code"],
                 postName=service_dict["address_post_name"],
+                fullAddress=service_dict["address_full_address"],
             ),
             registrationNumber=service_dict["registration_number"],
             numberOfGuests=service_dict["number_of_guests"],
             countryOfGuests=service_dict["country_of_guests"],
-            temporal=TemporalResponse(
+            temporal=CommonTemporalResponse(
                 startDatetime=service_dict["temporal_start_date_time"],
                 endDatetime=service_dict["temporal_end_date_time"],
             ),
@@ -322,7 +326,7 @@ async def create_activities_bulk(
             createdAt=batch_created_at,
         )
 
-        results[i] = BulkActivityResultItem(
+        results[i] = ActivityBulkResultItem(
             activityIndex=i,
             activityId=client_supplied_ids[i],
             status="OK",
@@ -330,11 +334,11 @@ async def create_activities_bulk(
             errors=None,
         )
 
-    final_results: list[BulkActivityResultItem] = [r for r in results if r is not None]
+    final_results: list[ActivityBulkResultItem] = [r for r in results if r is not None]
     succeeded = sum(1 for r in final_results if r.status == "OK")
     failed = total - succeeded
 
-    return BulkActivityResponse(
+    return ActivityBulkResponse(
         totalReceived=total,
         succeeded=succeeded,
         failed=failed,

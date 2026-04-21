@@ -7,6 +7,7 @@ import pytest_asyncio
 from app.api.v0.main import app_v0
 from app.api.v0.security import verify_bearer_token
 from app.db.config import get_async_db_read_only
+from app.enums import ActivityStatus
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -164,6 +165,7 @@ class TestCAActivitiesAPI:
         assert "url" in activity
         assert "address" in activity
         assert "registrationNumber" in activity
+        assert "status" in activity
         assert "areaId" in activity
         assert "competentAuthorityId" in activity
         assert "numberOfGuests" in activity
@@ -340,6 +342,7 @@ class TestCAActivitiesAPI:
         # Verify top-level fields
         assert isinstance(activity["url"], str)
         assert isinstance(activity["registrationNumber"], str)
+        assert isinstance(activity["status"], str)
         assert isinstance(activity["areaId"], str)
         assert isinstance(activity["competentAuthorityId"], str)
         assert isinstance(activity["numberOfGuests"], int)
@@ -355,6 +358,7 @@ class TestCAActivitiesAPI:
         assert isinstance(address["locatorDesignatorNumber"], int)
         assert isinstance(address["postCode"], str)
         assert isinstance(address["postName"], str)
+        assert isinstance(address["fullAddress"], str)
         # locatorDesignatorLetter and locatorDesignatorAddition are optional
 
         # Verify temporal composite
@@ -385,7 +389,7 @@ class TestCAActivitiesAPI:
     async def test_count_activities_single(
         self, async_session: AsyncSession, setup_overrides
     ):
-        """Test GET /ca/activities/count with single activity"""
+        """Test GET /ca/activities/count includes cancelled current activity."""
         # Arrange
         ca = await CompetentAuthorityFactory.create_async(
             async_session,
@@ -409,6 +413,7 @@ class TestCAActivitiesAPI:
             area_id=area.id,
             registration_number="REG-001",
             platform_id=platform.id,
+            status=ActivityStatus.cancelled,
         )
 
         async with AsyncClient(
@@ -749,3 +754,46 @@ class TestCAActivitiesAPI:
         activity = data["activities"][0]
         assert "endedAt" not in activity
         assert "ended_at" not in activity
+
+    async def test_get_activities_includes_cancelled_current_record(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Current cancelled activity versions remain visible in CA responses."""
+        ca = await CompetentAuthorityFactory.create_async(
+            async_session,
+            competent_authority_id="0363",
+            competent_authority_name="Gemeente Amsterdam",
+        )
+        area = await AreaFactory.create_async(
+            async_session,
+            area_id="550e8400-e29b-41d4-a716-446655440099",
+            area_name="Amsterdam Area",
+            competent_authority_id=ca.id,
+            filename="amsterdam.zip",
+            filedata=b"amsterdam_data",
+        )
+        platform = await PlatformFactory.create_async(
+            async_session, platform_id="str01", platform_name="Platform 01"
+        )
+        await ActivityFactory.create_async(
+            async_session,
+            activity_id="cancelled-visible-id",
+            area_id=area.id,
+            platform_id=platform.id,
+            status=ActivityStatus.cancelled,
+        )
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_v0), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/ca/activities",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        activities = response.json()["activities"]
+        cancelled = next(
+            item for item in activities if item["activityId"] == "cancelled-visible-id"
+        )
+        assert cancelled["status"] == "cancelled"

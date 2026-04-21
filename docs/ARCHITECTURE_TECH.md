@@ -227,7 +227,7 @@ sdep-app/
 │       ├── ACTIVITY.svg
 │       ├── ACTIVITYFLOW.excalidraw
 │       ├── ACTIVITYFLOW.svg
-│       ├── ARCHITECTURE_FUNC.jpg
+│       ├── ARCHITECTURE_FUNC.png
 │       ├── DATAMODEL.excalidraw
 │       ├── DATAMODEL.svg
 │       ├── LISTING.excalidraw
@@ -296,7 +296,7 @@ POST /str/activities/bulk (JSON body with activities array)
   │
   ├── API Layer (str_activities_bulk.py)
   │   ├── verify_bearer_token() → auth checks (roles, claims)
-  │   ├── BulkActivityRequest (Pydantic) → validates wrapper (min 1, max 1000)
+  │   ├── ActivityBulkRequest (Pydantic) → validates wrapper (min 1, max 1000)
   │   └── get_async_db → auto-commit/rollback transaction
   │
   ├── Service Layer (activity_bulk.py) - Application-First Validation
@@ -312,7 +312,7 @@ POST /str/activities/bulk (JSON body with activities array)
   │   └── flush (not commit)
   │
   └── Response: 201 (all OK) / 200 (partial) / 422 (all NOK)
-       + BulkActivityResponse (camelCase JSON)
+       + ActivityBulkResponse (camelCase JSON)
 
 POST /ca/areas (multipart/form-data: file + optional areaId, areaName)
   │
@@ -548,14 +548,35 @@ Instead of having the database check each record via savepoints, errors are caug
 - Only "clean" (validated) data reaches the database
 -  No savepoints or nested transactions needed, which avoids the overhead of extra database round-trips.
 
+The wire contract (OpenAPI) and the runtime validation behavior are deliberately decoupled:
+
+- **Contract (OpenAPI)** — `ActivityBulkRequest.activities` is typed concretely as `list[ActivityRequest]`, so the spec documents the full item shape instead of an untyped object
+- **Runtime** — items are *not* validated at request-parse time. If Pydantic validated the whole list eagerly, one bad item would return HTTP 422 for the entire batch and the per-item OK/NOK flow would be unreachable.
+
+Implementation:
+
+- The field is declared as `list[SkipValidation[ActivityRequest]]`
+  - `SkipValidation` keeps the declared type for JSON-schema generation but replaces the runtime validator with a pass-through
+  - So items arrive at the service layer as raw dicts
+  - Exactly what step 1 (`TypeAdapter(ActivityRequest).validate_python()` per item) expects
+- Because `SkipValidation` makes FastAPI's model-discovery pass treat the field as a leaf, `ActivityRequest` is **not** auto-registered in `components.schemas`
+  - FastAPI inlines its schema into `items`
+  - A post-processing hook in `app/api/common/openapi.py` (`extract_bulk_activity_item_schema`) lifts the inlined schema out and replaces the inline with a `$ref` to `#/components/schemas/ActivityRequest`, restoring it as a reusable named component
+  - This follows the same pattern already used in that file for renaming `Body_*` schemas
+
+Result:
+
+- The contract is schema-concrete and reusable
+- Runtime behavior preserves per-item NOK feedback unchanged
+
 ### Validation flow (4 steps)
 
-| Step                               | What                                                                                                                                                        | How                                                       |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| **1. Pydantic Check**              | Validate each item individually against the ActivityRequest schema. Mark failed items as NOK with the error reason.                                         | `TypeAdapter(ActivityRequest).validate_python()` per item |
-| **2. Referential Integrity Check** | For the remaining OK records: fetch all referenced area IDs in a single query. Store in a Python `dict` for O(1) lookup. Items with unknown `areaId` → NOK. | `SELECT area_id, id FROM area WHERE area_id IN (...)`     |
-| **3. Bulk Insert**                 | For the remaining OK records: insert in a single database operation.                                                                                        | `session.execute(insert(Activity), list_of_valid_dicts)`  |
-| **4. Feedback**                    | Return per-item OK/NOK response preserving original order, enriched with `status`, embedded `activity` (OK) or `errorMessages` array (NOK).                 | JSON response with summary counts                         |
+| Step                               | What                                                                                                                                                                                                                  | How                                                       |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **1. Pydantic Check**              | Validate each item individually against the ActivityRequest schema. Mark failed items as NOK with the error reason.                                                                                                   | `TypeAdapter(ActivityRequest).validate_python()` per item |
+| **2. Referential Integrity Check** | For the remaining OK records: fetch all referenced area IDs in a single query. Store in a Python `dict` for O(1) lookup. Items with unknown `areaId` → NOK.                                                           | `SELECT area_id, id FROM area WHERE area_id IN (...)`     |
+| **3. Bulk Insert**                 | For the remaining OK records: insert in a single database operation.                                                                                                                                                  | `session.execute(insert(Activity), list_of_valid_dicts)`  |
+| **4. Feedback**                    | Return per-item OK/NOK response preserving original order, enriched with batch-item `status`, embedded `activity` (OK) or `errorMessages` array (NOK). The embedded activity also carries its own lifecycle `status`. | JSON response with summary counts                         |
 
 **Motivation for step 2 after step 1:** \
 Prevents unvalidated (untrusted) data from being used in database operations.
@@ -580,6 +601,7 @@ Prevents unvalidated (untrusted) data from being used in database operations.
 | **D6** | **No `ON CONFLICT DO NOTHING`** - SDEP uses explicit versioning (mark-as-ended + new insert) instead of database-level upsert                                                                                     | `ON CONFLICT DO NOTHING` is a general best practice for idempotency in bulk inserts. However, SDEP's data model requires explicit versioning with `endedAt` timestamps. |
 | **D7** | **Single transaction scope** - the entire bulk operation runs in a single transaction; if the bulk INSERT fails, all changes roll back                                                                            | No partial database state. Consistent with the single endpoint's `get_async_db` auto-commit/rollback model.                                                             |
 | **D8** | **SQLite compatibility** - the bulk INSERT and all queries work on both PostgreSQL and SQLite                                                                                                                     | Unit tests run on SQLite in-memory without requiring PostgreSQL. The `StringArray` TypeDecorator handles dialect differences.                                           |
+| **D9** | **Lifecycle status on activities** - activity records carry `status` with values `finished` (default) or `cancelled`; resubmitting the same `activityId` with `cancelled` creates a new current cancelled version | Allows platforms to correct previously submitted stays without changing the existing versioning model.                                                                  |
 
 ---
 
@@ -637,6 +659,15 @@ Because SQLite lacks some PostgreSQL features, the models include **dialect adap
 
 - **`StringArray`** (`backend/app/models/types.py`) - uses `ARRAY(String)` on PostgreSQL and JSON-serialized `Text` on SQLite
 - **`CheckConstraint`** - marked `.ddl_if(dialect="postgresql")` so they are only applied to PostgreSQL
+
+Because some CHECK constraints rely on PostgreSQL-specific SQL (e.g. `array_length`) and cannot run on SQLite, they are declared PostgreSQL-only in both the model (`.ddl_if(dialect="postgresql")`) and the Alembic migration (wrapped in `if is_postgres:`); the DDL is skipped under SQLite, so enforcement falls back to the application layers above the DB:
+
+- **Model** (`backend/app/models/activity.py`) - `CheckConstraint("number_of_guests = array_length(country_of_guests, 1)", name="ck_activity_guests_cardinality").ddl_if(dialect="postgresql")`
+- **Migration** (`backend/alembic/versions/007_guests_required_and_cardinality.py`) - the `create_check_constraint(...)` call is inside an `if is_postgres:` guard
+- **Pydantic fallback** - `ActivityRequest.validate_guest_cardinality` (`@model_validator(mode="after")`) rejects mismatched requests, covering every API/bulk path including SQLite-backed unit tests
+- **Factory fallback** - `ActivityFactory.country_of_guests = LazyAttribute(lambda o: ["NLD"] * o.number_of_guests)` guarantees consistency for CRUD-level tests that call `activity.create()` directly and bypass Pydantic
+
+A direct CRUD call on SQLite with manually mismatched lists would not be caught by either DB or Pydantic; tests must route through Pydantic or use the factory to stay consistent.
 
 ---
 

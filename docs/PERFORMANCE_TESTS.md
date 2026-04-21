@@ -73,16 +73,16 @@ No fixture files are used - all test data is generated at runtime by `_generate_
 
 Each activity contains the following fields:
 
-| Field                | How it is generated                                                                                                              |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `activityId`         | Prefix + 12 random hex characters from `uuid4`. Prefix is `sdep-test-perf-` (throwaway) or `perf-` when `PERF_KEEP_DATA=true`    |
-| `url`                | Fake URL using the same unique ID (e.g. `http://sdep-test-perf.example.com/<id>`)                                                |
-| `registrationNumber` | `REGPERF` + 8 uppercase hex characters                                                                                           |
-| `address`            | Random Dutch street name (`Prinsengracht`, `Keizersgracht`, etc.), house number (1–999), postcode, and city from hardcoded lists |
-| `temporal`           | `startDatetime` = current UTC timestamp; `endDatetime` = fixed (`2027-12-31T23:59:59Z`)                                          |
-| `areaId`             | Randomly picked from `PERF_AREA_IDS` (created by the Makefile via `lib/create_fixture_areas.sh`)                                 |
-| `numberOfGuests`     | Random integer 1–10                                                                                                              |
-| `countryOfGuests`    | Random 1–3 ISO country codes from a fixed set (`NLD`, `DEU`, `BEL`, `FRA`, `GBR`, `ESP`, `ITA`, `USA`)                           |
+| Field                | How it is generated                                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `activityId`         | Prefix + 12 random hex characters from `uuid4`. Prefix is `sdep-test-perf-` (throwaway) or `perf-` when `PERF_KEEP_DATA=true`             |
+| `url`                | Fake URL using the same unique ID (e.g. `http://sdep-test-perf.example.com/<id>`)                                                         |
+| `registrationNumber` | `REGPERF` + 8 uppercase hex characters                                                                                                    |
+| `address`            | Random Dutch street name (`Prinsengracht`, `Keizersgracht`, etc.), house number (1–999), postcode, and city from hardcoded lists          |
+| `temporal`           | `startDatetime` = current UTC timestamp; `endDatetime` = fixed (`2027-12-31T23:59:59Z`)                                                   |
+| `areaId`             | Randomly picked from `PERF_AREA_IDS` (created by the Makefile via `lib/create_fixture_areas.sh`)                                          |
+| `numberOfGuests`     | Random integer 1–10                                                                                                                       |
+| `countryOfGuests`    | List of length `numberOfGuests`, each element sampled with replacement from `NLD`, `DEU`, `BEL`, `FRA`, `GBR`, `ESP`, `ITA`, `USA`, `N/A` |
 
 The `activityId` prefix convention controls cleanup:
 

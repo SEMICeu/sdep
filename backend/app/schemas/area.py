@@ -38,51 +38,51 @@ class AreaResponse(BaseModel):
     """Area response schema."""
 
     model_config = ConfigDict(
-        title="area.AreaResponse",
+        title="Area.Response",
         from_attributes=True,
         populate_by_name=True,
     )
     area_id: FunctionalId = Field(
         ...,
         alias="areaId",
-        description="Area functional ID (alphanumeric with hyphens, max 64 chars)",
+        description="Functional ID identifying this area",
         examples=["959a7439-7cad-4009-96ec-353b44723db9"],
     )  # Functional ID
     area_name: str | None = Field(
         None,
         alias="areaName",
         max_length=64,
-        description="Area name (optional, max 64 chars)",
+        description="Display name (optional, max 64 chars) of the area",
         examples=["Amsterdam"],
     )  # Functional name
     regulation: Regulation = Field(
         default=Regulation.all,
-        description="Regulation type: listing, activity, or all",
+        description="Regulation type - 'listing', 'activity', or 'all'",
         examples=["all"],
     )
     filename: str = Field(
         ...,
         max_length=64,
-        description="Area filename",
+        description="Name of the area shapefile (e.g., 'area.zip')",
         examples=["Amsterdam.zip"],
     )  # Attribute
     competent_authority_id: FunctionalId = Field(
         ...,
         alias="competentAuthorityId",
-        description="Functional ID referencing the competent authority that owns the area (alphanumeric with hyphens, max 64 chars)",
+        description="Functional ID of the competent authority that owns the area",
         examples=["sdep-ca0363"],
     )  # Attribute
     competent_authority_name: str | None = Field(
         None,
         alias="competentAuthorityName",
         max_length=64,
-        description="Competent authority name (optional, max 64 chars)",
+        description="Display name (optional, max 64 chars) of the competent authority",
         examples=["Amsterdam (inclusief Weesp)"],
     )  # Attribute
     created_at: datetime = Field(
         ...,
         alias="createdAt",
-        description="Timestamp when the area was created",
+        description="Timestamp when this area version was created (UTC)",
         examples=["2025-01-01T00:00:00Z"],
     )  # Attribute
 
@@ -98,7 +98,7 @@ class AreaResponse(BaseModel):
 class AreaListResponse(BaseModel):
     """List of areas response schema."""
 
-    model_config = ConfigDict(title="area.AreaListResponse")
+    model_config = ConfigDict(title="Area.ListResponse")
 
     areas: list[AreaResponse] = Field(
         ...,
@@ -109,7 +109,7 @@ class AreaListResponse(BaseModel):
 class AreaCountResponse(BaseModel):
     """Count of areas response schema."""
 
-    model_config = ConfigDict(title="area.AreaCountResponse")
+    model_config = ConfigDict(title="Area.CountResponse")
 
     count: int = Field(
         ...,

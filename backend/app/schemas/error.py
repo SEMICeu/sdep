@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ErrorDetail(BaseModel):
     """Detail of a single error."""
 
-    model_config = ConfigDict(title="error.ErrorDetail")
+    model_config = ConfigDict(title="Error.Detail")
 
     msg: str = Field(..., description="Human-readable error message")
     type: str = Field(..., description="Error type identifier")
@@ -18,6 +18,6 @@ class ErrorDetail(BaseModel):
 class ErrorResponse(BaseModel):
     """Standardized error response format."""
 
-    model_config = ConfigDict(title="error.ErrorResponse")
+    model_config = ConfigDict(title="Error.Response")
 
     detail: list[ErrorDetail] = Field(..., description="List of error details")

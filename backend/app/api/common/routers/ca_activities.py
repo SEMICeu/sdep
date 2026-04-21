@@ -12,10 +12,10 @@ from app.schemas.activity import (
     ActivityCountResponse,
     ActivityListResponse,
     ActivityResponse,
-    AddressResponse,
-    TemporalResponse,
 )
+from app.schemas.address import CommonAddressResponse
 from app.schemas.error import ErrorResponse
+from app.schemas.temporal import CommonTemporalResponse
 from app.services import activity
 
 router = APIRouter(tags=["ca"])
@@ -26,18 +26,19 @@ router = APIRouter(tags=["ca"])
     response_model=ActivityListResponse,
     status_code=status.HTTP_200_OK,
     summary="Get activities for the current authenticated competent authority",
-    description="Get activities for the current authenticated competent authority. By default, returns all activities (unlimited). Use optional pagination parameters to limit results.\n\n"
+    description="Get activities for the current authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results.\n\n"
     "**Each activity contains:**\n"
     "- `activityId`: Functional ID identifying this activity\n"
     "- `activityName`: Display name (optional) of the activity\n"
+    "- `status`: Lifecycle status of the activity record: `finished` or `cancelled`\n"
     "- `areaId`: Functional ID referencing the area where the activity took place\n"
-    "- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area (convenience)\n"
+    "- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n"
     "- `competentAuthorityName`: Display name (optional) of the competent authority\n"
     "- `url`: URL of the originating listing/advertisement\n"
-    "- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber`, `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`)\n"
+    "- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n"
     "- `registrationNumber`: Registration number for the address\n"
-    "- `numberOfGuests`: Number of guests (optional)\n"
-    "- `countryOfGuests`: Array of country codes of guests (optional)\n"
+    "- `numberOfGuests`: Number of guests (1-1024)\n"
+    "- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; length equals `numberOfGuests`)\n"
     "- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n"
     "- `platformId`: Functional ID referencing the platform that owns the activity\n"
     "- `platformName`: Display name (optional) of the platform\n"
@@ -52,7 +53,8 @@ router = APIRouter(tags=["ca"])
                             {
                                 "activityId": "550e8400-e29b-41d4-a716-446655440000",
                                 "activityName": "Amsterdam Summer Rental",
-                                "areaId": "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
+                                "status": "finished",
+                                "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
                                 "competentAuthorityId": "sdep-ca0363",
                                 "competentAuthorityName": "Gemeente Amsterdam",
                                 "url": "http://example.com/amsterdam-myhouse-1",
@@ -61,10 +63,11 @@ router = APIRouter(tags=["ca"])
                                     "locatorDesignatorNumber": 263,
                                     "postCode": "1016GV",
                                     "postName": "Amsterdam",
+                                    "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
                                 },
                                 "registrationNumber": "REG0001",
                                 "numberOfGuests": 4,
-                                "countryOfGuests": ["NLD", "DEU", "BEL"],
+                                "countryOfGuests": ["NLD", "DEU", "BEL", "N/A"],
                                 "temporal": {
                                     "startDatetime": "2025-06-01T14:00:00Z",
                                     "endDatetime": "2025-06-07T11:00:00Z",
@@ -114,22 +117,6 @@ async def get_activities(
     - Requires valid bearer token with "sdep_ca" and "sdep_read" roles in realm_access
     - Competent authority ID extracted from token's "client_id" claim
 
-    Returns a list of activities, each containing:
-    - activityId: Functional ID
-    - activityName: Display name (optional)
-    - areaId: Functional ID
-    - competentAuthorityId: Functional ID identifying the competent authority
-    - competentAuthorityName: Display name (optional) of the competent authority
-    - url: URL of the originating listing/advertisement
-    - address: Address composite (thoroughfare, locatorDesignatorNumber, locatorDesignatorLetter (optional), locatorDesignatorAddition (optional), postCode, postName)
-    - registrationNumber: Registration number
-    - numberOfGuests: Number of guests (optional)
-    - countryOfGuests: Array of country codes (optional)
-    - temporal: Temporal composite (startDatetime, endDatetime)
-    - platformId: Functional ID referencing the platform that owns the activity
-    - platformName: Display name (optional) of the platform
-    - createdAt: Creation timestamp
-
     Pagination parameters:
     - offset: Number of records to skip (default: 0)
     - limit: Maximum number of records to return (default: no limit, max: 1000)
@@ -147,11 +134,12 @@ async def get_activities(
         ActivityResponse(
             activityId=activity_dict["activity_id"],
             activityName=activity_dict.get("activity_name"),
+            status=activity_dict["status"],
             areaId=activity_dict["area_id"],
             competentAuthorityId=activity_dict["competent_authority_id"],
             competentAuthorityName=activity_dict.get("competent_authority_name"),
             url=activity_dict["url"],
-            address=AddressResponse(
+            address=CommonAddressResponse(
                 thoroughfare=activity_dict["address_thoroughfare"],
                 locatorDesignatorNumber=activity_dict[
                     "address_locator_designator_number"
@@ -164,11 +152,12 @@ async def get_activities(
                 ],
                 postCode=activity_dict["address_post_code"],
                 postName=activity_dict["address_post_name"],
+                fullAddress=activity_dict["address_full_address"],
             ),
             registrationNumber=activity_dict["registration_number"],
             numberOfGuests=activity_dict["number_of_guests"],
             countryOfGuests=activity_dict["country_of_guests"],
-            temporal=TemporalResponse(
+            temporal=CommonTemporalResponse(
                 startDatetime=activity_dict["temporal_start_date_time"],
                 endDatetime=activity_dict["temporal_end_date_time"],
             ),
@@ -187,7 +176,7 @@ async def get_activities(
     response_model=ActivityCountResponse,
     status_code=status.HTTP_200_OK,
     summary="Get activities count for the current authenticated competent authority (optional, to support pagination)",
-    description="Get activities count for the current authenticated competent authority (optional, to support pagination)",
+    description="Get activities count for the current authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`.",
     operation_id="countActivities",
     responses={
         "401": {

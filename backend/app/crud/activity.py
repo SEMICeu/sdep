@@ -6,6 +6,7 @@ from sqlalchemy import func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.enums import ActivityStatus
 from app.models.activity import Activity
 from app.models.area import Area
 from app.models.competent_authority import CompetentAuthority
@@ -19,16 +20,18 @@ async def create(
     area_id: int,
     url: str,
     address_thoroughfare: str,
-    address_locator_designator_number: int,
+    address_locator_designator_number: int | None,
     address_locator_designator_letter: str | None,
     address_locator_designator_addition: str | None,
     address_post_code: str,
     address_post_name: str,
+    address_full_address: str,
     registration_number: str,
-    number_of_guests: int | None,
-    country_of_guests: list[str] | None,
+    number_of_guests: int,
+    country_of_guests: list[str],
     temporal_start_date_time: datetime,
     temporal_end_date_time: datetime,
+    status: ActivityStatus = ActivityStatus.finished,
 ) -> Activity:
     """
     Create a new activity.
@@ -41,16 +44,19 @@ async def create(
         area_id: Area id (foreign key to Area, required, integer)
         url: URL (128 characters, required)
         address_thoroughfare: Street / public space name (required, max 80 chars)
-        address_locator_designator_number: Numeric house number (required)
+        address_locator_designator_number: Numeric house number (optional, >= 0 when provided)
         address_locator_designator_letter: Letter/character suffix (optional, max 10 chars)
         address_locator_designator_addition: Additional qualifier (optional, max 128 chars)
         address_post_code: Postal code (required, max 10 chars)
         address_post_name: City / town / village (required, max 80 chars)
+        address_full_address: Full address as a single string (required, max 318 chars)
         registration_number: Registration number (required, max 32 chars)
-        number_of_guests: Number of guests (optional)
-        country_of_guests: Array of country codes (optional)
+        number_of_guests: Number of guests (1-1024)
+        country_of_guests: Array of country codes (required, each ISO 3166-1 alpha-3 or 'N/A';
+            length must equal number_of_guests — enforced by caller)
         temporal_start_date_time: Temporal start datetime (required)
         temporal_end_date_time: Temporal end datetime (required)
+        status: Lifecycle status ('finished' by default, or 'cancelled').
 
     Returns:
         Created Activity instance
@@ -58,6 +64,7 @@ async def create(
     activity = Activity(
         activity_id=activity_id,
         activity_name=activity_name,
+        status=status,
         platform_id=platform_id,
         area_id=area_id,
         url=url,
@@ -67,6 +74,7 @@ async def create(
         address_locator_designator_addition=address_locator_designator_addition,
         address_post_code=address_post_code,
         address_post_name=address_post_name,
+        address_full_address=address_full_address,
         registration_number=registration_number,
         number_of_guests=number_of_guests,
         country_of_guests=country_of_guests,
