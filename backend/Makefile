@@ -149,7 +149,6 @@ test-security: ## Test security only
 	uv run python -m pytest tests/security/ -n auto
 	@echo "✅ Security tests completed!"
 
-
 ##@ Housekeeping
 
 openapi-snapshot-update: ## Update the frozen OpenAPI snapshot

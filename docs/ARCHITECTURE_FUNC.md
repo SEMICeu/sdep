@@ -3,9 +3,9 @@
 This document provides an overview of the SDEP (Single Digital Entry Point) functional architecture:
 
 - [Diagram](#diagram)
-- [Proces](#proces)
-  - [Update of shapefiles](#update-of-shapefiles)
-  - [Send activity data](#send-activity-data)
+- [PDF export](#pdf-export)
+- [Update of shapefiles](#update-of-shapefiles)
+- [Send activity data](#send-activity-data)
 
 ## Diagram
 
@@ -13,9 +13,13 @@ Arrows indicate information flows:
 
 ![](./diagrams/ARCHITECTURE_FUNC.png)
 
-## Proces
+## PDF export
 
-### Update of shapefiles
+For current API versions:
+
+- [API v0 pdf](./docs/sdep_openapi_v0.pdf)
+
+## Update of shapefiles
 
 Update of shapefiles at the beginning of each month.
 
@@ -28,7 +32,7 @@ For example, a new Competent Authority want to regulate their area.
 
 See also https://github.com/SEMICeu/sdep/issues/22.
 
-### Send activity data
+## Send activity data
 
 The activity data should only be sent by STR platforms after the stay completion.
 
