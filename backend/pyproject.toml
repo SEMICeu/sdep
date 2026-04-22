@@ -84,6 +84,8 @@ dev = [
     "faker>=33.1.0",
     "pytest-xdist>=3.8.0",
     "aiosqlite>=0.20.0",
+    # Used for API PDF generation
+    "reportlab>=4.4.10",
 ]
 
 [tool.uv.sources]

@@ -88,7 +88,7 @@ occurrence is processed. Earlier occurrences receive NOK.
 - `activity`: The full activity object (present for OK items, omitted for NOK items)
 - `errors`: Structured error details (present for NOK items, omitted for OK items)
 
-**The `activity` object (for the OK items) contains:**
+**The activity object (for the OK items) contains:**
 - `activityId`: Functional ID identifying this activity
 - `activityName`: Display name (optional) of the activity
 - `status`: Lifecycle status of the activity record: `finished` or `cancelled`

@@ -162,6 +162,7 @@ For full configuration options and usage examples, see [Performance Tests](./doc
 
 - [Architecture](./docs/ARCHITECTURE_FUNC.md)
 - [Listing and Activity](./docs/LISTING_ACTIVITY.md)
+- [PDF export of API](./docs/sdep_openapi_v0.pdf)
 
 ## Technical design
 

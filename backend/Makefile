@@ -1,7 +1,7 @@
 .PHONY: init install \
         upgrade upgrade-sql downgrade revision show-history show-current \
         clean-stale up dev down \
-        test-crud test-services test-api test-security test test-coverage \
+        test-crud test-services test-api test-security test test-coverage openapi-snapshot-update \
         format lint typecheck check \
         clean help
 
@@ -149,7 +149,13 @@ test-security: ## Test security only
 	uv run python -m pytest tests/security/ -n auto
 	@echo "✅ Security tests completed!"
 
+
 ##@ Housekeeping
+
+openapi-snapshot-update: ## Update the frozen OpenAPI snapshot
+	@echo "🧊 Updating frozen OpenAPI snapshot..."
+	uv run python -c "from tests.api.test_openapi_schema_frozen import write_openapi_snapshot; print(write_openapi_snapshot())"
+	@echo "✅ OpenAPI snapshot updated!"
 
 clean: ## Clean up generated files
 	@echo "🧹 Cleaning up..."
