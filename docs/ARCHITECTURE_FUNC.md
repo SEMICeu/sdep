@@ -17,7 +17,7 @@ Arrows indicate information flows:
 
 For current API versions:
 
-- [API v0 pdf](./docs/sdep_openapi_v0.pdf)
+- [API v0 pdf](./sdep_openapi_v0.pdf)
 
 ## Update of shapefiles
 
