@@ -5,7 +5,6 @@
 - Froze the API into `/v1`
 - Moved from a single versioned mount (`/api/v0`) to independent per-domain versioning (`/api/auth/v1`, `/api/ca/v1`, `/api/str/v1`)
 - Health and ping are unversioned at `/api/health` and `/api/ping`
-- No schema changes.
 
 ## 260422
 
