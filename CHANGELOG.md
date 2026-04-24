@@ -1,6 +1,6 @@
 # Changelog
 
-## 260424 - v1 freeze
+## 260424 - API v1 freeze
 
 - Froze the API into `/v1`
 - Moved from a single versioned mount (`/api/v0`) to independent per-domain versioning (`/api/auth/v1`, `/api/ca/v1`, `/api/str/v1`)
