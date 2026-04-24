@@ -23,29 +23,34 @@ audit_logger = logging.getLogger("audit")
 SKIP_PATHS = frozenset(
     {
         "/",
+        "/favicon.ico",
         "/api/docs",
         "/api/health",
-        "/api/v0/openapi.json",
-        "/api/v0/docs",
+        "/api/auth/v1/openapi.json",
+        "/api/auth/v1/docs",
+        "/api/ca/v1/openapi.json",
+        "/api/ca/v1/docs",
+        "/api/str/v1/openapi.json",
+        "/api/str/v1/docs",
     }
 )
 
 # Action mapping: (method, regex_pattern) -> (action, resource_type)
 # Order matters: more specific patterns first
 _ACTION_RULES: list[tuple[str, re.Pattern, str, str]] = [
-    ("GET", re.compile(r"^/api/v\d+/ca/areas/count$"), "count", "area"),
-    ("GET", re.compile(r"^/api/v\d+/ca/areas/([^/]+)$"), "read", "area"),
-    ("POST", re.compile(r"^/api/v\d+/ca/areas$"), "create", "area"),
-    ("GET", re.compile(r"^/api/v\d+/ca/areas$"), "list", "area"),
-    ("DELETE", re.compile(r"^/api/v\d+/ca/areas/([^/]+)$"), "delete", "area"),
-    ("GET", re.compile(r"^/api/v\d+/str/areas/count$"), "count", "area"),
-    ("GET", re.compile(r"^/api/v\d+/str/areas/([^/]+)$"), "read", "area"),
-    ("GET", re.compile(r"^/api/v\d+/str/areas$"), "list", "area"),
-    ("POST", re.compile(r"^/api/v\d+/str/activities/bulk$"), "create_bulk", "activity"),
-    ("GET", re.compile(r"^/api/v\d+/ca/activities/count$"), "count", "activity"),
-    ("GET", re.compile(r"^/api/v\d+/ca/activities$"), "list", "activity"),
-    ("POST", re.compile(r"^/api/v\d+/auth/token$"), "token", "auth"),
-    ("GET", re.compile(r"^/api/v\d+/ping$"), "ping", "system"),
+    ("GET", re.compile(r"^/api/ca/v\d+/areas/count$"), "count", "area"),
+    ("GET", re.compile(r"^/api/ca/v\d+/areas/([^/]+)$"), "read", "area"),
+    ("POST", re.compile(r"^/api/ca/v\d+/areas$"), "create", "area"),
+    ("GET", re.compile(r"^/api/ca/v\d+/areas$"), "list", "area"),
+    ("DELETE", re.compile(r"^/api/ca/v\d+/areas/([^/]+)$"), "delete", "area"),
+    ("GET", re.compile(r"^/api/str/v\d+/areas/count$"), "count", "area"),
+    ("GET", re.compile(r"^/api/str/v\d+/areas/([^/]+)$"), "read", "area"),
+    ("GET", re.compile(r"^/api/str/v\d+/areas$"), "list", "area"),
+    ("POST", re.compile(r"^/api/str/v\d+/activities/bulk$"), "create_bulk", "activity"),
+    ("GET", re.compile(r"^/api/ca/v\d+/activities/count$"), "count", "activity"),
+    ("GET", re.compile(r"^/api/ca/v\d+/activities$"), "list", "activity"),
+    ("POST", re.compile(r"^/api/auth/v\d+/token$"), "token", "auth"),
+    ("GET", re.compile(r"^/api/ping$"), "ping", "system"),
 ]
 
 
@@ -97,8 +102,8 @@ async def _write_audit_record(record: AuditLog) -> None:
     try:
         async with create_async_session() as session, session.begin():
             session.add(record)
-    except Exception:
-        logger.warning("Failed to write audit log record", exc_info=True)
+    except Exception as exc:
+        logger.warning("Failed to write audit log record: %s", exc)
 
 
 class AuditLogMiddleware(BaseHTTPMiddleware):

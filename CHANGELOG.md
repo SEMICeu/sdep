@@ -1,5 +1,12 @@
 # Changelog
 
+## 260424 - v1 freeze
+
+- Froze the API into `/v1`
+- Moved from a single versioned mount (`/api/v0`) to independent per-domain versioning (`/api/auth/v1`, `/api/ca/v1`, `/api/str/v1`)
+- Health and ping are unversioned at `/api/health` and `/api/ping`
+- No schema changes.
+
 ## 260422
 
 - Added PDF export of API (yet draft)
@@ -13,11 +20,12 @@
 - Improved OpenAPI schema titles to qualifier-first dotted form (e.g. `Activity.Request`, `Activity.BulkRequest`, ...)
 - Promoted `Address` and `Temporal` composites to the new `Common` qualifier
 - Renamed Python classes to match the qualifier-first convention (`BulkActivityRequest` → `ActivityBulkRequest`, `AddressRequest` → `CommonAddressRequest`, etc.)
-- Improved Dockerfile to harden outage of https://astral.sh/uv/0.5.4/install.sh
+- Improved Dockerfile to harden outage of <https://astral.sh/uv/0.5.4/install.sh>
 - Extended the integration tests (added bulk to the standard "make test", and allow for a "make test-keep")
 - Hardened the performance tests
 
 ## 260420
+
 - Kept `POST /str/activities/bulk` only, removed the single `POST /str/activities/` ([#59](https://github.com/SEMICeu/sdep/issues/59))
 - Unified the `Activity`, `Area`, and `Error` response schemas ([#59](https://github.com/SEMICeu/sdep/issues/59))
 - Unified terminology in various descriptions

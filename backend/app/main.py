@@ -10,7 +10,9 @@ from fastapi import FastAPI
 
 from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common_app import app_common
-from app.api.v0.main import app_v0
+from app.api.domains.auth.v1 import app_auth_v1
+from app.api.domains.ca.v1 import app_ca_v1
+from app.api.domains.str.v1 import app_str_v1
 from app.config import settings
 from app.db.config import async_engine
 from app.security import AuditLogMiddleware, SecurityHeadersMiddleware
@@ -99,8 +101,10 @@ app.add_middleware(
 # MOUNT SUB-APPLICATIONS
 # ============================================================================
 
-# Mount versioned sub-applications first (more specific paths)
-app.mount("/api/v0", app_v0)
+# Mount domain sub-applications (most specific paths first)
+app.mount("/api/auth/v1", app_auth_v1)
+app.mount("/api/ca/v1", app_ca_v1)
+app.mount("/api/str/v1", app_str_v1)
 
 # Mount version-independent sub-application last (broader path)
 app.mount("/api", app_common)

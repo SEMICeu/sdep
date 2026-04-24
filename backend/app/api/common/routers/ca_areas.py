@@ -57,9 +57,9 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 
 
 @router.post(
-    "/ca/areas",
-    summary="Submit a single area into the areas collection for the current authenticated competent authority",
-    description="""Submit a single area into the areas collection for the current authenticated competent authority (competentAuthorityId).
+    "/areas",
+    summary="Submit a single area into the areas collection for the currently authenticated competent authority",
+    description="""Submit a single area into the areas collection for the currently authenticated competent authority.
 
 **ID Pattern:**
 - `areaId`: provided by competent authority as business identifier (optional), otherwise generated as UUID (RFC 9562)
@@ -177,12 +177,12 @@ async def post_area(
 
 
 @router.get(
-    "/ca/areas",
-    summary="Get areas for the current authenticated competent authority",
-    description="""Get all areas owned by the current authenticated competent authority. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.
+    "/areas",
+    summary="Get areas for the currently authenticated competent authority",
+    description="""Get all areas owned by the currently authenticated competent authority. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.
 
 **Scoping:**
-- Only returns areas belonging to the authenticated CA (based on JWT client_id)
+- Only returns areas belonging to the currently authenticated competent authority (based on JWT client_id)
 
 **Each area contains:**
 - `areaId`: Functional ID identifying this area
@@ -253,7 +253,7 @@ async def get_own_areas(
     ] = None,
 ) -> Response:
     """
-    Get areas for the current authenticated competent authority.
+    Get areas for the currently authenticated competent authority.
 
     Authorization:
     - Requires valid bearer token with "sdep_ca" and "sdep_read" roles in realm_access
@@ -290,11 +290,11 @@ async def get_own_areas(
 
 
 @router.get(
-    "/ca/areas/count",
+    "/areas/count",
     response_model=AreaCountResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get areas count for the current authenticated competent authority (optional, to support pagination)",
-    description="Get areas count for the current authenticated competent authority (optional, to support pagination)",
+    summary="Get areas count for the currently authenticated competent authority (optional, to support pagination)",
+    description="Get areas count for the currently authenticated competent authority (optional, to support pagination).",
     operation_id="countOwnAreas",
     responses={
         "401": {
@@ -312,7 +312,7 @@ async def count_own_areas(
     session: AsyncSession = Depends(get_async_db_read_only),
 ) -> AreaCountResponse:
     """
-    Count areas for the current authenticated competent authority.
+    Count areas for the currently authenticated competent authority.
 
     Authorization:
     - Requires valid bearer token with "sdep_ca" and "sdep_read" roles in realm_access
@@ -330,11 +330,11 @@ async def count_own_areas(
 
 
 @router.get(
-    "/ca/areas/{areaId}",
+    "/areas/{areaId}",
     response_class=Response,
     status_code=status.HTTP_200_OK,
-    summary="Get area (shapefile) for the current authenticated competent authority",
-    description="Get area (shapefile) based on functional ID, scoped to the authenticated CA",
+    summary="Get area (shapefile) for the currently authenticated competent authority",
+    description="Get area (shapefile) based on functional ID, scoped to the currently authenticated competent authority.",
     operation_id="getOwnArea",
     responses={
         "200": {
@@ -359,7 +359,7 @@ async def get_own_area(
     session: AsyncSession = Depends(get_async_db_read_only),
 ) -> Response:
     """
-    Get specific area for the current authenticated competent authority.
+    Get specific area for the currently authenticated competent authority.
 
     Authorization:
     - Requires valid bearer token with "sdep_ca" and "sdep_read" roles in realm_access
@@ -392,8 +392,8 @@ async def get_own_area(
 
 
 @router.delete(
-    "/ca/areas/{areaId}",
-    summary="Delete (deactivate) an area from the areas collection for the current authenticated competent authority",
+    "/areas/{areaId}",
+    summary="Delete (deactivate) an area from the areas collection for the currently authenticated competent authority",
     description="""Delete (deactivate) an area by marking it as ended (now, UTC).
 
 **Behavior:**
@@ -431,7 +431,7 @@ async def delete_area(
     session: AsyncSession = Depends(get_async_db),
 ) -> Response:
     """
-    Delete (deactivate) an area for the current authenticated competent authority.
+    Delete (deactivate) an area for the currently authenticated competent authority.
 
     Authorization:
     - Requires valid bearer token with "sdep_ca" and "sdep_write" roles in realm_access

@@ -34,7 +34,7 @@ class ActivityBulkRequest(BaseModel):
         ...,
         min_length=1,
         max_length=1000,
-        description="List of activity objects to process (1-1000 items per batch). Each item is validated individually in the service layer; invalid items are marked NOK without failing the whole batch.",
+        description="Array of activity objects to process (1-1000 items per batch)",
     )
 
 
@@ -57,13 +57,13 @@ class ActivityBulkResultItem(BaseModel):
     activity_id: str | None = Field(
         None,
         alias="activityId",
-        description="Activity functional ID as supplied by the client in the request (null if not provided by client, even when a UUID was auto-generated)",
+        description="Activity functional ID provided by the client in the request",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )
 
     status: Literal["OK", "NOK"] = Field(
         ...,
-        description="Processing status for this batch item: OK (created successfully) or NOK (failed validation or processing). This is distinct from `activity.status`, which is the lifecycle status of the created activity record.",
+        description="Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)",
         examples=["OK"],
     )
 
@@ -74,7 +74,7 @@ class ActivityBulkResultItem(BaseModel):
 
     errors: ErrorResponse | None = Field(
         None,
-        description="Structured error details when status is NOK; omitted when status is OK",
+        description="Structured error details (present for NOK items, omitted for OK items)",
         examples=[
             {
                 "detail": [

@@ -4,8 +4,8 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from app.api.v0.main import app_v0
-from app.api.v0.security import verify_bearer_token
+from app.api.common.security import verify_bearer_token
+from app.api.domains.str.v1 import app_str_v1
 from app.db.config import get_async_db_read_only
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
@@ -27,18 +27,18 @@ class TestStrAreaAPI:
     def setup_overrides(self, async_session: AsyncSession):
         """Setup dependency overrides for authenticated tests."""
         # Override token verification
-        app_v0.dependency_overrides[verify_bearer_token] = mock_verify_bearer_token
+        app_str_v1.dependency_overrides[verify_bearer_token] = mock_verify_bearer_token
 
         # Override database session
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         yield
 
         # Clean up overrides after test
-        app_v0.dependency_overrides.clear()
+        app_str_v1.dependency_overrides.clear()
 
     @pytest.fixture
     def setup_db_only(self, async_session: AsyncSession):
@@ -48,12 +48,12 @@ class TestStrAreaAPI:
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         yield
 
         # Clean up overrides after test
-        app_v0.dependency_overrides.clear()
+        app_str_v1.dependency_overrides.clear()
 
     @pytest_asyncio.fixture
     async def competent_authority(self, async_session: AsyncSession):
@@ -71,11 +71,11 @@ class TestStrAreaAPI:
         """Test GET /str/areas when database is empty."""
         # Arrange
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas", headers={"Authorization": "Bearer test_token"}
+                "/areas", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -96,11 +96,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas", headers={"Authorization": "Bearer test_token"}
+                "/areas", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -151,11 +151,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas", headers={"Authorization": "Bearer test_token"}
+                "/areas", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -181,11 +181,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas", headers={"Authorization": "Bearer test_token"}
+                "/areas", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -220,10 +220,10 @@ class TestStrAreaAPI:
         """Test GET /str/areas without authentication token."""
         # Arrange
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
-            response = await client.get("/str/areas")
+            response = await client.get("/areas")
 
         # Assert
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -234,11 +234,11 @@ class TestStrAreaAPI:
         """Test GET /str/areas with invalid authentication token."""
         # Arrange - no auth override, so real auth will be used
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act - send invalid token
             response = await client.get(
-                "/str/areas", headers={"Authorization": "Bearer invalid_token"}
+                "/areas", headers={"Authorization": "Bearer invalid_token"}
             )
 
         # Assert
@@ -250,25 +250,27 @@ class TestStrAreaAPI:
         def mock_token_without_str_role() -> dict[str, Any]:
             return {"sub": "test_user", "realm_access": {"roles": ["sdep_read"]}}
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_str_role
+        app_str_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_str_role
+        )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_str_v1), base_url="http://test"
             ) as client:
                 response = await client.get(
-                    "/str/areas", headers={"Authorization": "Bearer test_token"}
+                    "/areas", headers={"Authorization": "Bearer test_token"}
                 )
 
             assert response.status_code == status.HTTP_403_FORBIDDEN
             assert "sdep_str" in response.json()["detail"][0]["msg"]
         finally:
-            app_v0.dependency_overrides.clear()
+            app_str_v1.dependency_overrides.clear()
 
     async def test_get_areas_without_read_role(self, async_session: AsyncSession):
         """Test GET /str/areas without sdep_read role returns 403."""
@@ -276,25 +278,27 @@ class TestStrAreaAPI:
         def mock_token_without_read_role() -> dict[str, Any]:
             return {"sub": "test_user", "realm_access": {"roles": ["sdep_str"]}}
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+        app_str_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_read_role
+        )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_str_v1), base_url="http://test"
             ) as client:
                 response = await client.get(
-                    "/str/areas", headers={"Authorization": "Bearer test_token"}
+                    "/areas", headers={"Authorization": "Bearer test_token"}
                 )
 
             assert response.status_code == status.HTTP_403_FORBIDDEN
             assert "sdep_read" in response.json()["detail"][0]["msg"]
         finally:
-            app_v0.dependency_overrides.clear()
+            app_str_v1.dependency_overrides.clear()
 
     async def test_get_areas_content_type(
         self, async_session: AsyncSession, setup_overrides, competent_authority
@@ -306,11 +310,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas", headers={"Authorization": "Bearer test_token"}
+                "/areas", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -349,11 +353,11 @@ class TestStrAreaAPI:
         await AreaFactory.create_async(async_session, competent_authority_id=ca4.id)
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas?offset=2", headers={"Authorization": "Bearer test_token"}
+                "/areas?offset=2", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -380,11 +384,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas?limit=2", headers={"Authorization": "Bearer test_token"}
+                "/areas?limit=2", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -430,11 +434,11 @@ class TestStrAreaAPI:
         await AreaFactory.create_async(async_session, competent_authority_id=ca5.id)
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas?offset=1&limit=2",
+                "/areas?offset=1&limit=2",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -459,11 +463,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas?offset=10", headers={"Authorization": "Bearer test_token"}
+                "/areas?offset=10", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -477,11 +481,11 @@ class TestStrAreaAPI:
         """Test GET /str/areas with invalid offset parameter."""
         # Arrange
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas?offset=-1", headers={"Authorization": "Bearer test_token"}
+                "/areas?offset=-1", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -493,11 +497,11 @@ class TestStrAreaAPI:
         """Test GET /str/areas with invalid limit parameter."""
         # Arrange
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act - limit must be between 1 and 1000
             response = await client.get(
-                "/str/areas?limit=0", headers={"Authorization": "Bearer test_token"}
+                "/areas?limit=0", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -509,11 +513,11 @@ class TestStrAreaAPI:
         """Test GET /str/areas with limit exceeding maximum."""
         # Arrange
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act - max limit is 1000
             response = await client.get(
-                "/str/areas?limit=2000", headers={"Authorization": "Bearer test_token"}
+                "/areas?limit=2000", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -525,11 +529,11 @@ class TestStrAreaAPI:
         """Test GET /str/areas/count when database is empty."""
         # Arrange
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas/count", headers={"Authorization": "Bearer test_token"}
+                "/areas/count", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -548,11 +552,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas/count", headers={"Authorization": "Bearer test_token"}
+                "/areas/count", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -582,11 +586,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas/count", headers={"Authorization": "Bearer test_token"}
+                "/areas/count", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -604,11 +608,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas/count", headers={"Authorization": "Bearer test_token"}
+                "/areas/count", headers={"Authorization": "Bearer test_token"}
             )
 
         # Assert
@@ -629,10 +633,10 @@ class TestStrAreaAPI:
         """Test GET /str/areas/count without authentication token."""
         # Arrange
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
-            response = await client.get("/str/areas/count")
+            response = await client.get("/areas/count")
 
         # Assert
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -643,11 +647,11 @@ class TestStrAreaAPI:
         """Test GET /str/areas/count with invalid authentication token."""
         # Arrange
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas/count", headers={"Authorization": "Bearer invalid_token"}
+                "/areas/count", headers={"Authorization": "Bearer invalid_token"}
             )
 
         # Assert
@@ -659,25 +663,27 @@ class TestStrAreaAPI:
         def mock_token_without_str_role() -> dict[str, Any]:
             return {"sub": "test_user", "realm_access": {"roles": ["sdep_read"]}}
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_str_role
+        app_str_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_str_role
+        )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_str_v1), base_url="http://test"
             ) as client:
                 response = await client.get(
-                    "/str/areas/count", headers={"Authorization": "Bearer test_token"}
+                    "/areas/count", headers={"Authorization": "Bearer test_token"}
                 )
 
             assert response.status_code == status.HTTP_403_FORBIDDEN
             assert "sdep_str" in response.json()["detail"][0]["msg"]
         finally:
-            app_v0.dependency_overrides.clear()
+            app_str_v1.dependency_overrides.clear()
 
     async def test_count_areas_without_read_role(self, async_session: AsyncSession):
         """Test GET /str/areas/count without sdep_read role returns 403."""
@@ -685,25 +691,27 @@ class TestStrAreaAPI:
         def mock_token_without_read_role() -> dict[str, Any]:
             return {"sub": "test_user", "realm_access": {"roles": ["sdep_str"]}}
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+        app_str_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_read_role
+        )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_str_v1), base_url="http://test"
             ) as client:
                 response = await client.get(
-                    "/str/areas/count", headers={"Authorization": "Bearer test_token"}
+                    "/areas/count", headers={"Authorization": "Bearer test_token"}
                 )
 
             assert response.status_code == status.HTTP_403_FORBIDDEN
             assert "sdep_read" in response.json()["detail"][0]["msg"]
         finally:
-            app_v0.dependency_overrides.clear()
+            app_str_v1.dependency_overrides.clear()
 
     async def test_get_area_not_found(
         self, async_session: AsyncSession, setup_overrides
@@ -711,11 +719,11 @@ class TestStrAreaAPI:
         """Test GET /str/areas/{areaId} when area does not exist."""
         # Arrange
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/str/areas/99999999999999999999",
+                "/areas/99999999999999999999",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -743,11 +751,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                f"/str/areas/{area.area_id}",
+                f"/areas/{area.area_id}",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -772,10 +780,10 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
-            response = await client.get(f"/str/areas/{area.area_id}")
+            response = await client.get(f"/areas/{area.area_id}")
 
         # Assert
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -793,11 +801,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                f"/str/areas/{area.area_id}",
+                f"/areas/{area.area_id}",
                 headers={"Authorization": "Bearer invalid_token"},
             )
 
@@ -819,26 +827,28 @@ class TestStrAreaAPI:
         def mock_token_without_str_role() -> dict[str, Any]:
             return {"sub": "test_user", "realm_access": {"roles": ["sdep_read"]}}
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_str_role
+        app_str_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_str_role
+        )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_str_v1), base_url="http://test"
             ) as client:
                 response = await client.get(
-                    f"/str/areas/{area.area_id}",
+                    f"/areas/{area.area_id}",
                     headers={"Authorization": "Bearer test_token"},
                 )
 
             assert response.status_code == status.HTTP_403_FORBIDDEN
             assert "sdep_str" in response.json()["detail"][0]["msg"]
         finally:
-            app_v0.dependency_overrides.clear()
+            app_str_v1.dependency_overrides.clear()
 
     async def test_get_area_without_read_role(
         self, async_session: AsyncSession, competent_authority
@@ -855,26 +865,28 @@ class TestStrAreaAPI:
         def mock_token_without_read_role() -> dict[str, Any]:
             return {"sub": "test_user", "realm_access": {"roles": ["sdep_str"]}}
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+        app_str_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_read_role
+        )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_str_v1), base_url="http://test"
             ) as client:
                 response = await client.get(
-                    f"/str/areas/{area.area_id}",
+                    f"/areas/{area.area_id}",
                     headers={"Authorization": "Bearer test_token"},
                 )
 
             assert response.status_code == status.HTTP_403_FORBIDDEN
             assert "sdep_read" in response.json()["detail"][0]["msg"]
         finally:
-            app_v0.dependency_overrides.clear()
+            app_str_v1.dependency_overrides.clear()
 
     async def test_get_area_with_large_binary_data(
         self, async_session: AsyncSession, setup_overrides, competent_authority
@@ -890,11 +902,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                f"/str/areas/{area.area_id}",
+                f"/areas/{area.area_id}",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -929,11 +941,11 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             # Act - request middle area
             response = await client.get(
-                f"/str/areas/{area2.area_id}",
+                f"/areas/{area2.area_id}",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -953,10 +965,10 @@ class TestStrAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/str/areas", headers={"Authorization": "Bearer test_token"}
+                "/areas", headers={"Authorization": "Bearer test_token"}
             )
 
         assert response.status_code == status.HTTP_200_OK

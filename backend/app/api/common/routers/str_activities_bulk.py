@@ -34,9 +34,9 @@ router = APIRouter(tags=["str"])
 
 
 @router.post(
-    "/str/activities/bulk",
-    summary="Submit activities in bulk for the current authenticated platform",
-    description="""Submit 1-1000 activities into the activities collection for the current authenticated platform (platformId).
+    "/activities/bulk",
+    summary="Submit activities in bulk for the currently authenticated platform",
+    description="""Submit 1-1000 activities into the activities collection for the currently authenticated platform.
 
 **ID pattern:**
 
@@ -66,13 +66,13 @@ occurrence is processed. Earlier occurrences receive NOK.
 **Each activity item in the request contains:**
 - `activityId`: Functional ID identifying the activity (auto-generated UUID if not provided; alphanumeric with hyphens `^[A-Za-z0-9-]+$`, max 64 chars)
 - `activityName`: Display name of the activity (optional, max 64 chars)
-- `status`: Lifecycle status of the activity record. Defaults to `finished` when omitted; may also be `cancelled`
+- `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`
 - `areaId`: Functional ID referencing the area where the activity took place
 - `url`: URL of the originating listing/advertisement (max 128 chars)
 - `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)
-- `registrationNumber`: Registration number (max 32 chars)
+- `registrationNumber`: Registration number of the address (max 32 chars)
 - `numberOfGuests`: Number of guests (1-1024)
-- `countryOfGuests`: Array of country codes (1-1024; each element is ISO 3166-1 alpha-3 or `N/A`, uppercase only). Its length **must equal** `numberOfGuests`.
+- `countryOfGuests`: Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or `N/A`, uppercase only); array length must equal `numberOfGuests`.
 - `temporal`: Temporal composite (`startDatetime`, `endDatetime`)
 
 **The response contains:**
@@ -91,15 +91,15 @@ occurrence is processed. Earlier occurrences receive NOK.
 **The activity object (for the OK items) contains:**
 - `activityId`: Functional ID identifying this activity
 - `activityName`: Display name (optional) of the activity
-- `status`: Lifecycle status of the activity record: `finished` or `cancelled`
+- `status`: Lifecycle status of the activity: `finished` or `cancelled`
 - `areaId`: Functional ID referencing the area where this activity took place
-- `competentAuthorityId`: Functional ID of the competent authority who owns the referenced area
+- `competentAuthorityId`: Functional ID of the competent authority that owns the referenced area
 - `competentAuthorityName`: Display name (optional) of the competent authority
 - `url`: URL of the originating listing/advertisement
 - `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)
-- `registrationNumber`: Registration number for the address
+- `registrationNumber`: Registration number of the address (max 32 chars)
 - `numberOfGuests`: Number of guests (1-1024)
-- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`). Length equals `numberOfGuests`.
+- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`); array length equals `numberOfGuests`.
 - `temporal`: Temporal composite (startDatetime, endDatetime)
 - `platformId`: Functional ID referencing the platform that owns the activity
 - `platformName`: Display name (optional) of the platform

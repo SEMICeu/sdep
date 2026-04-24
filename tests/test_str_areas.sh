@@ -3,7 +3,7 @@
 # Test script for STR areas endpoints of the SDEP API
 # Expects BACKEND_BASE_URL environment variable to be set
 # Optionally accepts BEARER_TOKEN environment variable for authenticated requests
-# Optionally accepts API_VERSION environment variable (defaults to v0)
+# Optionally accepts API_VERSION environment variable (defaults to v1)
 # Tests:
 #   - GET /str/areas/count (count areas)
 #   - GET /str/areas (list areas with optional pagination)
@@ -16,8 +16,8 @@ if [ -z "$BACKEND_BASE_URL" ]; then
     exit 1
 fi
 
-# Default API version to v0 if not set
-API_VERSION=${API_VERSION:-v0}
+# Default API version to v1 if not set
+API_VERSION=${API_VERSION:-v1}
 
 # If BEARER_TOKEN is not set, try to read from token file
 if [ -z "$BEARER_TOKEN" ]; then
@@ -74,9 +74,9 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 if [ -n "$BEARER_TOKEN" ]; then
     response=$(curl -s -w "\n%{http_code}" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas/count")
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas/count")
 else
-    response=$(curl -s -w "\n%{http_code}" "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas/count")
+    response=$(curl -s -w "\n%{http_code}" "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas/count")
 fi
 
 http_code=$(echo "$response" | tail -n1)
@@ -130,9 +130,9 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 if [ -n "$BEARER_TOKEN" ]; then
     response=$(curl -s -w "\n%{http_code}" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas")
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas")
 else
-    response=$(curl -s -w "\n%{http_code}" "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas")
+    response=$(curl -s -w "\n%{http_code}" "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas")
 fi
 
 http_code=$(echo "$response" | tail -n1)
@@ -188,7 +188,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 if [ -n "$BEARER_TOKEN" ]; then
     response=$(curl -s -w "\n%{http_code}" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas?offset=0&limit=1")
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas?offset=0&limit=1")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -227,7 +227,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 if [ -n "$BEARER_TOKEN" ]; then
     response=$(curl -s -w "\n%{http_code}" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas?limit=1")
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas?limit=1")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -288,13 +288,13 @@ if [ -n "$BEARER_TOKEN" ] && [ -n "$TARGET_AREA_ID" ]; then
     # Use -i to get headers and -s for silent mode, -w to get http code
     { response=$(curl -s -i -w "\n%{http_code}" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas/${TARGET_AREA_ID}"); } 2>/dev/null
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas/${TARGET_AREA_ID}"); } 2>/dev/null
 elif [ -z "$TARGET_AREA_ID" ]; then
     response=""
     http_code=""
     echo "⏭️  Skipping Test 5 (no areaId captured from list response)"
 else
-    { response=$(curl -s -i -w "\n%{http_code}" "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas/${TARGET_AREA_ID}"); } 2>/dev/null
+    { response=$(curl -s -i -w "\n%{http_code}" "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas/${TARGET_AREA_ID}"); } 2>/dev/null
 fi
 
 http_code=$(echo "$response" | tail -n1)
@@ -345,7 +345,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 if [ -n "$BEARER_TOKEN" ] && [ -n "$SECOND_AREA_ID" ]; then
     { response=$(curl -s -i -w "\n%{http_code}" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas/${SECOND_AREA_ID}"); } 2>/dev/null
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas/${SECOND_AREA_ID}"); } 2>/dev/null
 
     http_code=$(echo "$response" | tail -n1)
     headers=$(echo "$response" | sed '$d')
@@ -384,7 +384,7 @@ if [ -n "$BEARER_TOKEN" ]; then
 
     response=$(curl -s -w "\n%{http_code}" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas/${NONEXISTENT_AREA_ID}")
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas/${NONEXISTENT_AREA_ID}")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -415,7 +415,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 if [ -n "$BEARER_TOKEN" ] && [ -n "$THIRD_AREA_ID" ]; then
     { response=$(curl -s -i -w "\n%{http_code}" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/areas/${THIRD_AREA_ID}"); } 2>/dev/null
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/areas/${THIRD_AREA_ID}"); } 2>/dev/null
 
     http_code=$(echo "$response" | tail -n1)
     headers=$(echo "$response" | sed '$d')

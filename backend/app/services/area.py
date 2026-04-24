@@ -144,7 +144,7 @@ async def get_own_area_by_id(
     competent_authority_id_str: str,
 ) -> dict | None:
     """
-    Get a specific area by functional ID, scoped to the authenticated CA.
+    Get a specific area by functional ID, scoped to the currently authenticated competent authority.
 
     Args:
         session: Async database session

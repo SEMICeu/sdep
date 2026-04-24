@@ -18,7 +18,7 @@ Overview:
 
 The reference implementation for this repository is **SDEP Netherlands (NL)**.
 
-**Production environment (PRD):** https://sdep.gov.nl/api/v0/docs
+**Production environment (PRD):** https://sdep.gov.nl/api/docs
 
 > **Disclaimer**: The API is yet subject to change and may be updated **without versioning**.
 
@@ -65,7 +65,7 @@ Ports for the started services are defined in .env. To override any of these val
 
 Explore API docs (Swagger UI):
 
-- http://localhost:8000/api/v0/docs
+- http://localhost:8000/api/docs
 
 Select client credentials (by roles):
 
@@ -114,7 +114,7 @@ SDEP is required by EU legislation.
 
 https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng
 
-See also the Short Term Rental Application and Prototype Profile.
+See also the Short Term Rental Application and Prototype Profile (STR-AP).
 
 https://github.com/SEMICeu/STR-AP
 
@@ -161,7 +161,7 @@ For full configuration options and usage examples, see [Performance Tests](./doc
 ## Functional design
 
 - [Architecture](./docs/ARCHITECTURE_FUNC.md)
-- [Listing and Activity](./docs/LISTING_ACTIVITY.md)
+- [Listing and Activity](./docs/LISTING_ACTIVITY.md) (work in progress)
 
 ## Technical design
 

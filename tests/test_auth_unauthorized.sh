@@ -2,7 +2,7 @@
 
 # Test script to verify all secured endpoints return 401 Unauthorized without authentication
 # Expects BACKEND_BASE_URL environment variable to be set
-# Tests both version-independent (/api) and versioned (/api/v0) endpoints
+# Tests both version-independent (/api) and versioned domain endpoints
 
 set -e
 
@@ -42,27 +42,27 @@ test_endpoint() {
     fi
 }
 
-# Test all secured endpoints (excluding public endpoints like /api/health and /api/v0/auth/token)
+# Test all secured endpoints (excluding public endpoints like /api/health and /api/auth/v1/token)
 echo "Testing secured endpoints without authentication..."
 echo
 
 # Version-independent common endpoints - None currently require authentication
 # /api/health is public health check
 
-# API v0 secured endpoints
-echo "Testing API v0 endpoints..."
-test_endpoint "GET" "/api/v0/ping" "Ping endpoint (requires authentication)"
-test_endpoint "GET" "/api/v0/str/areas" "STR areas retrieval"
-test_endpoint "GET" "/api/v0/str/areas/count" "STR areas count"
-test_endpoint "GET" "/api/v0/str/areas/amsterdam-area0363" "STR area retrieval by ID"
-test_endpoint "POST" "/api/v0/str/activities/bulk" "STR bulk activity submission"
-test_endpoint "POST" "/api/v0/ca/areas" "CA area submission"
-test_endpoint "GET" "/api/v0/ca/areas" "CA own areas retrieval"
-test_endpoint "GET" "/api/v0/ca/areas/count" "CA own areas count"
-test_endpoint "GET" "/api/v0/ca/areas/some-area-id" "CA area retrieval by ID"
-test_endpoint "DELETE" "/api/v0/ca/areas/some-area-id" "CA area deletion"
-test_endpoint "GET" "/api/v0/ca/activities" "CA activity retrieval"
-test_endpoint "GET" "/api/v0/ca/activities/count" "CA activity count"
+# Secured endpoints (domain-first versioning)
+echo "Testing secured endpoints..."
+test_endpoint "GET" "/api/ping" "Ping endpoint (requires authentication)"
+test_endpoint "GET" "/api/str/v1/areas" "STR areas retrieval"
+test_endpoint "GET" "/api/str/v1/areas/count" "STR areas count"
+test_endpoint "GET" "/api/str/v1/areas/amsterdam-area0363" "STR area retrieval by ID"
+test_endpoint "POST" "/api/str/v1/activities/bulk" "STR bulk activity submission"
+test_endpoint "POST" "/api/ca/v1/areas" "CA area submission"
+test_endpoint "GET" "/api/ca/v1/areas" "CA own areas retrieval"
+test_endpoint "GET" "/api/ca/v1/areas/count" "CA own areas count"
+test_endpoint "GET" "/api/ca/v1/areas/some-area-id" "CA area retrieval by ID"
+test_endpoint "DELETE" "/api/ca/v1/areas/some-area-id" "CA area deletion"
+test_endpoint "GET" "/api/ca/v1/activities" "CA activity retrieval"
+test_endpoint "GET" "/api/ca/v1/activities/count" "CA activity count"
 
 # Summary
 echo

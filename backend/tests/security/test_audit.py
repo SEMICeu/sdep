@@ -23,19 +23,19 @@ class TestActionMapping:
     @pytest.mark.parametrize(
         "method, path, expected_action, expected_type",
         [
-            ("POST", "/api/v0/ca/areas", "create", "area"),
-            ("GET", "/api/v0/ca/areas", "list", "area"),
-            ("GET", "/api/v0/ca/areas/count", "count", "area"),
-            ("GET", "/api/v0/ca/areas/abc-123", "read", "area"),
-            ("DELETE", "/api/v0/ca/areas/abc-123", "delete", "area"),
-            ("POST", "/api/v0/str/activities/bulk", "create_bulk", "activity"),
-            ("GET", "/api/v0/str/areas", "list", "area"),
-            ("GET", "/api/v0/str/areas/count", "count", "area"),
-            ("GET", "/api/v0/str/areas/xyz-456", "read", "area"),
-            ("GET", "/api/v0/ca/activities", "list", "activity"),
-            ("GET", "/api/v0/ca/activities/count", "count", "activity"),
-            ("POST", "/api/v0/auth/token", "token", "auth"),
-            ("GET", "/api/v0/ping", "ping", "system"),
+            ("POST", "/api/ca/v1/areas", "create", "area"),
+            ("GET", "/api/ca/v1/areas", "list", "area"),
+            ("GET", "/api/ca/v1/areas/count", "count", "area"),
+            ("GET", "/api/ca/v1/areas/abc-123", "read", "area"),
+            ("DELETE", "/api/ca/v1/areas/abc-123", "delete", "area"),
+            ("POST", "/api/str/v1/activities/bulk", "create_bulk", "activity"),
+            ("GET", "/api/str/v1/areas", "list", "area"),
+            ("GET", "/api/str/v1/areas/count", "count", "area"),
+            ("GET", "/api/str/v1/areas/xyz-456", "read", "area"),
+            ("GET", "/api/ca/v1/activities", "list", "activity"),
+            ("GET", "/api/ca/v1/activities/count", "count", "activity"),
+            ("POST", "/api/auth/v1/token", "token", "auth"),
+            ("GET", "/api/ping", "ping", "system"),
         ],
     )
     async def test_action_mapping(self, method, path, expected_action, expected_type):
@@ -46,13 +46,13 @@ class TestActionMapping:
 
     async def test_unknown_path_fallback(self):
         """Test that unmatched paths fall back to 'unknown'."""
-        action, resource_type = _resolve_action("GET", "/api/v0/unknown")
+        action, resource_type = _resolve_action("GET", "/api/unknown/v1/test")
         assert action == "unknown"
         assert resource_type is None
 
     async def test_version_agnostic(self):
         """Test that action mapping works for any API version."""
-        action, resource_type = _resolve_action("POST", "/api/v1/ca/areas")
+        action, resource_type = _resolve_action("POST", "/api/ca/v1/areas")
         assert action == "create"
         assert resource_type == "area"
 
@@ -68,7 +68,7 @@ class TestAuditMiddleware:
             with patch(
                 "app.security.audit._write_audit_record", new_callable=AsyncMock
             ) as mock_write:
-                response = await client.get("/api/v0/ping")
+                response = await client.get("/api/ping")
                 # Allow background task to execute
                 await asyncio.sleep(0.1)
 
@@ -76,7 +76,7 @@ class TestAuditMiddleware:
                 record = mock_write.call_args[0][0]
                 assert record.action == "ping"
                 assert record.http_method == "GET"
-                assert record.path == "/api/v0/ping"
+                assert record.path == "/api/ping"
                 assert record.http_status_code == response.status_code
                 assert record.request_id is not None
                 assert record.duration_ms is not None
@@ -110,7 +110,7 @@ class TestAuditMiddleware:
             with patch(
                 "app.security.audit._write_audit_record", new_callable=AsyncMock
             ) as mock_write:
-                await client.get("/api/v0/openapi.json")
+                await client.get("/api/ca/v1/openapi.json")
                 await asyncio.sleep(0.1)
                 mock_write.assert_not_called()
 
@@ -122,7 +122,7 @@ class TestAuditMiddleware:
                 "app.security.audit._write_audit_record", new_callable=AsyncMock
             ) as mock_write:
                 # Hit a protected endpoint without auth → expect 401
-                await client.get("/api/v0/ca/areas")
+                await client.get("/api/ca/v1/areas")
                 await asyncio.sleep(0.1)
 
                 record = mock_write.call_args[0][0]
@@ -138,7 +138,7 @@ class TestAuditMiddleware:
                 side_effect=Exception("DB connection failed"),
             ):
                 # Request should still succeed despite audit failure
-                response = await client.get("/api/v0/ping")
+                response = await client.get("/api/ping")
                 assert response.status_code in (200, 401)
 
     async def test_audit_record_logged_to_stdout(self):
@@ -149,7 +149,7 @@ class TestAuditMiddleware:
                 patch("app.security.audit._write_audit_record", new_callable=AsyncMock),
                 patch("app.security.audit.audit_logger") as mock_logger,
             ):
-                await client.get("/api/v0/ping")
+                await client.get("/api/ping")
                 await asyncio.sleep(0.1)
 
                 mock_logger.info.assert_called_once()
@@ -157,7 +157,7 @@ class TestAuditMiddleware:
                 record = json.loads(raw)
                 assert record["action"] == "ping"
                 assert record["httpMethod"] == "GET"
-                assert record["path"] == "/api/v0/ping"
+                assert record["path"] == "/api/ping"
                 assert "timestamp" in record
                 assert "requestId" in record
                 assert "httpStatusCode" in record
@@ -168,9 +168,14 @@ class TestAuditMiddleware:
         """Test that skip paths match the documented set."""
         expected = {
             "/",
+            "/favicon.ico",
             "/api/docs",
             "/api/health",
-            "/api/v0/openapi.json",
-            "/api/v0/docs",
+            "/api/auth/v1/openapi.json",
+            "/api/auth/v1/docs",
+            "/api/ca/v1/openapi.json",
+            "/api/ca/v1/docs",
+            "/api/str/v1/openapi.json",
+            "/api/str/v1/docs",
         }
         assert expected == SKIP_PATHS

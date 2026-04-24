@@ -1,0 +1,201 @@
+{
+  "components": {
+    "schemas": {
+      "Auth.TokenRequest": {
+        "properties": {
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Client ID for M2M authentication",
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Client secret for M2M authentication",
+            "title": "Client Secret"
+          },
+          "grant_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "OAuth2 grant type (client_credentials)",
+            "title": "Grant Type"
+          }
+        },
+        "title": "Auth.TokenRequest",
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "description": "Detail of a single error.",
+        "properties": {
+          "loc": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Location of the error (e.g. ['body', 'fieldName'])",
+            "title": "Loc"
+          },
+          "msg": {
+            "description": "Human-readable error message",
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "description": "Error type identifier",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "msg",
+          "type"
+        ],
+        "title": "Error.Detail",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "Standardized error response format.",
+        "properties": {
+          "detail": {
+            "description": "List of error details",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "Error.Response",
+        "type": "object"
+      },
+      "TokenResponse": {
+        "description": "OAuth2 token response model",
+        "properties": {
+          "access_token": {
+            "description": "OAuth2 bearer access token to be used in the Authorization header of subsequent API requests",
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "description": "Lifetime of the access token in seconds",
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "token_type": {
+            "description": "Type of token issued (typically 'Bearer')",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_in"
+        ],
+        "title": "Auth.TokenResponse",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Authentication endpoints for machine-to-machine OAuth2 Client Credentials flow via Keycloak.",
+    "title": "SDEP - Auth API",
+    "version": "<frozen-version>"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/token": {
+      "post": {
+        "description": "Token endpoint for machine-to-machine authentication using OAuth 2.0 Client Credentials Grant. Supports both HTTP Basic Authentication and form parameters.",
+        "operationId": "post_auth_token",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Auth.TokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - missing client credentials"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - authentication failed"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "summary": "Get access token (JWT bearer)",
+        "tags": [
+          "auth"
+        ]
+      }
+    }
+  }
+}

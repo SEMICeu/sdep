@@ -3,7 +3,7 @@
 # Test script for bulk activity submission endpoint of the SDEP API
 # Expects BACKEND_BASE_URL environment variable to be set
 # Optionally accepts BEARER_TOKEN environment variable for authenticated requests
-# Optionally accepts API_VERSION environment variable (defaults to v0)
+# Optionally accepts API_VERSION environment variable (defaults to v1)
 # Tests POST /str/activities/bulk endpoint
 
 set -e
@@ -13,8 +13,8 @@ if [ -z "$BACKEND_BASE_URL" ]; then
     exit 1
 fi
 
-# Default API version to v0 if not set
-API_VERSION=${API_VERSION:-v0}
+# Default API version to v1 if not set
+API_VERSION=${API_VERSION:-v1}
 
 # STR endpoint requires authorized client
 # Load token from ./tmp/.bearer_token file
@@ -25,7 +25,7 @@ else
     echo "⚠️  No ./tmp/.bearer_token file found"
 fi
 
-echo "🔍 Testing STR bulk activity endpoints at: ${BACKEND_BASE_URL}/api/${API_VERSION}/str/activities/bulk"
+echo "🔍 Testing STR bulk activity endpoints at: ${BACKEND_BASE_URL}/api/str/${API_VERSION}/activities/bulk"
 
 # Check if BEARER_TOKEN is set
 if [ -n "$BEARER_TOKEN" ]; then
@@ -98,7 +98,7 @@ EOF
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -d "$PAYLOAD" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/activities/bulk")
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/activities/bulk")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -166,7 +166,7 @@ EOF
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -d "$PAYLOAD_PARTIAL" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/activities/bulk")
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/activities/bulk")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -234,7 +234,7 @@ EOF
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -d "$PAYLOAD_FAIL" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/activities/bulk")
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/activities/bulk")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -270,7 +270,7 @@ response=$(curl -s -w "\n%{http_code}" \
     -X POST \
     -H "Content-Type: application/json" \
     -d '{"activities": [{"areaId": "test"}]}' \
-    "${BACKEND_BASE_URL}/api/${API_VERSION}/str/activities/bulk")
+    "${BACKEND_BASE_URL}/api/str/${API_VERSION}/activities/bulk")
 
 http_code=$(echo "$response" | tail -n1)
 
@@ -317,7 +317,7 @@ if [ -n "$BEARER_TOKEN" ]; then
         --data-urlencode "grant_type=client_credentials" \
         --data-urlencode "client_id=${AMSTERDAM_CA_CLIENT_ID}" \
         --data-urlencode "client_secret=${AMSTERDAM_CA_CLIENT_SECRET}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/auth/token")
+        "${BACKEND_BASE_URL}/api/auth/${API_VERSION}/token")
     CA_BEARER=$(echo "$CA_TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*"' | sed 's/"access_token":"\([^"]*\)"/\1/')
     if [ -z "$CA_BEARER" ]; then
         echo "❌ Test 5 failed: could not authenticate as Amsterdam CA (${AMSTERDAM_CA_CLIENT_ID})"
@@ -330,7 +330,7 @@ if [ -n "$BEARER_TOKEN" ]; then
 
     ca_count() {
         curl -s -H "Authorization: Bearer ${CA_BEARER}" \
-            "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities/count" \
+            "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities/count" \
             | grep -o '"count"[[:space:]]*:[[:space:]]*[0-9]*' | grep -o '[0-9]*$'
     }
 
@@ -360,7 +360,7 @@ EOF
         -X POST -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -d "$PAYLOAD_INSERT" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/activities/bulk")
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/activities/bulk")
     insert_code=$(echo "$insert_response" | tail -n1)
     insert_body=$(echo "$insert_response" | sed '$d')
     echo "Step A (insert finished)  HTTP=$insert_code  body=$insert_body"
@@ -387,7 +387,7 @@ EOF
         -X POST -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -d "$PAYLOAD_CANCEL" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/str/activities/bulk")
+        "${BACKEND_BASE_URL}/api/str/${API_VERSION}/activities/bulk")
     cancel_code=$(echo "$cancel_response" | tail -n1)
     cancel_body=$(echo "$cancel_response" | sed '$d')
     echo "Step B (cancel)           HTTP=$cancel_code  body=$cancel_body"

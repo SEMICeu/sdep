@@ -1,6 +1,6 @@
 <h1>Performance Tests</h1>
 
-The [../tests/perf](../tests/perf) directory contains a [Locust](https://locust.io/) test for load testing the SDEP bulk activity endpoint (`POST /str/activities/bulk`).
+The [../tests/perf](../tests/perf) directory contains a [Locust](https://locust.io/) test for load testing the SDEP bulk activity endpoint (`POST /api/str/v1/activities/bulk`).
 
 - [Running Performance Tests](#running-performance-tests)
 - [Implementation](#implementation)
@@ -47,14 +47,14 @@ Both are invoked via `make test-perf`.
 
 `perf/locustfile.py`
 
-**Purpose:** Load test the bulk activity endpoint (`POST /str/activities/bulk`) to measure throughput and validate capacity.
+**Purpose:** Load test the bulk activity endpoint (`POST /api/str/v1/activities/bulk`) to measure throughput and validate capacity.
 
 **Tooling:** [Locust](https://locust.io/) (Python-based load testing), installed on-demand via `uvx`.
 
 **Design:**
 - Authenticates via OAuth2 client credentials (same flow as integration tests)
 - Generates realistic activity payloads with randomized addresses, guest counts, and country codes
-- Submits batches via `POST /str/activities/bulk` at maximum throughput
+- Submits batches via `POST /api/str/v1/activities/bulk` at maximum throughput
 - Collects per-request success/failure counts from the bulk response body
 - Prints a summary with total activities, throughput (activities/sec), extrapolated capacity (activities/day), and comparison against the configured target
 

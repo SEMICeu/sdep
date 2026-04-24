@@ -94,7 +94,7 @@ _start: clean-stale
 		exit 1; \
 	fi
 	@echo "🚀 Starting backend..."
-	@echo "API docs running at http://localhost:8000/api/v0/docs"
+	@echo "API docs running at http://localhost:8000/api/docs"
 	uv run uvicorn app.main:app --reload --no-server-header
 	@echo "✅ Backend started!"
 
@@ -153,7 +153,7 @@ test-security: ## Test security only
 
 openapi-snapshot-update: ## Update the frozen OpenAPI snapshot
 	@echo "🧊 Updating frozen OpenAPI snapshot..."
-	uv run python -c "from tests.api.test_openapi_schema_frozen import write_openapi_snapshot; print(write_openapi_snapshot())"
+	uv run python -c "from tests.api.test_openapi_schema_frozen import write_openapi_snapshots; print(write_openapi_snapshots())"
 	@echo "✅ OpenAPI snapshot updated!"
 
 clean: ## Clean up generated files

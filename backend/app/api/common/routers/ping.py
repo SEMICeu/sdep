@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.v0.security import verify_bearer_token
+from app.api.common.security import verify_bearer_token
 from app.schemas.error import ErrorResponse
 from app.schemas.health import Status
 
@@ -16,7 +16,7 @@ router = APIRouter(tags=["health"])
     response_model=Status,
     status_code=status.HTTP_200_OK,
     summary="Ping application (authenticated)",
-    description="Verify if API is reachable (requires authentication)",
+    description="Verify if API is reachable (requires authentication).",
     operation_id="ping",
     responses={
         "401": {

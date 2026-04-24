@@ -3,7 +3,7 @@
 # Utility script to authorize and save bearer token
 # Expects BACKEND_BASE_URL environment variable to be set
 # Expects CLIENT_ID and CLIENT_SECRET environment variables
-# Optionally accepts API_VERSION environment variable (defaults to v0)
+# Optionally accepts API_VERSION environment variable (defaults to v1)
 # Saves token to .bearer_token for use by other test scripts
 
 set -e
@@ -23,8 +23,8 @@ if [ -z "$CLIENT_SECRET" ]; then
     exit 1
 fi
 
-# Default API version to v0 if not set
-API_VERSION=${API_VERSION:-v0}
+# Default API version to v1 if not set
+API_VERSION=${API_VERSION:-v1}
 
 # Function to authorize and save token
 authorize() {
@@ -39,7 +39,7 @@ authorize() {
       --data-urlencode "grant_type=client_credentials" \
       --data-urlencode "client_id=${client_id}" \
       --data-urlencode "client_secret=${client_secret}" \
-      "${BACKEND_BASE_URL}/api/${API_VERSION}/auth/token")
+      "${BACKEND_BASE_URL}/api/auth/${API_VERSION}/token")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')

@@ -1,7 +1,7 @@
 """Common security utilities for JWT token validation.
 
 This module provides version-agnostic JWT validation logic that can be reused
-across different API versions (v0, v1, etc.).
+across different API versions (v1, v2, etc.).
 """
 
 from collections.abc import Callable
@@ -186,13 +186,18 @@ class OAuth2ClientCredentials(OAuth2):
         return param
 
 
-def get_oauth_schema(version_number: int):
+def get_oauth_schema(auth_version: int = 1):
     return OAuth2ClientCredentials(
         flows=OAuthFlows(
             clientCredentials=OAuthFlowClientCredentials(
-                tokenUrl=f"{settings.BACKEND_BASE_URL}/api/v{version_number}/auth/token",
+                tokenUrl=f"{settings.BACKEND_BASE_URL}/api/auth/v{auth_version}/token",
                 scopes={},
             )
         ),
         auto_error=True,
     )
+
+
+# Default OAuth2 scheme and bearer token verifier for use by auth_dependencies
+_default_oauth2_scheme = get_oauth_schema(auth_version=1)
+verify_bearer_token = create_verify_bearer_token(_default_oauth2_scheme)

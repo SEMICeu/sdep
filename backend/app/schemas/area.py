@@ -52,12 +52,12 @@ class AreaResponse(BaseModel):
         None,
         alias="areaName",
         max_length=64,
-        description="Display name (optional, max 64 chars) of the area",
+        description="Display name (optional) of the area",
         examples=["Amsterdam"],
     )  # Functional name
     regulation: Regulation = Field(
         default=Regulation.all,
-        description="Regulation type - 'listing', 'activity', or 'all'",
+        description="Regulation type of the area - 'listing', 'activity', or 'all'",
         examples=["all"],
     )
     filename: str = Field(
@@ -76,7 +76,7 @@ class AreaResponse(BaseModel):
         None,
         alias="competentAuthorityName",
         max_length=64,
-        description="Display name (optional, max 64 chars) of the competent authority",
+        description="Display name (optional) of the competent authority",
         examples=["Amsterdam (inclusief Weesp)"],
     )  # Attribute
     created_at: datetime = Field(

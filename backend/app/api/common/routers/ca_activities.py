@@ -22,23 +22,23 @@ router = APIRouter(tags=["ca"])
 
 
 @router.get(
-    "/ca/activities",
+    "/activities",
     response_model=ActivityListResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get activities for the current authenticated competent authority",
-    description="Get activities for the current authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results.\n\n"
+    summary="Get activities for the currently authenticated competent authority",
+    description="Get activities for the currently authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results.\n\n"
     "**Each activity contains:**\n"
     "- `activityId`: Functional ID identifying this activity\n"
     "- `activityName`: Display name (optional) of the activity\n"
-    "- `status`: Lifecycle status of the activity record: `finished` or `cancelled`\n"
+    "- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n"
     "- `areaId`: Functional ID referencing the area where the activity took place\n"
     "- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n"
     "- `competentAuthorityName`: Display name (optional) of the competent authority\n"
     "- `url`: URL of the originating listing/advertisement\n"
     "- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n"
-    "- `registrationNumber`: Registration number for the address\n"
+    "- `registrationNumber`: Registration number of the address\n"
     "- `numberOfGuests`: Number of guests (1-1024)\n"
-    "- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; length equals `numberOfGuests`)\n"
+    "- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n"
     "- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n"
     "- `platformId`: Functional ID referencing the platform that owns the activity\n"
     "- `platformName`: Display name (optional) of the platform\n"
@@ -111,7 +111,7 @@ async def get_activities(
     session: AsyncSession = Depends(get_async_db_read_only),
 ) -> ActivityListResponse:
     """
-    Get activities for the current authenticated competent authority.
+    Get activities for the currently authenticated competent authority.
 
     Authorization:
     - Requires valid bearer token with "sdep_ca" and "sdep_read" roles in realm_access
@@ -172,11 +172,11 @@ async def get_activities(
 
 
 @router.get(
-    "/ca/activities/count",
+    "/activities/count",
     response_model=ActivityCountResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get activities count for the current authenticated competent authority (optional, to support pagination)",
-    description="Get activities count for the current authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`.",
+    summary="Get activities count for the currently authenticated competent authority (optional, to support pagination)",
+    description="Get activities count for the currently authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`.",
     operation_id="countActivities",
     responses={
         "401": {
@@ -194,7 +194,7 @@ async def count_activities(
     session: AsyncSession = Depends(get_async_db_read_only),
 ) -> ActivityCountResponse:
     """
-    Count activities for the current authenticated competent authority.
+    Count activities for the currently authenticated competent authority.
 
     Authorization:
     - Requires valid bearer token with "sdep_ca" and "sdep_read" roles in realm_access

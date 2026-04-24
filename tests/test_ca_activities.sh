@@ -19,10 +19,10 @@ else
     echo "⚠️  No ./tmp/.bearer_token file found"
 fi
 
-# Default API version to v0 if not set
-API_VERSION=${API_VERSION:-v0}
+# Default API version to v1 if not set
+API_VERSION=${API_VERSION:-v1}
 
-echo "🔍 Testing CA activity endpoints at: ${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities"
+echo "🔍 Testing CA activity endpoints at: ${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities"
 
 # Track test results
 TOTAL_TESTS=0
@@ -37,7 +37,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
 RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
   -H "Authorization: Bearer ${BEARER_TOKEN}" \
-  "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities/count")
+  "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities/count")
 
 HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
@@ -72,7 +72,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
 RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
   -H "Authorization: Bearer ${BEARER_TOKEN}" \
-  "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities")
+  "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities")
 
 HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
@@ -118,7 +118,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
 RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
   -H "Authorization: Bearer ${BEARER_TOKEN}" \
-  "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities?offset=0&limit=1")
+  "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities?offset=0&limit=1")
 
 HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
@@ -159,7 +159,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
 RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
   -H "Authorization: Bearer ${BEARER_TOKEN}" \
-  "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities?limit=1")
+  "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities?limit=1")
 
 HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
@@ -224,7 +224,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 # First, get an activity URL from the list
 RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
   -H "Authorization: Bearer ${BEARER_TOKEN}" \
-  "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities?limit=1")
+  "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities?limit=1")
 
 HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
@@ -239,7 +239,7 @@ if [ "$HTTP_STATUS" -eq 200 ]; then
         # Query by URL filter (if endpoint supports it)
         FILTER_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
           -H "Authorization: Bearer ${BEARER_TOKEN}" \
-          "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities?url=${ACTIVITY_URL}")
+          "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities?url=${ACTIVITY_URL}")
 
         FILTER_STATUS=$(echo "$FILTER_RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
         FILTER_BODY=$(echo "$FILTER_RESPONSE" | sed '/HTTP_STATUS/d')
@@ -283,7 +283,7 @@ KNOWN_AREA_ID="00000000000000000001"
 
 RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
   -H "Authorization: Bearer ${BEARER_TOKEN}" \
-  "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities?areaId=${KNOWN_AREA_ID}")
+  "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities?areaId=${KNOWN_AREA_ID}")
 
 HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
@@ -318,7 +318,7 @@ NONEXISTENT_AREA_ID="00000000-0000-0000-0000-000000000000"
 
 RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
   -H "Authorization: Bearer ${BEARER_TOKEN}" \
-  "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities?areaId=${NONEXISTENT_AREA_ID}")
+  "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities?areaId=${NONEXISTENT_AREA_ID}")
 
 HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
 BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
@@ -360,7 +360,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 # Get first page
 RESPONSE_PAGE1=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
   -H "Authorization: Bearer ${BEARER_TOKEN}" \
-  "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities?offset=0&limit=2")
+  "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities?offset=0&limit=2")
 
 HTTP_STATUS_PAGE1=$(echo "$RESPONSE_PAGE1" | grep "HTTP_STATUS" | cut -d: -f2)
 BODY_PAGE1=$(echo "$RESPONSE_PAGE1" | sed '/HTTP_STATUS/d')
@@ -368,7 +368,7 @@ BODY_PAGE1=$(echo "$RESPONSE_PAGE1" | sed '/HTTP_STATUS/d')
 # Get second page
 RESPONSE_PAGE2=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
   -H "Authorization: Bearer ${BEARER_TOKEN}" \
-  "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/activities?offset=2&limit=2")
+  "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/activities?offset=2&limit=2")
 
 HTTP_STATUS_PAGE2=$(echo "$RESPONSE_PAGE2" | grep "HTTP_STATUS" | cut -d: -f2)
 BODY_PAGE2=$(echo "$RESPONSE_PAGE2" | sed '/HTTP_STATUS/d')

@@ -101,7 +101,7 @@ def remove_inapplicable_422_responses(
     """
     # Specific (method, path) combinations where 422 is never emitted
     inapplicable: list[tuple[str, str]] = [
-        ("post", "/auth/token"),
+        ("post", "/token"),
     ]
 
     for path, path_item in openapi_schema.get("paths", {}).items():

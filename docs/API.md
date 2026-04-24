@@ -43,18 +43,18 @@ Table of contents
 | **API&nbsp;03** | Use nouns instead of verbs                         | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
 | **API&nbsp;04** | Use plurals for resources that affect collections  | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
 | **API&nbsp;05** | Consistent datamodel                               | Avoid code duplication, e.g. have unified `Activity`, `Area` and error responses                                       |
-| **API&nbsp;06** | Consistent endpoints                               | Have POST/GET "mirrors": `POST /ca/areas`, `GET /ca/activities`, `POST /str/activities/bulk`, `GET /str/areas`         |
+| **API&nbsp;06** | Consistent endpoints                               | Collection endpoints, explicit "bulk" qualification where needed: `POST /ca/areas`, `POST /str/activities/bulk`        |
 | **API&nbsp;07** | Consistent pagination                              | Have `offset` and `limit` for all endpoints with (potential) many records                                              |
 | **API&nbsp;08** | Syntax validation                                  | Example: `postal code`                                                                                                 |
 | **API&nbsp;09** | Semantical validation                              | Example: `begin timestamp < end timestamp`                                                                             |
 | **API&nbsp;10** | Integrity validation                               | Example: can only submit activities for existing areas                                                                 |
-| **API&nbsp;11** | Bulk POST                                          | All STR activity submissions use `/str/activities/bulk` (up to 1000 items/batch)                                       |
+| **API&nbsp;11** | Bulk POST                                          | All STR activity submissions use `POST /str/activities/bulk` (up to 1000 items/batch)                                  |
 | **API&nbsp;12** | Logical ordering => readability                    | For POST, request and response follow the same ordering, extra data in response (e.g. `createdAt`) is moved to the end |
-| **API&nbsp;13** | Essentiality                                       | Example: in POST activities, only `areaId` and `competentAuthorityId`, but no `competentAuthorityName`                 |
+| **API&nbsp;13** | Essentiality                                       | Example: in `/str/activities/bulk`, only `areaId`, but no `competentAuthorityId`                                       |
 | **API&nbsp;14** | Essentiality/security                              | Example: in POST activities, no need to include `platformId`                                                           |
 | **API&nbsp;15** | Consistent HTTP response codes                     | See [HTTP status codes](#http-status-codes) below                                                                      |
 | **API&nbsp;16** | STR and CA: manage area change                     | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                         |
-| **API&nbsp;17** | Unified response format                            | Example: `ActivityResponse` (for STR and CA, for both contains `competentAuthorityId` and `competentAuthorityName`')   |
+| **API&nbsp;17** | Unified response format                            | Example: `ActivityResponse` (for STR and CA, both contain `competentAuthorityName`')                                   |
 
 ---
 
@@ -99,10 +99,12 @@ The **[OpenAPI Specification](https://www.openapis.org/)** (formerly *Swagger Sp
 - A single document enumerates every endpoint, its request parameters and body, its response shapes per HTTP status code, its authentication scheme, and the data types (`components.schemas`) those endpoints consume and produce
 - With constraints like lengths, patterns, enums, required fields, and examples
 
-SDEP exposes this document at:
+SDEP exposes this document per domain at:
 
 ```
-GET /api/v0/openapi.json
+GET /api/auth/v1/openapi.json
+GET /api/ca/v1/openapi.json
+GET /api/str/v1/openapi.json
 ```
 
 It is the **authoritative, machine-readable contract** of the API.
@@ -123,11 +125,15 @@ Key properties:
 - It is *not* a separate specification or a separate source of truth
 - It reads the same `openapi.json` and presents it as a navigable page with collapsible endpoints, schema trees, and a built-in "Try it out" form that submits live requests against the running backend
 
-SDEP serves it at:
+SDEP serves it per domain at:
 
 ```
-GET /api/v0/docs
+GET /api/auth/v1/docs
+GET /api/ca/v1/docs
+GET /api/str/v1/docs
 ```
+
+A landing page at `GET /api/docs` links to all domain docs.
 
 Swagger UI's audience is humans: developers exploring the API, integrators drafting their first request, reviewers sanity-checking a change.
 

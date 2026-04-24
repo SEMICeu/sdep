@@ -3,7 +3,7 @@
 # Test script for OAuth token acquisition
 # Expects BACKEND_BASE_URL environment variable to be set
 # Tests both STR and CA credentials
-# Optionally accepts API_VERSION environment variable (defaults to v0)
+# Optionally accepts API_VERSION environment variable (defaults to v1)
 
 set -e
 
@@ -12,8 +12,8 @@ if [ -z "$BACKEND_BASE_URL" ]; then
     exit 1
 fi
 
-# Default API version to v0 if not set
-API_VERSION=${API_VERSION:-v0}
+# Default API version to v1 if not set
+API_VERSION=${API_VERSION:-v1}
 
 # Track test results
 TOTAL_TESTS=0
@@ -29,7 +29,7 @@ test_credentials() {
     echo "🔐 Testing ${client_type} credentials"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "CLIENT_ID: ${client_id}"
-    echo "Endpoint: ${BACKEND_BASE_URL}/api/${API_VERSION}/auth/token"
+    echo "Endpoint: ${BACKEND_BASE_URL}/api/auth/${API_VERSION}/token"
     echo
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
@@ -40,7 +40,7 @@ test_credentials() {
       --data-urlencode "grant_type=client_credentials" \
       --data-urlencode "client_id=${client_id}" \
       --data-urlencode "client_secret=${client_secret}" \
-      "${BACKEND_BASE_URL}/api/${API_VERSION}/auth/token")
+      "${BACKEND_BASE_URL}/api/auth/${API_VERSION}/token")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')

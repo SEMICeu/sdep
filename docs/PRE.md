@@ -2,7 +2,7 @@
 
 Welcome to the **SDEP NL pre-production environment (PRE)**.
 
-https://pre-sdep.minvro.nl/api/v0/docs
+https://pre-sdep.minvro.nl/api/docs
 
  Table of contents
 
@@ -68,7 +68,7 @@ To receive your test account credentials, please provide the following contact d
 To request **test accounts**, please contact us via email. \
 You can find the contact details at:
 
-- https://pre-sdep.minvro.nl/api/v0/docs
+- https://pre-sdep.minvro.nl/api/docs
 
 If you have any questions, please feel free to reach out.
 

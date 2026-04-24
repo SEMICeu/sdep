@@ -106,7 +106,7 @@ class ActivityRequest(BaseModel):
     ] = Field(
         None,
         alias="activityId",
-        description="Functional ID identifying this activity (auto-generated UUID if not provided; alphanumeric with hyphens `^[A-Za-z0-9-]+$`, max 64 chars)",
+        description="Functional ID identifying the activity (auto-generated UUID if not provided; alphanumeric with hyphens `^[A-Za-z0-9-]+$`, max 64 chars)",
         examples=[
             "550e8400-e29b-41d4-a716-446655440000",
             "550E8400-E29B-41D4-A716-446655440000",
@@ -117,7 +117,7 @@ class ActivityRequest(BaseModel):
         None,
         alias="activityName",
         max_length=64,
-        description="Display name (optional, max 64 chars) of the activity",
+        description="Display name of the activity (optional, max 64 chars)",
         examples=["Amsterdam Summer Rental"],
     )  # Functional name
 
@@ -141,13 +141,13 @@ class ActivityRequest(BaseModel):
         ...,
         min_length=1,
         max_length=128,
-        description="URL of the originating listing/advertisement (required)",
+        description="URL of the originating listing/advertisement (max 128 chars)",
         examples=["http://example.com/amsterdam-myhouse-1"],
     )  # Attribute
 
     address: CommonAddressRequest = Field(
         ...,
-        description="Address composite (INSPIRE/STR-AP) containing thoroughfare, locatorDesignator sub-fields, postCode, and postName",
+        description="Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)",
     )  # Composite
 
     registration_number: str = Field(
@@ -155,7 +155,7 @@ class ActivityRequest(BaseModel):
         alias="registrationNumber",
         min_length=1,
         max_length=32,
-        description="Registration number for the address",
+        description="Registration number of the address (max 32 chars)",
         examples=["REG0001"],
     )  # Attribute
 
@@ -191,7 +191,7 @@ class ActivityRequest(BaseModel):
 
     temporal: CommonTemporalRequest = Field(
         ...,
-        description="Temporal composite containing start and end date/time",
+        description="Temporal composite (`startDatetime`, `endDatetime`)",
     )  # Composite
 
     def to_service_dict(self, platform_id: str, platform_name: str) -> dict:
@@ -254,11 +254,11 @@ class ActivityResponse(BaseModel):
         None,
         alias="activityName",
         max_length=64,
-        description="Display name (optional, max 64 chars) of the activity",
+        description="Display name (optional) of the activity",
     )  # Functional name
     status: ActivityStatus = Field(
         ...,
-        description="Lifecycle status of the activity record: `finished` or `cancelled`.",
+        description="Lifecycle status of the activity: `finished` or `cancelled`.",
         examples=["finished", "cancelled"],
     )
     area_id: FunctionalId = Field(
@@ -280,18 +280,19 @@ class ActivityResponse(BaseModel):
         None,
         alias="competentAuthorityName",
         max_length=64,
-        description="Display name (optional, max 64 chars) of the competent authority",
+        description="Display name (optional) of the competent authority",
     )  # Attribute
     url: str = Field(
         ..., description="URL of the originating listing/advertisement"
     )  # Attribute
     address: CommonAddressResponse = Field(
-        ..., description="Address composite"
+        ...,
+        description="Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)",
     )  # Composite
     registration_number: str = Field(
         ...,
         alias="registrationNumber",
-        description="Registration number for the address",
+        description="Registration number of the address",
     )  # Attribute
     number_of_guests: int = Field(
         ..., alias="numberOfGuests", description="Number of guests (1-1024)"
@@ -299,10 +300,10 @@ class ActivityResponse(BaseModel):
     country_of_guests: list[CountryAlpha3OrNA] = Field(
         ...,
         alias="countryOfGuests",
-        description="Array of country codes of guests (each element is ISO 3166-1 alpha-3 or 'N/A'). Length equals numberOfGuests.",
+        description="Array of country codes of guests (each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
     )  # Attribute
     temporal: CommonTemporalResponse = Field(
-        ..., description="Temporal composite"
+        ..., description="Temporal composite (`startDatetime`, `endDatetime`)"
     )  # Composite
     platform_id: FunctionalId = Field(
         ...,
@@ -314,7 +315,7 @@ class ActivityResponse(BaseModel):
         None,
         alias="platformName",
         max_length=64,
-        description="Display name (optional, max 64 chars) of the platform",
+        description="Display name (optional) of the platform",
     )  # Attribute
     created_at: datetime = Field(
         ...,

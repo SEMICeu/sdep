@@ -4,8 +4,8 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from app.api.v0.main import app_v0
-from app.api.v0.security import verify_bearer_token
+from app.api.common.security import verify_bearer_token
+from app.api.domains.str.v1 import app_str_v1
 from app.db.config import get_async_db, get_async_db_read_only
 from app.enums import ActivityStatus
 from fastapi import status
@@ -56,17 +56,17 @@ class TestSTRActivitiesBulkAPI:
     @pytest.fixture
     def setup_overrides(self, async_session: AsyncSession):
         """Setup dependency overrides for authenticated tests."""
-        app_v0.dependency_overrides[verify_bearer_token] = mock_verify_bearer_token
+        app_str_v1.dependency_overrides[verify_bearer_token] = mock_verify_bearer_token
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         yield
 
-        app_v0.dependency_overrides.clear()
+        app_str_v1.dependency_overrides.clear()
 
     @pytest.fixture
     def setup_db_only(self, async_session: AsyncSession):
@@ -75,12 +75,12 @@ class TestSTRActivitiesBulkAPI:
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         yield
 
-        app_v0.dependency_overrides.clear()
+        app_str_v1.dependency_overrides.clear()
 
     @pytest_asyncio.fixture
     async def test_areas(self, async_session: AsyncSession):
@@ -131,10 +131,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """All items valid → 201 + all OK with embedded activity."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "b001"),
@@ -163,10 +163,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """OK item embedded activity contains all expected fields."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(
@@ -217,10 +217,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """OK item without client-supplied activityId → result-level activityId is null, embedded has generated UUID."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "noid-001"),
@@ -245,10 +245,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """OK item with client-supplied activityId → result-level activityId matches embedded."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(
@@ -274,10 +274,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Explicit cancelled lifecycle status is accepted and returned."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(
@@ -301,10 +301,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Address.locatorDesignatorNumber is optional → item accepted, field is null in response."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         {
@@ -345,10 +345,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """All items invalid (bad area) → 422 + all NOK with errorMessages array."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity("nonexistent-area-1", "b001"),
@@ -374,10 +374,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """NOK item has no embedded activity object."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity("nonexistent-area", "b001"),
@@ -399,10 +399,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Mixed valid/invalid → 200 + mixed OK/NOK."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "b001"),
@@ -432,10 +432,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Pydantic validation failure (missing required field) → NOK for that item only."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "b001"),
@@ -468,10 +468,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Empty list → 422 (Pydantic min_length=1)."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={"activities": []},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -485,10 +485,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Missing token → 401."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={"activities": [{"areaId": "test"}]},
             )
 
@@ -507,18 +507,18 @@ class TestSTRActivitiesBulkAPI:
                 "realm_access": {"roles": ["sdep_ca", "sdep_read"]},
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_no_str_role
+        app_str_v1.dependency_overrides[verify_bearer_token] = mock_no_str_role
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "b001"),
@@ -528,7 +528,7 @@ class TestSTRActivitiesBulkAPI:
             )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
-        app_v0.dependency_overrides.clear()
+        app_str_v1.dependency_overrides.clear()
 
     async def test_bulk_without_write_role_403(
         self, async_session: AsyncSession, test_areas
@@ -543,18 +543,18 @@ class TestSTRActivitiesBulkAPI:
                 "realm_access": {"roles": ["sdep_str", "sdep_read"]},
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_no_write_role
+        app_str_v1.dependency_overrides[verify_bearer_token] = mock_no_write_role
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "b001"),
@@ -565,7 +565,7 @@ class TestSTRActivitiesBulkAPI:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert "sdep_write" in str(response.json()["detail"]).lower()
-        app_v0.dependency_overrides.clear()
+        app_str_v1.dependency_overrides.clear()
 
     async def test_bulk_without_client_id_claim_401(
         self, async_session: AsyncSession, test_areas
@@ -579,18 +579,18 @@ class TestSTRActivitiesBulkAPI:
                 "realm_access": {"roles": ["sdep_str", "sdep_read", "sdep_write"]},
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_without_client_id
+        app_str_v1.dependency_overrides[verify_bearer_token] = mock_without_client_id
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "b001"),
@@ -601,7 +601,7 @@ class TestSTRActivitiesBulkAPI:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "client_id" in str(response.json()["detail"]).lower()
-        app_v0.dependency_overrides.clear()
+        app_str_v1.dependency_overrides.clear()
 
     async def test_bulk_without_client_name_claim_401(
         self, async_session: AsyncSession, test_areas
@@ -615,18 +615,18 @@ class TestSTRActivitiesBulkAPI:
                 "realm_access": {"roles": ["sdep_str", "sdep_read", "sdep_write"]},
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_without_client_name
+        app_str_v1.dependency_overrides[verify_bearer_token] = mock_without_client_name
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "b001"),
@@ -637,7 +637,7 @@ class TestSTRActivitiesBulkAPI:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "client_name" in str(response.json()["detail"]).lower()
-        app_v0.dependency_overrides.clear()
+        app_str_v1.dependency_overrides.clear()
 
     # ── Intra-batch duplicates (last-wins) ───────────────────────────────
 
@@ -646,10 +646,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Same activityId at index 0 and 2 → index 0 NOK (superseded), index 2 OK."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(
@@ -698,10 +698,10 @@ class TestSTRActivitiesBulkAPI:
 
         # First: create an activity via bulk
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response1 = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(
@@ -720,10 +720,10 @@ class TestSTRActivitiesBulkAPI:
 
         # Now submit via bulk with same activityId
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response2 = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(
@@ -769,10 +769,10 @@ class TestSTRActivitiesBulkAPI:
 
         # First call creates the platform
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response1 = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "plat-001"),
@@ -788,10 +788,10 @@ class TestSTRActivitiesBulkAPI:
 
         # Second call with same name should NOT create new platform version
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response2 = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "plat-002"),
@@ -814,10 +814,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Results array preserves original request order."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(
@@ -849,10 +849,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Activities with explicit activityId are created with that ID."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(
@@ -875,10 +875,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Activities without activityId get auto-generated UUIDs in embedded activity."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(test_areas["area1"].area_id, "auto-001"),
@@ -905,10 +905,10 @@ class TestSTRActivitiesBulkAPI:
         item = _make_activity(test_areas["area1"].area_id, "missing-nog-001")
         del item["numberOfGuests"]
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={"activities": [item]},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -926,10 +926,10 @@ class TestSTRActivitiesBulkAPI:
         item = _make_activity(test_areas["area1"].area_id, "missing-cog-001")
         del item["countryOfGuests"]
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={"activities": [item]},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -945,10 +945,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """numberOfGuests must equal len(countryOfGuests) → 422."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(
@@ -973,10 +973,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """'N/A' is a valid element of countryOfGuests → 201."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(
@@ -999,10 +999,10 @@ class TestSTRActivitiesBulkAPI:
     ):
         """Lowercase 'n/a' is rejected (uppercase only) → 422."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         _make_activity(

@@ -6,7 +6,7 @@ for a configurable duration, using the isolated testdata approach (sdep-test-per
 Configuration via environment variables (set by Makefile):
     PERF_BATCH_SIZE: Number of activities per bulk request (default: 500)
     BACKEND_BASE_URL: API base URL (default: http://localhost:8000)
-    API_VERSION: API version (default: v0)
+    API_VERSION: API version (default: v1)
     STR_CLIENT_ID: OAuth2 client ID for STR platform
     STR_CLIENT_SECRET: OAuth2 client secret for STR platform
     PERF_AREA_IDS: Comma-separated list of area IDs to use (created by Makefile)
@@ -37,7 +37,7 @@ CA_CLIENT_SECRET = os.environ.get("CA_CLIENT_SECRET", "")
 
 # Configuration from environment
 BATCH_SIZE = int(os.environ.get("PERF_BATCH_SIZE", "500"))
-API_VERSION = os.environ.get("API_VERSION", "v0")
+API_VERSION = os.environ.get("API_VERSION", "v1")
 STR_CLIENT_ID = os.environ.get("STR_CLIENT_ID", "sdep-test-str01")
 STR_CLIENT_SECRET = os.environ.get("STR_CLIENT_SECRET", "")
 PERF_AREA_IDS = [x for x in os.environ.get("PERF_AREA_IDS", "").split(",") if x]
@@ -152,7 +152,7 @@ def _verify_correctness():
     # Authenticate as CA
     try:
         auth_resp = http_requests.post(
-            f"{BACKEND_BASE_URL}/api/{API_VERSION}/auth/token",
+            f"{BACKEND_BASE_URL}/api/auth/{API_VERSION}/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": CA_CLIENT_ID,
@@ -178,7 +178,7 @@ def _verify_correctness():
     try:
         for _ in range(max_pages):
             get_resp = http_requests.get(
-                f"{BACKEND_BASE_URL}/api/{API_VERSION}/ca/activities",
+                f"{BACKEND_BASE_URL}/api/ca/{API_VERSION}/activities",
                 params={"limit": page_size, "offset": offset},
                 headers={"Authorization": f"Bearer {ca_token}"},
                 timeout=60,
@@ -428,7 +428,7 @@ class BulkActivityUser(HttpUser):
     def _refresh_token(self):
         """Obtain a new bearer token via OAuth2 client credentials."""
         response = self.client.post(
-            f"/api/{API_VERSION}/auth/token",
+            f"/api/auth/{API_VERSION}/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": STR_CLIENT_ID,
@@ -466,7 +466,7 @@ class BulkActivityUser(HttpUser):
         max_retries = 2
         for attempt in range(1 + max_retries):
             response = self.client.post(
-                f"/api/{API_VERSION}/str/activities/bulk",
+                f"/api/str/{API_VERSION}/activities/bulk",
                 json=payload,
                 headers={
                     "Authorization": f"Bearer {self._token}",

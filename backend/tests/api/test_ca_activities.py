@@ -4,8 +4,8 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from app.api.v0.main import app_v0
-from app.api.v0.security import verify_bearer_token
+from app.api.common.security import verify_bearer_token
+from app.api.domains.ca.v1 import app_ca_v1
 from app.db.config import get_async_db_read_only
 from app.enums import ActivityStatus
 from fastapi import status
@@ -38,18 +38,20 @@ class TestCAActivitiesAPI:
     def setup_overrides(self, async_session: AsyncSession):
         """Setup dependency overrides for authenticated tests."""
         # Override token verification
-        app_v0.dependency_overrides[verify_bearer_token] = mock_verify_bearer_token
+        app_ca_v1.dependency_overrides[verify_bearer_token] = mock_verify_bearer_token
 
         # Override database session with read-only session
         async def override_get_db_read_only():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db_read_only
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = (
+            override_get_db_read_only
+        )
 
         yield
 
         # Clean up overrides after test
-        app_v0.dependency_overrides.clear()
+        app_ca_v1.dependency_overrides.clear()
 
     @pytest.fixture
     def setup_db_only(self, async_session: AsyncSession):
@@ -59,12 +61,14 @@ class TestCAActivitiesAPI:
         async def override_get_db_read_only():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db_read_only
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = (
+            override_get_db_read_only
+        )
 
         yield
 
         # Clean up overrides after test
-        app_v0.dependency_overrides.clear()
+        app_ca_v1.dependency_overrides.clear()
 
     @pytest_asyncio.fixture
     async def test_data(self, async_session: AsyncSession):
@@ -145,11 +149,11 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities returns activities (scoped to current logged-in competent authority) 0363."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities",
+                "/activities",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -180,21 +184,21 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities with pagination parameters."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act - get first page
             response1 = await client.get(
-                "/ca/activities?offset=0&limit=2",
+                "/activities?offset=0&limit=2",
                 headers={"Authorization": "Bearer test_token"},
             )
             # Act - get second page
             response2 = await client.get(
-                "/ca/activities?offset=2&limit=2",
+                "/activities?offset=2&limit=2",
                 headers={"Authorization": "Bearer test_token"},
             )
             # Act - get third page
             response3 = await client.get(
-                "/ca/activities?offset=4&limit=2",
+                "/activities?offset=4&limit=2",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -225,11 +229,11 @@ class TestCAActivitiesAPI:
         """Test GET /ca/activities returns empty list when no data exists (scoped to current logged-in competent authority)."""
         # No test data created, so should return empty
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities",
+                "/activities",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -244,10 +248,10 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities without authentication token."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
-            response = await client.get("/ca/activities")
+            response = await client.get("/activities")
 
         # Assert
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -257,11 +261,11 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities with negative offset."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities?offset=-1",
+                "/activities?offset=-1",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -273,11 +277,11 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities with limit exceeding maximum."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities?limit=1001",
+                "/activities?limit=1001",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -289,11 +293,11 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities with limit=0."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities?limit=0",
+                "/activities?limit=0",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -305,11 +309,11 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities without limit parameter returns all data."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities",
+                "/activities",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -324,11 +328,11 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities response has correct format with all required fields."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities?limit=1",
+                "/activities?limit=1",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -372,11 +376,11 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities/count when database is empty."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities/count",
+                "/activities/count",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -417,11 +421,11 @@ class TestCAActivitiesAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities/count",
+                "/activities/count",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -437,11 +441,11 @@ class TestCAActivitiesAPI:
         # test_data fixture creates 5 Amsterdam activities + 3 Den Haag activities
         # but token has client_id="0363" (Amsterdam) so should only return 5
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities/count",
+                "/activities/count",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -455,11 +459,11 @@ class TestCAActivitiesAPI:
     ):
         """Test that count response structure matches OpenAPI specification."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities/count",
+                "/activities/count",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -480,10 +484,10 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities/count without authentication token."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
-            response = await client.get("/ca/activities/count")
+            response = await client.get("/activities/count")
 
         # Assert
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -493,11 +497,11 @@ class TestCAActivitiesAPI:
     ):
         """Test GET /ca/activities/count with invalid authentication token."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Act
             response = await client.get(
-                "/ca/activities/count",
+                "/activities/count",
                 headers={"Authorization": "Bearer invalid_token"},
             )
 
@@ -520,21 +524,23 @@ class TestCAActivitiesAPI:
                 },
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_ca_role
+        app_ca_v1.dependency_overrides[verify_bearer_token] = mock_token_without_ca_role
 
         # Override database session
         async def override_get_db_read_only():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db_read_only
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = (
+            override_get_db_read_only
+        )
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_ca_v1), base_url="http://test"
             ) as client:
                 # Act
                 response = await client.get(
-                    "/ca/activities",
+                    "/activities",
                     headers={"Authorization": "Bearer test_token"},
                 )
 
@@ -544,7 +550,7 @@ class TestCAActivitiesAPI:
             assert "sdep_ca" in detail_msg
         finally:
             # Clean up overrides
-            app_v0.dependency_overrides.clear()
+            app_ca_v1.dependency_overrides.clear()
 
     async def test_get_activities_without_read_role(
         self, async_session: AsyncSession, test_data
@@ -559,19 +565,23 @@ class TestCAActivitiesAPI:
                 "realm_access": {"roles": ["sdep_ca"]},
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+        app_ca_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_read_role
+        )
 
         async def override_get_db_read_only():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db_read_only
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = (
+            override_get_db_read_only
+        )
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_ca_v1), base_url="http://test"
             ) as client:
                 response = await client.get(
-                    "/ca/activities",
+                    "/activities",
                     headers={"Authorization": "Bearer test_token"},
                 )
 
@@ -579,7 +589,7 @@ class TestCAActivitiesAPI:
             detail_msg = response.json()["detail"][0]["msg"].lower()
             assert "sdep_read" in detail_msg
         finally:
-            app_v0.dependency_overrides.clear()
+            app_ca_v1.dependency_overrides.clear()
 
     async def test_get_activities_without_client_id_claim(
         self, async_session: AsyncSession, test_data
@@ -594,21 +604,25 @@ class TestCAActivitiesAPI:
                 # Missing 'client_id' claim
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_client_id
+        app_ca_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_client_id
+        )
 
         # Override database session
         async def override_get_db_read_only():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db_read_only
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = (
+            override_get_db_read_only
+        )
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_ca_v1), base_url="http://test"
             ) as client:
                 # Act
                 response = await client.get(
-                    "/ca/activities",
+                    "/activities",
                     headers={"Authorization": "Bearer test_token"},
                 )
 
@@ -618,7 +632,7 @@ class TestCAActivitiesAPI:
             assert "client_id" in detail_msg
         finally:
             # Clean up overrides
-            app_v0.dependency_overrides.clear()
+            app_ca_v1.dependency_overrides.clear()
 
     async def test_count_activities_without_ca_role(
         self, async_session: AsyncSession, test_data
@@ -636,21 +650,23 @@ class TestCAActivitiesAPI:
                 },
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_ca_role
+        app_ca_v1.dependency_overrides[verify_bearer_token] = mock_token_without_ca_role
 
         # Override database session
         async def override_get_db_read_only():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db_read_only
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = (
+            override_get_db_read_only
+        )
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_ca_v1), base_url="http://test"
             ) as client:
                 # Act
                 response = await client.get(
-                    "/ca/activities/count",
+                    "/activities/count",
                     headers={"Authorization": "Bearer test_token"},
                 )
 
@@ -660,7 +676,7 @@ class TestCAActivitiesAPI:
             assert "sdep_ca" in detail_msg
         finally:
             # Clean up overrides
-            app_v0.dependency_overrides.clear()
+            app_ca_v1.dependency_overrides.clear()
 
     async def test_count_activities_without_read_role(
         self, async_session: AsyncSession, test_data
@@ -675,19 +691,23 @@ class TestCAActivitiesAPI:
                 "realm_access": {"roles": ["sdep_ca"]},
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+        app_ca_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_read_role
+        )
 
         async def override_get_db_read_only():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db_read_only
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = (
+            override_get_db_read_only
+        )
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_ca_v1), base_url="http://test"
             ) as client:
                 response = await client.get(
-                    "/ca/activities/count",
+                    "/activities/count",
                     headers={"Authorization": "Bearer test_token"},
                 )
 
@@ -695,7 +715,7 @@ class TestCAActivitiesAPI:
             detail_msg = response.json()["detail"][0]["msg"].lower()
             assert "sdep_read" in detail_msg
         finally:
-            app_v0.dependency_overrides.clear()
+            app_ca_v1.dependency_overrides.clear()
 
     async def test_count_activities_without_client_id_claim(
         self, async_session: AsyncSession, test_data
@@ -710,21 +730,25 @@ class TestCAActivitiesAPI:
                 # Missing 'client_id' claim
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_client_id
+        app_ca_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_client_id
+        )
 
         # Override database session
         async def override_get_db_read_only():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db_read_only
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = (
+            override_get_db_read_only
+        )
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app_v0), base_url="http://test"
+                transport=ASGITransport(app=app_ca_v1), base_url="http://test"
             ) as client:
                 # Act
                 response = await client.get(
-                    "/ca/activities/count",
+                    "/activities/count",
                     headers={"Authorization": "Bearer test_token"},
                 )
 
@@ -734,17 +758,17 @@ class TestCAActivitiesAPI:
             assert "client_id" in detail_msg
         finally:
             # Clean up overrides
-            app_v0.dependency_overrides.clear()
+            app_ca_v1.dependency_overrides.clear()
 
     async def test_get_activities_response_does_not_contain_ended_at(
         self, async_session: AsyncSession, setup_overrides, test_data
     ):
         """Test that GET /ca/activities response does NOT contain endedAt (internal only)."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/activities?limit=1",
+                "/activities?limit=1",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -784,10 +808,10 @@ class TestCAActivitiesAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/activities",
+                "/activities",
                 headers={"Authorization": "Bearer test_token"},
             )
 

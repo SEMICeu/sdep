@@ -43,6 +43,10 @@ This document provides an overview of the SDEP (Single Digital Entry Point) tech
   - [Integration Tests (`tests/`)](#integration-tests-tests)
   - [Performance Tests (`tests/perf/`)](#performance-tests-testsperf)
 - [SQLite vs PostgreSQL](#sqlite-vs-postgresql)
+  - [Dialect differences](#dialect-differences)
+  - [Bridging dialect gaps with SQLAlchemy `TypeDecorator`](#bridging-dialect-gaps-with-sqlalchemy-typedecorator)
+  - [PostgreSQL-specific CHECK constraints](#postgresql-specific-check-constraints)
+  - [Porting checklist when adding a new database engine](#porting-checklist-when-adding-a-new-database-engine)
 - [Key Configuration Files](#key-configuration-files)
 
 ---
@@ -56,7 +60,7 @@ SDEP is a FastAPI-based REST API that enables:
 - Competent Authorities (CA) to query rental activities
 - Compliance with EU Regulation 2024/1028
 
-**Production (NL):** https://sdep.gov.nl/api/v0/docs
+**Production (NL):** https://sdep.gov.nl/api/docs
 
 - This is the reference implementation for this repo
 
@@ -108,10 +112,14 @@ sdep-app/
 │   │   │   │   ├── exception_handlers.py
 │   │   │   │   ├── openapi.py
 │   │   │   │   └── security.py
-│   │   │   ├── common_app.py                   # Version-independent sub-app (health)
-│   │   │   └── v0/                             # API version 0
-│   │   │       ├── main.py                     # API v0 entry point
-│   │   │       └── security.py                 # v0 security configuration
+│   │   │   ├── common_app.py                   # Version-independent sub-app (health, ping)
+│   │   │   └── domains/                        # Per-domain versioned sub-apps
+│   │   │       ├── auth/
+│   │   │       │   └── v1.py                   # Auth domain sub-app
+│   │   │       ├── ca/
+│   │   │       │   └── v1.py                   # CA domain sub-app
+│   │   │       └── str/
+│   │   │           └── v1.py                   # STR domain sub-app
 │   │   ├── crud/                               # Database operations (CRUD)
 │   │   │   ├── activity.py
 │   │   │   ├── area.py
@@ -338,26 +346,26 @@ POST /ca/areas (multipart/form-data: file + optional areaId, areaName)
 ## Key Endpoints
 
 ### Authentication
-- `POST /api/v0/auth/token` - OAuth2 token endpoint
+- `POST /api/auth/v1/token` - OAuth2 token endpoint
 
 ### Competent Authority (CA) - Requires `sdep_ca` role
-- `POST /api/v0/ca/areas` - Submit a single area (multipart/form-data: file + optional areaId, areaName)
-- `GET /api/v0/ca/areas` - List own areas (pagination: offset, limit)
-- `GET /api/v0/ca/areas/count` - Count own areas
-- `GET /api/v0/ca/areas/{areaId}` - Download shapefile for own area
-- `DELETE /api/v0/ca/areas/{areaId}` - Delete (deactivate) an own area
-- `GET /api/v0/ca/activities` - Query rental activities (pagination: offset, limit)
-- `GET /api/v0/ca/activities/count` - Count activities
+- `POST /api/ca/v1/areas` - Submit a single area (multipart/form-data: file + optional areaId, areaName)
+- `GET /api/ca/v1/areas` - List own areas (pagination: offset, limit)
+- `GET /api/ca/v1/areas/count` - Count own areas
+- `GET /api/ca/v1/areas/{areaId}` - Download shapefile for own area
+- `DELETE /api/ca/v1/areas/{areaId}` - Delete (deactivate) an own area
+- `GET /api/ca/v1/activities` - Query rental activities (pagination: offset, limit)
+- `GET /api/ca/v1/activities/count` - Count activities
 
 ### Short-Term Rental Platform (STR) - Requires `sdep_str` role
-- `GET /api/v0/str/areas` - List regulated areas (pagination: offset, limit)
-- `GET /api/v0/str/areas/count` - Count areas
-- `GET /api/v0/str/areas/{areaId}` - Download shapefile for area
-- `POST /api/v0/str/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
+- `GET /api/str/v1/areas` - List regulated areas (pagination: offset, limit)
+- `GET /api/str/v1/areas/count` - Count areas
+- `GET /api/str/v1/areas/{areaId}` - Download shapefile for area
+- `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
 
 ### Health
 - `GET /api/health` - Health check (unauthenticated)
-- `GET /api/v0/ping` - Ping endpoint (authenticated)
+- `GET /api/ping` - Ping endpoint (authenticated)
 
 ## Security
 
@@ -644,6 +652,8 @@ make
 
 ## SQLite vs PostgreSQL
 
+The internal data model targets **PostgreSQL** as the production database. **SQLite** is used for unit tests (in-memory) to keep the test cycle fast and self-contained.
+
 **Unit tests** (`backend/tests/`) automatically switch to an in-memory SQLite database (`sqlite+aiosqlite:///:memory:`) when no `DATABASE_URL` environment variable is set. This lets developers run unit tests without PostgreSQL installed or running.
 
 **Integration tests** (`tests/`) and **Production** both use PostgreSQL (`postgresql+asyncpg`) configured via environment variables (`POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB_NAME`, etc.).
@@ -655,10 +665,36 @@ make
 | **Persistence** | persistent | persistent                   | ephemeral (per test)          |
 | **Dependency**  | `asyncpg`  | `asyncpg`                    | `aiosqlite` (dev only)        |
 
-Because SQLite lacks some PostgreSQL features, the models include **dialect adaptors**:
+### Dialect differences
 
-- **`StringArray`** (`backend/app/models/types.py`) - uses `ARRAY(String)` on PostgreSQL and JSON-serialized `Text` on SQLite
-- **`CheckConstraint`** - marked `.ddl_if(dialect="postgresql")` so they are only applied to PostgreSQL
+SQLAlchemy abstracts most of the differences, but a few PostgreSQL-specific types and constructs require dialect-aware handling to keep both engines green.
+
+| Concern                                        | PostgreSQL                                                        | SQLite (tests)                                                |
+| :--------------------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------------ |
+| **Enum (`regulation`)**                        | Native `ENUM` type via `CREATE TYPE`                              | Emulated as `VARCHAR` with a `CHECK (col IN (...))`           |
+| **String array (`countryOfGuests`)**           | Native `ARRAY(String)`                                            | Emulated as JSON text via custom `StringArray` type decorator |
+| **Functional IDs (`areaId`, `activityId`, …)** | Stored as `VARCHAR(64)` deliberately, not `UUID` - see note below | Stored as `VARCHAR(64)`                                       |
+| **`largeBinary` (`filedata`)**                 | `BYTEA`                                                           | `BLOB`                                                        |
+| **`timestamptz` (`createdAt`, `endedAt`)**     | `TIMESTAMP WITH TIME ZONE`                                        | `TEXT` (ISO-8601)                                             |
+| **`func.now()` defaults**                      | `now()` (transaction time)                                        | `CURRENT_TIMESTAMP`                                           |
+| **CHECK constraints**                          | Fully supported                                                   | Fully supported                                               |
+| **`ddl_if(dialect=...)`**                      | Used to gate PG-only DDL                                          | Skipped on SQLite                                             |
+
+### Bridging dialect gaps with SQLAlchemy `TypeDecorator`
+
+Where a PostgreSQL-only type has no equivalent in another engine, the project bridges the gap with a custom `TypeDecorator` instead of branching the model layer.
+
+- The `StringArray` decorator in `app/models/types.py` is the canonical example
+- It stores a `list[str]` as a native PostgreSQL `ARRAY(String)` in production and as JSON text in SQLite, transparently to the rest of the code
+- The same pattern can be reused for any other type that needs an engine-specific representation - keep the decorator next to the model layer so all dialect awareness lives in one place
+
+For built-in enum support, prefer SQLAlchemy's `Enum(..., native_enum=True)` over a custom decorator: it emits `CREATE TYPE` on engines that have native enums and falls back to `VARCHAR` + `CHECK` elsewhere, with no application-level branching.
+
+**Why functional IDs are `VARCHAR(64)` and not `UUID`**
+
+Clients are allowed to submit their own functional IDs (alphanumeric with hyphens, ≤ 64 chars, e.g. `"amsterdam-area0363"`). These are not required to be UUIDs, so the column type must accept arbitrary short strings.
+
+### PostgreSQL-specific CHECK constraints
 
 Because some CHECK constraints rely on PostgreSQL-specific SQL (e.g. `array_length`) and cannot run on SQLite, they are declared PostgreSQL-only in both the model (`.ddl_if(dialect="postgresql")`) and the Alembic migration (wrapped in `if is_postgres:`); the DDL is skipped under SQLite, so enforcement falls back to the application layers above the DB:
 
@@ -668,6 +704,17 @@ Because some CHECK constraints rely on PostgreSQL-specific SQL (e.g. `array_leng
 - **Factory fallback** - `ActivityFactory.country_of_guests = LazyAttribute(lambda o: ["NLD"] * o.number_of_guests)` guarantees consistency for CRUD-level tests that call `activity.create()` directly and bypass Pydantic
 
 A direct CRUD call on SQLite with manually mismatched lists would not be caught by either DB or Pydantic; tests must route through Pydantic or use the factory to stay consistent.
+
+### Porting checklist when adding a new database engine
+
+1. **Driver** - verify SQLAlchemy has a working async driver for the target engine, and that it is compatible with the project's SQLAlchemy version.
+2. **Dialect-specific imports** - audit the model layer for `postgresql.*` (or any other dialect-specific) imports; replace them with a `TypeDecorator` (see `app/models/types.py`) so the same model definition works on every engine.
+3. **Native types vs. fallbacks** - review the dialect differences table above and confirm each "PostgreSQL" cell has a working equivalent on the target engine. For types without a native equivalent, decide between (a) a `TypeDecorator` that emulates the type, or (b) a normalized child table.
+4. **Default-value functions** - confirm that any `server_default` / `func.*` calls resolve to a valid expression on the target engine (timestamps, UUIDs, sequence-style identifiers).
+5. **Migrations** - re-run the Alembic migrations against a clean instance of the target engine. Pay attention to operations that PostgreSQL allows but other engines do not (e.g. creating an enum type, transactional DDL, deferred constraints) and gate them with `op.get_bind().dialect.name` or `ddl_if(dialect=...)`.
+6. **Constraints** - verify that CHECK, UNIQUE, and FOREIGN KEY constraints are enforced (some older engine versions parse but ignore CHECK constraints).
+7. **Transaction & isolation semantics** - test concurrency-sensitive code paths (versioning, soft-delete, bulk insert) on a real instance of the target engine; isolation defaults and locking behaviour vary considerably between engines.
+8. **Run the full test suite** - point the test config at a real instance of the target engine and run `make test`. SQLite-only validation is not enough to catch dialect-specific behaviour.
 
 ---
 

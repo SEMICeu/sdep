@@ -48,7 +48,7 @@ See [../Makefile](../Makefile). Available targets:
 
 **What it does:**
 - Performs OAuth2 client credentials flow
-- Requests access token from `/api/{API_VERSION}/auth/token`
+- Requests access token from `/api/auth/{API_VERSION}/token`
 - Saves token to `./tmp/.bearer_token` for use by other scripts
 - Used as a prerequisite for authenticated endpoint tests
 
@@ -56,7 +56,7 @@ See [../Makefile](../Makefile). Available targets:
 - `BACKEND_BASE_URL` - API base URL
 - `CLIENT_ID` - OAuth2 client ID
 - `CLIENT_SECRET` - OAuth2 client secret
-- `API_VERSION` (optional, defaults to `v0`)
+- `API_VERSION` (optional, defaults to `v1`)
 
 #### `test_auth_credentials.sh`
 **Purpose:** Test OAuth2 token acquisition for both STR and CA clients
@@ -78,8 +78,8 @@ See [../Makefile](../Makefile). Available targets:
 **Endpoints tested:**
 - `/` - Root endpoint
 - `/api/health` - Health check
-- `/api/{API_VERSION}/ping` - Ping endpoint
-- `/api/{API_VERSION}/openapi.json` - OpenAPI specification
+- `/api/ping` - Ping endpoint
+- `/api/ca/{API_VERSION}/openapi.json` - OpenAPI specification
 
 **What it tests:**
 - OWASP security headers (Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy, Cross-Origin-Resource-Policy, Cross-Origin-Embedder-Policy)
@@ -91,18 +91,18 @@ See [../Makefile](../Makefile). Available targets:
 **Purpose:** Verify all secured endpoints properly reject unauthenticated requests
 
 **Endpoints tested:**
-- `GET /api/v0/ping`
-- `GET /api/v0/str/areas`
-- `GET /api/v0/str/areas/count`
-- `GET /api/v0/str/areas/amsterdam-area0363`
-- `POST /api/v0/str/activities/bulk`
-- `POST /api/v0/ca/areas`
-- `GET /api/v0/ca/areas`
-- `GET /api/v0/ca/areas/count`
-- `GET /api/v0/ca/areas/{areaId}`
-- `DELETE /api/v0/ca/areas/{areaId}`
-- `GET /api/v0/ca/activities`
-- `GET /api/v0/ca/activities/count`
+- `GET /api/ping`
+- `GET /api/str/v1/areas`
+- `GET /api/str/v1/areas/count`
+- `GET /api/str/v1/areas/amsterdam-area0363`
+- `POST /api/str/v1/activities/bulk`
+- `POST /api/ca/v1/areas`
+- `GET /api/ca/v1/areas`
+- `GET /api/ca/v1/areas/count`
+- `GET /api/ca/v1/areas/{areaId}`
+- `DELETE /api/ca/v1/areas/{areaId}`
+- `GET /api/ca/v1/activities`
+- `GET /api/ca/v1/activities/count`
 
 **What it tests:**
 - All secured endpoints return `401 Unauthorized` without authentication token
@@ -141,11 +141,11 @@ See [../Makefile](../Makefile). Available targets:
 - **Test 11:** GET nonexistent own area by ID → 404
 
 **Endpoints:**
-- `POST /api/{API_VERSION}/ca/areas`
-- `GET /api/{API_VERSION}/ca/areas`
-- `GET /api/{API_VERSION}/ca/areas/count`
-- `GET /api/{API_VERSION}/ca/areas/{areaId}`
-- `DELETE /api/{API_VERSION}/ca/areas/{areaId}`
+- `POST /api/ca/{API_VERSION}/areas`
+- `GET /api/ca/{API_VERSION}/areas`
+- `GET /api/ca/{API_VERSION}/areas/count`
+- `GET /api/ca/{API_VERSION}/areas/{areaId}`
+- `DELETE /api/ca/{API_VERSION}/areas/{areaId}`
 
 **Content-Type:** `multipart/form-data` (POST)
 
@@ -223,7 +223,7 @@ See [../Makefile](../Makefile). Available targets:
 - **Test 4:** POST bulk without authentication → 401
 
 **Endpoints:**
-- `POST /api/{API_VERSION}/str/activities/bulk`
+- `POST /api/str/{API_VERSION}/activities/bulk`
 
 **Content-Type (POST):** `application/json`
 

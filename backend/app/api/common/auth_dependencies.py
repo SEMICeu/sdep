@@ -5,8 +5,7 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
-from app.api.common.security import Role
-from app.api.v0.security import verify_bearer_token
+from app.api.common.security import Role, verify_bearer_token
 from app.schemas.common import validate_functional_id
 
 

@@ -3,7 +3,7 @@
 # Test script for area submission endpoint of the SDEP API
 # Expects BACKEND_BASE_URL environment variable to be set
 # Optionally accepts BEARER_TOKEN environment variable for authenticated requests
-# Optionally accepts API_VERSION environment variable (defaults to v0)
+# Optionally accepts API_VERSION environment variable (defaults to v1)
 # Tests POST /ca/areas endpoint with file upload (multipart/form-data)
 
 set -e
@@ -13,8 +13,8 @@ if [ -z "$BACKEND_BASE_URL" ]; then
     exit 1
 fi
 
-# Default API version to v0 if not set
-API_VERSION=${API_VERSION:-v0}
+# Default API version to v1 if not set
+API_VERSION=${API_VERSION:-v1}
 
 # CA endpoint requires authorized client
 # Load token from ./tmp/.bearer_token_ca file
@@ -25,7 +25,7 @@ else
     echo "⚠️  No ./tmp/.bearer_token file found"
 fi
 
-echo "🔍 Testing CA area endpoint at: ${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas"
+echo "🔍 Testing CA area endpoint at: ${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas"
 
 # Check if BEARER_TOKEN is set
 if [ -n "$BEARER_TOKEN" ]; then
@@ -66,13 +66,13 @@ if [ -n "$BEARER_TOKEN" ]; then
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -F "file=@${SHAPEFILE_PATH}" \
         -F "areaId=${AREA_ID}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas")
 else
     response=$(curl -s -w "\n%{http_code}" \
         -X POST \
         -F "file=@${SHAPEFILE_PATH}" \
         -F "areaId=${AREA_ID}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas")
 fi
 
 http_code=$(echo "$response" | tail -n1)
@@ -118,7 +118,7 @@ if [ -n "$BEARER_TOKEN" ]; then
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -F "file=@${SHAPEFILE_PATH}" \
         -F "areaId=sdep-test-area-custom-${UNIQUE_ID}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -157,7 +157,7 @@ if [ -n "$BEARER_TOKEN" ]; then
         -X POST \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -F "file=@${SHAPEFILE_PATH}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -194,7 +194,7 @@ if [ -n "$BEARER_TOKEN" ]; then
     response=$(curl -s -w "\n%{http_code}" \
         -X GET \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -230,7 +230,7 @@ if [ -n "$BEARER_TOKEN" ]; then
     response=$(curl -s -w "\n%{http_code}" \
         -X GET \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas/count")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas/count")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -266,7 +266,7 @@ if [ -n "$BEARER_TOKEN" ]; then
     response=$(curl -s -w "\n%{http_code}" \
         -X GET \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -306,7 +306,7 @@ if [ -n "$BEARER_TOKEN" ]; then
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -F "file=@${SHAPEFILE_PATH}" \
         -F "areaId=${VERSIONED_ID}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas"
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas"
 
     # Submit v2 with same areaId
     response=$(curl -s -w "\n%{http_code}" \
@@ -314,7 +314,7 @@ if [ -n "$BEARER_TOKEN" ]; then
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -F "file=@${SHAPEFILE_PATH}" \
         -F "areaId=${VERSIONED_ID}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas")
 
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -355,13 +355,13 @@ if [ -n "$BEARER_TOKEN" ]; then
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -F "file=@${SHAPEFILE_PATH}" \
         -F "areaId=${DELETE_AREA_ID}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas"
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas"
 
     # Delete the area
     response=$(curl -s -w "\n%{http_code}" \
         -X DELETE \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas/${DELETE_AREA_ID}")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas/${DELETE_AREA_ID}")
 
     http_code=$(echo "$response" | tail -n1)
 
@@ -390,7 +390,7 @@ if [ -n "$BEARER_TOKEN" ]; then
     response=$(curl -s -w "\n%{http_code}" \
         -X DELETE \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas/nonexistent-area-$(date +%s)")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas/nonexistent-area-$(date +%s)")
 
     http_code=$(echo "$response" | tail -n1)
 
@@ -424,13 +424,13 @@ if [ -n "$BEARER_TOKEN" ]; then
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
         -F "file=@${SHAPEFILE_PATH}" \
         -F "areaId=${GET_AREA_ID}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas"
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas"
 
     # GET area by ID
     response=$(curl -s -w "\n%{http_code}" \
         -X GET \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas/${GET_AREA_ID}")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas/${GET_AREA_ID}")
 
     http_code=$(echo "$response" | tail -n1)
 
@@ -459,7 +459,7 @@ if [ -n "$BEARER_TOKEN" ]; then
     response=$(curl -s -w "\n%{http_code}" \
         -X GET \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas/nonexistent-area-$(date +%s)")
+        "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas/nonexistent-area-$(date +%s)")
 
     http_code=$(echo "$response" | tail -n1)
 

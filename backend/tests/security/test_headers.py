@@ -27,8 +27,8 @@ class TestSecurityHeadersMiddleware:
         """Test that API endpoints have comprehensive security headers."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            # Use /api/v0/ping - expect 401 but headers should be present
-            response = await client.get("/api/v0/ping")
+            # Use /api/ping - expect 401 but headers should be present
+            response = await client.get("/api/ping")
 
             # CSP - XSS and output encoding protection
             assert "Content-Security-Policy" in response.headers
@@ -63,7 +63,7 @@ class TestSecurityHeadersMiddleware:
         """Test that CSP policy allows Swagger UI CDN resources."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             csp = response.headers["Content-Security-Policy"]
 
@@ -77,7 +77,7 @@ class TestSecurityHeadersMiddleware:
         """Test that CSP does not allow unsafe-eval (XSS protection)."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             csp = response.headers["Content-Security-Policy"]
 
@@ -88,7 +88,7 @@ class TestSecurityHeadersMiddleware:
         """Test that CSP blocks object/embed tags (XSS protection)."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             csp = response.headers["Content-Security-Policy"]
 
@@ -99,7 +99,7 @@ class TestSecurityHeadersMiddleware:
         """Test that CSP prevents framing (clickjacking protection)."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             csp = response.headers["Content-Security-Policy"]
 
@@ -112,22 +112,20 @@ class TestSecurityHeadersMiddleware:
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             # Auth endpoint is sensitive - should have no-cache
             response = await client.post(
-                "/api/v0/auth/token",
+                "/api/auth/v1/token",
                 data={"username": "test", "password": "test"},
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
 
             # Check cache control for sensitive endpoint
-            if "/api/v0/auth/" in "/api/v0/auth/token":
-                cache_control = response.headers.get("Cache-Control", "")
-                # Should have strict cache control
-                assert "no-store" in cache_control or "no-cache" in cache_control
+            cache_control = response.headers.get("Cache-Control", "")
+            assert "no-store" in cache_control or "no-cache" in cache_control
 
     async def test_sensitive_endpoint_openapi(self):
         """Test that OpenAPI schema endpoint gets cache control headers."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/openapi.json")
+            response = await client.get("/api/ca/v1/openapi.json")
 
             # OpenAPI is marked as sensitive
             cache_control = response.headers.get("Cache-Control", "")
@@ -138,7 +136,7 @@ class TestSecurityHeadersMiddleware:
         """Test that HSTS is disabled (handled by Nginx in production)."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             # HSTS should not be present (handled by reverse proxy)
             assert "Strict-Transport-Security" not in response.headers
@@ -148,9 +146,9 @@ class TestSecurityHeadersMiddleware:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             endpoints = [
-                "/api/v0/ping",
-                "/api/v0/areas",
-                "/api/v0/openapi.json",
+                "/api/ping",
+                "/api/ca/v1/areas",
+                "/api/ca/v1/openapi.json",
                 "/api/health",
             ]
 
@@ -172,7 +170,7 @@ class TestSecurityHeadersMiddleware:
         """Test that CSP restricts form submission targets."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             csp = response.headers["Content-Security-Policy"]
 
@@ -183,7 +181,7 @@ class TestSecurityHeadersMiddleware:
         """Test that CSP restricts base tag URLs."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             csp = response.headers["Content-Security-Policy"]
 
@@ -199,7 +197,7 @@ class TestXSSProtection:
         """Test that CSP provides XSS output protection."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             # CSP should restrict script execution
             csp = response.headers["Content-Security-Policy"]
@@ -213,7 +211,7 @@ class TestXSSProtection:
         """Test MIME-sniffing protection prevents content type confusion attacks."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             # nosniff prevents browser from MIME-sniffing responses
             # This prevents XSS via content-type confusion
@@ -223,7 +221,7 @@ class TestXSSProtection:
         """Test frame protection prevents clickjacking attacks."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             # Dual protection against framing
             assert response.headers["X-Frame-Options"] == "DENY"
@@ -240,7 +238,7 @@ class TestOWASPSecurityHeaders:
         """Test that all OWASP recommended security headers are present."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             # OWASP recommended headers
             required_headers = [
@@ -263,7 +261,7 @@ class TestOWASPSecurityHeaders:
         """Test that security header values are set to secure defaults."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/v0/ping")
+            response = await client.get("/api/ping")
 
             # Verify secure values
             assert response.headers["X-Frame-Options"] == "DENY"

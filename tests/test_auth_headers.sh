@@ -3,7 +3,7 @@
 # Test script for verifying security headers on SDEP API endpoints
 # Tests XSS protection, output encoding, and OWASP security headers compliance
 # Expects BACKEND_BASE_URL environment variable to be set
-# Optionally accepts API_VERSION environment variable (defaults to v0)
+# Optionally accepts API_VERSION environment variable (defaults to v1)
 
 set -e
 
@@ -13,11 +13,11 @@ if [ -z "$BACKEND_BASE_URL" ]; then
     exit 1
 fi
 
-# Default API version to v0 if not set
-API_VERSION=${API_VERSION:-v0}
+# Default API version to v1 if not set
+API_VERSION=${API_VERSION:-v1}
 
 echo "🔒 Testing security headers at: ${BACKEND_BASE_URL}"
-echo "📋 Testing endpoints: /, /api/health, /api/${API_VERSION}/ping, /api/${API_VERSION}/openapi.json"
+echo "📋 Testing endpoints: /, /api/health, /api/ping, /api/ca/${API_VERSION}/openapi.json"
 echo
 
 # Track test results
@@ -207,21 +207,21 @@ test_endpoint_headers "/" "Root endpoint"
 # Test common API health endpoint
 test_endpoint_headers "/api/health" "Health check endpoint"
 
-# Test v0 API endpoints
-test_endpoint_headers "/api/${API_VERSION}/ping" "API ping endpoint (may be auth-protected)"
-test_endpoint_headers "/api/${API_VERSION}/openapi.json" "OpenAPI schema endpoint"
+# Test v1 API endpoints
+test_endpoint_headers "/api/ping" "API ping endpoint (may be auth-protected)"
+test_endpoint_headers "/api/ca/${API_VERSION}/openapi.json" "OpenAPI schema endpoint"
 
 # Test CSP policy in detail
-test_csp_policy "/api/${API_VERSION}/ping"
+test_csp_policy "/api/ping"
 
 # Test sensitive endpoint caching
-test_sensitive_endpoint_caching "/api/${API_VERSION}/openapi.json" "OpenAPI schema"
+test_sensitive_endpoint_caching "/api/ca/${API_VERSION}/openapi.json" "OpenAPI schema"
 
 # Check if HSTS is NOT set (should be handled by Nginx)
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🔍 HSTS Check (should be handled by reverse proxy)"
 echo
-response_headers=$(curl -s -i "${BACKEND_BASE_URL}/api/${API_VERSION}/ping" | sed -n '1,/^\r$/p')
+response_headers=$(curl -s -i "${BACKEND_BASE_URL}/api/ping" | sed -n '1,/^\r$/p')
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 if echo "$response_headers" | grep -qi "Strict-Transport-Security:"; then
     echo "  ⚠️  HSTS header present (may be redundant with Nginx)"

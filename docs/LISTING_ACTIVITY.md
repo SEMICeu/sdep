@@ -159,8 +159,8 @@ This process is outside scope of **SDEP**.
 |                        |                      | 4c   | STR | If the **reg#** is Expired in RR, POST a flagged listing to **SDEP**                                 | **NOK-EXP** |
 |                        |                      | 4d   | STR | If the **STR address** and the **RR address** have a Mismatch, POST a flagged listing to **SDEP**    | **NOK-MSM** |
 | Yes                    | No                   | 5    | STR | Detect the STR non-available **reg#** through an internal check, POST a flagged listing to **SDEP**  | **NOK-NAV** |
-| No                     | Yes                  | -    | -   | N.a.                                                                                                 |             |
-| No                     | No                   | -    | -   | N.a.                                                                                                 |             |
+| No                     | Yes                  | -    | -   | N/a.                                                                                                 |             |
+| No                     | No                   | -    | -   | N/a.                                                                                                 |             |
 
 **European Commission**: responsibility for this process lies primarily with **STR** (the STR-platforms), not with **SDEP**.
 

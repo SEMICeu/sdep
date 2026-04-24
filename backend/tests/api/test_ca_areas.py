@@ -3,8 +3,8 @@
 from typing import Any
 
 import pytest
-from app.api.v0.main import app_v0
-from app.api.v0.security import verify_bearer_token
+from app.api.common.security import verify_bearer_token
+from app.api.domains.ca.v1 import app_ca_v1
 from app.db.config import get_async_db, get_async_db_read_only
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
@@ -29,18 +29,18 @@ class TestCAAreaAPI:
     async def cleanup(self, async_session: AsyncSession):
         """Auto-cleanup fixture that runs before and after each test."""
         yield
-        app_v0.dependency_overrides.clear()
+        app_ca_v1.dependency_overrides.clear()
 
     @pytest.fixture
     def setup_overrides(self, async_session: AsyncSession):
         """Setup dependency overrides for authenticated tests."""
-        app_v0.dependency_overrides[verify_bearer_token] = mock_verify_bearer_token
+        app_ca_v1.dependency_overrides[verify_bearer_token] = mock_verify_bearer_token
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         yield
 
@@ -51,8 +51,8 @@ class TestCAAreaAPI:
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         yield
 
@@ -63,10 +63,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas with a single area file upload (201 Created)."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -84,10 +84,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas with custom areaId preserved."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 data={"areaId": "my-custom-id"},
                 headers={"Authorization": "Bearer test_token"},
@@ -102,10 +102,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas accepts uppercase characters in areaId."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 data={"areaId": "My-AREA-Id-123"},
                 headers={"Authorization": "Bearer test_token"},
@@ -119,10 +119,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas with areaName."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 data={"areaName": "Amsterdam Central"},
                 headers={"Authorization": "Bearer test_token"},
@@ -137,10 +137,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas without regulation field defaults to 'all'."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -158,10 +158,10 @@ class TestCAAreaAPI:
         the service-layer default instead of returning 422.
         """
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 data={"regulation": ""},
                 headers={"Authorization": "Bearer test_token"},
@@ -175,10 +175,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas with regulation='listing' is preserved."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 data={"regulation": "listing"},
                 headers={"Authorization": "Bearer test_token"},
@@ -192,10 +192,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas with an invalid regulation value returns 422."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 data={"regulation": "nonsense"},
                 headers={"Authorization": "Bearer test_token"},
@@ -208,10 +208,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas without areaId generates a UUID."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -226,10 +226,10 @@ class TestCAAreaAPI:
     ):
         """Test that POST /ca/areas auto-creates competent authority."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -246,10 +246,10 @@ class TestCAAreaAPI:
         large_data = b"x" * (1048576 + 1)  # 1 MiB + 1 byte
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Large.zip", large_data, "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -261,10 +261,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas without authentication token."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
             )
 
@@ -285,18 +285,20 @@ class TestCAAreaAPI:
                 },  # Missing sdep_write
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_write_role
+        app_ca_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_write_role
+        )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -316,20 +318,20 @@ class TestCAAreaAPI:
                 "realm_access": {"roles": ["sdep_ca", "sdep_read", "sdep_write"]},
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = (
+        app_ca_v1.dependency_overrides[verify_bearer_token] = (
             mock_token_without_client_name
         )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -342,10 +344,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas with invalid areaId pattern returns 422."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 data={"areaId": "INVALID_ID"},
                 headers={"Authorization": "Bearer test_token"},
@@ -358,10 +360,10 @@ class TestCAAreaAPI:
     ):
         """Test POST /ca/areas with areaId longer than 64 chars returns 422."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 data={"areaId": "a" * 65},
                 headers={"Authorization": "Bearer test_token"},
@@ -374,10 +376,10 @@ class TestCAAreaAPI:
     ):
         """Test that POST /ca/areas response does NOT contain endedAt (internal only)."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -394,11 +396,11 @@ class TestCAAreaAPI:
         import asyncio
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Submit v1
             response1 = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area_v1.zip", b"zipdata_v1", "application/zip")},
                 data={"areaId": "versioned-area"},
                 headers={"Authorization": "Bearer test_token"},
@@ -410,7 +412,7 @@ class TestCAAreaAPI:
 
             # Submit v2 with same areaId
             response2 = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area_v2.zip", b"zipdata_v2", "application/zip")},
                 data={"areaId": "versioned-area"},
                 headers={"Authorization": "Bearer test_token"},
@@ -427,10 +429,10 @@ class TestCAAreaAPI:
     ):
         """Test GET /ca/areas returns empty list when no areas exist."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas",
+                "/areas",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -442,13 +444,13 @@ class TestCAAreaAPI:
     async def test_get_own_areas_returns_own_areas(
         self, async_session: AsyncSession, setup_overrides
     ):
-        """Test GET /ca/areas returns areas only for the authenticated CA."""
+        """Test GET /ca/areas returns areas only for the authenticated competent authority."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Create an area for this CA
             await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("MyArea.zip", b"mydata", "application/zip")},
                 data={"areaId": "my-area"},
                 headers={"Authorization": "Bearer test_token"},
@@ -456,7 +458,7 @@ class TestCAAreaAPI:
 
             # Get own areas
             response = await client.get(
-                "/ca/areas",
+                "/areas",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -483,10 +485,10 @@ class TestCAAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas",
+                "/areas",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -509,18 +511,20 @@ class TestCAAreaAPI:
                 },  # Missing sdep_read
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+        app_ca_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_read_role
+        )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas",
+                "/areas",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -533,10 +537,10 @@ class TestCAAreaAPI:
     ):
         """Test GET /ca/areas/count returns 0 when no areas exist."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas/count",
+                "/areas/count",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -551,11 +555,11 @@ class TestCAAreaAPI:
         import asyncio
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Create two areas for this CA
             await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area1.zip", b"data1", "application/zip")},
                 data={"areaId": "count-area-1"},
                 headers={"Authorization": "Bearer test_token"},
@@ -565,7 +569,7 @@ class TestCAAreaAPI:
             await asyncio.sleep(1.0)
 
             await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area2.zip", b"data2", "application/zip")},
                 data={"areaId": "count-area-2"},
                 headers={"Authorization": "Bearer test_token"},
@@ -573,7 +577,7 @@ class TestCAAreaAPI:
 
             # Count own areas
             response = await client.get(
-                "/ca/areas/count",
+                "/areas/count",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -588,11 +592,11 @@ class TestCAAreaAPI:
     ):
         """Test DELETE /ca/areas/{areaId} soft-deletes the area (204)."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Create an area first
             post_response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 data={"areaId": "delete-test-area"},
                 headers={"Authorization": "Bearer test_token"},
@@ -601,14 +605,14 @@ class TestCAAreaAPI:
 
             # Delete the area
             delete_response = await client.delete(
-                "/ca/areas/delete-test-area",
+                "/areas/delete-test-area",
                 headers={"Authorization": "Bearer test_token"},
             )
             assert delete_response.status_code == status.HTTP_204_NO_CONTENT
 
             # Verify the area is gone from GET
             get_response = await client.get(
-                "/ca/areas",
+                "/areas",
                 headers={"Authorization": "Bearer test_token"},
             )
             assert get_response.status_code == status.HTTP_200_OK
@@ -619,10 +623,10 @@ class TestCAAreaAPI:
     ):
         """Test DELETE /ca/areas/{areaId} for nonexistent area returns 404."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.delete(
-                "/ca/areas/nonexistent-area",
+                "/areas/nonexistent-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -643,18 +647,20 @@ class TestCAAreaAPI:
                 },  # Missing sdep_write
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_write_role
+        app_ca_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_write_role
+        )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.delete(
-                "/ca/areas/some-area",
+                "/areas/some-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -666,10 +672,10 @@ class TestCAAreaAPI:
     ):
         """Test DELETE /ca/areas/{areaId} without authentication token returns 401."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.delete(
-                "/ca/areas/some-area",
+                "/areas/some-area",
             )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -679,10 +685,10 @@ class TestCAAreaAPI:
     ):
         """Test DELETE /ca/areas/{areaId} with invalid areaId pattern returns 422."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.delete(
-                "/ca/areas/INVALID_ID",
+                "/areas/INVALID_ID",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -703,10 +709,10 @@ class TestCAAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.delete(
-                "/ca/areas/other-ca-area",
+                "/areas/other-ca-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -726,10 +732,10 @@ class TestCAAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas/count",
+                "/areas/count",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -744,11 +750,11 @@ class TestCAAreaAPI:
     ):
         """Test GET /ca/areas/{areaId} returns binary area (200 OK) with correct headers."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Create an area first
             post_response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("MyArea.zip", b"zipbinary", "application/zip")},
                 data={"areaId": "get-area-test"},
                 headers={"Authorization": "Bearer test_token"},
@@ -757,7 +763,7 @@ class TestCAAreaAPI:
 
             # GET the area by ID
             response = await client.get(
-                "/ca/areas/get-area-test",
+                "/areas/get-area-test",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -771,10 +777,10 @@ class TestCAAreaAPI:
     ):
         """Test GET /ca/areas/{areaId} returns 404 for non-existent areaId."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas/nonexistent-area",
+                "/areas/nonexistent-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -795,10 +801,10 @@ class TestCAAreaAPI:
         )
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas/other-ca-area",
+                "/areas/other-ca-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -809,22 +815,22 @@ class TestCAAreaAPI:
     ):
         """Test GET /ca/areas/{areaId} returns 404 for a soft-deleted area."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             # Create an area, delete it, then try to GET it
             await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("ToDelete.zip", b"data", "application/zip")},
                 data={"areaId": "get-deleted-area"},
                 headers={"Authorization": "Bearer test_token"},
             )
             await client.delete(
-                "/ca/areas/get-deleted-area",
+                "/areas/get-deleted-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
             response = await client.get(
-                "/ca/areas/get-deleted-area",
+                "/areas/get-deleted-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -843,18 +849,18 @@ class TestCAAreaAPI:
                 "realm_access": {"roles": ["sdep_str", "sdep_read"]},  # Missing sdep_ca
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_ca_role
+        app_ca_v1.dependency_overrides[verify_bearer_token] = mock_token_without_ca_role
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas/some-area",
+                "/areas/some-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -876,18 +882,20 @@ class TestCAAreaAPI:
                 },  # Missing sdep_read
             }
 
-        app_v0.dependency_overrides[verify_bearer_token] = mock_token_without_read_role
+        app_ca_v1.dependency_overrides[verify_bearer_token] = (
+            mock_token_without_read_role
+        )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas/some-area",
+                "/areas/some-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -899,8 +907,8 @@ class TestCAAreaAPI:
     ):
         """Test GET /ca/areas/{areaId} returns 401 without authentication token."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
-            response = await client.get("/ca/areas/some-area")
+            response = await client.get("/areas/some-area")
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED

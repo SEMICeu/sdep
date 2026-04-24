@@ -8,8 +8,9 @@ pattern: ^[A-Za-z0-9-]+$ (1-64 chars).
 from typing import Any
 
 import pytest
-from app.api.v0.main import app_v0
-from app.api.v0.security import verify_bearer_token
+from app.api.common.security import verify_bearer_token
+from app.api.domains.ca.v1 import app_ca_v1
+from app.api.domains.str.v1 import app_str_v1
 from app.db.config import get_async_db, get_async_db_read_only
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
@@ -55,32 +56,32 @@ class TestInvalidCAClientId:
     async def cleanup(self):
         """Clean up dependency overrides after each test."""
         yield
-        app_v0.dependency_overrides.clear()
+        app_ca_v1.dependency_overrides.clear()
 
     def _setup(self, async_session: AsyncSession, client_id: str):
         """Setup dependency overrides with an invalid client_id."""
-        app_v0.dependency_overrides[verify_bearer_token] = lambda: _make_ca_token(
+        app_ca_v1.dependency_overrides[verify_bearer_token] = lambda: _make_ca_token(
             client_id
         )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
     @pytest.mark.parametrize("invalid_id", INVALID_CLIENT_IDS)
     async def test_post_area_rejects_invalid_client_id(
         self, async_session: AsyncSession, invalid_id: str
     ):
-        """POST /ca/areas returns 422 when JWT client_id is invalid."""
+        """POST /areas returns 422 when JWT client_id is invalid."""
         self._setup(async_session, invalid_id)
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -92,14 +93,14 @@ class TestInvalidCAClientId:
     async def test_get_own_areas_rejects_invalid_client_id(
         self, async_session: AsyncSession, invalid_id: str
     ):
-        """GET /ca/areas returns 422 when JWT client_id is invalid."""
+        """GET /areas returns 422 when JWT client_id is invalid."""
         self._setup(async_session, invalid_id)
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas",
+                "/areas",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -110,14 +111,14 @@ class TestInvalidCAClientId:
     async def test_count_own_areas_rejects_invalid_client_id(
         self, async_session: AsyncSession, invalid_id: str
     ):
-        """GET /ca/areas/count returns 422 when JWT client_id is invalid."""
+        """GET /areas/count returns 422 when JWT client_id is invalid."""
         self._setup(async_session, invalid_id)
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas/count",
+                "/areas/count",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -128,14 +129,14 @@ class TestInvalidCAClientId:
     async def test_get_own_area_rejects_invalid_client_id(
         self, async_session: AsyncSession, invalid_id: str
     ):
-        """GET /ca/areas/{areaId} returns 422 when JWT client_id is invalid."""
+        """GET /areas/{areaId} returns 422 when JWT client_id is invalid."""
         self._setup(async_session, invalid_id)
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/areas/some-area",
+                "/areas/some-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -146,14 +147,14 @@ class TestInvalidCAClientId:
     async def test_delete_area_rejects_invalid_client_id(
         self, async_session: AsyncSession, invalid_id: str
     ):
-        """DELETE /ca/areas/{areaId} returns 422 when JWT client_id is invalid."""
+        """DELETE /areas/{areaId} returns 422 when JWT client_id is invalid."""
         self._setup(async_session, invalid_id)
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.delete(
-                "/ca/areas/some-area",
+                "/areas/some-area",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -164,14 +165,14 @@ class TestInvalidCAClientId:
     async def test_get_ca_activities_rejects_invalid_client_id(
         self, async_session: AsyncSession, invalid_id: str
     ):
-        """GET /ca/activities returns 422 when JWT client_id is invalid."""
+        """GET /activities returns 422 when JWT client_id is invalid."""
         self._setup(async_session, invalid_id)
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/activities",
+                "/activities",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -182,14 +183,14 @@ class TestInvalidCAClientId:
     async def test_count_ca_activities_rejects_invalid_client_id(
         self, async_session: AsyncSession, invalid_id: str
     ):
-        """GET /ca/activities/count returns 422 when JWT client_id is invalid."""
+        """GET /activities/count returns 422 when JWT client_id is invalid."""
         self._setup(async_session, invalid_id)
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/ca/activities/count",
+                "/activities/count",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -205,32 +206,32 @@ class TestInvalidSTRClientId:
     async def cleanup(self):
         """Clean up dependency overrides after each test."""
         yield
-        app_v0.dependency_overrides.clear()
+        app_str_v1.dependency_overrides.clear()
 
     def _setup(self, async_session: AsyncSession, client_id: str):
         """Setup dependency overrides with an invalid client_id."""
-        app_v0.dependency_overrides[verify_bearer_token] = lambda: _make_str_token(
+        app_str_v1.dependency_overrides[verify_bearer_token] = lambda: _make_str_token(
             client_id
         )
 
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
-        app_v0.dependency_overrides[get_async_db_read_only] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db] = override_get_db
+        app_str_v1.dependency_overrides[get_async_db_read_only] = override_get_db
 
     @pytest.mark.parametrize("invalid_id", INVALID_CLIENT_IDS)
     async def test_post_activities_bulk_rejects_invalid_client_id(
         self, async_session: AsyncSession, invalid_id: str
     ):
-        """POST /str/activities/bulk returns 422 when JWT client_id is invalid."""
+        """POST /activities/bulk returns 422 when JWT client_id is invalid."""
         self._setup(async_session, invalid_id)
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_str_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/str/activities/bulk",
+                "/activities/bulk",
                 json={
                     "activities": [
                         {
@@ -265,7 +266,7 @@ class TestValidClientIdAccepted:
     async def cleanup(self):
         """Clean up dependency overrides after each test."""
         yield
-        app_v0.dependency_overrides.clear()
+        app_ca_v1.dependency_overrides.clear()
 
     @pytest.mark.parametrize(
         "valid_id",
@@ -281,8 +282,8 @@ class TestValidClientIdAccepted:
     async def test_post_area_accepts_valid_client_id(
         self, async_session: AsyncSession, valid_id: str
     ):
-        """POST /ca/areas accepts valid client_id values."""
-        app_v0.dependency_overrides[verify_bearer_token] = lambda: {
+        """POST /areas accepts valid client_id values."""
+        app_ca_v1.dependency_overrides[verify_bearer_token] = lambda: {
             "sub": "test_user",
             "client_id": valid_id,
             "client_name": "Test Authority",
@@ -292,13 +293,13 @@ class TestValidClientIdAccepted:
         async def override_get_db():
             yield async_session
 
-        app_v0.dependency_overrides[get_async_db] = override_get_db
+        app_ca_v1.dependency_overrides[get_async_db] = override_get_db
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_v0), base_url="http://test"
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
         ) as client:
             response = await client.post(
-                "/ca/areas",
+                "/areas",
                 files={"file": ("Area.zip", b"zipdata", "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )

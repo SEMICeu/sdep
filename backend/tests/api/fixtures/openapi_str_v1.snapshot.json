@@ -1,0 +1,1640 @@
+{
+  "components": {
+    "schemas": {
+      "ActivityBulkRequest": {
+        "description": "Bulk activity request schema.\n\nThe `activities` field is typed as `list[ActivityRequest]` for the OpenAPI\ncontract, but item-level validation is skipped at request-parse time (via\n`SkipValidation`). This preserves the Application-First Validation flow:\neach item is validated individually in the service layer, so one invalid\nitem is marked NOK without failing the whole batch.",
+        "properties": {
+          "activities": {
+            "description": "Array of activity objects to process (1-1000 items per batch)",
+            "items": {
+              "$ref": "#/components/schemas/ActivityRequest"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Activities",
+            "type": "array"
+          }
+        },
+        "required": [
+          "activities"
+        ],
+        "title": "Activity.BulkRequest",
+        "type": "object"
+      },
+      "ActivityBulkResponse": {
+        "description": "Bulk activity response schema.\n\nReturns per-item OK/NOK feedback with summary counts.\nValidation flow Step 4: the original list enriched with status and error_message.",
+        "properties": {
+          "failed": {
+            "description": "Number of items that failed validation or processing (status NOK)",
+            "examples": [
+              0
+            ],
+            "minimum": 0.0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "results": {
+            "description": "Per-item results preserving the original request order",
+            "example": [
+              {
+                "activity": {
+                  "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                  "address": {
+                    "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                    "locatorDesignatorNumber": 263,
+                    "postCode": "1016GV",
+                    "postName": "Amsterdam",
+                    "thoroughfare": "Prinsengracht"
+                  },
+                  "areaId": "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
+                  "competentAuthorityId": "sdep-ca0363",
+                  "competentAuthorityName": "Gemeente Amsterdam",
+                  "countryOfGuests": [
+                    "NLD",
+                    "DEU",
+                    "BEL",
+                    "N/A"
+                  ],
+                  "createdAt": "2025-06-01T12:00:00Z",
+                  "numberOfGuests": 4,
+                  "platformId": "str01",
+                  "platformName": "Test STR 01",
+                  "registrationNumber": "REG0001",
+                  "status": "finished",
+                  "temporal": {
+                    "endDatetime": "2025-06-07T11:00:00Z",
+                    "startDatetime": "2025-06-01T14:00:00Z"
+                  },
+                  "url": "http://example.com/amsterdam-myhouse-1"
+                },
+                "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                "activityIndex": 0,
+                "status": "OK"
+              },
+              {
+                "activityIndex": 1,
+                "errors": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "areaId"
+                      ],
+                      "msg": "Area with areaId 'c5f54e98-226a-411b-b015-ca13070c6dc5' not found",
+                      "type": "not_found_error"
+                    }
+                  ]
+                },
+                "status": "NOK"
+              }
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ActivityBulkResultItem"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "succeeded": {
+            "description": "Number of items successfully created (status OK)",
+            "examples": [
+              2
+            ],
+            "minimum": 0.0,
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "totalReceived": {
+            "description": "Total number of items received in the request",
+            "examples": [
+              2
+            ],
+            "minimum": 0.0,
+            "title": "Totalreceived",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalReceived",
+          "succeeded",
+          "failed",
+          "results"
+        ],
+        "title": "Activity.BulkResponse",
+        "type": "object"
+      },
+      "ActivityBulkResultItem": {
+        "description": "Result for a single item in a bulk activity response.",
+        "properties": {
+          "activity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActivityResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The full activity object (present for OK items, omitted for NOK items)"
+          },
+          "activityId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Activity functional ID provided by the client in the request",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "title": "Activityid"
+          },
+          "activityIndex": {
+            "description": "Zero-based index of this item in the original request list",
+            "examples": [
+              0
+            ],
+            "minimum": 0.0,
+            "title": "Activityindex",
+            "type": "integer"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Structured error details (present for NOK items, omitted for OK items)",
+            "examples": [
+              {
+                "detail": [
+                  {
+                    "loc": [
+                      "areaId"
+                    ],
+                    "msg": "Area with areaId 'unknown-id' not found",
+                    "type": "not_found_error"
+                  }
+                ]
+              }
+            ]
+          },
+          "status": {
+            "description": "Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)",
+            "enum": [
+              "OK",
+              "NOK"
+            ],
+            "examples": [
+              "OK"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activityIndex",
+          "status"
+        ],
+        "title": "Activity.BulkResultItem",
+        "type": "object"
+      },
+      "ActivityRequest": {
+        "description": "Activity request schema for creating rental activities.\n\nPlatform:\n- NOT in request payload (extracted from JWT token at API layer)\n- PlatformId comes from token's client_id claim\n- PlatformName comes from token's client_name claim\n- Will be auto-created if it doesn't exist yet\n\nActivity ID:\n- Optional: If not provided, will be auto-generated (RFC 9562 UUID)\n\nActivity Name:\n- Optional: Display name (max 64 chars)\n\nValidation Layer:\n- Validates all syntax constraints (lengths, ranges, types)\n\nConstraints (enforced at database level):\n- Unique constraint: (activityId, createdAt, platform) for versioning support",
+        "properties": {
+          "activityId": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Functional ID identifying the activity (auto-generated UUID if not provided; alphanumeric with hyphens `^[A-Za-z0-9-]+$`, max 64 chars)",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000",
+              "550E8400-E29B-41D4-A716-446655440000"
+            ],
+            "title": "Activityid"
+          },
+          "activityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name of the activity (optional, max 64 chars)",
+            "examples": [
+              "Amsterdam Summer Rental"
+            ],
+            "title": "Activityname"
+          },
+          "address": {
+            "$ref": "#/components/schemas/CommonAddressRequest",
+            "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
+          },
+          "areaId": {
+            "description": "Functional ID referencing the area where the activity took place",
+            "examples": [
+              "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
+              "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Areaid",
+            "type": "string"
+          },
+          "countryOfGuests": {
+            "description": "Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A', uppercase only). Length must equal numberOfGuests.",
+            "examples": [
+              [
+                "NLD",
+                "NLD",
+                "DEU",
+                "BEL"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Countryofguests",
+            "type": "array"
+          },
+          "numberOfGuests": {
+            "description": "Number of guests (1-1024)",
+            "examples": [
+              4
+            ],
+            "maximum": 1024.0,
+            "minimum": 1.0,
+            "title": "Numberofguests",
+            "type": "integer"
+          },
+          "registrationNumber": {
+            "description": "Registration number of the address (max 32 chars)",
+            "examples": [
+              "REG0001"
+            ],
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Registrationnumber",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ActivityStatus",
+            "default": "finished",
+            "description": "Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`.",
+            "examples": [
+              "finished",
+              "cancelled"
+            ]
+          },
+          "temporal": {
+            "$ref": "#/components/schemas/CommonTemporalRequest",
+            "description": "Temporal composite (`startDatetime`, `endDatetime`)"
+          },
+          "url": {
+            "description": "URL of the originating listing/advertisement (max 128 chars)",
+            "examples": [
+              "http://example.com/amsterdam-myhouse-1"
+            ],
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "areaId",
+          "url",
+          "address",
+          "registrationNumber",
+          "numberOfGuests",
+          "countryOfGuests",
+          "temporal"
+        ],
+        "title": "Activity.Request",
+        "type": "object"
+      },
+      "ActivityResponse": {
+        "description": "Activity response schema.",
+        "properties": {
+          "activityId": {
+            "description": "Functional ID identifying this activity",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000",
+              "550E8400-E29B-41D4-A716-446655440000"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Activityid",
+            "type": "string"
+          },
+          "activityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the activity",
+            "title": "Activityname"
+          },
+          "address": {
+            "$ref": "#/components/schemas/CommonAddressResponse",
+            "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
+          },
+          "areaId": {
+            "description": "Functional ID referencing the area where this activity took place",
+            "examples": [
+              "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
+              "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Areaid",
+            "type": "string"
+          },
+          "competentAuthorityId": {
+            "description": "Functional ID referencing the competent authority that owns the area",
+            "examples": [
+              "sdep-ca0363",
+              "SDEP-CA0363"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Competentauthorityid",
+            "type": "string"
+          },
+          "competentAuthorityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the competent authority",
+            "title": "Competentauthorityname"
+          },
+          "countryOfGuests": {
+            "description": "Array of country codes of guests (each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Countryofguests",
+            "type": "array"
+          },
+          "createdAt": {
+            "description": "Timestamp when this activity version was created (UTC)",
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "numberOfGuests": {
+            "description": "Number of guests (1-1024)",
+            "title": "Numberofguests",
+            "type": "integer"
+          },
+          "platformId": {
+            "description": "Functional ID referencing the platform that owns the activity",
+            "examples": [
+              "str01",
+              "STR01"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Platformid",
+            "type": "string"
+          },
+          "platformName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the platform",
+            "title": "Platformname"
+          },
+          "registrationNumber": {
+            "description": "Registration number of the address",
+            "title": "Registrationnumber",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ActivityStatus",
+            "description": "Lifecycle status of the activity: `finished` or `cancelled`.",
+            "examples": [
+              "finished",
+              "cancelled"
+            ]
+          },
+          "temporal": {
+            "$ref": "#/components/schemas/CommonTemporalResponse",
+            "description": "Temporal composite (`startDatetime`, `endDatetime`)"
+          },
+          "url": {
+            "description": "URL of the originating listing/advertisement",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activityId",
+          "status",
+          "areaId",
+          "competentAuthorityId",
+          "url",
+          "address",
+          "registrationNumber",
+          "numberOfGuests",
+          "countryOfGuests",
+          "temporal",
+          "platformId",
+          "createdAt"
+        ],
+        "title": "Activity.Response",
+        "type": "object"
+      },
+      "ActivityStatus": {
+        "description": "Lifecycle status for an activity record.",
+        "enum": [
+          "finished",
+          "cancelled"
+        ],
+        "title": "Activity.Status",
+        "type": "string"
+      },
+      "AreaCountResponse": {
+        "description": "Count of areas response schema.",
+        "properties": {
+          "count": {
+            "description": "Total number of areas in context of the current SDEP/member state",
+            "examples": [
+              42
+            ],
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "Area.CountResponse",
+        "type": "object"
+      },
+      "AreaListResponse": {
+        "description": "List of areas response schema.",
+        "properties": {
+          "areas": {
+            "description": "List of areas in context of the current SDEP/member state",
+            "items": {
+              "$ref": "#/components/schemas/AreaResponse"
+            },
+            "title": "Areas",
+            "type": "array"
+          }
+        },
+        "required": [
+          "areas"
+        ],
+        "title": "Area.ListResponse",
+        "type": "object"
+      },
+      "AreaResponse": {
+        "description": "Area response schema.",
+        "properties": {
+          "areaId": {
+            "description": "Functional ID identifying this area",
+            "examples": [
+              "959a7439-7cad-4009-96ec-353b44723db9"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Areaid",
+            "type": "string"
+          },
+          "areaName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the area",
+            "examples": [
+              "Amsterdam"
+            ],
+            "title": "Areaname"
+          },
+          "competentAuthorityId": {
+            "description": "Functional ID of the competent authority that owns the area",
+            "examples": [
+              "sdep-ca0363"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Competentauthorityid",
+            "type": "string"
+          },
+          "competentAuthorityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the competent authority",
+            "examples": [
+              "Amsterdam (inclusief Weesp)"
+            ],
+            "title": "Competentauthorityname"
+          },
+          "createdAt": {
+            "description": "Timestamp when this area version was created (UTC)",
+            "examples": [
+              "2025-01-01T00:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "filename": {
+            "description": "Name of the area shapefile (e.g., 'area.zip')",
+            "examples": [
+              "Amsterdam.zip"
+            ],
+            "maxLength": 64,
+            "title": "Filename",
+            "type": "string"
+          },
+          "regulation": {
+            "$ref": "#/components/schemas/Regulation",
+            "default": "all",
+            "description": "Regulation type of the area - 'listing', 'activity', or 'all'",
+            "examples": [
+              "all"
+            ]
+          }
+        },
+        "required": [
+          "areaId",
+          "filename",
+          "competentAuthorityId",
+          "createdAt"
+        ],
+        "title": "Area.Response",
+        "type": "object"
+      },
+      "CommonAddressRequest": {
+        "description": "Address composite schema for activity requests (INSPIRE/STR-AP field names).\n\nValidation Layer:\n- All syntax validation (lengths, types, constraints) happens here\n- Service layer receives validated data",
+        "properties": {
+          "fullAddress": {
+            "description": "Full address as a single string (required, max 318 chars)",
+            "examples": [
+              "Turfmarkt 147a-5h, 2500EA Den Haag"
+            ],
+            "maxLength": 318,
+            "title": "Fulladdress",
+            "type": "string"
+          },
+          "locatorDesignatorAddition": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Additional qualifier (optional, e.g. 'II', 'Apt 3')",
+            "examples": [
+              "II"
+            ],
+            "title": "Locatordesignatoraddition"
+          },
+          "locatorDesignatorLetter": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Letter/character suffix (optional, e.g. 'a', 'bis', 'ter')",
+            "examples": [
+              "a"
+            ],
+            "title": "Locatordesignatorletter"
+          },
+          "locatorDesignatorNumber": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Numeric house number component (optional, >= 0 when provided)",
+            "examples": [
+              263
+            ],
+            "title": "Locatordesignatornumber"
+          },
+          "postCode": {
+            "description": "Postal code (no spaces, alphanumeric)",
+            "examples": [
+              "1016GV"
+            ],
+            "maxLength": 10,
+            "minLength": 1,
+            "pattern": "^[0-9A-Za-z]+$",
+            "title": "Postcode",
+            "type": "string"
+          },
+          "postName": {
+            "description": "City / town / village",
+            "examples": [
+              "Amsterdam"
+            ],
+            "maxLength": 80,
+            "title": "Postname",
+            "type": "string"
+          },
+          "thoroughfare": {
+            "description": "Street / public space name",
+            "examples": [
+              "Prinsengracht"
+            ],
+            "maxLength": 80,
+            "title": "Thoroughfare",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thoroughfare",
+          "postCode",
+          "postName",
+          "fullAddress"
+        ],
+        "title": "Common.AddressRequest",
+        "type": "object"
+      },
+      "CommonAddressResponse": {
+        "description": "Address composite schema for activity responses (INSPIRE/STR-AP field names).",
+        "properties": {
+          "fullAddress": {
+            "description": "Full address as a single string",
+            "title": "Fulladdress",
+            "type": "string"
+          },
+          "locatorDesignatorAddition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Additional qualifier (optional)",
+            "title": "Locatordesignatoraddition"
+          },
+          "locatorDesignatorLetter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Letter/character suffix (optional)",
+            "title": "Locatordesignatorletter"
+          },
+          "locatorDesignatorNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Numeric house number component (optional)",
+            "title": "Locatordesignatornumber"
+          },
+          "postCode": {
+            "description": "Postal code",
+            "title": "Postcode",
+            "type": "string"
+          },
+          "postName": {
+            "description": "City / town / village",
+            "title": "Postname",
+            "type": "string"
+          },
+          "thoroughfare": {
+            "description": "Street / public space name",
+            "title": "Thoroughfare",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thoroughfare",
+          "postCode",
+          "postName",
+          "fullAddress"
+        ],
+        "title": "Common.AddressResponse",
+        "type": "object"
+      },
+      "CommonTemporalRequest": {
+        "description": "Temporal composite schema for activity requests.\n\nValidation Layer:\n- Validates datetime formats\n- Date-only submissions are permitted, and will be stored internally using a 00:00:00 timestamp\n- Ensures start year is >= 2025\n- Ensures start is before end",
+        "properties": {
+          "endDatetime": {
+            "description": "End date and time of the rental activity (must be after startDatetime)",
+            "examples": [
+              "2025-06-07T11:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "Enddatetime",
+            "type": "string"
+          },
+          "startDatetime": {
+            "description": "Start date and time of the rental activity (year must be >= 2025)",
+            "examples": [
+              "2025-06-01T14:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "Startdatetime",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startDatetime",
+          "endDatetime"
+        ],
+        "title": "Common.TemporalRequest",
+        "type": "object"
+      },
+      "CommonTemporalResponse": {
+        "description": "Temporal composite schema for activity responses.",
+        "properties": {
+          "endDatetime": {
+            "description": "End date and time of the rental activity",
+            "format": "date-time",
+            "title": "Enddatetime",
+            "type": "string"
+          },
+          "startDatetime": {
+            "description": "Start date and time of the rental activity",
+            "format": "date-time",
+            "title": "Startdatetime",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startDatetime",
+          "endDatetime"
+        ],
+        "title": "Common.TemporalResponse",
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "description": "Detail of a single error.",
+        "properties": {
+          "loc": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Location of the error (e.g. ['body', 'fieldName'])",
+            "title": "Loc"
+          },
+          "msg": {
+            "description": "Human-readable error message",
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "description": "Error type identifier",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "msg",
+          "type"
+        ],
+        "title": "Error.Detail",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "Standardized error response format.",
+        "properties": {
+          "detail": {
+            "description": "List of error details",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "Error.Response",
+        "type": "object"
+      },
+      "Regulation": {
+        "description": "Regulation type for an area: 'listing', 'activity', or 'all' (covers both).",
+        "enum": [
+          "listing",
+          "activity",
+          "all"
+        ],
+        "title": "Common.Regulation",
+        "type": "string"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2ClientCredentials": {
+        "flows": {
+          "clientCredentials": {
+            "scopes": {},
+            "tokenUrl": "<token-url>"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "description": "Endpoints for short-term rental platforms to view areas and to submit activities.",
+    "title": "SDEP - Short-Term Rental Platform (STR) API",
+    "version": "<frozen-version>"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/activities/bulk": {
+      "post": {
+        "description": "Submit 1-1000 activities into the activities collection for the currently authenticated platform.\n\n**ID pattern:**\n\n`activityId` is provided by the platform as a business identifier (optional).\nIf not provided (or empty string), a UUID is auto-generated (RFC 9562).\n\n**Versioning:**\n\nThe same `activityId` can be resubmitted - this creates a new version with a different timestamp.\nUnique constraint: (`activityId`, `createdAt`, current authenticated platform).\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n   Failed items are marked NOK with the error reason; valid items continue.\n2. **Referential Integrity Check** - area IDs are verified. Items with unknown `areaId` are marked NOK; valid items continue.\n3. **Bulk Insert** - all remaining valid items are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `activityId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `activities`: Array of activity objects to process (1-1000 items per batch)\n\n**Each activity item in the request contains:**\n- `activityId`: Functional ID identifying the activity (auto-generated UUID if not provided; alphanumeric with hyphens `^[A-Za-z0-9-]+$`, max 64 chars)\n- `activityName`: Display name of the activity (optional, max 64 chars)\n- `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `url`: URL of the originating listing/advertisement (max 128 chars)\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 32 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or `N/A`, uppercase only); array length must equal `numberOfGuests`.\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n\n**The response contains:**\n- `totalReceived`: Total number of items received in the request\n- `succeeded`: Number of items successfully created (status OK)\n- `failed`: Number of items that failed validation or processing (status NOK)\n- `results`: Per-item results preserving the original request order\n\n**Each results item contains:**\n- `activityIndex`: Zero-based index of this item in the original request list\n- `activityId`: Activity functional ID provided by the client in the request\n- `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)\n- `activity`: The full activity object (present for OK items, omitted for NOK items)\n- `errors`: Structured error details (present for NOK items, omitted for OK items)\n\n**The activity object (for the OK items) contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where this activity took place\n- `competentAuthorityId`: Functional ID of the competent authority that owns the referenced area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 32 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`); array length equals `numberOfGuests`.\n- `temporal`: Temporal composite (startDatetime, endDatetime)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)\n\n**Response HTTP status:**\n- 201: all items created successfully\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 422: all items failed",
+        "operationId": "postActivitiesBulk",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "activities": [
+                  {
+                    "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                    "activityName": "Amsterdam Summer Rental",
+                    "address": {
+                      "fullAddress": "Prinsengracht 263a-II, 1016GV Amsterdam",
+                      "locatorDesignatorAddition": "II",
+                      "locatorDesignatorLetter": "a",
+                      "locatorDesignatorNumber": 263,
+                      "postCode": "1016GV",
+                      "postName": "Amsterdam",
+                      "thoroughfare": "Prinsengracht"
+                    },
+                    "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                    "countryOfGuests": [
+                      "NLD",
+                      "NLD",
+                      "DEU",
+                      "BEL"
+                    ],
+                    "numberOfGuests": 4,
+                    "registrationNumber": "REG0001",
+                    "status": "finished",
+                    "temporal": {
+                      "endDatetime": "2025-06-07T11:00:00Z",
+                      "startDatetime": "2025-06-01T14:00:00Z"
+                    },
+                    "url": "http://example.com/amsterdam-myhouse-1"
+                  },
+                  {
+                    "activityName": "Rotterdam Weekend Stay",
+                    "address": {
+                      "fullAddress": "Witte de Withstraat 45, 3012BK Rotterdam",
+                      "locatorDesignatorNumber": 45,
+                      "postCode": "3012BK",
+                      "postName": "Rotterdam",
+                      "thoroughfare": "Witte de Withstraat"
+                    },
+                    "areaId": "904ee15d-70a6-4e69-a704-6018646803a8",
+                    "countryOfGuests": [
+                      "FRA",
+                      "FRA"
+                    ],
+                    "numberOfGuests": 2,
+                    "registrationNumber": "REG0002",
+                    "status": "cancelled",
+                    "temporal": {
+                      "endDatetime": "2025-07-14T10:00:00Z",
+                      "startDatetime": "2025-07-12T15:00:00Z"
+                    },
+                    "url": "http://example.com/rotterdam-apartment-2"
+                  },
+                  {
+                    "activityId": "771a0622-g41d-63f6-c938-668877662222",
+                    "activityName": "Utrecht City Break",
+                    "address": {
+                      "fullAddress": "Oudegracht 100, 3511AX Utrecht",
+                      "locatorDesignatorNumber": 100,
+                      "postCode": "3511AX",
+                      "postName": "Utrecht",
+                      "thoroughfare": "Oudegracht"
+                    },
+                    "areaId": "bb22937c-fa9b-4ce6-b3d9-6e2ac49f621c",
+                    "countryOfGuests": [
+                      "GBR",
+                      "GBR",
+                      "IRL"
+                    ],
+                    "numberOfGuests": 3,
+                    "registrationNumber": "REG0003",
+                    "temporal": {
+                      "endDatetime": "2025-08-05T14:00:00Z",
+                      "startDatetime": "2025-08-10T11:00:00Z"
+                    },
+                    "url": "http://example.com/utrecht-studio-3"
+                  },
+                  {
+                    "activityName": "Den Haag Apartment",
+                    "address": {
+                      "fullAddress": "Turfmarkt 147, 2500EA Den Haag",
+                      "locatorDesignatorNumber": 147,
+                      "postCode": "2500EA",
+                      "postName": "Den Haag",
+                      "thoroughfare": "Turfmarkt"
+                    },
+                    "areaId": "6d1da866-c6c4-48f7-a15a-a7aae27c73f8",
+                    "countryOfGuests": [
+                      "ESP"
+                    ],
+                    "numberOfGuests": 1,
+                    "registrationNumber": "REG0004",
+                    "url": "http://example.com/denhaag-apartment-4"
+                  },
+                  {
+                    "activityId": "882b1733-h52e-74g7-d049-779988773333",
+                    "activityName": "Groningen Loft",
+                    "address": {
+                      "fullAddress": "Herestraat 20, 9711LA Groningen",
+                      "locatorDesignatorNumber": 20,
+                      "postCode": "9711LA",
+                      "postName": "Groningen",
+                      "thoroughfare": "Herestraat"
+                    },
+                    "areaId": "00000000-0000-0000-0000-000000000000",
+                    "countryOfGuests": [
+                      "ITA",
+                      "ITA"
+                    ],
+                    "numberOfGuests": 2,
+                    "registrationNumber": "REG0005",
+                    "temporal": {
+                      "endDatetime": "2025-09-03T10:00:00Z",
+                      "startDatetime": "2025-09-01T14:00:00Z"
+                    },
+                    "url": "http://example.com/groningen-loft-5"
+                  },
+                  {
+                    "activityId": "993c2844-i63f-85h8-e15a-880099884444",
+                    "activityName": "Eindhoven Studio",
+                    "address": {
+                      "fullAddress": "Stratumseind 12, 5611EP Eindhoven",
+                      "locatorDesignatorNumber": 12,
+                      "postCode": "5611EP",
+                      "postName": "Eindhoven",
+                      "thoroughfare": "Stratumseind"
+                    },
+                    "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                    "countryOfGuests": [
+                      "NLD",
+                      "NLD"
+                    ],
+                    "numberOfGuests": 3,
+                    "registrationNumber": "REG0006",
+                    "temporal": {
+                      "endDatetime": "2025-10-03T10:00:00Z",
+                      "startDatetime": "2025-10-01T14:00:00Z"
+                    },
+                    "url": "http://example.com/eindhoven-studio-6"
+                  }
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ActivityBulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "failed": 4,
+                  "results": [
+                    {
+                      "activity": {
+                        "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                        "activityName": "Amsterdam Summer Rental",
+                        "address": {
+                          "fullAddress": "Prinsengracht 263a-II, 1016GV Amsterdam",
+                          "locatorDesignatorAddition": "II",
+                          "locatorDesignatorLetter": "a",
+                          "locatorDesignatorNumber": 263,
+                          "postCode": "1016GV",
+                          "postName": "Amsterdam",
+                          "thoroughfare": "Prinsengracht"
+                        },
+                        "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                        "competentAuthorityId": "sdep-ca0363",
+                        "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                        "countryOfGuests": [
+                          "NLD",
+                          "NLD",
+                          "DEU",
+                          "BEL"
+                        ],
+                        "createdAt": "2026-04-17T12:31:45.492466Z",
+                        "numberOfGuests": 4,
+                        "platformId": "sdep-str01",
+                        "platformName": "Test STR 01 (interactive usage, persistent)",
+                        "registrationNumber": "REG0001",
+                        "status": "finished",
+                        "temporal": {
+                          "endDatetime": "2025-06-07T11:00:00Z",
+                          "startDatetime": "2025-06-01T14:00:00Z"
+                        },
+                        "url": "http://example.com/amsterdam-myhouse-1"
+                      },
+                      "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                      "activityIndex": 0,
+                      "status": "OK"
+                    },
+                    {
+                      "activity": {
+                        "activityId": "660f9511-f30c-52e5-b827-557766551111",
+                        "activityName": "Rotterdam Weekend Stay",
+                        "address": {
+                          "fullAddress": "Witte de Withstraat 45, 3012BK Rotterdam",
+                          "locatorDesignatorNumber": 45,
+                          "postCode": "3012BK",
+                          "postName": "Rotterdam",
+                          "thoroughfare": "Witte de Withstraat"
+                        },
+                        "areaId": "904ee15d-70a6-4e69-a704-6018646803a8",
+                        "competentAuthorityId": "sdep-ca0599",
+                        "competentAuthorityName": "Rotterdam",
+                        "countryOfGuests": [
+                          "FRA",
+                          "FRA"
+                        ],
+                        "createdAt": "2026-04-17T12:31:45.492466Z",
+                        "numberOfGuests": 2,
+                        "platformId": "sdep-str01",
+                        "platformName": "Test STR 01 (interactive usage, persistent)",
+                        "registrationNumber": "REG0002",
+                        "status": "cancelled",
+                        "temporal": {
+                          "endDatetime": "2025-07-14T10:00:00Z",
+                          "startDatetime": "2025-07-12T15:00:00Z"
+                        },
+                        "url": "http://example.com/rotterdam-apartment-2"
+                      },
+                      "activityId": "660f9511-f30c-52e5-b827-557766551111",
+                      "activityIndex": 1,
+                      "status": "OK"
+                    },
+                    {
+                      "activityId": "771a0622-g41d-63f6-c938-668877662222",
+                      "activityIndex": 2,
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "temporal",
+                              "endDatetime"
+                            ],
+                            "msg": "Value error, End datetime must be after start datetime",
+                            "type": "value_error"
+                          }
+                        ]
+                      },
+                      "status": "NOK"
+                    },
+                    {
+                      "activityIndex": 3,
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "temporal"
+                            ],
+                            "msg": "Field required",
+                            "type": "missing"
+                          }
+                        ]
+                      },
+                      "status": "NOK"
+                    },
+                    {
+                      "activityId": "882b1733-h52e-74g7-d049-779988773333",
+                      "activityIndex": 4,
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "areaId"
+                            ],
+                            "msg": "Area with areaId '00000000-0000-0000-0000-000000000000' not found",
+                            "type": "not_found_error"
+                          }
+                        ]
+                      },
+                      "status": "NOK"
+                    },
+                    {
+                      "activityId": "993c2844-i63f-85h8-e15a-880099884444",
+                      "activityIndex": 5,
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [],
+                            "msg": "Value error, numberOfGuests (3) must equal the number of elements in countryOfGuests (2)",
+                            "type": "value_error"
+                          }
+                        ]
+                      },
+                      "status": "NOK"
+                    }
+                  ],
+                  "succeeded": 2,
+                  "totalReceived": 6
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityBulkResponse"
+                }
+              }
+            },
+            "description": "Partial success - some activities created, some failed"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "failed": 0,
+                  "results": [
+                    {
+                      "activity": {
+                        "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                        "address": {
+                          "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                          "locatorDesignatorNumber": 263,
+                          "postCode": "1016GV",
+                          "postName": "Amsterdam",
+                          "thoroughfare": "Prinsengracht"
+                        },
+                        "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                        "competentAuthorityId": "sdep-ca0363",
+                        "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                        "countryOfGuests": [
+                          "NLD",
+                          "DEU",
+                          "BEL",
+                          "N/A"
+                        ],
+                        "createdAt": "2025-06-01T12:00:00Z",
+                        "numberOfGuests": 4,
+                        "platformId": "str01",
+                        "platformName": "Test STR 01",
+                        "registrationNumber": "REG0001",
+                        "status": "finished",
+                        "temporal": {
+                          "endDatetime": "2025-06-07T11:00:00Z",
+                          "startDatetime": "2025-06-01T14:00:00Z"
+                        },
+                        "url": "http://example.com/amsterdam-myhouse-1"
+                      },
+                      "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                      "activityIndex": 0,
+                      "status": "OK"
+                    },
+                    {
+                      "activity": {
+                        "activityId": "660f9511-f30c-52e5-b827-557766551111",
+                        "address": {
+                          "fullAddress": "Witte de Withstraat 45, 3012BK Rotterdam",
+                          "locatorDesignatorNumber": 45,
+                          "postCode": "3012BK",
+                          "postName": "Rotterdam",
+                          "thoroughfare": "Witte de Withstraat"
+                        },
+                        "areaId": "904ee15d-70a6-4e69-a704-6018646803a8",
+                        "competentAuthorityId": "sdep-ca0599",
+                        "competentAuthorityName": "Rotterdam",
+                        "countryOfGuests": [
+                          "FRA",
+                          "FRA"
+                        ],
+                        "createdAt": "2025-06-01T12:00:00Z",
+                        "numberOfGuests": 2,
+                        "platformId": "str01",
+                        "platformName": "Test STR 01",
+                        "registrationNumber": "REG0002",
+                        "status": "cancelled",
+                        "temporal": {
+                          "endDatetime": "2025-07-14T10:00:00Z",
+                          "startDatetime": "2025-07-12T15:00:00Z"
+                        },
+                        "url": "http://example.com/rotterdam-apartment-2"
+                      },
+                      "activityId": "660f9511-f30c-52e5-b827-557766551111",
+                      "activityIndex": 1,
+                      "status": "OK"
+                    }
+                  ],
+                  "succeeded": 2,
+                  "totalReceived": 2
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityBulkResponse"
+                }
+              }
+            },
+            "description": "All activities created successfully"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "failed": 2,
+                  "results": [
+                    {
+                      "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                      "activityIndex": 0,
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "areaId"
+                            ],
+                            "msg": "Area with areaId '00000000-0000-0000-0000-000000000000' not found",
+                            "type": "not_found_error"
+                          },
+                          {
+                            "loc": [
+                              "temporal",
+                              "endDatetime"
+                            ],
+                            "msg": "Value error, End datetime must be after start datetime",
+                            "type": "value_error"
+                          }
+                        ]
+                      },
+                      "status": "NOK"
+                    },
+                    {
+                      "activityIndex": 1,
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "areaId"
+                            ],
+                            "msg": "Area with areaId '00000000-0000-0000-0000-000000000000' not found",
+                            "type": "not_found_error"
+                          },
+                          {
+                            "loc": [
+                              "temporal"
+                            ],
+                            "msg": "Field required",
+                            "type": "missing"
+                          }
+                        ]
+                      },
+                      "status": "NOK"
+                    }
+                  ],
+                  "succeeded": 0,
+                  "totalReceived": 2
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityBulkResponse"
+                }
+              }
+            },
+            "description": "All activities failed validation"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Submit activities in bulk for the currently authenticated platform",
+        "tags": [
+          "str"
+        ]
+      }
+    },
+    "/areas": {
+      "get": {
+        "description": "Get all areas. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.\n\n**Each area contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)",
+        "operationId": "getAreas",
+        "parameters": [
+          {
+            "description": "Number of records to skip (default: 0)",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of records to skip (default: 0)",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "areas": [
+                    {
+                      "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                      "areaName": "Amsterdam",
+                      "competentAuthorityId": "sdep-ca0363",
+                      "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                      "createdAt": "2025-01-01T00:00:00Z",
+                      "filename": "Amsterdam.zip",
+                      "regulation": "all"
+                    },
+                    {
+                      "areaId": "904ee15d-70a6-4e69-a704-6018646803a8",
+                      "areaName": "Rotterdam",
+                      "competentAuthorityId": "sdep-ca0599",
+                      "competentAuthorityName": "Rotterdam",
+                      "createdAt": "2025-01-01T00:00:00Z",
+                      "filename": "Rotterdam.zip",
+                      "regulation": "all"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/AreaListResponse"
+                }
+              }
+            },
+            "description": "List of areas"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request - invalid query parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get all areas",
+        "tags": [
+          "str"
+        ]
+      }
+    },
+    "/areas/count": {
+      "get": {
+        "description": "Get areas count (optional, to support pagination).",
+        "operationId": "countAreas",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AreaCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get areas count (optional, to support pagination)",
+        "tags": [
+          "str"
+        ]
+      }
+    },
+    "/areas/{areaId}": {
+      "get": {
+        "description": "Get area (shapefile) based on functional ID.",
+        "operationId": "getArea",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "areaId",
+            "required": true,
+            "schema": {
+              "title": "Areaid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {}
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "404": {
+            "description": "Resource Not Found - area unavailable"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get area (shapefile)",
+        "tags": [
+          "str"
+        ]
+      }
+    }
+  }
+}

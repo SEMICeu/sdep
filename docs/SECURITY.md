@@ -44,7 +44,7 @@ For each request that matters, capture:
 | **resourceType**   | Derived from path           | Entity type, e.g. `area`, `activity`     | Where   |
 | **action**         | Derived from method + path  | Semantic action verb, e.g. `create`      | What    |
 | **httpMethod**     | Request                     | HTTP method (`GET`, `POST`, `DELETE`)    | What    |
-| **path**           | Request                     | Request path, e.g. `/api/v0/ca/areas`    | Where   |
+| **path**           | Request                     | Request path, e.g. `/api/ca/v1/areas`    | Where   |
 | **httpStatusCode** | Response                    | HTTP status code                         | Result  |
 | **statusCode**     | Derived from httpStatusCode | `OK` if httpStatusCode < 400, else `NOK` | Result  |
 | **durationMs**     | Calculated                  | Request processing time in milliseconds  | -       |
@@ -53,21 +53,21 @@ For each request that matters, capture:
 
 The middleware derives a semantic action and resource type from the HTTP method and request path:
 
-| Method | Path pattern             | Resource type | Action        |
-| :----- | :----------------------- | :------------ | :------------ |
-| POST   | `/*/ca/areas`            | `area`        | `create`      |
-| GET    | `/*/ca/areas`            | `area`        | `list`        |
-| GET    | `/*/ca/areas/count`      | `area`        | `count`       |
-| GET    | `/*/ca/areas/{id}`       | `area`        | `read`        |
-| DELETE | `/*/ca/areas/{id}`       | `area`        | `delete`      |
-| POST   | `/*/str/activities/bulk` | `activity`    | `create_bulk` |
-| GET    | `/*/str/areas`           | `area`        | `list`        |
-| GET    | `/*/str/areas/count`     | `area`        | `count`       |
-| GET    | `/*/str/areas/{id}`      | `area`        | `read`        |
-| GET    | `/*/ca/activities`       | `activity`    | `list`        |
-| GET    | `/*/ca/activities/count` | `activity`    | `count`       |
-| POST   | `/*/auth/token`          | `auth`        | `token`       |
-| GET    | `/*/ping`                | `system`      | `ping`        |
+| Method | Path pattern                  | Resource type | Action        |
+| :----- | :---------------------------- | :------------ | :------------ |
+| POST   | `/api/ca/v*/areas`            | `area`        | `create`      |
+| GET    | `/api/ca/v*/areas`            | `area`        | `list`        |
+| GET    | `/api/ca/v*/areas/count`      | `area`        | `count`       |
+| GET    | `/api/ca/v*/areas/{id}`       | `area`        | `read`        |
+| DELETE | `/api/ca/v*/areas/{id}`       | `area`        | `delete`      |
+| POST   | `/api/str/v*/activities/bulk` | `activity`    | `create_bulk` |
+| GET    | `/api/str/v*/areas`           | `area`        | `list`        |
+| GET    | `/api/str/v*/areas/count`     | `area`        | `count`       |
+| GET    | `/api/str/v*/areas/{id}`      | `area`        | `read`        |
+| GET    | `/api/ca/v*/activities`       | `activity`    | `list`        |
+| GET    | `/api/ca/v*/activities/count` | `activity`    | `count`       |
+| POST   | `/api/auth/v*/token`          | `auth`        | `token`       |
+| GET    | `/api/ping`                   | `system`      | `ping`        |
 
 Unmatched paths fall back to action `unknown`.
 
@@ -76,10 +76,10 @@ Unmatched paths fall back to action `unknown`.
 ```
 | id  | timestamp                     | request_id   | roles                        | resource_type | action | http_method | path             | http_status_code | status_code | duration_ms |
 | --- | ----------------------------- | ------------ | ---------------------------- | ------------- | ------ | ----------- | ---------------- | ---------------- | ----------- | ----------- |
-| 20  | 2026-03-23 15:03:38.519686+00 | a34e8a0e-... | sdep_write,sdep_ca,sdep_read | system        | ping   | GET         | /api/v0/ping     | 200              | OK          | 1           |
-| 21  | 2026-03-23 15:03:39.864974+00 | 7bccb30b-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/v0/ca/areas | 201              | OK          | 33          |
-| 22  | 2026-03-23 15:03:39.947615+00 | f357d78c-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/v0/ca/areas | 201              | OK          | 27          |
-| 23  | 2026-03-23 15:03:40.02963+00  | 02294cf4-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/v0/ca/areas | 201              | OK          | 18          |
+| 20  | 2026-03-23 15:03:38.519686+00 | a34e8a0e-... | sdep_write,sdep_ca,sdep_read | system        | ping   | GET         | /api/ping        | 200              | OK          | 1           |
+| 21  | 2026-03-23 15:03:39.864974+00 | 7bccb30b-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/ca/v1/areas | 201              | OK          | 33          |
+| 22  | 2026-03-23 15:03:39.947615+00 | f357d78c-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/ca/v1/areas | 201              | OK          | 27          |
+| 23  | 2026-03-23 15:03:40.02963+00  | 02294cf4-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/ca/v1/areas | 201              | OK          | 18          |
 ```
 
 ### Skip list
@@ -89,8 +89,8 @@ The following paths are **not** audited (high-frequency, low-value):
 - `/` (root)
 - `/api/docs` (landing page)
 - `/api/health`
-- `/api/v0/openapi.json`
-- `/api/v0/docs`
+- `/api/auth/v1/openapi.json`, `/api/ca/v1/openapi.json`, `/api/str/v1/openapi.json`
+- `/api/auth/v1/docs`, `/api/ca/v1/docs`, `/api/str/v1/docs`
 
 ### Retention
 

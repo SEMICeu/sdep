@@ -3,7 +3,7 @@
 # Test script for pinging the SDEP API endpoint
 # Expects BACKEND_BASE_URL environment variable to be set
 # Optionally accepts BEARER_TOKEN environment variable for authenticated requests
-# Optionally accepts API_VERSION environment variable (defaults to v0)
+# Optionally accepts API_VERSION environment variable (defaults to v1)
 
 set -e
 
@@ -12,8 +12,8 @@ if [ -z "$BACKEND_BASE_URL" ]; then
     exit 1
 fi
 
-# Default API version to v0 if not set
-API_VERSION=${API_VERSION:-v0}
+# Default API version to v1 if not set
+API_VERSION=${API_VERSION:-v1}
 
 # If BEARER_TOKEN is not set, try to read from token file
 if [ -z "$BEARER_TOKEN" ]; then
@@ -24,7 +24,7 @@ if [ -z "$BEARER_TOKEN" ]; then
     fi
 fi
 
-echo "🔍 Testing ping endpoint at: ${BACKEND_BASE_URL}/api/${API_VERSION}/ping"
+echo "🔍 Testing ping endpoint at: ${BACKEND_BASE_URL}/api/ping"
 
 # Check if BEARER_TOKEN is set
 if [ -n "$BEARER_TOKEN" ]; then
@@ -45,9 +45,9 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 if [ -n "$BEARER_TOKEN" ]; then
     response=$(curl -s -w "\n%{http_code}" \
         -H "Authorization: Bearer ${BEARER_TOKEN}" \
-        "${BACKEND_BASE_URL}/api/${API_VERSION}/ping")
+        "${BACKEND_BASE_URL}/api/ping")
 else
-    response=$(curl -s -w "\n%{http_code}" "${BACKEND_BASE_URL}/api/${API_VERSION}/ping")
+    response=$(curl -s -w "\n%{http_code}" "${BACKEND_BASE_URL}/api/ping")
 fi
 
 http_code=$(echo "$response" | tail -n1)

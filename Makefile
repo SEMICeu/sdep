@@ -337,7 +337,9 @@ status: ## Show status
 	@echo "🔍 Use these URLs when images are running:"
 	@set -a && source .env && set +a && \
 	printf "  %-42s %s\n" "Backend API docs (version independent):" "$$BACKEND_BASE_URL/api/docs" && \
-	printf "  %-42s %s\n" "Backend API docs (versioned):" "$$BACKEND_BASE_URL/api/v0/docs" && \
+	printf "  %-42s %s\n" "Backend API docs (auth):" "$$BACKEND_BASE_URL/api/auth/v1/docs" && \
+	printf "  %-42s %s\n" "Backend API docs (ca):" "$$BACKEND_BASE_URL/api/ca/v1/docs" && \
+	printf "  %-42s %s\n" "Backend API docs (str):" "$$BACKEND_BASE_URL/api/str/v1/docs" && \
 	printf "  %-42s %s\n" "Backend health:" "$$BACKEND_BASE_URL/api/health" && \
 	printf "  %-42s %s\n" "Keycloak:" "$$KC_BASE_URL/admin"
 	@echo ""

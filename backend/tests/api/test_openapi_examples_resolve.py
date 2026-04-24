@@ -13,7 +13,8 @@ import re
 from pathlib import Path
 
 import pytest
-from app.api.v0.main import app_v0
+from app.api.domains.ca.v1 import app_ca_v1
+from app.api.domains.str.v1 import app_str_v1
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CA_SQL = REPO_ROOT / "test-data" / "01-competent-authority.sql"
@@ -99,22 +100,25 @@ def valid_ca_ids() -> set[str]:
 
 
 @pytest.fixture(scope="module")
-def openapi_spec() -> dict:
-    return app_v0.openapi()
+def openapi_specs() -> list[dict]:
+    return [app_ca_v1.openapi(), app_str_v1.openapi()]
 
 
 def test_openapi_area_ids_resolve_against_seed_sql(
-    openapi_spec, valid_area_ids
+    openapi_specs, valid_area_ids
 ) -> None:
     failures: list[str] = []
-    for op_id, location, example in _iter_examples(openapi_spec):
-        for path, key, value in _walk(example):
-            if key != "areaId" or not isinstance(value, str):
-                continue
-            if value == SENTINEL_INVALID_AREA_ID:
-                continue
-            if value not in valid_area_ids:
-                failures.append(f"{op_id} @ {location} / {'.'.join(path)} = {value!r}")
+    for spec in openapi_specs:
+        for op_id, location, example in _iter_examples(spec):
+            for path, key, value in _walk(example):
+                if key != "areaId" or not isinstance(value, str):
+                    continue
+                if value == SENTINEL_INVALID_AREA_ID:
+                    continue
+                if value not in valid_area_ids:
+                    failures.append(
+                        f"{op_id} @ {location} / {'.'.join(path)} = {value!r}"
+                    )
     assert not failures, (
         "OpenAPI examples reference areaId values not in "
         "test-data/02-area-generated.sql:\n  " + "\n  ".join(failures)
@@ -122,15 +126,18 @@ def test_openapi_area_ids_resolve_against_seed_sql(
 
 
 def test_openapi_competent_authority_ids_resolve_against_seed_sql(
-    openapi_spec, valid_ca_ids
+    openapi_specs, valid_ca_ids
 ) -> None:
     failures: list[str] = []
-    for op_id, location, example in _iter_examples(openapi_spec):
-        for path, key, value in _walk(example):
-            if key != "competentAuthorityId" or not isinstance(value, str):
-                continue
-            if value not in valid_ca_ids:
-                failures.append(f"{op_id} @ {location} / {'.'.join(path)} = {value!r}")
+    for spec in openapi_specs:
+        for op_id, location, example in _iter_examples(spec):
+            for path, key, value in _walk(example):
+                if key != "competentAuthorityId" or not isinstance(value, str):
+                    continue
+                if value not in valid_ca_ids:
+                    failures.append(
+                        f"{op_id} @ {location} / {'.'.join(path)} = {value!r}"
+                    )
     assert not failures, (
         "OpenAPI examples reference competentAuthorityId values not in "
         "test-data/01-competent-authority.sql:\n  " + "\n  ".join(failures)

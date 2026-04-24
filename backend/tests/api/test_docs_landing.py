@@ -28,9 +28,12 @@ class TestDocsLandingPage:
             response = await client.get("/docs")
 
         body = response.text
-        assert "/api/v0/docs" in body
-        assert "/api/v0/redoc" not in body
-        assert "/api/v0/openapi.json" in body
+        assert "/api/auth/v1/docs" in body
+        assert "/api/ca/v1/docs" in body
+        assert "/api/str/v1/docs" in body
+        assert "/api/auth/v1/openapi.json" in body
+        assert "/api/ca/v1/openapi.json" in body
+        assert "/api/str/v1/openapi.json" in body
 
     @pytest.mark.asyncio
     async def test_docs_landing_contains_health_link(self):

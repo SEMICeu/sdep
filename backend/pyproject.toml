@@ -135,7 +135,6 @@ ignore = [
 "backend/app/schemas/*.py" = ["TCH002"]  # Allow runtime imports used by Pydantic annotations
 "app/schemas/*.py" = ["TCH002", "N815"]  # Allow runtime imports and camelCase for API contracts
 "**/tests/**" = ["S101"]  # Allow assert statements in tests
-"app/api/v0/main.py" = ["E402"]  # Allow imports after app configuration
 "app/api/common/routers/*.py" = ["N803"]  # Path parameters must match URL (e.g., areaId)
 
 [tool.ruff.format]

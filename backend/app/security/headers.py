@@ -65,14 +65,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "speaker=(self)"
         )
 
-        # Cross-Origin-Opener-Policy - isolate browsing context
+        # COOP (Cross-Origin-Opener-Policy) - isolate browsing context so a
+        # cross-origin window cannot script this document via window.opener
         response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
 
-        # Cross-Origin-Resource-Policy - prevent cross-origin loading
+        # CORP (Cross-Origin-Resource-Policy) - prevent other origins from
+        # loading our responses as <script>, <img>, fetch(), etc.
         response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
 
-        # Cross-Origin-Embedder-Policy - Use unsafe-none for compatibility
-        # Note: require-corp is too strict and can cause 504/connectivity issues in K8s
+        # COEP (Cross-Origin-Embedder-Policy) - kept at unsafe-none on purpose.
+        # require-corp is too strict and caused 504/connectivity issues in K8s
+        # when embedding resources served by other in-cluster services.
         response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
 
         # Cache control for sensitive endpoints
@@ -106,11 +109,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         """
         sensitive_patterns = [
             "/api/auth/",
-            "/api/v0/auth/",
-            "/api/v0/activities",
-            "/api/v0/areas",
-            "/api/v0/competent-authority",
-            "/api/v0/openapi.json",
+            "/api/ca/",
+            "/api/str/",
         ]
         return any(path.startswith(pattern) for pattern in sensitive_patterns)
 

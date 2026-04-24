@@ -20,7 +20,7 @@ router = APIRouter(tags=["str"])
 
 
 @router.get(
-    "/str/areas",
+    "/areas",
     response_model=AreaListResponse,
     status_code=status.HTTP_200_OK,
     summary="Get all areas",
@@ -124,11 +124,11 @@ async def get_areas(
 
 
 @router.get(
-    "/str/areas/count",
+    "/areas/count",
     response_model=AreaCountResponse,
     status_code=status.HTTP_200_OK,
     summary="Get areas count (optional, to support pagination)",
-    description="Get areas count (optional, to support pagination)",
+    description="Get areas count (optional, to support pagination).",
     operation_id="countAreas",
     responses={
         "401": {
@@ -160,11 +160,11 @@ async def count_areas(
 
 
 @router.get(
-    "/str/areas/{areaId}",
+    "/areas/{areaId}",
     response_class=Response,
     status_code=status.HTTP_200_OK,
     summary="Get area (shapefile)",
-    description="Get area (shapefile) based on functional ID",
+    description="Get area (shapefile) based on functional ID.",
     operation_id="getArea",
     responses={
         "200": {

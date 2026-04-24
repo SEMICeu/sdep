@@ -8,7 +8,7 @@
 set -e
 COUNT=${1:-3}
 PREFIX=${2:-"sdep-test-fixture-area"}
-API_VERSION=${API_VERSION:-v0}
+API_VERSION=${API_VERSION:-v1}
 TIMESTAMP=$(date +%s%N | cut -b1-13)
 
 # Use ephemeral test CA client
@@ -21,7 +21,7 @@ CA_TOKEN=$(curl -s -X POST \
   --data-urlencode "grant_type=client_credentials" \
   --data-urlencode "client_id=${FIXTURE_CA_CLIENT_ID}" \
   --data-urlencode "client_secret=${FIXTURE_CA_CLIENT_SECRET}" \
-  "${BACKEND_BASE_URL}/api/${API_VERSION}/auth/token" \
+  "${BACKEND_BASE_URL}/api/auth/${API_VERSION}/token" \
   | grep -o '"access_token":"[^"]*"' | sed 's/"access_token":"\([^"]*\)"/\1/')
 
 if [ -z "$CA_TOKEN" ]; then
@@ -41,7 +41,7 @@ for i in $(seq 1 $COUNT); do
     -H "Authorization: Bearer ${CA_TOKEN}" \
     -F "file=@${SHAPEFILE_PATH}" \
     -F "areaId=${AREA_ID}" \
-    "${BACKEND_BASE_URL}/api/${API_VERSION}/ca/areas")
+    "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas")
 
   http_code=$(echo "$response" | tail -n1)
   if [ "$http_code" -ne 201 ]; then

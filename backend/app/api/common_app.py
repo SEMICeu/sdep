@@ -20,10 +20,11 @@ from app.api.common.exception_handlers import register_exception_handlers  # noq
 
 register_exception_handlers(app_common)
 
-# Register health router
-from app.api.common.routers import health  # noqa: E402
+# Register health and ping routers (unversioned infrastructure endpoints)
+from app.api.common.routers import health, ping  # noqa: E402
 
 app_common.include_router(health.router)
+app_common.include_router(ping.router)
 
 
 @app_common.get("/docs", response_class=HTMLResponse, include_in_schema=False)
@@ -56,11 +57,21 @@ async def docs_landing_page():
   </p>
 
   <div class="section">
-    <h2>API versions</h2>
+    <h2>API domains</h2>
     <div class="version">
-      <a href="/api/v0/docs">v0 - Swagger UI</a>
+      <a href="/api/auth/v1/docs">Auth v1</a>
       &nbsp;|&nbsp;
-      <a href="/api/v0/openapi.json">OpenAPI JSON</a>
+      <a href="/api/auth/v1/openapi.json">OpenAPI JSON</a>
+    </div>
+    <div class="version">
+      <a href="/api/ca/v1/docs">CA v1</a>
+      &nbsp;|&nbsp;
+      <a href="/api/ca/v1/openapi.json">OpenAPI JSON</a>
+    </div>
+    <div class="version">
+      <a href="/api/str/v1/docs">STR v1</a>
+      &nbsp;|&nbsp;
+      <a href="/api/str/v1/openapi.json">OpenAPI JSON</a>
     </div>
   </div>
 
@@ -68,6 +79,7 @@ async def docs_landing_page():
     <h2>Health</h2>
     <ul>
       <li><a href="/api/health">/api/health</a></li>
+      <li><a href="/api/ping">/api/ping</a></li>
     </ul>
   </div>
 
