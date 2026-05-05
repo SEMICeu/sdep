@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 from app.crud import activity
 from app.enums import ActivityStatus
+from app.schemas.activity import ActivityBulkCreate
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.fixtures.factories import ActivityFactory, AreaFactory, PlatformFactory
@@ -369,6 +370,16 @@ class TestActivityCRUD:
         # Assert
         assert len(results) == 0
 
+    async def test_get_by_url_with_limit(self, async_session: AsyncSession):
+        """Test getting activities by url with explicit limit."""
+        test_url = "http://example.com/limited-url"
+        await ActivityFactory.create_async(async_session, url=test_url)
+        await ActivityFactory.create_async(async_session, url=test_url)
+
+        results = await activity.get_by_url(async_session, test_url, limit=1)
+
+        assert len(results) == 1
+
     async def test_get_by_registration_number(self, async_session: AsyncSession):
         """Test getting activities by registration number."""
         # Arrange
@@ -562,6 +573,151 @@ class TestActivityCRUD:
 
         # Assert
         assert result is False
+
+    async def test_get_current_by_activity_ids_returns_current_only(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session)
+        platform = await PlatformFactory.create_async(async_session)
+        current = await ActivityFactory.create_async(
+            async_session,
+            activity_id="current-activity-id",
+            platform_id=platform.id,
+            area_id=area.id,
+        )
+        ended = await ActivityFactory.create_async(
+            async_session,
+            activity_id="ended-activity-id",
+            platform_id=platform.id,
+            area_id=area.id,
+        )
+        await activity.mark_as_ended(async_session, ended.activity_id, platform.id)
+
+        result = await activity.get_current_by_activity_ids(
+            async_session,
+            [current.activity_id, ended.activity_id, "missing-activity-id"],
+            platform.id,
+        )
+
+        assert result == {current.activity_id: True}
+
+    async def test_get_deactivated_activity_ids_returns_only_ended_entities(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session)
+        platform = await PlatformFactory.create_async(async_session)
+        await ActivityFactory.create_async(
+            async_session,
+            activity_id="current-activity-id",
+            platform_id=platform.id,
+            area_id=area.id,
+        )
+        await ActivityFactory.create_async(
+            async_session,
+            activity_id="ended-activity-id",
+            platform_id=platform.id,
+            area_id=area.id,
+        )
+        await activity.mark_as_ended(async_session, "ended-activity-id", platform.id)
+
+        result = await activity.get_deactivated_activity_ids(
+            async_session,
+            ["current-activity-id", "ended-activity-id", "missing-activity-id"],
+        )
+
+        assert result == {"ended-activity-id"}
+
+    async def test_activity_query_helpers_with_limit_and_bulk_mutations(
+        self, async_session: AsyncSession
+    ):
+        competent_authority_id = "0363"
+        area = await AreaFactory.create_async(
+            async_session,
+            competent_authority_id=competent_authority_id,
+            competent_authority_name="Gemeente Amsterdam",
+        )
+        platform = await PlatformFactory.create_async(async_session)
+
+        reg_one = await ActivityFactory.create_async(
+            async_session,
+            registration_number="LIMIT-REG",
+            platform_id=platform.id,
+            area_id=area.id,
+        )
+        reg_two = await ActivityFactory.create_async(
+            async_session,
+            registration_number="LIMIT-REG",
+            platform_id=platform.id,
+            area_id=area.id,
+        )
+
+        reg_results = await activity.get_by_registration_number(
+            async_session, "LIMIT-REG", limit=1
+        )
+        platform_results = await activity.get_by_platform_id(
+            async_session, platform.id, limit=1
+        )
+        area_results = await activity.get_by_area_id(async_session, area.id, limit=1)
+        ca_results = await activity.get_by_competent_authority_id(
+            async_session, competent_authority_id, limit=1
+        )
+
+        assert len(reg_results) == 1
+        assert reg_results[0].id in {reg_one.id, reg_two.id}
+        assert len(platform_results) == 1
+        assert len(area_results) == 1
+        assert len(ca_results) == 1
+
+        await activity.bulk_mark_as_ended(
+            async_session,
+            [reg_one.activity_id, reg_two.activity_id],
+            platform.id,
+        )
+        ended_ids = await activity.get_deactivated_activity_ids(
+            async_session, [reg_one.activity_id, reg_two.activity_id]
+        )
+        assert reg_one.activity_id in ended_ids
+        assert reg_two.activity_id in ended_ids
+
+        area_two = await AreaFactory.create_async(async_session)
+        await activity.bulk_create(
+            async_session,
+            [
+                ActivityBulkCreate.model_validate(
+                    {
+                        "activityId": "bulk-created-activity",
+                        "activityName": None,
+                        "status": ActivityStatus.finished,
+                        "areaId": area_two.area_id,
+                        "url": "http://example.com/bulk-created",
+                        "address": {
+                            "thoroughfare": "Bulk Street",
+                            "locatorDesignatorNumber": 1,
+                            "locatorDesignatorLetter": None,
+                            "locatorDesignatorAddition": None,
+                            "postCode": "1234AB",
+                            "postName": "Amsterdam",
+                            "fullAddress": "Bulk Street 1, 1234AB Amsterdam",
+                        },
+                        "registrationNumber": "BULK-REG",
+                        "numberOfGuests": 1,
+                        "countryOfGuests": ["NLD"],
+                        "temporal": {
+                            "startDatetime": "2025-08-01T12:00:00",
+                            "endDatetime": "2025-08-02T12:00:00",
+                        },
+                        "platform_technical_id": platform.id,
+                        "area_technical_id": area_two.id,
+                        "created_at": datetime(2025, 8, 1, 11, 0, 0),
+                    }
+                )
+            ],
+        )
+
+        created = await activity.get_by_activity_id(
+            async_session, "bulk-created-activity"
+        )
+        assert created is not None
 
     async def test_unique_constraint_activity_id_platform_id_created_at(
         self, async_session: AsyncSession

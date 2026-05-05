@@ -189,3 +189,40 @@ class TestCompetentAuthorityCRUD:
 
         # Assert
         assert len(results) == 0
+
+    async def test_get_by_competent_authority_name_with_limit(
+        self, async_session: AsyncSession
+    ):
+        for _ in range(3):
+            await CompetentAuthorityFactory.create_async(
+                async_session, competent_authority_name="Shared Name"
+            )
+
+        results = await competent_authority.get_by_competent_authority_name(
+            async_session, "Shared Name", limit=2
+        )
+
+        assert len(results) == 2
+
+    async def test_exists_any_by_competent_authority_id(
+        self, async_session: AsyncSession
+    ):
+        created = await CompetentAuthorityFactory.create_async(
+            async_session, competent_authority_id="ca-exists-any"
+        )
+        await competent_authority.mark_as_ended(
+            async_session, created.competent_authority_id
+        )
+
+        assert (
+            await competent_authority.exists_any_by_competent_authority_id(
+                async_session, created.competent_authority_id
+            )
+            is True
+        )
+        assert (
+            await competent_authority.exists_any_by_competent_authority_id(
+                async_session, "missing-ca"
+            )
+            is False
+        )

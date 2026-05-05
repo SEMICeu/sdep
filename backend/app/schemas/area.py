@@ -5,13 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import (
-    BaseModel,
-    BeforeValidator,
-    ConfigDict,
-    Field,
-    model_serializer,
-)
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_serializer
 
 from app.enums import Regulation
 from app.schemas.common import FunctionalId  # noqa: TC001
@@ -44,13 +38,13 @@ class AreaResponse(BaseModel):
     )
     area_id: FunctionalId = Field(
         ...,
-        alias="areaId",
+        serialization_alias="areaId",
         description="Functional ID identifying this area",
         examples=["959a7439-7cad-4009-96ec-353b44723db9"],
     )  # Functional ID
     area_name: str | None = Field(
         None,
-        alias="areaName",
+        serialization_alias="areaName",
         max_length=64,
         description="Display name (optional) of the area",
         examples=["Amsterdam"],
@@ -68,20 +62,22 @@ class AreaResponse(BaseModel):
     )  # Attribute
     competent_authority_id: FunctionalId = Field(
         ...,
-        alias="competentAuthorityId",
+        serialization_alias="competentAuthorityId",
+        # The ORM model exposes a convenience property for the functional CA ID.
+        validation_alias="competent_authority_id_functional",
         description="Functional ID of the competent authority that owns the area",
         examples=["sdep-ca0363"],
     )  # Attribute
     competent_authority_name: str | None = Field(
         None,
-        alias="competentAuthorityName",
+        serialization_alias="competentAuthorityName",
         max_length=64,
         description="Display name (optional) of the competent authority",
         examples=["Amsterdam (inclusief Weesp)"],
     )  # Attribute
     created_at: datetime = Field(
         ...,
-        alias="createdAt",
+        serialization_alias="createdAt",
         description="Timestamp when this area version was created (UTC)",
         examples=["2025-01-01T00:00:00Z"],
     )  # Attribute

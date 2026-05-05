@@ -13,9 +13,7 @@ from app.schemas.activity import (
     ActivityListResponse,
     ActivityResponse,
 )
-from app.schemas.address import CommonAddressResponse
 from app.schemas.error import ErrorResponse
-from app.schemas.temporal import CommonTemporalResponse
 from app.services import activity
 
 router = APIRouter(tags=["ca"])
@@ -122,50 +120,16 @@ async def get_activities(
     - limit: Maximum number of records to return (default: no limit, max: 1000)
     """
     # Call business service with competent authority ID from token
-    activity_list = await activity.get_activity_list(
+    activity_objects = await activity.get_activity_list(
         session,
         competent_authority_id=client.id,
         offset=offset,
         limit=limit,
     )
 
-    # Transform to API response format
     activity_responses = [
-        ActivityResponse(
-            activityId=activity_dict["activity_id"],
-            activityName=activity_dict.get("activity_name"),
-            status=activity_dict["status"],
-            areaId=activity_dict["area_id"],
-            competentAuthorityId=activity_dict["competent_authority_id"],
-            competentAuthorityName=activity_dict.get("competent_authority_name"),
-            url=activity_dict["url"],
-            address=CommonAddressResponse(
-                thoroughfare=activity_dict["address_thoroughfare"],
-                locatorDesignatorNumber=activity_dict[
-                    "address_locator_designator_number"
-                ],
-                locatorDesignatorLetter=activity_dict[
-                    "address_locator_designator_letter"
-                ],
-                locatorDesignatorAddition=activity_dict[
-                    "address_locator_designator_addition"
-                ],
-                postCode=activity_dict["address_post_code"],
-                postName=activity_dict["address_post_name"],
-                fullAddress=activity_dict["address_full_address"],
-            ),
-            registrationNumber=activity_dict["registration_number"],
-            numberOfGuests=activity_dict["number_of_guests"],
-            countryOfGuests=activity_dict["country_of_guests"],
-            temporal=CommonTemporalResponse(
-                startDatetime=activity_dict["temporal_start_date_time"],
-                endDatetime=activity_dict["temporal_end_date_time"],
-            ),
-            platformId=activity_dict["platform_id"],
-            platformName=activity_dict["platform_name"],
-            createdAt=activity_dict["created_at"],
-        )
-        for activity_dict in activity_list
+        ActivityResponse.model_validate(activity_obj)
+        for activity_obj in activity_objects
     ]
 
     return ActivityListResponse(activities=activity_responses)

@@ -10,6 +10,7 @@ from app.enums import ActivityStatus
 from app.models.activity import Activity
 from app.models.area import Area
 from app.models.competent_authority import CompetentAuthority
+from app.schemas.activity import ActivityBulkCreate
 
 
 async def create(
@@ -452,7 +453,7 @@ async def bulk_mark_as_ended(
 
 async def bulk_create(
     session: AsyncSession,
-    activities: list[dict],
+    activities: list[ActivityBulkCreate],
 ) -> None:
     """
     Bulk insert activities using a single multi-row INSERT (Validation flow Step 3).
@@ -463,13 +464,38 @@ async def bulk_create(
 
     Args:
         session: Async database session
-        activities: List of dictionaries with Activity column values
+        activities: List of validated activity objects with resolved technical IDs
     """
     if not activities:
         return
 
+    activity_rows = [
+        {
+            "activity_id": activity.activity_id,
+            "activity_name": activity.activity_name,
+            "status": activity.status,
+            "platform_id": activity.platform_technical_id,
+            "area_id": activity.area_technical_id,
+            "url": activity.url,
+            "address_thoroughfare": activity.address.thoroughfare,
+            "address_locator_designator_number": activity.address.locator_designator_number,
+            "address_locator_designator_letter": activity.address.locator_designator_letter,
+            "address_locator_designator_addition": activity.address.locator_designator_addition,
+            "address_post_code": activity.address.post_code,
+            "address_post_name": activity.address.post_name,
+            "address_full_address": activity.address.full_address,
+            "registration_number": activity.registration_number,
+            "number_of_guests": activity.number_of_guests,
+            "country_of_guests": activity.country_of_guests,
+            "temporal_start_date_time": activity.temporal.start_date_time,
+            "temporal_end_date_time": activity.temporal.end_date_time,
+            "created_at": activity.created_at,
+        }
+        for activity in activities
+    ]
+
     stmt = insert(Activity)
-    await session.execute(stmt, activities)
+    await session.execute(stmt, activity_rows)
     await session.flush()
 
 

@@ -114,22 +114,22 @@ down: ## Stop backend
 
 ##@ Unit testing
 
-test: ## Test all (quiet)
+test: check ## Test all (quiet)
 	@echo "🧪 Running tests... (please wait)"
 	@uv run python -m pytest -n auto -q --tb=line --no-header 2>&1 | tail -20
 	@echo "✅ All tests completed!"
 
-test-verbose: ## Test all (verbose)
+test-verbose: check ## Test all (verbose)
 	@echo "🧪 Running tests... (please wait)"
 	uv run python -m pytest -n auto
 	@echo "✅ All tests completed!"
 
-test-coverage: ## Test all (coverage)
+test-coverage: check ## Test all (coverage)
 	@echo "🧪 Running tests with coverage..."
-	uv run python -m pytest -n auto --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
+	uv run python -m pytest -n auto --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=100
 	@echo "✅ Coverage tests completed! Coverage report in htmlcov/"
 
-test-crud: ## Test CRUD only
+test-crud: check ## Test CRUD only
 	@echo "🧪 Running CRUD tests..."
 	uv run python -m pytest tests/crud/ -n auto
 	@echo "✅ CRUD tests completed!"
@@ -139,12 +139,12 @@ test-services: ## Test services only
 	uv run python -m pytest tests/services/ -n auto
 	@echo "✅ Service tests completed!"
 
-test-api: ## Test API only
+test-api: check ## Test API only
 	@echo "🧪 Running API tests..."
 	uv run python -m pytest tests/api/ -n auto
 	@echo "✅ API tests completed!"
 
-test-security: ## Test security only
+test-security: check ## Test security only
 	@echo "🧪 Running security tests..."
 	uv run python -m pytest tests/security/ -n auto
 	@echo "✅ Security tests completed!"

@@ -108,33 +108,36 @@ class CommonAddressResponse(BaseModel):
 
     model_config = ConfigDict(
         title="Common.AddressResponse",
+        from_attributes=True,
         populate_by_name=True,
     )
 
     thoroughfare: str = Field(
         ..., description="Street / public space name"
     )  # Attribute
-    locatorDesignatorNumber: int | None = Field(
+    locator_designator_number: int | None = Field(
         None,
-        alias="locatorDesignatorNumber",
+        serialization_alias="locatorDesignatorNumber",
         description="Numeric house number component (optional)",
     )  # Attribute
-    locatorDesignatorLetter: str | None = Field(
+    locator_designator_letter: str | None = Field(
         None,
-        alias="locatorDesignatorLetter",
+        serialization_alias="locatorDesignatorLetter",
         description="Letter/character suffix (optional)",
     )  # Attribute
-    locatorDesignatorAddition: str | None = Field(
+    locator_designator_addition: str | None = Field(
         None,
-        alias="locatorDesignatorAddition",
+        serialization_alias="locatorDesignatorAddition",
         description="Additional qualifier (optional)",
     )  # Attribute
-    postCode: str = Field(..., alias="postCode", description="Postal code")  # Attribute
-    postName: str = Field(
-        ..., alias="postName", description="City / town / village"
+    post_code: str = Field(
+        ..., serialization_alias="postCode", description="Postal code"
     )  # Attribute
-    fullAddress: str = Field(
+    post_name: str = Field(
+        ..., serialization_alias="postName", description="City / town / village"
+    )  # Attribute
+    full_address: str = Field(
         ...,
-        alias="fullAddress",
+        serialization_alias="fullAddress",
         description="Full address as a single string",
     )  # Attribute

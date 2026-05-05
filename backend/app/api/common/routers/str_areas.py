@@ -104,20 +104,10 @@ async def get_areas(
     - limit: Maximum number of records to return (default: no limit, max: 1000)
     """
     # Call business service
-    areas_data = await area.get_areas(session, offset=offset, limit=limit)
+    area_objects = await area.get_areas(session, offset=offset, limit=limit)
 
-    # Transform to API response format
     area_responses = [
-        AreaResponse(
-            areaId=area_dict["areaId"],
-            areaName=area_dict["areaName"],
-            regulation=area_dict["regulation"],
-            filename=area_dict["filename"],
-            competentAuthorityId=area_dict["competentAuthorityId"],
-            competentAuthorityName=area_dict["competentAuthorityName"],
-            createdAt=area_dict["createdAt"],
-        )
-        for area_dict in areas_data
+        AreaResponse.model_validate(area_obj) for area_obj in area_objects
     ]
 
     return AreaListResponse(areas=area_responses)
@@ -205,8 +195,8 @@ async def get_area(
         )
 
     # Return raw binary data (or empty bytes if filedata is None)
-    binary_data = area_data["filedata"] if area_data["filedata"] is not None else b""
-    filename = area_data.get("filename", "area.zip")
+    binary_data = area_data.filedata if area_data.filedata is not None else b""
+    filename = area_data.filename
 
     return Response(
         content=binary_data,

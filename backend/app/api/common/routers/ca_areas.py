@@ -161,13 +161,13 @@ async def post_area(
 
     # Build response
     response = AreaResponse(
-        areaId=area_obj.area_id,
-        areaName=area_obj.area_name,
+        area_id=area_obj.area_id,
+        area_name=area_obj.area_name,
         regulation=area_obj.regulation,
         filename=area_obj.filename,
-        competentAuthorityId=client.id,
-        competentAuthorityName=client.name,
-        createdAt=area_obj.created_at,
+        competent_authority_id=client.id,
+        competent_authority_name=client.name,
+        created_at=area_obj.created_at,
     )
 
     return JSONResponse(
@@ -260,26 +260,14 @@ async def get_own_areas(
     - Competent authority ID extracted from token's "client_id" claim
     """
     # Get areas for this CA
-    area_dicts = await area_service.get_areas_by_competent_authority(
+    area_objects = await area_service.get_areas_by_competent_authority(
         session,
         competent_authority_id_str=client.id,
         offset=offset,
         limit=limit,
     )
 
-    # Build response
-    areas = [
-        AreaResponse(
-            areaId=area_dict["areaId"],
-            areaName=area_dict["areaName"],
-            regulation=area_dict["regulation"],
-            filename=area_dict["filename"],
-            competentAuthorityId=area_dict["competentAuthorityId"],
-            competentAuthorityName=area_dict["competentAuthorityName"],
-            createdAt=area_dict["createdAt"],
-        )
-        for area_dict in area_dicts
-    ]
+    areas = [AreaResponse.model_validate(area_obj) for area_obj in area_objects]
 
     response = AreaListResponse(areas=areas)
 
@@ -381,8 +369,8 @@ async def get_own_area(
         )
 
     # Return raw binary data (or empty bytes if filedata is None)
-    binary_data = area_data["filedata"] if area_data["filedata"] is not None else b""
-    filename = area_data.get("filename", "area.zip")
+    binary_data = area_data.filedata if area_data.filedata is not None else b""
+    filename = area_data.filename
 
     return Response(
         content=binary_data,

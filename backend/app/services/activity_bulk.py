@@ -27,6 +27,7 @@ from app.crud import area as area_crud
 from app.crud import platform as platform_crud
 from app.exceptions.business import InvalidOperationError
 from app.schemas.activity import (
+    ActivityBulkCreate,
     ActivityRequest,
     ActivityResponse,
 )
@@ -64,8 +65,8 @@ async def create_activities_bulk(
     results: list[ActivityBulkResultItem | None] = [None] * total
     # Track which indexes are still valid (not yet marked NOK)
     valid_indexes: list[int] = []
-    # validated_items[i] = (ActivityRequest, service_dict) for valid items
-    validated_items: dict[int, tuple[ActivityRequest, dict[str, Any]]] = {}
+    # validated_items[i] holds the validated ActivityRequest for valid items
+    validated_items: dict[int, ActivityRequest] = {}
     # Track the original client-supplied activityId per item (before UUID generation)
     client_supplied_ids: dict[int, str | None] = {}
 
@@ -104,8 +105,7 @@ async def create_activities_bulk(
         if activity_req.activity_id is None:
             activity_req.activity_id = str(uuid.uuid4())
 
-        service_dict = activity_req.to_service_dict(platform_id_str, platform_name)
-        validated_items[i] = (activity_req, service_dict)
+        validated_items[i] = activity_req
         valid_indexes.append(i)
 
     # ── Platform resolution (once per batch) ────────────────────────────
@@ -136,39 +136,38 @@ async def create_activities_bulk(
     # Scan for duplicate activityId values; only the last occurrence proceeds
     activity_id_last_index: dict[str, int] = {}
     for i in valid_indexes:
-        activity_req, _ = validated_items[i]
-        aid = activity_req.activity_id
-        if aid is not None:
-            if aid in activity_id_last_index:
-                # Mark the earlier occurrence as NOK
-                earlier_idx = activity_id_last_index[aid]
-                results[earlier_idx] = ActivityBulkResultItem(
-                    activityIndex=earlier_idx,
-                    activityId=client_supplied_ids[earlier_idx],
-                    status="NOK",
-                    activity=None,
-                    errors=ErrorResponse(
-                        detail=[
-                            ErrorDetail(
-                                msg=f"Superseded by later item in batch at index {i}",
-                                type="duplicate_error",
-                            )
-                        ]
-                    ),
-                )
-            activity_id_last_index[aid] = i
+        activity_req = validated_items[i]
+        activity_id = activity_req.validated_activity_id
+        if activity_id in activity_id_last_index:
+            # Mark the earlier occurrence as NOK
+            earlier_idx = activity_id_last_index[activity_id]
+            results[earlier_idx] = ActivityBulkResultItem(
+                activityIndex=earlier_idx,
+                activityId=client_supplied_ids[earlier_idx],
+                status="NOK",
+                activity=None,
+                errors=ErrorResponse(
+                    detail=[
+                        ErrorDetail(
+                            msg=f"Superseded by later item in batch at index {i}",
+                            type="duplicate_error",
+                        )
+                    ]
+                ),
+            )
+        activity_id_last_index[activity_id] = i
 
     # Rebuild valid_indexes excluding superseded items
     valid_indexes = [i for i in valid_indexes if results[i] is None]
 
     # ── Step 2: Referential Integrity check (single query) ──────────────
-    unique_area_ids = list({validated_items[i][1]["area_id"] for i in valid_indexes})
+    unique_area_ids = list({validated_items[i].area_id for i in valid_indexes})
     area_ca_map = await area_crud.get_area_ca_map(session, unique_area_ids)
 
     still_valid: list[int] = []
     for i in valid_indexes:
-        _, service_dict = validated_items[i]
-        area_id_str = service_dict["area_id"]
+        activity_req = validated_items[i]
+        area_id_str = activity_req.area_id
         if area_id_str not in area_ca_map:
             results[i] = ActivityBulkResultItem(
                 activityIndex=i,
@@ -192,11 +191,9 @@ async def create_activities_bulk(
 
     # ── Activity versioning (batch UPDATE before INSERT) ────────────────
     # Collect activity_ids that might need versioning
-    activity_ids_to_check = [
-        validated_items[i][1]["activity_id"]
-        for i in valid_indexes
-        if validated_items[i][1].get("activity_id") is not None
-    ]
+    activity_ids_to_check: list[str] = []
+    for i in valid_indexes:
+        activity_ids_to_check.append(validated_items[i].validated_activity_id)
 
     if activity_ids_to_check:
         # Check for deactivated entities
@@ -206,7 +203,7 @@ async def create_activities_bulk(
         if deactivated:
             still_valid = []
             for i in valid_indexes:
-                aid = validated_items[i][1]["activity_id"]
+                aid = validated_items[i].validated_activity_id
                 if aid in deactivated:
                     results[i] = ActivityBulkResultItem(
                         activityIndex=i,
@@ -229,10 +226,11 @@ async def create_activities_bulk(
 
         # Find which IDs have current versions → mark as ended
         ids_for_versioning = [
-            validated_items[i][1]["activity_id"]
+            validated_items[i].validated_activity_id
             for i in valid_indexes
-            if validated_items[i][1].get("activity_id") is not None
+            if validated_items[i].activity_id is not None
         ]
+
         if ids_for_versioning:
             current_ids = await activity_crud.get_current_by_activity_ids(
                 session, ids_for_versioning, platform.id
@@ -246,84 +244,56 @@ async def create_activities_bulk(
     batch_created_at = datetime.now(UTC)
 
     if valid_indexes:
-        insert_dicts = []
+        activity_rows: list[ActivityBulkCreate] = []
         for i in valid_indexes:
-            _, service_dict = validated_items[i]
-            area_technical_id = area_ca_map[service_dict["area_id"]][0]
-            insert_dicts.append(
-                {
-                    "activity_id": service_dict["activity_id"],
-                    "activity_name": service_dict.get("activity_name"),
-                    "status": service_dict["status"],
-                    "platform_id": platform.id,
-                    "area_id": area_technical_id,
-                    "url": service_dict["url"],
-                    "address_thoroughfare": service_dict["address_thoroughfare"],
-                    "address_locator_designator_number": service_dict[
-                        "address_locator_designator_number"
-                    ],
-                    "address_locator_designator_letter": service_dict.get(
-                        "address_locator_designator_letter"
-                    ),
-                    "address_locator_designator_addition": service_dict.get(
-                        "address_locator_designator_addition"
-                    ),
-                    "address_post_code": service_dict["address_post_code"],
-                    "address_post_name": service_dict["address_post_name"],
-                    "address_full_address": service_dict["address_full_address"],
-                    "registration_number": service_dict["registration_number"],
-                    "number_of_guests": service_dict["number_of_guests"],
-                    "country_of_guests": service_dict["country_of_guests"],
-                    "temporal_start_date_time": service_dict[
-                        "temporal_start_date_time"
-                    ],
-                    "temporal_end_date_time": service_dict["temporal_end_date_time"],
-                    "created_at": batch_created_at,
-                }
+            activity_req = validated_items[i]
+            area_technical_id = area_ca_map[activity_req.area_id][0]
+            activity_rows.append(
+                ActivityBulkCreate(
+                    **activity_req.model_dump(),
+                    platform_technical_id=platform.id,
+                    area_technical_id=area_technical_id,
+                    created_at=batch_created_at,
+                )
             )
 
-        await activity_crud.bulk_create(session, insert_dicts)
+        await activity_crud.bulk_create(session, activity_rows)
 
     # ── Step 4: Feedback ────────────────────────────────────────────────
     # Fill in OK results for valid items with embedded ActivityResponse
     for i in valid_indexes:
-        _, service_dict = validated_items[i]
-        area_id_str = service_dict["area_id"]
+        activity_req = validated_items[i]
+        area_id_str = activity_req.area_id
+        activity_id = activity_req.validated_activity_id
         _, ca_id, ca_name = area_ca_map[area_id_str]
 
         activity_response = ActivityResponse(
-            activityId=service_dict["activity_id"],
-            activityName=service_dict.get("activity_name"),
-            status=service_dict["status"],
-            areaId=area_id_str,
-            competentAuthorityId=ca_id,
-            competentAuthorityName=ca_name,
-            url=service_dict["url"],
+            activity_id=activity_id,
+            activity_name=activity_req.activity_name,
+            status=activity_req.status,
+            area_id=area_id_str,
+            competent_authority_id=ca_id,
+            competent_authority_name=ca_name,
+            url=activity_req.url,
             address=CommonAddressResponse(
-                thoroughfare=service_dict["address_thoroughfare"],
-                locatorDesignatorNumber=service_dict[
-                    "address_locator_designator_number"
-                ],
-                locatorDesignatorLetter=service_dict.get(
-                    "address_locator_designator_letter"
-                ),
-                locatorDesignatorAddition=service_dict.get(
-                    "address_locator_designator_addition"
-                ),
-                postCode=service_dict["address_post_code"],
-                postName=service_dict["address_post_name"],
-                fullAddress=service_dict["address_full_address"],
+                thoroughfare=activity_req.address.thoroughfare,
+                locator_designator_number=activity_req.address.locator_designator_number,
+                locator_designator_letter=activity_req.address.locator_designator_letter,
+                locator_designator_addition=activity_req.address.locator_designator_addition,
+                post_code=activity_req.address.post_code,
+                post_name=activity_req.address.post_name,
+                full_address=activity_req.address.full_address,
             ),
-            registrationNumber=service_dict["registration_number"],
-            numberOfGuests=service_dict["number_of_guests"],
-            countryOfGuests=service_dict["country_of_guests"],
+            registration_number=activity_req.registration_number,
+            number_of_guests=activity_req.number_of_guests,
+            country_of_guests=activity_req.country_of_guests,
             temporal=CommonTemporalResponse(
-                startDatetime=service_dict["temporal_start_date_time"],
-                endDatetime=service_dict["temporal_end_date_time"],
+                start_datetime=activity_req.temporal.start_date_time,
+                end_datetime=activity_req.temporal.end_date_time,
             ),
-            platformId=platform_id_str,
-            platformName=platform_name,
-            createdAt=batch_created_at,
+            platform_id=platform_id_str,
+            platform_name=platform_name,
+            created_at=batch_created_at,
         )
 
         results[i] = ActivityBulkResultItem(

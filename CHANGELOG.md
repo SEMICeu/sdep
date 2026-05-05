@@ -1,5 +1,18 @@
 # Changelog
 
+## 260505 - internal improvements
+
+- Eliminated dict-mapping boilerplate (services now return ORM objects directly; routers use model_validate for serialization)
+- Simplified schema-ORM binding
+- Added ActivityBulkCreate subclass (to avoid manual dict assembly)
+- Improved audit logging (_write_audit_record now uses exc_info=True for full tracebacks instead of stringifying the exception)
+- Increased test coverage
+- Bumped Pyright to >=1.1.409
+- Enforced code coverage to 100% (TYPE_CHECKING blocks excluded since they never run at runtime; guard: --cov-fail-under=100)
+- Added a "make check" prerequisite to "make test" targets
+
+*No public API impact*
+
 ## 260424 - API v1 freeze
 
 - Froze the API into `/v1`

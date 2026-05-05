@@ -157,3 +157,38 @@ class TestPlatformCRUD:
 
         # Assert
         assert total == 0
+
+    async def test_delete_platform_and_exists(self, async_session: AsyncSession):
+        created = await PlatformFactory.create_async(
+            async_session, platform_id="delete-me"
+        )
+
+        assert await platform.exists(async_session, created.id) is True
+        assert await platform.delete(async_session, created.id) is True
+        assert await platform.exists(async_session, created.id) is False
+
+    async def test_delete_platform_not_found(self, async_session: AsyncSession):
+        assert await platform.delete(async_session, 99999) is False
+
+    async def test_exists_any_by_platform_id_true_for_ended(
+        self, async_session: AsyncSession
+    ):
+        created = await PlatformFactory.create_async(
+            async_session, platform_id="ended-platform-id"
+        )
+        await platform.mark_as_ended(async_session, created.platform_id)
+
+        assert (
+            await platform.exists_any_by_platform_id(async_session, created.platform_id)
+            is True
+        )
+
+    async def test_exists_any_by_platform_id_false_for_nonexistent(
+        self, async_session: AsyncSession
+    ):
+        assert (
+            await platform.exists_any_by_platform_id(
+                async_session, "missing-platform-id"
+            )
+            is False
+        )

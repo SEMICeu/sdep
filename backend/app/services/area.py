@@ -35,7 +35,7 @@ REGULATION_DEFAULT = Regulation.all
 
 async def get_areas(
     session: AsyncSession, offset: int = 0, limit: int | None = None
-) -> list[dict]:
+) -> list[Area]:
     """
     Get areas in context of the current SDEP/member state.
 
@@ -45,12 +45,7 @@ async def get_areas(
         limit: Maximum number of records to return (default: no limit)
 
     Returns:
-        List of area dictionaries, each containing:
-        - areaId: Functional ID identifying the area
-        - competentAuthorityId: Functional ID referencing the competent authority that owns the area
-        - competentAuthorityName: Display name (optional) of the competent authority
-        - filename: Area filename
-        - createdAt: Timestamp when the area was created
+        List of current Area objects with competent_authority eagerly loaded.
     """
     # Use eager loading to fetch competent_authority relationship
     stmt = (
@@ -66,20 +61,7 @@ async def get_areas(
     result = await session.execute(stmt)
     areas = result.scalars().all()
 
-    # Transform to business layer response format
-    # Return functional IDs (UUIDs), never expose technical IDs
-    return [
-        {
-            "areaId": area.area_id,  # Functional UUID
-            "areaName": area.area_name,  # Functional name (optional)
-            "regulation": area.regulation,
-            "competentAuthorityId": area.competent_authority.competent_authority_id,
-            "competentAuthorityName": area.competent_authority.competent_authority_name,
-            "filename": area.filename,
-            "createdAt": area.created_at,
-        }
-        for area in areas
-    ]
+    return list(areas)
 
 
 async def count_areas(session: AsyncSession) -> int:
@@ -113,7 +95,7 @@ async def count_areas_by_competent_authority(
     )
 
 
-async def get_area_by_id(session: AsyncSession, area_id: str) -> dict | None:
+async def get_area_by_id(session: AsyncSession, area_id: str) -> Area | None:
     """
     Get a specific area by functional ID (UUID).
 
@@ -122,27 +104,21 @@ async def get_area_by_id(session: AsyncSession, area_id: str) -> dict | None:
         area_id: Functional area ID (UUID string)
 
     Returns:
-        Dictionary containing area:
-        - filename: area filename
-        - filedata: area filedata (binary)
-        Returns None if area not found
+        Area object, or None if not found.
     """
     area = await area_crud.get_by_area_id(session, area_id)
 
     if area is None:
         return None
 
-    return {
-        "filename": area.filename,
-        "filedata": area.filedata,
-    }
+    return area
 
 
 async def get_own_area_by_id(
     session: AsyncSession,
     area_id: str,
     competent_authority_id_str: str,
-) -> dict | None:
+) -> Area | None:
     """
     Get a specific area by functional ID, scoped to the currently authenticated competent authority.
 
@@ -152,17 +128,14 @@ async def get_own_area_by_id(
         competent_authority_id_str: Competent authority functional ID from JWT
 
     Returns:
-        Dictionary with filename and filedata, or None if not found / not owned by CA
+        Area object, or None if not found / not owned by CA
     """
     area = await area_crud.get_by_area_id_and_competent_authority_id_str(
         session, area_id, competent_authority_id_str
     )
     if area is None:
         return None
-    return {
-        "filename": area.filename,
-        "filedata": area.filedata,
-    }
+    return area
 
 
 async def create_area(
@@ -254,7 +227,7 @@ async def get_areas_by_competent_authority(
     competent_authority_id_str: str,
     offset: int = 0,
     limit: int | None = None,
-) -> list[dict]:
+) -> list[Area]:
     """
     Get areas for a specific competent authority (own areas).
 
@@ -265,24 +238,13 @@ async def get_areas_by_competent_authority(
         limit: Maximum number of records to return (default: no limit)
 
     Returns:
-        List of area dictionaries
+        List of current Area objects with competent_authority eagerly loaded.
     """
     areas = await area_crud.get_by_competent_authority_id_str(
         session, competent_authority_id_str, offset=offset, limit=limit
     )
 
-    return [
-        {
-            "areaId": area.area_id,
-            "areaName": area.area_name,
-            "regulation": area.regulation,
-            "filename": area.filename,
-            "competentAuthorityId": area.competent_authority.competent_authority_id,
-            "competentAuthorityName": area.competent_authority.competent_authority_name,
-            "createdAt": area.created_at,
-        }
-        for area in areas
-    ]
+    return areas
 
 
 async def delete_area(

@@ -164,10 +164,10 @@ class TestActivityService:
         )
         result = await activity_service.get_activity_list(async_session, "0363")
         assert len(result) == 1
-        assert result[0]["url"] == "http://example.com/listing-1"
-        assert result[0]["status"] == "finished"
-        assert result[0]["platform_id"] == "platform01"
-        assert result[0]["platform_name"] == "Test Platform"
+        assert result[0].url == "http://example.com/listing-1"
+        assert result[0].status == ActivityStatus.finished
+        assert result[0].platform_id_functional == "platform01"
+        assert result[0].platform_name == "Test Platform"
 
     async def test_get_activity_list_response_structure(
         self, async_session: AsyncSession
@@ -184,33 +184,23 @@ class TestActivityService:
         )
         result = await activity_service.get_activity_list(async_session, "0363")
         assert len(result) == 1
-        activity_dict = result[0]
+        activity_obj = result[0]
 
-        required_keys = {
-            "activity_id",
-            "activity_name",
-            "status",
-            "platform_id",
-            "platform_name",
-            "url",
-            "address_thoroughfare",
-            "address_locator_designator_number",
-            "address_locator_designator_letter",
-            "address_locator_designator_addition",
-            "address_post_code",
-            "address_post_name",
-            "address_full_address",
-            "registration_number",
-            "area_id",
-            "competent_authority_id",
-            "competent_authority_name",
-            "number_of_guests",
-            "country_of_guests",
-            "temporal_start_date_time",
-            "temporal_end_date_time",
-            "created_at",
-        }
-        assert set(activity_dict.keys()) == required_keys
+        assert hasattr(activity_obj, "activity_id")
+        assert hasattr(activity_obj, "activity_name")
+        assert hasattr(activity_obj, "status")
+        assert hasattr(activity_obj, "platform_id_functional")
+        assert hasattr(activity_obj, "platform_name")
+        assert hasattr(activity_obj, "url")
+        assert hasattr(activity_obj, "address")
+        assert hasattr(activity_obj, "registration_number")
+        assert hasattr(activity_obj, "area_id_functional")
+        assert hasattr(activity_obj, "competent_authority_id_functional")
+        assert hasattr(activity_obj, "competent_authority_name")
+        assert hasattr(activity_obj, "number_of_guests")
+        assert hasattr(activity_obj, "country_of_guests")
+        assert hasattr(activity_obj, "temporal")
+        assert hasattr(activity_obj, "created_at")
 
     async def test_get_activity_list_multiple_records(
         self, async_session: AsyncSession
@@ -363,8 +353,8 @@ class TestActivityService:
         )
         result = await activity_service.get_activity_list(async_session, "0363")
         assert len(result) == 1
-        assert result[0]["platform_id"] == "platform99"
-        assert result[0]["platform_name"] == "Super Platform"
+        assert result[0].platform_id_functional == "platform99"
+        assert result[0].platform_name == "Super Platform"
 
     async def test_get_activity_list_includes_cancelled_status(
         self, async_session: AsyncSession
@@ -386,4 +376,4 @@ class TestActivityService:
         result = await activity_service.get_activity_list(async_session, "0363")
 
         assert len(result) == 1
-        assert result[0]["status"] == "cancelled"
+        assert result[0].status == ActivityStatus.cancelled

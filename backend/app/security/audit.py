@@ -102,8 +102,8 @@ async def _write_audit_record(record: AuditLog) -> None:
     try:
         async with create_async_session() as session, session.begin():
             session.add(record)
-    except Exception as exc:
-        logger.warning("Failed to write audit log record: %s", exc)
+    except Exception:
+        logger.warning("Failed to write audit log record", exc_info=True)
 
 
 class AuditLogMiddleware(BaseHTTPMiddleware):

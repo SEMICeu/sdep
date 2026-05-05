@@ -35,11 +35,11 @@ class TestAreaService:
 
         # Assert
         assert len(result) == 1
-        assert result[0]["competentAuthorityId"] == "0363"
-        assert result[0]["competentAuthorityName"] == "Gemeente Amsterdam"
-        assert "areaId" in result[0]
-        assert "filename" in result[0]
-        assert "createdAt" in result[0]
+        assert result[0].competent_authority_id_functional == "0363"
+        assert result[0].competent_authority_name == "Gemeente Amsterdam"
+        assert result[0].area_id is not None
+        assert result[0].filename is not None
+        assert result[0].created_at is not None
 
     async def test_get_areas_multiple_areas(self, async_session: AsyncSession):
         """Test getting multiple areas"""
@@ -67,18 +67,24 @@ class TestAreaService:
         assert len(result) == 3
 
         # Find each area in results
-        area1 = next((a for a in result if a["competentAuthorityId"] == "0363"), None)
-        area2 = next((a for a in result if a["competentAuthorityId"] == "0599"), None)
-        area3 = next((a for a in result if a["competentAuthorityId"] == "0518"), None)
+        area1 = next(
+            (a for a in result if a.competent_authority_id_functional == "0363"), None
+        )
+        area2 = next(
+            (a for a in result if a.competent_authority_id_functional == "0599"), None
+        )
+        area3 = next(
+            (a for a in result if a.competent_authority_id_functional == "0518"), None
+        )
 
         assert area1 is not None
-        assert area1["competentAuthorityName"] == "Gemeente Amsterdam"
+        assert area1.competent_authority_name == "Gemeente Amsterdam"
 
         assert area2 is not None
-        assert area2["competentAuthorityName"] == "Gemeente Rotterdam"
+        assert area2.competent_authority_name == "Gemeente Rotterdam"
 
         assert area3 is not None
-        assert area3["competentAuthorityName"] == "Gemeente Den Haag"
+        assert area3.competent_authority_name == "Gemeente Den Haag"
 
     async def test_get_areas_multiple_areas_same_authority(
         self, async_session: AsyncSession
@@ -106,9 +112,9 @@ class TestAreaService:
 
         # Assert
         assert len(result) == 3
-        for area_dict in result:
-            assert area_dict["competentAuthorityId"] == "0363"
-            assert area_dict["competentAuthorityName"] == "Gemeente Amsterdam"
+        for area_obj in result:
+            assert area_obj.competent_authority_id_functional == "0363"
+            assert area_obj.competent_authority_name == "Gemeente Amsterdam"
 
     async def test_get_areas_response_structure(self, async_session: AsyncSession):
         """Test that response structure matches specification"""
@@ -124,34 +130,21 @@ class TestAreaService:
 
         # Assert
         assert len(result) == 1
-        area_dict = result[0]
+        area_obj = result[0]
 
-        # Verify all required keys are present
-        assert "areaId" in area_dict
-        assert "areaName" in area_dict
-        assert "competentAuthorityId" in area_dict
-        assert "competentAuthorityName" in area_dict
-        assert "filename" in area_dict
-        assert "createdAt" in area_dict
+        assert hasattr(area_obj, "area_id")
+        assert hasattr(area_obj, "area_name")
+        assert hasattr(area_obj, "competent_authority_id_functional")
+        assert hasattr(area_obj, "competent_authority_name")
+        assert hasattr(area_obj, "filename")
+        assert hasattr(area_obj, "created_at")
 
-        # Verify no extra keys
-        assert set(area_dict.keys()) == {
-            "areaId",
-            "areaName",
-            "regulation",
-            "competentAuthorityId",
-            "competentAuthorityName",
-            "filename",
-            "createdAt",
-        }
-
-        # Verify types
-        assert isinstance(area_dict["areaId"], str)
-        assert len(area_dict["areaId"]) == 36  # UUID format
-        assert isinstance(area_dict["areaName"], str) or area_dict["areaName"] is None
-        assert isinstance(area_dict["competentAuthorityId"], str)
-        assert isinstance(area_dict["competentAuthorityName"], str)
-        assert isinstance(area_dict["filename"], str)
+        assert isinstance(area_obj.area_id, str)
+        assert len(area_obj.area_id) == 36  # UUID format
+        assert isinstance(area_obj.area_name, str) or area_obj.area_name is None
+        assert isinstance(area_obj.competent_authority_id_functional, str)
+        assert isinstance(area_obj.competent_authority_name, str)
+        assert isinstance(area_obj.filename, str)
 
     async def test_get_areas_with_pagination_offset(self, async_session: AsyncSession):
         """Test getting areas with offset pagination"""
@@ -185,7 +178,7 @@ class TestAreaService:
         # near-identical timestamps, making order_by(created_at.desc()) non-deterministic.
         assert len(result) == 2
         all_ids = {"0001", "0002", "0003", "0004"}
-        ids = {area["competentAuthorityId"] for area in result}
+        ids = {area.competent_authority_id_functional for area in result}
         assert ids.issubset(all_ids)
 
     async def test_get_areas_with_pagination_limit(self, async_session: AsyncSession):
@@ -252,7 +245,7 @@ class TestAreaService:
         # near-identical timestamps, making order_by(created_at.desc()) non-deterministic.
         assert len(result) == 2
         all_ids = {"0001", "0002", "0003", "0004", "0005"}
-        ids = {area["competentAuthorityId"] for area in result}
+        ids = {area.competent_authority_id_functional for area in result}
         assert ids.issubset(all_ids)
 
     async def test_get_areas_pagination_offset_beyond_results(
@@ -310,6 +303,27 @@ class TestAreaService:
 
         # Assert
         assert result == 5
+
+    async def test_get_area_by_id_returns_none_when_missing(
+        self, async_session: AsyncSession
+    ):
+        assert await area.get_area_by_id(async_session, "missing-area") is None
+
+    async def test_get_area_by_id_returns_file_payload(
+        self, async_session: AsyncSession
+    ):
+        created = await AreaFactory.create_async(
+            async_session,
+            area_id="service-area-1",
+            filename="service.zip",
+            filedata=b"payload",
+        )
+
+        result = await area.get_area_by_id(async_session, created.area_id)
+
+        assert result is not None
+        assert result.filename == "service.zip"
+        assert result.filedata == b"payload"
 
     # Tests for create_area
 
@@ -512,9 +526,9 @@ class TestAreaService:
 
         # Assert - only latest version returned
         areas_list = await area.get_areas(async_session)
-        versioned = [a for a in areas_list if a["areaId"] == "versioned-area"]
+        versioned = [a for a in areas_list if a.area_id == "versioned-area"]
         assert len(versioned) == 1
-        assert versioned[0]["filename"] == "Area_v2.zip"
+        assert versioned[0].filename == "Area_v2.zip"
 
     async def test_create_area_rejects_deactivated_competent_authority(
         self, async_session: AsyncSession
@@ -683,11 +697,11 @@ class TestAreaService:
 
         # Assert
         assert len(ca1_areas) == 1
-        assert ca1_areas[0]["areaId"] == "ca1-area-1"
-        assert ca1_areas[0]["competentAuthorityId"] == "0363"
+        assert ca1_areas[0].area_id == "ca1-area-1"
+        assert ca1_areas[0].competent_authority_id_functional == "0363"
 
         assert len(ca2_areas) == 1
-        assert ca2_areas[0]["areaId"] == "ca2-area-1"
+        assert ca2_areas[0].area_id == "ca2-area-1"
 
     # Tests for get_own_area_by_id
 
@@ -709,8 +723,8 @@ class TestAreaService:
 
         # Assert
         assert result is not None
-        assert result["filename"] == "OwnArea.zip"
-        assert result["filedata"] == b"shapefiledata"
+        assert result.filename == "OwnArea.zip"
+        assert result.filedata == b"shapefiledata"
 
     async def test_get_own_area_by_id_not_found(self, async_session: AsyncSession):
         """Test get_own_area_by_id returns None for non-existent area"""

@@ -63,14 +63,19 @@ class CommonTemporalResponse(BaseModel):
 
     model_config = ConfigDict(
         title="Common.TemporalResponse",
+        from_attributes=True,
         populate_by_name=True,
     )
 
-    startDatetime: datetime = Field(
+    start_datetime: datetime = Field(
         ...,
-        alias="startDatetime",
+        serialization_alias="startDatetime",
+        validation_alias="start_date_time",
         description="Start date and time of the rental activity",
     )  # Attribute
-    endDatetime: datetime = Field(
-        ..., alias="endDatetime", description="End date and time of the rental activity"
+    end_datetime: datetime = Field(
+        ...,
+        serialization_alias="endDatetime",
+        validation_alias="end_date_time",
+        description="End date and time of the rental activity",
     )  # Attribute

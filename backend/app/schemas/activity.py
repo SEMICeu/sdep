@@ -55,6 +55,7 @@ def _validate_country_code_or_na(v: str) -> str:
 CountryAlpha3OrNA = Annotated[str, AfterValidator(_validate_country_code_or_na)]
 
 __all__ = [
+    "ActivityBulkCreate",
     "ActivityCountResponse",
     "ActivityListResponse",
     "ActivityRequest",
@@ -194,42 +195,20 @@ class ActivityRequest(BaseModel):
         description="Temporal composite (`startDatetime`, `endDatetime`)",
     )  # Composite
 
-    def to_service_dict(self, platform_id: str, platform_name: str) -> dict:
-        """
-        Convert Pydantic model to dictionary for service layer.
+    @property
+    def validated_activity_id(self) -> str:
+        """Return the normalized activity_id after bulk-service enrichment."""
+        if not isinstance(self.activity_id, str):
+            raise RuntimeError("activity_id should be set after normalization")
+        return self.activity_id
 
-        Normalizes metadata (platform) from batch level to each activity.
-        Flattens nested composites (address, temporal) to match service layer expectations.
-        Converts all field names to snake_case.
 
-        Args:
-            platform_id: Platform ID string from JWT token (client_id claim)
-            platform_name: Platform name from JWT token (client_name claim)
+class ActivityBulkCreate(ActivityRequest):
+    """Validated activity payload enriched with technical IDs for bulk insert."""
 
-        Returns:
-            Dictionary with snake_case keys and flattened structure
-        """
-        return {
-            "platform_id_str": platform_id,
-            "platform_name": platform_name,
-            "activity_id": self.activity_id,
-            "activity_name": self.activity_name,
-            "status": self.status,
-            "url": self.url,
-            "registration_number": self.registration_number,
-            "address_thoroughfare": self.address.thoroughfare,
-            "address_locator_designator_number": self.address.locator_designator_number,
-            "address_locator_designator_letter": self.address.locator_designator_letter,
-            "address_locator_designator_addition": self.address.locator_designator_addition,
-            "address_post_code": self.address.post_code,
-            "address_post_name": self.address.post_name,
-            "address_full_address": self.address.full_address,
-            "temporal_start_date_time": self.temporal.start_date_time,
-            "temporal_end_date_time": self.temporal.end_date_time,
-            "area_id": self.area_id,
-            "country_of_guests": self.country_of_guests,
-            "number_of_guests": self.number_of_guests,
-        }
+    platform_technical_id: int
+    area_technical_id: int
+    created_at: datetime
 
 
 class ActivityResponse(BaseModel):
@@ -243,7 +222,7 @@ class ActivityResponse(BaseModel):
 
     activity_id: FunctionalId = Field(
         ...,
-        alias="activityId",
+        serialization_alias="activityId",
         description="Functional ID identifying this activity",
         examples=[
             "550e8400-e29b-41d4-a716-446655440000",
@@ -252,7 +231,7 @@ class ActivityResponse(BaseModel):
     )  # Functional ID
     activity_name: str | None = Field(
         None,
-        alias="activityName",
+        serialization_alias="activityName",
         max_length=64,
         description="Display name (optional) of the activity",
     )  # Functional name
@@ -263,7 +242,9 @@ class ActivityResponse(BaseModel):
     )
     area_id: FunctionalId = Field(
         ...,
-        alias="areaId",
+        serialization_alias="areaId",
+        # The ORM model exposes a convenience property for the functional area ID.
+        validation_alias="area_id_functional",
         description="Functional ID referencing the area where this activity took place",
         examples=[
             "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
@@ -272,13 +253,15 @@ class ActivityResponse(BaseModel):
     )  # Functional ID reference
     competent_authority_id: FunctionalId = Field(
         ...,
-        alias="competentAuthorityId",
+        serialization_alias="competentAuthorityId",
+        # The ORM model exposes a convenience property for the functional CA ID.
+        validation_alias="competent_authority_id_functional",
         description="Functional ID referencing the competent authority that owns the area",
         examples=["sdep-ca0363", "SDEP-CA0363"],
     )  # Attribute
     competent_authority_name: str | None = Field(
         None,
-        alias="competentAuthorityName",
+        serialization_alias="competentAuthorityName",
         max_length=64,
         description="Display name (optional) of the competent authority",
     )  # Attribute
@@ -291,15 +274,17 @@ class ActivityResponse(BaseModel):
     )  # Composite
     registration_number: str = Field(
         ...,
-        alias="registrationNumber",
+        serialization_alias="registrationNumber",
         description="Registration number of the address",
     )  # Attribute
     number_of_guests: int = Field(
-        ..., alias="numberOfGuests", description="Number of guests (1-1024)"
+        ...,
+        serialization_alias="numberOfGuests",
+        description="Number of guests (1-1024)",
     )  # Attribute
     country_of_guests: list[CountryAlpha3OrNA] = Field(
         ...,
-        alias="countryOfGuests",
+        serialization_alias="countryOfGuests",
         description="Array of country codes of guests (each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
     )  # Attribute
     temporal: CommonTemporalResponse = Field(
@@ -307,19 +292,21 @@ class ActivityResponse(BaseModel):
     )  # Composite
     platform_id: FunctionalId = Field(
         ...,
-        alias="platformId",
+        serialization_alias="platformId",
+        # The ORM model exposes a convenience property for the functional platform ID.
+        validation_alias="platform_id_functional",
         description="Functional ID referencing the platform that owns the activity",
         examples=["str01", "STR01"],
     )  # Attribute
     platform_name: str | None = Field(
         None,
-        alias="platformName",
+        serialization_alias="platformName",
         max_length=64,
         description="Display name (optional) of the platform",
     )  # Attribute
     created_at: datetime = Field(
         ...,
-        alias="createdAt",
+        serialization_alias="createdAt",
         description="Timestamp when this activity version was created (UTC)",
     )  # Attribute
 

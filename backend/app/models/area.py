@@ -106,3 +106,13 @@ class Area(Base):
     def __repr__(self) -> str:
         """String representation of Area."""
         return f"<Area(id={self.id}, area_id='{self.area_id}', filename='{self.filename}')>"
+
+    @property
+    def competent_authority_id_functional(self) -> str:
+        """Return the related competent authority functional ID."""
+        return self.competent_authority.competent_authority_id
+
+    @property
+    def competent_authority_name(self) -> str | None:
+        """Return the related competent authority display name."""
+        return self.competent_authority.competent_authority_name

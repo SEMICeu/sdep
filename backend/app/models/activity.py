@@ -183,3 +183,28 @@ class Activity(Base):
     def __repr__(self) -> str:
         """String representation of Activity."""
         return f"<Activity(id={self.id}, activity_id='{self.activity_id}', url='{self.url}', registration_number='{self.registration_number}')>"
+
+    @property
+    def area_id_functional(self) -> str:
+        """Return the related area functional ID."""
+        return self.area.area_id
+
+    @property
+    def competent_authority_id_functional(self) -> str:
+        """Return the related competent authority functional ID."""
+        return self.area.competent_authority.competent_authority_id
+
+    @property
+    def competent_authority_name(self) -> str | None:
+        """Return the related competent authority display name."""
+        return self.area.competent_authority.competent_authority_name
+
+    @property
+    def platform_id_functional(self) -> str:
+        """Return the related platform functional ID."""
+        return self.platform.platform_id
+
+    @property
+    def platform_name(self) -> str | None:
+        """Return the related platform display name."""
+        return self.platform.platform_name

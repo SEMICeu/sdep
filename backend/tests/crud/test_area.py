@@ -289,6 +289,24 @@ class TestAreaCRUD:
         # Assert
         assert len(results) == 0
 
+    async def test_get_by_competent_authority_id_with_limit(
+        self, async_session: AsyncSession
+    ):
+        ca = await CompetentAuthorityFactory.create_async(async_session)
+        for idx in range(3):
+            await AreaFactory.create_async(
+                async_session,
+                competent_authority_id=ca.id,
+                filename=f"limit-{idx}.zip",
+                filedata=b"data",
+            )
+
+        results = await area.get_by_competent_authority_id(
+            async_session, ca.id, limit=2
+        )
+
+        assert len(results) == 2
+
     async def test_get_by_filename(self, async_session: AsyncSession):
         """Test getting areas by filename."""
         # Arrange
@@ -307,6 +325,20 @@ class TestAreaCRUD:
         # Assert
         assert len(results) == 1
         assert results[0].filename == filename
+
+    async def test_get_by_filename_with_limit(self, async_session: AsyncSession):
+        ca = await CompetentAuthorityFactory.create_async(async_session)
+        for _ in range(3):
+            await AreaFactory.create_async(
+                async_session,
+                competent_authority_id=ca.id,
+                filename="repeat.zip",
+                filedata=b"data",
+            )
+
+        results = await area.get_by_filename(async_session, "repeat.zip", limit=2)
+
+        assert len(results) == 2
 
     async def test_get_by_area_id(self, async_session: AsyncSession):
         """Test getting area by functional area_id (UUID)."""
@@ -366,6 +398,23 @@ class TestAreaCRUD:
         # Assert
         assert result is False
 
+    async def test_get_area_ca_map_returns_mapping(self, async_session: AsyncSession):
+        """Test get_area_ca_map returns current area to CA metadata mapping."""
+        mapped_area = await AreaFactory.create_async(
+            async_session,
+            area_id="mapped-area-id",
+            competent_authority_id="ca-map-id",
+            competent_authority_name="Mapped Authority",
+        )
+
+        result = await area.get_area_ca_map(
+            async_session, ["mapped-area-id", "missing-area-id"]
+        )
+
+        assert result == {
+            "mapped-area-id": (mapped_area.id, "ca-map-id", "Mapped Authority")
+        }
+
     async def test_count_by_competent_authority_id_str(
         self, async_session: AsyncSession
     ):
@@ -399,6 +448,42 @@ class TestAreaCRUD:
 
         # Assert
         assert total == 0
+
+    async def test_get_by_competent_authority_id_str_with_limit(
+        self, async_session: AsyncSession
+    ):
+        ca = await CompetentAuthorityFactory.create_async(
+            async_session,
+            competent_authority_id="limit-ca",
+            competent_authority_name="Limit CA",
+        )
+        for idx in range(3):
+            await AreaFactory.create_async(
+                async_session,
+                competent_authority_id=ca.id,
+                filename=f"ca-limit-{idx}.zip",
+                filedata=b"data",
+            )
+
+        results = await area.get_by_competent_authority_id_str(
+            async_session, "limit-ca", limit=2
+        )
+
+        assert len(results) == 2
+
+    async def test_get_area_id_map_handles_empty_and_nonempty_input(
+        self, async_session: AsyncSession
+    ):
+        assert await area.get_area_id_map(async_session, []) == {}
+
+        first = await AreaFactory.create_async(async_session, area_id="map-area-1")
+        second = await AreaFactory.create_async(async_session, area_id="map-area-2")
+
+        result = await area.get_area_id_map(
+            async_session, [first.area_id, second.area_id, "missing"]
+        )
+
+        assert result == {first.area_id: first.id, second.area_id: second.id}
 
     async def test_get_by_area_id_and_competent_authority_id_str(
         self, async_session: AsyncSession
