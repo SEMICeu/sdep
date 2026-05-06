@@ -365,8 +365,8 @@ class TestStrAreaAPI:
         data = response.json()
         assert len(data["areas"]) == 2
         authority_ids = [area["competentAuthorityId"] for area in data["areas"]]
-        assert "0003" in authority_ids
-        assert "0004" in authority_ids
+        assert "0001" in authority_ids
+        assert "0002" in authority_ids
 
     async def test_get_areas_with_pagination_limit(
         self, async_session: AsyncSession, setup_overrides, competent_authority
@@ -447,7 +447,7 @@ class TestStrAreaAPI:
         data = response.json()
         assert len(data["areas"]) == 2
         authority_ids = [area["competentAuthorityId"] for area in data["areas"]]
-        assert "0002" in authority_ids
+        assert "0004" in authority_ids
         assert "0003" in authority_ids
 
     async def test_get_areas_pagination_offset_beyond_results(

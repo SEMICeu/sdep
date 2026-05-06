@@ -1,6 +1,6 @@
 clients:
 
-  # Test clients (automated testruns, ephemeral)
+  # 1. Test clients (automated testruns, ephemeral)
   # Naming convention sdep-test-ca*, sdep-test-str*, for automatic cleanup
 
   # -- Short-term rental platforms (STR)
@@ -23,7 +23,7 @@ clients:
       - sdep_read
       - sdep_write
 
-  # Test clients (interactive usage)
+  # 2. Test clients (interactive usage)
   # Naming convention sdep-ca*, sdep-str* (avoid "sdep-test" to refrain from automatic cleanup)
 
   # -- Short-term rental platforms (STR)
@@ -46,7 +46,7 @@ clients:
       - sdep_read
       - sdep_write
 
-  #  Test clients (interactive usage, deployed with predefined testdata)
+  #  3. Test clients (interactive usage, deployed with predefined testdata)
   #  Naming convention sdep-ca*, sdep-str* (avoid "sdep-test" to refrain from automatic cleanup)
 
   # -- Competent authorities (CA)

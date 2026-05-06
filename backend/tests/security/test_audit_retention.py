@@ -111,8 +111,8 @@ class TestAuditLogCleanupLoop:
             task = asyncio.create_task(
                 audit_log_cleanup_loop(retention_days=1, interval_seconds=0.01)
             )
-            # Let a few cycles run
-            await asyncio.sleep(0.05)
+            # Let a few cycles run (generous margin for e.g. slow CI runners)
+            await asyncio.sleep(0.2)
             task.cancel()
             with pytest.raises(asyncio.CancelledError):
                 await task

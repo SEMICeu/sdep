@@ -330,7 +330,8 @@ async def get_by_competent_authority_id(
             CompetentAuthority.competent_authority_id == competent_authority_id,
             Activity.ended_at.is_(None),
         )
-        .order_by(Activity.created_at.desc())
+        # Secondary sort on id ensures deterministic pagination order when rows share the same created_at
+        .order_by(Activity.created_at.desc(), Activity.id.desc())
         .offset(offset)
     )
     if limit is not None:

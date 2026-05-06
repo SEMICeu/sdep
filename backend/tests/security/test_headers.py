@@ -50,7 +50,7 @@ class TestSecurityHeadersMiddleware:
             # Cross-origin protections
             assert response.headers["Cross-Origin-Opener-Policy"] == "same-origin"
             assert response.headers["Cross-Origin-Resource-Policy"] == "same-origin"
-            assert response.headers["Cross-Origin-Embedder-Policy"] == "unsafe-none"
+            assert response.headers["Cross-Origin-Embedder-Policy"] == "require-corp"
 
             # Permissions policy
             assert "Permissions-Policy" in response.headers
@@ -59,19 +59,18 @@ class TestSecurityHeadersMiddleware:
             assert "microphone=()" in permissions
             assert "camera=()" in permissions
 
-    async def test_csp_allows_swagger_ui_cdn(self):
-        """Test that CSP policy allows Swagger UI CDN resources."""
+    async def test_csp_allows_swagger_ui_cdn_on_docs(self):
+        """Test that CSP on Swagger docs paths allows CDN resources."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/api/ping")
+            response = await client.get("/api/auth/v1/docs")
 
             csp = response.headers["Content-Security-Policy"]
 
-            # Should allow cdn.jsdelivr.net for Swagger UI
             assert "https://cdn.jsdelivr.net" in csp
             assert "script-src" in csp and "cdn.jsdelivr.net" in csp
             assert "style-src" in csp and "cdn.jsdelivr.net" in csp
-            assert "font-src" in csp
+            assert "font-src" in csp and "cdn.jsdelivr.net" in csp
 
     async def test_csp_blocks_unsafe_eval(self):
         """Test that CSP does not allow unsafe-eval (XSS protection)."""
@@ -132,14 +131,16 @@ class TestSecurityHeadersMiddleware:
             assert "no-store" in cache_control or "no-cache" in cache_control
             assert response.headers.get("Pragma") == "no-cache"
 
-    async def test_hsts_disabled_by_default(self):
-        """Test that HSTS is disabled (handled by Nginx in production)."""
+    async def test_hsts_enabled(self):
+        """Test that HSTS is enabled as defense-in-depth."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.get("/api/ping")
 
-            # HSTS should not be present (handled by reverse proxy)
-            assert "Strict-Transport-Security" not in response.headers
+            hsts = response.headers.get("Strict-Transport-Security")
+            assert hsts is not None
+            assert "max-age=" in hsts
+            assert "includeSubDomains" in hsts
 
     async def test_all_api_endpoints_have_headers(self):
         """Test that all API endpoints receive security headers."""
@@ -269,3 +270,75 @@ class TestOWASPSecurityHeaders:
             assert response.headers["Referrer-Policy"] == "no-referrer"
             assert response.headers["Cross-Origin-Opener-Policy"] == "same-origin"
             assert response.headers["Cross-Origin-Resource-Policy"] == "same-origin"
+
+
+@pytest.mark.asyncio
+class TestRouteSpecificCSP:
+    """Tests for route-specific Content-Security-Policy."""
+
+    async def test_csp_strict_on_root(self):
+        """Root URL has strict CSP — no 'unsafe-inline', no CDN."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/")
+
+            csp = response.headers["Content-Security-Policy"]
+            assert "'unsafe-inline'" not in csp
+            assert "cdn.jsdelivr.net" not in csp
+
+    async def test_csp_strict_on_api_endpoints(self):
+        """API endpoints have strict CSP — no 'unsafe-inline', no CDN."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/ping")
+
+            csp = response.headers["Content-Security-Policy"]
+            assert "'unsafe-inline'" not in csp
+            assert "cdn.jsdelivr.net" not in csp
+
+    async def test_csp_landing_allows_inline_style_only(self):
+        """Docs landing page allows 'unsafe-inline' in style-src only."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/docs")
+
+            csp = response.headers["Content-Security-Policy"]
+
+            # style-src should allow unsafe-inline (for the inline <style>)
+            for directive in csp.split(";"):
+                if "style-src" in directive:
+                    assert "'unsafe-inline'" in directive
+                elif "script-src" in directive:
+                    assert "'unsafe-inline'" not in directive
+
+            # No CDN needed on landing page
+            assert "cdn.jsdelivr.net" not in csp
+
+    async def test_csp_relaxed_on_swagger_docs(self):
+        """Swagger UI docs pages have relaxed CSP with CDN and 'unsafe-inline'."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            for path in ["/api/auth/v1/docs", "/api/ca/v1/docs", "/api/str/v1/docs"]:
+                response = await client.get(path)
+
+                csp = response.headers["Content-Security-Policy"]
+                assert "'unsafe-inline'" in csp, f"Missing 'unsafe-inline' on {path}"
+                assert "cdn.jsdelivr.net" in csp, f"Missing CDN on {path}"
+
+    async def test_csp_common_directives_on_all_paths(self):
+        """All paths share the same base security directives."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            paths = ["/", "/api/ping", "/api/docs", "/api/auth/v1/docs"]
+
+            for path in paths:
+                response = await client.get(path)
+                csp = response.headers["Content-Security-Policy"]
+
+                assert "default-src 'self'" in csp, f"Missing default-src on {path}"
+                assert "frame-ancestors 'none'" in csp, (
+                    f"Missing frame-ancestors on {path}"
+                )
+                assert "object-src 'none'" in csp, f"Missing object-src on {path}"
+                assert "base-uri 'self'" in csp, f"Missing base-uri on {path}"
+                assert "form-action 'self'" in csp, f"Missing form-action on {path}"

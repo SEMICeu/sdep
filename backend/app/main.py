@@ -84,6 +84,30 @@ app.add_middleware(
     enable_csp=True,
     csp_policy=(
         "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "object-src 'none'; "
+        "form-action 'self'"
+    ),
+    csp_policy_landing=(
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "object-src 'none'; "
+        "form-action 'self'"
+    ),
+    csp_policy_docs=(
+        "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
         "img-src 'self' data:; "
@@ -94,7 +118,7 @@ app.add_middleware(
         "object-src 'none'; "
         "form-action 'self'"
     ),
-    enable_hsts=False,  # Handled by Nginx in production
+    enable_hsts=True,
 )
 
 # ============================================================================

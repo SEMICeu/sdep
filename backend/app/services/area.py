@@ -52,7 +52,8 @@ async def get_areas(
         select(Area)
         .options(selectinload(Area.competent_authority))
         .where(Area.ended_at.is_(None))
-        .order_by(Area.created_at.desc())
+        # Secondary sort on id ensures deterministic pagination order when rows share the same created_at
+        .order_by(Area.created_at.desc(), Area.id.desc())
         .offset(offset)
     )
     if limit is not None:

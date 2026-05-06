@@ -1,10 +1,19 @@
 # Changelog
 
+## 260507
+
+- Improved API doc (corrected a typo)
+- Hardened pagination impl and some tests
+- Improved security headers (enabled CORP, fixed CSP, consistently enabled HSTS)
+- Improved [security documentation](./docs/SECURTITY.md)
+
+*No API v1 impact*
+
 ## 260506
 
 - Improved API doc
 
-*No public API impact*
+*No API v1 impact*
 
 ## 260505
 
@@ -17,7 +26,7 @@
 - Enforced code coverage to 100% (TYPE_CHECKING blocks excluded since they never run at runtime; guard: --cov-fail-under=100)
 - Added a "make check" prerequisite to "make test" targets
 
-*No public API impact*
+*No API v1 impact*
 
 ## 260424 - API v1 freeze
 
@@ -40,7 +49,7 @@
 - Improved OpenAPI schema titles to qualifier-first dotted form (e.g. `Activity.Request`, `Activity.BulkRequest`, ...)
 - Promoted `Address` and `Temporal` composites to the new `Common` qualifier
 - Renamed Python classes to match the qualifier-first convention (`BulkActivityRequest` → `ActivityBulkRequest`, `AddressRequest` → `CommonAddressRequest`, etc.)
-- Improved Dockerfile to harden outage of <https://astral.sh/uv/0.5.4/install.sh>
+- Improved Dockerfile to harden outage of `install.sh` package from https://astral.sh/uv
 - Extended the integration tests (added bulk to the standard "make test", and allow for a "make test-keep")
 - Hardened the performance tests
 

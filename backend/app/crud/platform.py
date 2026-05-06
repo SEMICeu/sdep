@@ -100,7 +100,8 @@ async def get_all(session: AsyncSession) -> list[Platform]:
     stmt = (
         select(Platform)
         .where(Platform.ended_at.is_(None))
-        .order_by(Platform.created_at.desc())
+        # Secondary sort on id ensures deterministic pagination order when rows share the same created_at
+        .order_by(Platform.created_at.desc(), Platform.id.desc())
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())

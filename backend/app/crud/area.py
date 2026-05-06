@@ -118,7 +118,8 @@ async def get_all(
     stmt = (
         select(Area)
         .where(Area.ended_at.is_(None))
-        .order_by(Area.created_at.desc())
+        # Secondary sort on id ensures deterministic pagination order when rows share the same created_at
+        .order_by(Area.created_at.desc(), Area.id.desc())
         .offset(offset)
     )
     if limit is not None:
@@ -219,7 +220,8 @@ async def get_by_competent_authority_id_str(
             CompetentAuthority.competent_authority_id == competent_authority_id_str,
             Area.ended_at.is_(None),
         )
-        .order_by(Area.created_at.desc())
+        # Secondary sort on id ensures deterministic pagination order when rows share the same created_at
+        .order_by(Area.created_at.desc(), Area.id.desc())
         .offset(offset)
     )
     if limit is not None:

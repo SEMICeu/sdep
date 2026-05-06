@@ -100,7 +100,8 @@ async def get_all(
     stmt = (
         select(CompetentAuthority)
         .where(CompetentAuthority.ended_at.is_(None))
-        .order_by(CompetentAuthority.created_at.desc())
+        # Secondary sort on id ensures deterministic pagination order when rows share the same created_at
+        .order_by(CompetentAuthority.created_at.desc(), CompetentAuthority.id.desc())
         .offset(offset)
     )
     if limit is not None:
@@ -172,7 +173,8 @@ async def get_by_competent_authority_name(
             CompetentAuthority.competent_authority_name == competent_authority_name,
             CompetentAuthority.ended_at.is_(None),
         )
-        .order_by(CompetentAuthority.created_at.desc())
+        # Secondary sort on id ensures deterministic pagination order when rows share the same created_at
+        .order_by(CompetentAuthority.created_at.desc(), CompetentAuthority.id.desc())
         .offset(offset)
     )
     if limit is not None:

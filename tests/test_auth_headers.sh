@@ -83,7 +83,7 @@ test_endpoint_headers() {
     check_header "$endpoint" "Permissions-Policy" "" "$response_headers"
     check_header "$endpoint" "Cross-Origin-Opener-Policy" "same-origin" "$response_headers"
     check_header "$endpoint" "Cross-Origin-Resource-Policy" "same-origin" "$response_headers"
-    check_header "$endpoint" "Cross-Origin-Embedder-Policy" "unsafe-none" "$response_headers"
+    check_header "$endpoint" "Cross-Origin-Embedder-Policy" "require-corp" "$response_headers"
 
     echo
 }
@@ -211,8 +211,8 @@ test_endpoint_headers "/api/health" "Health check endpoint"
 test_endpoint_headers "/api/ping" "API ping endpoint (may be auth-protected)"
 test_endpoint_headers "/api/ca/${API_VERSION}/openapi.json" "OpenAPI schema endpoint"
 
-# Test CSP policy in detail
-test_csp_policy "/api/ping"
+# Test CSP policy in detail (on Swagger docs path where CDN is allowed)
+test_csp_policy "/api/ca/${API_VERSION}/docs"
 
 # Test sensitive endpoint caching
 test_sensitive_endpoint_caching "/api/ca/${API_VERSION}/openapi.json" "OpenAPI schema"

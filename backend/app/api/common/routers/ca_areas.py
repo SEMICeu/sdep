@@ -73,7 +73,7 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 - This is to ensure predictable performance, reduce abuse risk, and improve overall reliability
 
 **The request contains (multipart/form-data):**
-- `areaId`: Functional ID identifying this area (alphanumeric with hyphens `^[A-Za-z0-9.\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)
+- `areaId`: Functional ID identifying this area (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)
 - `areaName`: Display name (optional, max 64 chars)
 - `regulation`: Regulation type of the area - 'listing', 'activity', or 'all' (optional, defaults to 'all' when not supplied)
 - `file`: Shapefile upload (max 1 MiB)

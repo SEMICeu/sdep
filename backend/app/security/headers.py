@@ -26,24 +26,18 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         app: ASGIApp,
         enable_hsts: bool = True,
         hsts_max_age: int = 31536000,
-        enable_csp: bool = False,  # Disable by default if handled by Nginx
+        enable_csp: bool = False,
         csp_policy: str | None = None,
+        csp_policy_landing: str | None = None,
+        csp_policy_docs: str | None = None,
     ):
-        """
-        Initialize security headers middleware.
-
-        Args:
-            app: The ASGI application
-            enable_hsts: Enable Strict-Transport-Security header
-            hsts_max_age: Max age for HSTS in seconds (default: 1 year)
-            enable_csp: Enable Content-Security-Policy (disable if Nginx handles it)
-            csp_policy: Custom CSP policy string
-        """
         super().__init__(app)
         self.enable_hsts = enable_hsts
         self.hsts_max_age = hsts_max_age
         self.enable_csp = enable_csp
         self.csp_policy = csp_policy
+        self.csp_policy_landing = csp_policy_landing
+        self.csp_policy_docs = csp_policy_docs
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Add security headers to the response."""
@@ -73,10 +67,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # loading our responses as <script>, <img>, fetch(), etc.
         response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
 
-        # COEP (Cross-Origin-Embedder-Policy) - kept at unsafe-none on purpose.
-        # require-corp is too strict and caused 504/connectivity issues in K8s
-        # when embedding resources served by other in-cluster services.
-        response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
+        response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
 
         # Cache control for sensitive endpoints
         if self._is_sensitive_endpoint(request.url.path):
@@ -91,28 +82,40 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 f"max-age={self.hsts_max_age}; includeSubDomains; preload"
             )
 
-        # Content-Security-Policy (optional, usually handled by Nginx)
-        if self.enable_csp and self.csp_policy:
-            response.headers["Content-Security-Policy"] = self.csp_policy
+        # Content-Security-Policy — route-specific to keep the strict policy
+        # on paths that internet.nl tests (root, API endpoints) while allowing
+        # 'unsafe-inline' only on Swagger UI docs pages that require it.
+        if self.enable_csp:
+            path = request.url.path
+            if self._is_swagger_docs_endpoint(path):
+                policy = self.csp_policy_docs
+            elif self._is_docs_landing_endpoint(path):
+                policy = self.csp_policy_landing
+            else:
+                policy = self.csp_policy
+            if policy:
+                response.headers["Content-Security-Policy"] = policy
 
         return response
 
     def _is_sensitive_endpoint(self, path: str) -> bool:
-        """
-        Determine if an endpoint should have strict cache control.
-
-        Args:
-            path: The request path
-
-        Returns:
-            True if endpoint is sensitive and should not be cached
-        """
         sensitive_patterns = [
             "/api/auth/",
             "/api/ca/",
             "/api/str/",
         ]
         return any(path.startswith(pattern) for pattern in sensitive_patterns)
+
+    def _is_swagger_docs_endpoint(self, path: str) -> bool:
+        swagger_docs_paths = [
+            "/api/auth/v1/docs",
+            "/api/ca/v1/docs",
+            "/api/str/v1/docs",
+        ]
+        return path in swagger_docs_paths
+
+    def _is_docs_landing_endpoint(self, path: str) -> bool:
+        return path == "/api/docs"
 
 
 class ApiSecurityHeadersMiddleware(BaseHTTPMiddleware):

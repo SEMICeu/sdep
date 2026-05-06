@@ -61,7 +61,7 @@ occurrence is processed. Earlier occurrences receive NOK.
 - `activities`: Array of activity objects to process (1-1000 items per batch)
 
 **Each activity item in the request contains:**
-- `activityId`: Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9.\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)
+- `activityId`: Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)
 - `activityName`: Display name of the activity (optional, max 64 chars)
 - `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`
 - `areaId`: Functional ID referencing the area where the activity took place
