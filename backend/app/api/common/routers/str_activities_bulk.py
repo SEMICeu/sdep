@@ -38,15 +38,12 @@ router = APIRouter(tags=["str"])
     summary="Submit activities in bulk for the currently authenticated platform",
     description="""Submit 1-1000 activities into the activities collection for the currently authenticated platform.
 
-**ID pattern:**
-
-`activityId` is provided by the platform as a business identifier (optional).
-If not provided (or empty string), a UUID is auto-generated (RFC 9562).
+**ID Pattern:**
+- `activityId`: provided by the platform as business identifier (optional), otherwise generated as UUIDv4 (RFC 9562)
 
 **Versioning:**
-
-The same `activityId` can be resubmitted - this creates a new version with a different timestamp.
-Unique constraint: (`activityId`, `createdAt`, current authenticated platform).
+- Same `activityId` can be resubmitted → creates new version with different timestamp
+- Unique constraint: (`activityId`, `createdAt`, current authenticated platform)
 
 **Validation flow (4 steps):**
 
@@ -64,7 +61,7 @@ occurrence is processed. Earlier occurrences receive NOK.
 - `activities`: Array of activity objects to process (1-1000 items per batch)
 
 **Each activity item in the request contains:**
-- `activityId`: Functional ID identifying the activity (auto-generated UUID if not provided; alphanumeric with hyphens `^[A-Za-z0-9-]+$`, max 64 chars)
+- `activityId`: Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9.\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)
 - `activityName`: Display name of the activity (optional, max 64 chars)
 - `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`
 - `areaId`: Functional ID referencing the area where the activity took place

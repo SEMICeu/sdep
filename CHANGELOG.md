@@ -1,6 +1,12 @@
 # Changelog
 
-## 260505 - internal improvements
+## 260506
+
+- Improved API doc
+
+*No public API impact*
+
+## 260505
 
 - Eliminated dict-mapping boilerplate (services now return ORM objects directly; routers use model_validate for serialization)
 - Simplified schema-ORM binding

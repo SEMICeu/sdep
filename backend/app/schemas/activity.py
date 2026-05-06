@@ -107,7 +107,7 @@ class ActivityRequest(BaseModel):
     ] = Field(
         None,
         alias="activityId",
-        description="Functional ID identifying the activity (auto-generated UUID if not provided; alphanumeric with hyphens `^[A-Za-z0-9-]+$`, max 64 chars)",
+        description="Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9.\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)",
         examples=[
             "550e8400-e29b-41d4-a716-446655440000",
             "550E8400-E29B-41D4-A716-446655440000",
