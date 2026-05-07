@@ -9,7 +9,7 @@ The following security considerations apply:
 - [Smaller platforms](#smaller-platforms)
 - [Audit log](#audit-log)
 - [OWASP](#owasp)
-- [XSS, CSP](#xss-csp)
+- [XSS, CSP, SQL, Path (injection)](#xss-csp-sql-path-injection)
 - [CSRF](#csrf)
 - [Swagger UI](#swagger-ui)
 - [File upload](#file-upload)
@@ -124,16 +124,20 @@ Measures taken based on https://owasp.org/Top10/2025/:
 | **A02:2025** | Security misconfiguration             | Bad configurations / insecure defaults / environment mistakes                             | Externalized config (`config.py`)                                                       |
 | **A03:2025** | Software supply chain failures        | Vulnerabilities in dependencies and external libraries                                    | Image scans (part of CI/CD)                                                             |
 | **A04:2025** | Cryptographic failures                | Failures in encryption, key management                                                    | TLS terminated at Gateway (part of CI/CD); RS256 for JWT (e.g. Keycloak, part of CI/CD) |
-| **A05:2025** | Injection                             | Injection attacks (SQL, XSS, command, path, etc.)                                         | See XSS section below                                                                   |
+| **A05:2025** | Injection                             | Injection attacks (SQL, XSS, command, path, etc.)                                         | See XSS, CSP, SQL, Path (injection) section below                                       |
 | **A06:2025** | Insecure design                       | Poor security considered already at design/architecture phase                             | Security by design (SDEP documentation)                                                 |
 | **A07:2025** | Authentication Failures               | Weak or faulty authentication mechanisms (login, session management, credential handling) | Endpoints secured by OAuth2 with JWT                                                    |
 | **A08:2025** | Software or data integrity failures   | Failures in ensuring data / code integrity                                                | Pydantic validation and source code control (part of CI/CD)                             |
 | **A09:2025** | Logging and alerting failures         | Insufficient or missing logging/monitoring, alerting of security-relevant events          | Audit log                                                                               |
 | **A10:2025** | Mishandling of exceptional conditions | Improper handling of errors, exceptions, edge-cases, unexpected inputs or states          | Exception handling (`exception_handlers.py`)                                            |
 
-## XSS, CSP
+## XSS, CSP, SQL, Path (injection)
 
-A Cross-Site Scripting attack (**XSS**) has three phases:
+---
+
+**XSS, CSP**
+
+A **Cross-Site Scripting attack (XSS)** has three phases:
 
 1. **Input** — the attacker injects malicious content (e.g. `<script>`)
 2. **Storage / Reflection** — the application returns that content to a user
@@ -154,9 +158,35 @@ SDEP mitigates these phases as follows.
 **Route-specific Content Security Policy headers (CSP)** are added, to avoid foreign script execution in browser:
 
 - Implemented in the [`headers.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/security/headers.py) middleware (tells the browser which sources are allowed to execute, and blocks everything else)
-- Applies a **route-specific CSP**: strict on all API and root paths, relaxed only on Swagger UI docs pages
+- Applies a **route-specific CSP** (strict on all API and root paths, relaxed only on Swagger UI docs pages)
 - Motivation: Swagger UI requires `'unsafe-inline'` for its inline scripts and `style=""` attributes (nonces/hashes cannot cover the inline style attributes here)
 - https://thecodebuzz.com/content-security-policy-csp-swagger-ui-openapi/
+
+---
+
+**SQL**
+
+A **SQL injection** attack manipulates database queries by inserting malicious SQL fragments into user input (e.g. `' OR 1=1 --`), potentially reading, modifying, or deleting data.
+
+SQL injection is mitigated by design through the technology stack:
+
+- All database access uses **SQLAlchemy ORM** with its query builder API (`select()`, `insert()`, `update()`, `delete()`)
+- All user-supplied values are passed as **bound parameters** — SQLAlchemy never interpolates values into SQL strings
+- There are **no raw SQL strings** anywhere in the codebase (including audit log retention, which also uses the SQLAlchemy query builder)
+- Pydantic validates and constrains all input **before** it reaches the database layer (type checks, max lengths, regex patterns)
+
+---
+
+**Path**
+
+A **path traversal** attack manipulates file paths by inserting directory traversal sequences (e.g. `../../etc/passwd`) into user input, potentially reading or overwriting files outside the intended directory.
+
+Path traversal is mitigated by design through the application architecture:
+
+- **No filesystem operations on user-supplied input** — uploaded files are read into memory and stored as binary blobs (`LargeBinary`) in the database, not written to disk
+- The uploaded filename is stored as metadata in the database only; it is **never used to construct filesystem paths**
+- All functional IDs (used in URL path parameters and form fields) are validated against a strict alphanumeric pattern (`^[A-Za-z0-9\-]+$` in [`common.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/schemas/common.py)), which rejects path traversal characters (`/`, `\`, `.`, `..`)
+- JWT claims used as identifiers (`client_id`) are validated against the same pattern before use
 
 ## CSRF
 
@@ -189,7 +219,7 @@ File uploads are protected by size limit (`MAX_FILE_SIZE = 1_048_576` = 1 MiB)
 Todo:
 
 - Only accept .zip as input format - see comments in issue [#73](https://github.com/SEMICeu/sdep/issues/73)
-- This change is beyond the current CA v1 freez``e (because contract narrowing)
+- This change is beyond the current CA v1 freeze (because contract narrowing)
 
 ## Secrets
 
