@@ -23,7 +23,7 @@ The following security considerations apply:
 
 ## Identification
 
-Upfront identification of machine-clients is handled process-wise (outside the scope of this document).
+Upfront identification of machine-clients is handled process-wise (outside the scope of this repo).
 
 ## Authentication and authorization
 
@@ -107,7 +107,7 @@ Together, the database table and stdout output provide complementary access path
 **Deployment and log shipping are out of scope**
 
 - This document defines how the application produces audit records and where it emits them.
-- (Kubernetes) deployment details and external log management configuration are outside the scope of this document.
+- (Kubernetes) deployment details and external log management configuration are outside the scope of this repo.
 
 ---
 
