@@ -8,24 +8,18 @@ The following security considerations apply:
 - [Authentication and authorization](#authentication-and-authorization)
 - [Smaller platforms](#smaller-platforms)
 - [Audit log](#audit-log)
-  - [Scope](#scope)
-  - [Implementation approach](#implementation-approach)
-  - [Audit fields](#audit-fields)
-  - [Action mapping](#action-mapping)
-  - [Example](#example)
-  - [Skip list](#skip-list)
-  - [Retention](#retention)
 - [OWASP](#owasp)
 - [XSS, CSP](#xss-csp)
+- [CSRF](#csrf)
 - [Swagger UI](#swagger-ui)
 - [File upload](#file-upload)
 - [Secrets](#secrets)
-- [Dependency scanning\`\`](#dependency-scanning)
+- [Dependency scanning](#dependency-scanning)
 - [Security headers](#security-headers)
-- [CSRF](#csrf)
-- [DNS, TLS](#dns-tls)
+- [Security headers, DNS, TLS](#security-headers-dns-tls)
+- [Audit log (details)](#audit-log-details)
 
-*To the application scope; CI/CD-related aspects are outside the scope of this repo.*
+*This document applies to the application scope only, as CI/CD-related aspects are outside the scope of this repo.*
 
 ## Identification
 
@@ -39,8 +33,13 @@ https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
 
 **Authentication** proves who the client is.
 
-- For machine-to-machine (M2M) communication, the client uses the Client Credentials Flow to identify itself to the authorization server—typically via a client_id and client_secret (or a signed JWT assertion) in exchange for an access token.
-- SDEP-NL: client_id and client_secret
+- For machine-to-machine (M2M) communication, the client uses the Client Credentials Flow to identify itself to the authorization server in exchange for an access token
+- Authentication typically takes place via client_id and client_secret, or a signed JWT assertion
+
+SDEP-NL adopts client_id and client_secret, motivated by:
+
+- Compatibility: better support across legacy libraries and third-party tools.
+- Reduced complexity: avoids the operational burden of managing keystores and certificates.
 
 **Authorization** determines what the client is allowed to do.
 
@@ -57,21 +56,27 @@ In such case, the platform arranges data submission with their party; the party 
 
 The audit log, implemented in [`audit.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/security/audit.py), logs "**who** did **what**, **where**, **when**, **from where**, and with what **result**".
 
-### Scope
+Scope:
 
 - For technical management only (troubleshooting security, performance, ...)
 - Enough context to reconstruct important actions
 - No sensitive (personal) data
 
-### Implementation approach
+Implementation approach as follows.
+
+---
 
 **Middleware-based audit capture**
 
 A Starlette `BaseHTTPMiddleware` intercepts each request/response cycle and creates an audit record for every relevant interaction.
 
+---
+
 **Non-blocking audit writes**
 
 Audit records are persisted asynchronously using `asyncio.create_task()`, so audit logging does not block or delay the application response path.
+
+---
 
 **Primary output: `audit_log` database table**
 
@@ -81,9 +86,15 @@ Audit records are written to the `audit_log` table in the application database.
 - **Error-resilient:** audit write failures are logged, but they do not interrupt or fail the original request.
 - **Application-managed retention:** database retention is handled by the application and may be shorter than external log retention.
 
+---
+
 **Secondary output: structured JSON to stdout**
 
 Each audit record is also emitted as a single-line structured JSON object to stdout.
+
+---
+
+**Complementary access paths**
 
 Together, the database table and stdout output provide complementary access paths:
 
@@ -91,89 +102,17 @@ Together, the database table and stdout output provide complementary access path
 - **Stdout:** useful for real-time operational visibility, for example when viewing container logs.
 - **Stdout → external log management:** stdout can be collected by the runtime environment and forwarded to external log tooling, such as an Elastic/Kibana-based stack, for centralized search and longer retention.
 
+---
+
 **Deployment and log shipping are out of scope**
 
 - This document defines how the application produces audit records and where it emits them.
 - (Kubernetes) deployment details and external log management configuration are outside the scope of this document.
 
-### Audit fields
+---
 
-For each request that matters, capture:
+For more details, see section [Audit log (details)](#audit-log-details).
 
-| Field              | Source                      | Description                              | Answers |
-| :----------------- | :-------------------------- | :--------------------------------------- | :------ |
-| **timestamp**      | Server clock                | UTC, server default `now()`              | When    |
-| **requestId**      | Generated                   | UUID4 correlation ID                     | -       |
-| **roles**          | JWT `realm_access.roles`    | Comma-separated role list (nullable)     | Who     |
-| **resourceType**   | Derived from path           | Entity type, e.g. `area`, `activity`     | Where   |
-| **action**         | Derived from method + path  | Semantic action verb, e.g. `create`      | What    |
-| **httpMethod**     | Request                     | HTTP method (`GET`, `POST`, `DELETE`)    | What    |
-| **path**           | Request                     | Request path, e.g. `/api/ca/v1/areas`    | Where   |
-| **httpStatusCode** | Response                    | HTTP status code                         | Result  |
-| **statusCode**     | Derived from httpStatusCode | `OK` if httpStatusCode < 400, else `NOK` | Result  |
-| **durationMs**     | Calculated                  | Request processing time in milliseconds  | -       |
-
-### Action mapping
-
-The middleware derives a semantic action and resource type from the HTTP method and request path:
-
-| Method | Path pattern                  | Resource type | Action        |
-| :----- | :---------------------------- | :------------ | :------------ |
-| POST   | `/api/ca/v*/areas`            | `area`        | `create`      |
-| GET    | `/api/ca/v*/areas`            | `area`        | `list`        |
-| GET    | `/api/ca/v*/areas/count`      | `area`        | `count`       |
-| GET    | `/api/ca/v*/areas/{id}`       | `area`        | `read`        |
-| DELETE | `/api/ca/v*/areas/{id}`       | `area`        | `delete`      |
-| POST   | `/api/str/v*/activities/bulk` | `activity`    | `create_bulk` |
-| GET    | `/api/str/v*/areas`           | `area`        | `list`        |
-| GET    | `/api/str/v*/areas/count`     | `area`        | `count`       |
-| GET    | `/api/str/v*/areas/{id}`      | `area`        | `read`        |
-| GET    | `/api/ca/v*/activities`       | `activity`    | `list`        |
-| GET    | `/api/ca/v*/activities/count` | `activity`    | `count`       |
-| POST   | `/api/auth/v*/token`          | `auth`        | `token`       |
-| GET    | `/api/ping`                   | `system`      | `ping`        |
-
-Unmatched paths fall back to action `unknown`.
-
-### Example
-
-```
-| id  | timestamp                     | request_id   | roles                        | resource_type | action | http_method | path             | http_status_code | status_code | duration_ms |
-| --- | ----------------------------- | ------------ | ---------------------------- | ------------- | ------ | ----------- | ---------------- | ---------------- | ----------- | ----------- |
-| 20  | 2026-03-23 15:03:38.519686+00 | a34e8a0e-... | sdep_write,sdep_ca,sdep_read | system        | ping   | GET         | /api/ping        | 200              | OK          | 1           |
-| 21  | 2026-03-23 15:03:39.864974+00 | 7bccb30b-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/ca/v1/areas | 201              | OK          | 33          |
-| 22  | 2026-03-23 15:03:39.947615+00 | f357d78c-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/ca/v1/areas | 201              | OK          | 27          |
-| 23  | 2026-03-23 15:03:40.02963+00  | 02294cf4-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/ca/v1/areas | 201              | OK          | 18          |
-```
-
-### Skip list
-
-The following paths are **not** audited (high-frequency, low-value):
-
-- `/` (root)
-- `/api/docs` (landing page)
-- `/api/health`
-- `/api/auth/v1/openapi.json`, `/api/ca/v1/openapi.json`, `/api/str/v1/openapi.json`
-- `/api/auth/v1/docs`, `/api/ca/v1/docs`, `/api/str/v1/docs`
-
-### Retention
-
-**For the database table**, expired audit log rows are automatically deleted by a background task that runs every hour.
-
-- The retention period is configurable via the `AUDITLOG_RETENTION` environment variable (default: **1 day**).
-- Deletion is batched (1.000 rows per batch) to avoid long-running transactions.
-
-The retention logic in `audit_retention.py` is split into two functions with distinct responsibilities:
-
-- `delete_old_audit_logs` does the actual work;
-- `audit_log_cleanup_loop` is the scheduler that ensures that work runs repeatedly for the lifetime of the application.
-
-| Function                                                   | Responsibility                                                                                                                                                                                                                                                               | Invocation                                                                                                                                                                                                  |
-| :--------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `delete_old_audit_logs(retention_days)`                    | **One-shot deletion.** Deletes all audit log rows older than `retention_days` in batches of 1.000. Returns the total number of deleted rows. This is a pure async function that runs to completion and then returns - it does not loop or sleep.                             | Called by `audit_log_cleanup_loop` on each cycle. Can also be called standalone in scripts, tests, or one-off maintenance tasks.                                                                            |
-| `audit_log_cleanup_loop(retention_days, interval_seconds)` | **Infinite scheduling loop.** Calls `delete_old_audit_logs` once, then sleeps for `interval_seconds` (default 3.600 s = 1 hour), and repeats indefinitely until the task is cancelled. Catches and logs any exceptions so that a single failed cycle does not kill the loop. | Created as an `asyncio.Task` inside the FastAPI `lifespan` context manager in `main.py`. The task starts when the application boots and is cancelled (via `task.cancel()`) when the application shuts down. |
-
-**For stdout**, retention is assumed to be part of the deployment environment (out of scope of this repo).
 
 ## OWASP
 
@@ -219,6 +158,17 @@ SDEP mitigates these phases as follows.
 - Motivation: Swagger UI requires `'unsafe-inline'` for its inline scripts and `style=""` attributes (nonces/hashes cannot cover the inline style attributes here)
 - https://thecodebuzz.com/content-security-policy-csp-swagger-ui-openapi/
 
+## CSRF
+
+Cross-Site Request Forgery (CSRF) allows an attacker to trick a logged-in user into performing actions they didn't intend to do (via another website).
+
+Cross-Site Request Forgery (CSRF) is not applicable for SDEP:
+
+- SDEP uses stateless JWT bearer tokens in the `Authorization` header, not cookies — a browser cannot automatically attach credentials to a forged request, so CSRF is not possible
+- Swagger UI authenticates via the same bearer token mechanism — no cookies are used, so CSRF-tokens and cookie attributes (`SameSite=Strict; Secure; HttpOnly`) do not apply
+
+See also [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/security.py) (`OAuth2ClientCredentials`).
+
 ## Swagger UI
 
 The Swagger UI is intentionally served publicly by FastAPI without authentication, because the API itself is open source.
@@ -245,7 +195,7 @@ Todo:
 
 To avoid data leaks, secrets are externalized in [`config.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/config.py).
 
-## Dependency scanning``
+## Dependency scanning
 
 To avoid common vulnerabilities (CVEs), image scans are assumed to be part of CI/CD (out of scope of this repo).
 
@@ -267,7 +217,7 @@ To avoid misuse on various layers, HTTP-headers are hardened in [`main.py`](http
 | Permissions                     | `Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), speaker=(self)` | Unauthorized access to device features (geolocation, microphone, ...)                                              |
 | Referrer policy                 | `Referrer-Policy: no-referrer`                                                                                                    | Information leakage via Referer                                                                                    |
 
-Although CI/CD-related aspects are outside the scope of this repo, results for SDEP-NL are as follows.
+Although CI/CD-related aspects are outside the scope of this repo, test results for SDEP-NL are as follows.
 
 - SDEP-NL scores `A+` on [securityheaders.com](https://securityheaders.com/?q=https%3A%2F%2Fsdep.gov.nl)
 - This validates that response headers provide adequate browser-side protection
@@ -280,21 +230,102 @@ Note: the `Access-Control-Allow-Origin` (CORS) header is not applicable for SDEP
 - Swagger UI is served from the same origin as the API
   - So its requests are same-origin and CORS does not apply
 
-## CSRF
+## Security headers, DNS, TLS
 
-Cross-Site Request Forgery (CSRF) allows an attacker to trick a logged-in user into performing actions they didn't intend to do (via another website).
-
-Cross-Site Request Forgery (CSRF) is not applicable for SDEP:
-
-- SDEP uses stateless JWT bearer tokens in the `Authorization` header, not cookies — a browser cannot automatically attach credentials to a forged request, so CSRF is not possible
-- Swagger UI authenticates via the same bearer token mechanism — no cookies are used, so CSRF-tokens and cookie attributes (`SameSite=Strict; Secure; HttpOnly`) do not apply
-
-See also [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/security.py) (`OAuth2ClientCredentials`).
-
-## DNS, TLS
-
-Although CI/CD-related aspects are outside the scope of this repo, results for SDEP-NL are as follows.
+Although CI/CD-related aspects are outside the scope of this repo, additional test results for SDEP-NL are as follows.
 
 - SDEP-NL scores `100%` on [internet.nl](https://internet.nl/site/sdep.gov.nl)
 - This validates that transport-level security is correctly applied (poor basic configuration would increase the attack surface)
-- This applies to DNS, TLS, and the earlier defined security headers
+
+## Audit log (details)
+
+**Audit fields**
+
+For each request that matters, capture:
+
+| Field              | Source                      | Description                              | Answers |
+| :----------------- | :-------------------------- | :--------------------------------------- | :------ |
+| **timestamp**      | Server clock                | UTC, server default `now()`              | When    |
+| **requestId**      | Generated                   | UUID4 correlation ID                     | -       |
+| **roles**          | JWT `realm_access.roles`    | Comma-separated role list (nullable)     | Who     |
+| **resourceType**   | Derived from path           | Entity type, e.g. `area`, `activity`     | Where   |
+| **action**         | Derived from method + path  | Semantic action verb, e.g. `create`      | What    |
+| **httpMethod**     | Request                     | HTTP method (`GET`, `POST`, `DELETE`)    | What    |
+| **path**           | Request                     | Request path, e.g. `/api/ca/v1/areas`    | Where   |
+| **httpStatusCode** | Response                    | HTTP status code                         | Result  |
+| **statusCode**     | Derived from httpStatusCode | `OK` if httpStatusCode < 400, else `NOK` | Result  |
+| **durationMs**     | Calculated                  | Request processing time in milliseconds  | -       |
+
+---
+
+**Action mapping**
+
+The middleware derives a semantic action and resource type from the HTTP method and request path:
+
+| Method | Path pattern                  | Resource type | Action        |
+| :----- | :---------------------------- | :------------ | :------------ |
+| POST   | `/api/ca/v*/areas`            | `area`        | `create`      |
+| GET    | `/api/ca/v*/areas`            | `area`        | `list`        |
+| GET    | `/api/ca/v*/areas/count`      | `area`        | `count`       |
+| GET    | `/api/ca/v*/areas/{id}`       | `area`        | `read`        |
+| DELETE | `/api/ca/v*/areas/{id}`       | `area`        | `delete`      |
+| POST   | `/api/str/v*/activities/bulk` | `activity`    | `create_bulk` |
+| GET    | `/api/str/v*/areas`           | `area`        | `list`        |
+| GET    | `/api/str/v*/areas/count`     | `area`        | `count`       |
+| GET    | `/api/str/v*/areas/{id}`      | `area`        | `read`        |
+| GET    | `/api/ca/v*/activities`       | `activity`    | `list`        |
+| GET    | `/api/ca/v*/activities/count` | `activity`    | `count`       |
+| POST   | `/api/auth/v*/token`          | `auth`        | `token`       |
+| GET    | `/api/ping`                   | `system`      | `ping`        |
+
+Unmatched paths fall back to action `unknown`.
+
+---
+
+**Example**
+
+```
+| id  | timestamp                     | request_id   | roles                        | resource_type | action | http_method | path             | http_status_code | status_code | duration_ms |
+| --- | ----------------------------- | ------------ | ---------------------------- | ------------- | ------ | ----------- | ---------------- | ---------------- | ----------- | ----------- |
+| 20  | 2026-03-23 15:03:38.519686+00 | a34e8a0e-... | sdep_write,sdep_ca,sdep_read | system        | ping   | GET         | /api/ping        | 200              | OK          | 1           |
+| 21  | 2026-03-23 15:03:39.864974+00 | 7bccb30b-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/ca/v1/areas | 201              | OK          | 33          |
+| 22  | 2026-03-23 15:03:39.947615+00 | f357d78c-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/ca/v1/areas | 201              | OK          | 27          |
+| 23  | 2026-03-23 15:03:40.02963+00  | 02294cf4-... | sdep_write,sdep_ca,sdep_read | area          | create | POST        | /api/ca/v1/areas | 201              | OK          | 18          |
+```
+
+---
+
+**Skip list**
+
+The following paths are **not** audited (high-frequency, low-value):
+
+- `/` (root)
+- `/api/docs` (landing page)
+- `/api/health`
+- `/api/auth/v1/openapi.json`, `/api/ca/v1/openapi.json`, `/api/str/v1/openapi.json`
+- `/api/auth/v1/docs`, `/api/ca/v1/docs`, `/api/str/v1/docs`
+
+---
+
+**Retention of the database**
+
+**For the database table**, expired audit log rows are automatically deleted by a background task that runs every hour.
+
+- The retention period is configurable via the `AUDITLOG_RETENTION` environment variable (default: **1 day**).
+- Deletion is batched (1.000 rows per batch) to avoid long-running transactions.
+
+The retention logic in `audit_retention.py` is split into two functions with distinct responsibilities:
+
+- `delete_old_audit_logs` does the actual work;
+- `audit_log_cleanup_loop` is the scheduler that ensures that work runs repeatedly for the lifetime of the application.
+
+| Function                                                   | Responsibility                                                                                                                                                                                                                                                               | Invocation                                                                                                                                                                                                  |
+| :--------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `delete_old_audit_logs(retention_days)`                    | **One-shot deletion.** Deletes all audit log rows older than `retention_days` in batches of 1.000. Returns the total number of deleted rows. This is a pure async function that runs to completion and then returns - it does not loop or sleep.                             | Called by `audit_log_cleanup_loop` on each cycle. Can also be called standalone in scripts, tests, or one-off maintenance tasks.                                                                            |
+| `audit_log_cleanup_loop(retention_days, interval_seconds)` | **Infinite scheduling loop.** Calls `delete_old_audit_logs` once, then sleeps for `interval_seconds` (default 3.600 s = 1 hour), and repeats indefinitely until the task is cancelled. Catches and logs any exceptions so that a single failed cycle does not kill the loop. | Created as an `asyncio.Task` inside the FastAPI `lifespan` context manager in `main.py`. The task starts when the application boots and is cancelled (via `task.cancel()`) when the application shuts down. |
+
+---
+
+**Retention of stdout**
+
+**For stdout**, retention is assumed to be part of the deployment environment (out of scope of this repo).
