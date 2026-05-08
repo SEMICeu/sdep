@@ -58,7 +58,7 @@ The audit log, implemented in [`audit.py`](https://github.com/SEMICeu/sdep/blob/
 
 Scope:
 
-- For technical management only (troubleshooting security, performance, ...)
+- (Yet) for technical management only (troubleshooting security, performance, ...)
 - Enough context to reconstruct important actions
 - No sensitive (personal) data
 
@@ -124,10 +124,10 @@ Measures taken based on https://owasp.org/Top10/2025/:
 | **A02:2025** | Security misconfiguration             | Bad configurations / insecure defaults / environment mistakes                             | Externalized config (`config.py`)                                                       |
 | **A03:2025** | Software supply chain failures        | Vulnerabilities in dependencies and external libraries                                    | Image scans (part of CI/CD)                                                             |
 | **A04:2025** | Cryptographic failures                | Failures in encryption, key management                                                    | TLS terminated at Gateway (part of CI/CD); RS256 for JWT (e.g. Keycloak, part of CI/CD) |
-| **A05:2025** | Injection                             | Injection attacks (SQL, XSS, command, path, etc.)                                         | See section XSS, CSP, SQL, Path (injection)  below                                      |
+| **A05:2025** | Injection                             | Injection attacks (SQL, XSS, command, path, etc.)                                         | See section [XSS, CSP, SQL, Path (injection)](#xss-csp-sql-path-injection) below                                      |
 | **A06:2025** | Insecure design                       | Poor security considered already at design/architecture phase                             | Security by design (SDEP documentation)                                                 |
 | **A07:2025** | Authentication Failures               | Weak or faulty authentication mechanisms (login, session management, credential handling) | Endpoints secured by OAuth2 with JWT                                                    |
-| **A08:2025** | Software or data integrity failures   | Failures in ensuring data / code integrity                                                | Pydantic validation and source code control (part of CI/CD)                             |
+| **A08:2025** | Software or data integrity failures   | Failures in ensuring data / code integrity                                                | Pydantic validation (application) and source code control (part of CI/CD)                             |
 | **A09:2025** | Logging and alerting failures         | Insufficient or missing logging/monitoring, alerting of security-relevant events          | Audit log                                                                               |
 | **A10:2025** | Mishandling of exceptional conditions | Improper handling of errors, exceptions, edge-cases, unexpected inputs or states          | Exception handling (`exception_handlers.py`)                                            |
 
@@ -219,7 +219,7 @@ File uploads are protected by size limit (`MAX_FILE_SIZE = 1_048_576` = 1 MiB)
 Todo:
 
 - Only accept .zip as input format - see comments in issue [#73](https://github.com/SEMICeu/sdep/issues/73)
-- This change is beyond the current CA v1 freeze (because contract narrowing)
+- This change is beyond the current CA v1 freeze (because of contract narrowing)
 
 ## Secrets
 

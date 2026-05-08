@@ -146,11 +146,13 @@ sdep-app/
 │   │   ├── schemas/                            # Pydantic schemas (request/response)
 │   │   │   ├── activity.py
 │   │   │   ├── activity_bulk.py
+│   │   │   ├── address.py
 │   │   │   ├── area.py
 │   │   │   ├── auth.py
 │   │   │   ├── common.py                       # Shared types: FunctionalId, validate_functional_id()
 │   │   │   ├── error.py
-│   │   │   └── health.py
+│   │   │   ├── health.py
+│   │   │   └── temporal.py
 │   │   ├── security/                           # Security utilities
 │   │   │   ├── audit.py                        # Audit logging middleware
 │   │   │   ├── audit_retention.py              # Background audit log cleanup
@@ -165,10 +167,7 @@ sdep-app/
 │   ├── alembic/                                # Database migrations
 │   │   ├── env.py                              # Alembic environment config
 │   │   └── versions/                           # Migration scripts
-│   │       ├── 001_initial.py                  # Initial migration
-│   │       ├── 002_audit_log.py                # Audit log table
-│   │       ├── 003_address_inspire.py          # INSPIRE/STR-AP address field rename
-│   │       └── 004_area_regulation.py          # Area regulation enum column
+│   │       └── 001_initial.py                  # Initial migration
 │   ├── tests/                                  # Unit tests (mirrors app/ structure)
 │   │   ├── api/                                # API layer tests
 │   │   ├── crud/                               # CRUD layer tests
@@ -204,6 +203,7 @@ sdep-app/
 │   ├── add-realm.sh                            # Initialize realm
 │   ├── get-client-secret.sh                    # Retrieve client secret
 │   ├── machine-clients.yaml                    # Machine client definitions (CA, STR)
+│   ├── realm.yaml                              # Realm configuration
 │   ├── roles.yaml                              # Role definitions
 │   └── wait.sh                                 # Wait for Keycloak startup
 │
@@ -699,7 +699,7 @@ Clients are allowed to submit their own functional IDs (alphanumeric with hyphen
 Because some CHECK constraints rely on PostgreSQL-specific SQL (e.g. `array_length`) and cannot run on SQLite, they are declared PostgreSQL-only in both the model (`.ddl_if(dialect="postgresql")`) and the Alembic migration (wrapped in `if is_postgres:`); the DDL is skipped under SQLite, so enforcement falls back to the application layers above the DB:
 
 - **Model** (`backend/app/models/activity.py`) - `CheckConstraint("number_of_guests = array_length(country_of_guests, 1)", name="ck_activity_guests_cardinality").ddl_if(dialect="postgresql")`
-- **Migration** (`backend/alembic/versions/007_guests_required_and_cardinality.py`) - the `create_check_constraint(...)` call is inside an `if is_postgres:` guard
+- **Migration** (`backend/alembic/versions/001_initial.py`) - the `create_check_constraint(...)` call is inside an `if is_postgres:` guard
 - **Pydantic fallback** - `ActivityRequest.validate_guest_cardinality` (`@model_validator(mode="after")`) rejects mismatched requests, covering every API/bulk path including SQLite-backed unit tests
 - **Factory fallback** - `ActivityFactory.country_of_guests = LazyAttribute(lambda o: ["NLD"] * o.number_of_guests)` guarantees consistency for CRUD-level tests that call `activity.create()` directly and bypass Pydantic
 

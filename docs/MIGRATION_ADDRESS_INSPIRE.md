@@ -98,7 +98,7 @@ A new required `fullAddress` string field has been added to the Address composit
 - **Type:** `string`, required, max length 318 characters (= 80 + 10 + 10 + 128 + 10 + 80, the sum of the other address field maximums).
 - **Semantics:** client-supplied, free-form rendering of the complete address. The server does not derive or normalize the value; it stores whatever the submitting platform provides, up to the length limit.
 - **Example:** `"Turfmarkt 147a-5h, 2500EA Den Haag"`.
-- **Migration:** Alembic revision `006` adds the column as nullable, backfills existing rows by concatenating the other address fields (`thoroughfare`, `locatorDesignatorNumber`, `locatorDesignatorLetter`, `locatorDesignatorAddition`, `postCode`, `postName`), then sets `NOT NULL` with `VARCHAR(318)`. The downgrade drops the column.
+- **Migration:** Alembic revision `001_initial` includes the column as `NOT NULL` with `VARCHAR(318)`.
 
 ---
 
