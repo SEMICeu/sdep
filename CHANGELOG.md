@@ -5,7 +5,7 @@
 - Improved API doc (corrected a typo)
 - Hardened pagination impl and some tests
 - Improved security headers (enabled CORP, fixed CSP, consistently enabled HSTS)
-- Improved [security documentation](./docs/SECURTITY.md)
+- Improved [security documentation](./docs/SECURITY.md)
 
 *No API v1 impact*
 
