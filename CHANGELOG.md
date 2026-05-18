@@ -30,7 +30,7 @@
   - STR remains untouched
 - Restricted area file uploads to `.zip` only ([#73](https://github.com/SEMICeu/sdep/issues/73))
   - Aligns POST behavior with the existing `application/zip`-only GET endpoint
-  - Technically narrows the CA v1 contract, but does not require a CA `/v2`: only zipped shapefiles were practically supported already, and there is no production traffic yet
+  - Technically narrows the CA v1 contract, but does not require a CA `/v2`: only zipped shapefiles were practically supported already
 - Sanitized user-supplied filenames in `Content-Disposition` headers
   - Previously, unsanitized filenames allowed header injection via `"`, `\r`, `\n`
 - Hardened audit log role extraction to record roles only for successfully authenticated requests
