@@ -8,8 +8,8 @@ import time
 import uuid
 from datetime import UTC, datetime
 
+import jwt
 from fastapi import Request, Response
-from jose import jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -80,9 +80,10 @@ def _extract_jwt_roles(request: Request) -> str | None:
 
     token = auth_header[7:]
     try:
+        # PyJWT requires algorithms to be specified even when not verifying signature
         payload = jwt.decode(
             token,
-            key="",  # No key needed when not verifying
+            algorithms=["RS256"],
             options={
                 "verify_signature": False,
                 "verify_aud": False,
@@ -137,7 +138,15 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
 
         # Extract audit data
         method = request.method
-        roles = _extract_jwt_roles(request)
+        status = response.status_code
+        if status < 400:
+            roles = _extract_jwt_roles(request)
+        elif status == 401:
+            roles = "REJECTED"
+        elif status == 403:
+            roles = "UNAUTHORIZED"
+        else:
+            roles = None
         action, resource_type = _resolve_action(method, path)
 
         # Build audit record

@@ -92,6 +92,9 @@ async def delete(session: AsyncSession, activity_id: int) -> bool:
     """
     Delete an activity by technical id.
 
+    Not yet called from production code (API uses soft-delete via mark_as_ended).
+    Present for future anticipated hard-deletes and currently used by tests.
+
     Args:
         session: Async database session
         activity_id: Activity technical id (integer)
@@ -504,6 +507,8 @@ async def get_current_by_activity_ids(
     session: AsyncSession,
     activity_ids: list[str],
     platform_id: int,
+    *,
+    for_update: bool = False,
 ) -> dict[str, bool]:
     """
     Check which activity IDs have current versions (ended_at IS NULL) for a platform.
@@ -515,6 +520,7 @@ async def get_current_by_activity_ids(
         session: Async database session
         activity_ids: List of activity functional IDs
         platform_id: Platform technical ID
+        for_update: If True, acquire row-level locks (SELECT ... FOR UPDATE)
 
     Returns:
         Dictionary {activity_id: True} for IDs that have a current version
@@ -527,6 +533,8 @@ async def get_current_by_activity_ids(
         Activity.platform_id == platform_id,
         Activity.ended_at.is_(None),
     )
+    if for_update:
+        stmt = stmt.with_for_update()
     result = await session.execute(stmt)
     return {row[0]: True for row in result.all()}
 

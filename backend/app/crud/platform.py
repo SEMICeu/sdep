@@ -109,7 +109,10 @@ async def get_all(session: AsyncSession) -> list[Platform]:
 
 async def delete(session: AsyncSession, platform_id: int) -> bool:
     """
-    Delete a platform by primary key id.
+    Hard-delete a platform by primary key id.
+
+    Not yet called from production code (API uses soft-delete via mark_as_ended).
+    Present for future anticipated hard-deletes and currently used by tests.
 
     Args:
         session: Async database session

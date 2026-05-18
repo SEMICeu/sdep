@@ -76,7 +76,7 @@ services:
       POSTGRES_DB_PASSWORD: ${POSTGRES_DB_PASSWORD}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f ${BACKEND_BASE_URL}/api/health || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('${BACKEND_BASE_URL}/api/health')\" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

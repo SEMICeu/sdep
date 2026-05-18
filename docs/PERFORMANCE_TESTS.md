@@ -4,25 +4,25 @@ The [../tests/perf](../tests/perf) directory contains a [Locust](https://locust.
 
 - [Running Performance Tests](#running-performance-tests)
 - [Implementation](#implementation)
-  - [Locust test](#locust-test)
-  - [Test data generation](#test-data-generation)
-  - [Test data cleanup](#test-data-cleanup)
+  - [Locust Test](#locust-test)
+  - [Test Data Generation](#test-data-generation)
+  - [Test Data Cleanup](#test-data-cleanup)
 - [Results](#results)
 - [Benchmarks](#benchmarks)
-- [Database tuning](#database-tuning)
-  - [Connection pool chain](#connection-pool-chain)
+- [Database Tuning](#database-tuning)
+  - [Connection Pool Chain](#connection-pool-chain)
   - [SQLAlchemy pool (`backend/app/db/config.py`)](#sqlalchemy-pool-backendappdbconfigpy)
   - [PgBouncer pool (`sdep-cnpg Pooler` resource)](#pgbouncer-pool-sdep-cnpg-pooler-resource)
-  - [Example: sizing for 50 concurrent users](#example-sizing-for-50-concurrent-users)
-- [Network tuning](#network-tuning)
+  - [Example: Sizing for 50 Concurrent Users](#example-sizing-for-50-concurrent-users)
+- [Network Tuning](#network-tuning)
   - [Cause](#cause)
-  - [Solution alternatives](#solution-alternatives)
+  - [Solution Alternatives](#solution-alternatives)
   - [Recommendation](#recommendation)
 - [Service Level Objectives (SLO)](#service-level-objectives-slo)
   - [Service Level Indicators (SLIs)](#service-level-indicators-slis)
-  - [Strategies for bulk updates](#strategies-for-bulk-updates)
-  - [Error budgets for batch processing](#error-budgets-for-batch-processing)
-  - [Summary: SLI measurement gaps](#summary-sli-measurement-gaps)
+  - [Strategies for Bulk Updates](#strategies-for-bulk-updates)
+  - [Error Budgets for Batch Processing](#error-budgets-for-batch-processing)
+  - [Summary: SLI Measurement Gaps](#summary-sli-measurement-gaps)
 
 ## Running Performance Tests
 
@@ -43,7 +43,7 @@ The performance test consists of two files:
 
 Both are invoked via `make test-perf`.
 
-### Locust test
+### Locust Test
 
 `perf/locustfile.py`
 
@@ -67,7 +67,7 @@ Both are invoked via `make test-perf`.
 
 **Note on wait time and measurements:** The 0.1–0.5s pause between requests (Locust `wait_time`) adds to the total wall-clock duration but does **not** affect per-request response time statistics (avg, p50, p95, p99). It does slightly reduce measured throughput (activities/sec) compared to a zero-wait scenario, because each user idles between requests.
 
-### Test data generation
+### Test Data Generation
 
 No fixture files are used - all test data is generated at runtime by `_generate_activity()` in `locustfile.py`. Each Locust task iteration generates `PERF_BATCH_SIZE` activities (default: 500) per HTTP request.
 
@@ -86,10 +86,10 @@ Each activity contains the following fields:
 
 The `activityId` prefix convention controls cleanup:
 
-- IDs starting with `sdep-test-perf-` are treated as throwaway test data and cleaned up after the test run
+- IDs starting with `sdep-test-perf-` are treated as throwaway test data and cleaned up after the test run.
 - When `PERF_KEEP_DATA=true`, the prefix is `perf-` and data is retained in the database.
 
-### Test data cleanup
+### Test Data Cleanup
 
 After the Locust run completes, `scripts/run-tests-perf.sh` automatically cleans up test data unless `PERF_KEEP_DATA=true`.
 
@@ -156,9 +156,9 @@ Industry-standard benchmarks for API response times:
 - When assessing bulk performance, consider both the per-request latency and the per-item cost (i.e., response time divided by batch size)
 - For example, processing up to 1000 activities in a single request: a 200 ms response time equates to 0.2 ms per item (excellent), whereas 200 ms for a single-item endpoint would be considered only “very good”
 
-## Database tuning
+## Database Tuning
 
-### Connection pool chain
+### Connection Pool Chain
 
 Requests flow through two connection pools before reaching PostgreSQL:
 
@@ -194,7 +194,7 @@ sqlalchemy.exc.TimeoutError: QueuePool limit of size N overflow M reached, conne
 
 PgBouncer sits between the backend and PostgreSQL. Its `default_pool_size` is the upper bound for how many connections all backend replicas combined can use simultaneously.
 
-### Example: sizing for 50 concurrent users
+### Example: Sizing for 50 Concurrent Users
 
 | Layer      | Parameter           | Value | Rationale                                     |
 | ---------- | ------------------- | ----- | --------------------------------------------- |
@@ -206,7 +206,7 @@ PgBouncer sits between the backend and PostgreSQL. Its `default_pool_size` is th
 
 If you scale to 2 backend replicas, set SQLAlchemy to `pool_size=10, max_overflow=15` (25 per replica × 2 = 50 total ≤ PgBouncer's 50).
 
-## Network tuning
+## Network Tuning
 
 Under sustained load, a small percentage of HTTP requests may fail with connection-level errors (`RemoteDisconnected`, `ChunkedEncodingError`) even though the backend processed the request successfully (HTTP 201). These are not application errors - they are TCP connection drops between the client and the backend, caused by intermediate network components (reverse proxy, load balancer) closing the connection before the client reads the full response.
 
@@ -225,7 +225,7 @@ Each layer enforces its own timeouts. A bulk request that takes several seconds 
 - **TCP load balancer (HAProxy):** `timeout http-request` (time to receive the full request headers) and `timeout server` (time to wait for the backend response) can also drop connections
   - For example, `timeout http-request 10s` may be too aggressive for large payloads that are slow to transmit
 
-### Solution alternatives
+### Solution Alternatives
 
 1. **Client-side retry logic (implemented in the performance test)**
 
@@ -299,7 +299,7 @@ Useful for systems with variable load to ensure the pipeline keeps up with growt
 - **Example SLO:** The pipeline processes at least 100,000 records per second during peak hours.
 - **Current coverage:** Fully measured. This is the primary metric of the performance test: `Throughput` (activities/sec), `Bulk requests/sec`, and `Extrapolated` (activities/day). The `Verdict` line compares extrapolated capacity against the configured target.
 
-### Strategies for bulk updates
+### Strategies for Bulk Updates
 
 Google applies specific patterns to guarantee reliability at large volumes. Here is how SDEP implements them:
 
@@ -309,7 +309,7 @@ Google applies specific patterns to guarantee reliability at large volumes. Here
 | **Idempotency**             | A bulk update can be retried without creating duplicates                          | Implemented via activity versioning: re-submitting an `activityId` marks the previous version as ended (`ended_at = now()`) and inserts a new current version. Duplicate `activityId` values within a single batch are deduplicated (last-wins). |
 | **Side-by-side validation** | Compare output of a new batch version against the previous one before overwriting | Not currently implemented. Could be added as a post-ingestion step that compares record counts and checksums between the previous and current batch for a given platform.                                                                        |
 
-### Error budgets for batch processing
+### Error Budgets for Batch Processing
 
 Batch errors behave differently in an error budget than request-level errors:
 
@@ -317,7 +317,7 @@ Batch errors behave differently in an error budget than request-level errors:
 - **Alerting:** Set alerts on "time-to-complete". If a batch job takes 2x longer than normal, this is often a precursor to an SLO breach.
 - **SDEP relevance:** The performance test's `Verdict` line is essentially a throughput error budget check - if extrapolated capacity drops below the target, the system cannot sustain the required daily volume. The `10 consecutive failures` abort mechanism acts as an early warning: if the system is degraded enough to fail 10 requests in a row, the test stops rather than burning through the error budget.
 
-### Summary: SLI measurement gaps
+### Summary: SLI Measurement Gaps
 
 | SLI         | Measured by perf test?                                             | Suggested extension |
 | ----------- | ------------------------------------------------------------------ | ------------------- |

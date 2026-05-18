@@ -1,5 +1,44 @@
 # Changelog
 
+## 260518
+
+- Replaced `python-jose` with `PyJWT`
+  - `python-jose` is unmaintained and has a known CVE (CVE-2024-33663) exposing the application to token forgery
+- Added JWKS key rotation with 5-minute TTL
+  - `@lru_cache` cached keys indefinitely, so rotated or revoked keys in keycloak (backchannel) were never refreshed
+- Added pessimistic locking (`SELECT ... FOR UPDATE`) for single-entity and bulk versioning
+  - The read-then-write pattern without locking allowed concurrent requests to create duplicate active records
+- Added 10s timeout to httpx Keycloak calls
+  - Without a timeout, an unresponsive Keycloak hangs API worker threads indefinitely
+- Run Docker container as non-root user
+  - A container escape or code execution vulnerability would otherwise grant root-level host access
+- Switched `get_own_areas` to read-only DB session
+  - The GET endpoint used a write-capable session, acquiring unnecessary locks
+- Removed 6 unused dependencies (`passlib`, `bcrypt`, `python-keycloak`, `aiofiles`, `aiohttp`, `jsonschema`)
+  - Reduces attack surface and image size
+- Converted eager f-string logger calls to deferred `%s`-style formatting
+  - f-strings build the message even when the log level is disabled
+- Documented rate limiting policy
+  - Per client IP, delegated to deployment environment
+- Restructured `ARCHITECTURE_TECH.md`
+  - Split out `DATABASE_DIALECTS.md` and `DEVELOPMENT.md`
+- Updated `DATAMODEL.md`, `SECURITY.md`, `API.md`, and `README.md`
+- Bumped FastAPI from 0.118.0 to 0.136.1
+- Bumped Starlette from 0.48.0 to 1.0.0
+  - Consequently, file upload for CA now uses `contentMediaType: application/octet-stream` instead of `format: binary` in the OpenAPI spec
+  - CA remains the same at runtime (does not require upgrade to /v2); but generated clients may see a spec diff
+  - STR remains untouched
+- Restricted area file uploads to `.zip` only ([#73](https://github.com/SEMICeu/sdep/issues/73))
+  - Aligns POST behavior with the existing `application/zip`-only GET endpoint
+  - Technically narrows the CA v1 contract, but does not require a CA `/v2`: only zipped shapefiles were practically supported already, and there is no production traffic yet
+- Sanitized user-supplied filenames in `Content-Disposition` headers
+  - Previously, unsanitized filenames allowed header injection via `"`, `\r`, `\n`
+- Hardened audit log role extraction to record roles only for successfully authenticated requests
+  - Rejected tokens now log `REJECTED` (401) or `UNAUTHORIZED` (403) instead of attacker-controlled role values
+  - Previously, forged JWTs containing fabricated roles could pollute audit records even when the request was rejected
+
+*No API v1 impact*
+
 ## 260507
 
 - Improved API doc (corrected a typo)

@@ -25,6 +25,8 @@ from app.schemas.activity_bulk import (
 from app.schemas.error import ErrorDetail, ErrorResponse
 from fastapi import HTTPException, UploadFile
 
+from tests.api.zip_stub import ZIP
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -98,7 +100,7 @@ async def test_ca_areas_direct_branches(monkeypatch):
             areaId=None,
             areaName="x" * 65,
             regulation=None,
-            file=UploadFile(filename="area.zip", file=io.BytesIO(b"data")),
+            file=UploadFile(filename="area.zip", file=io.BytesIO(ZIP)),
         )
 
     monkeypatch.setattr(
@@ -120,7 +122,7 @@ async def test_ca_areas_direct_branches(monkeypatch):
         areaId=None,
         areaName=None,
         regulation=None,
-        file=UploadFile(filename="area.zip", file=io.BytesIO(b"data")),
+        file=UploadFile(filename="area.zip", file=io.BytesIO(ZIP)),
     )
     assert json.loads(bytes(created.body))["areaId"] == "area-1"
 

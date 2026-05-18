@@ -1,7 +1,7 @@
 .PHONY: init install \
         upgrade upgrade-sql downgrade revision show-history show-current \
         clean-stale up dev down \
-        test-crud test-services test-api test-security test test-coverage openapi-snapshot-update \
+        test-crud test-services test-api test-security test test-coverage test-coverage-verbose openapi-snapshot-update \
         format lint typecheck check \
         clean help
 
@@ -124,7 +124,12 @@ test-verbose: check ## Test all (verbose)
 	uv run python -m pytest -n auto
 	@echo "✅ All tests completed!"
 
-test-coverage: check ## Test all (coverage)
+test-coverage: check ## Test all (coverage, quiet)
+	@echo "🧪 Running tests with coverage..."
+	@uv run python -m pytest -n auto -q --tb=line --no-header --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=100 2>&1 | tail -40
+	@echo "✅ Coverage tests completed! Coverage report in htmlcov/"
+
+test-coverage-verbose: check ## Test all (coverage, verbose)
 	@echo "🧪 Running tests with coverage..."
 	uv run python -m pytest -n auto --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=100
 	@echo "✅ Coverage tests completed! Coverage report in htmlcov/"

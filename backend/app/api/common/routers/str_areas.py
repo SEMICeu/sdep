@@ -1,5 +1,6 @@
 """Areas endpoint."""
 
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -17,6 +18,15 @@ from app.schemas.error import ErrorResponse
 from app.services import area
 
 router = APIRouter(tags=["str"])
+
+_UNSAFE_FILENAME_CHARS = re.compile(r'["\\\r\n\x00-\x1f]')
+
+
+def _sanitize_filename(filename: str) -> str:
+    """Strip characters that could break or inject Content-Disposition headers."""
+    sanitized = _UNSAFE_FILENAME_CHARS.sub("", filename)
+    sanitized = sanitized.replace("/", "_").replace("\\", "_")
+    return sanitized or "download"
 
 
 @router.get(
@@ -196,7 +206,7 @@ async def get_area(
 
     # Return raw binary data (or empty bytes if filedata is None)
     binary_data = area_data.filedata if area_data.filedata is not None else b""
-    filename = area_data.filename
+    filename = _sanitize_filename(area_data.filename)
 
     return Response(
         content=binary_data,

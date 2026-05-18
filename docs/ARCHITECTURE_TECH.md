@@ -1,53 +1,51 @@
 <h1>Technical Architecture</h1>
 
-This document provides an overview of the SDEP (Single Digital Entry Point) technical architecture:
+This document provides an overview of the SDEP (Single Digital Entry Point) technical architecture.
+
+Table of contents:
 
 - [Overview](#overview)
+- [Scope and Reference Implementation](#scope-and-reference-implementation)
 - [Technology Stack](#technology-stack)
   - [Backend](#backend)
   - [Infrastructure](#infrastructure)
   - [Development Tools](#development-tools)
-- [Directory Structure](#directory-structure)
+- [Repository / Directory Structure](#repository-directory-structure)
 - [Backend Architecture](#backend-architecture)
   - [API Layer (`app/api/`)](#api-layer-appapi)
   - [Schemas Layer (`app/schemas/`)](#schemas-layer-appschemas)
   - [Service Layer (`app/services/`)](#service-layer-appservices)
   - [CRUD Layer (`app/crud/`)](#crud-layer-appcrud)
   - [Models Layer (`app/models/`)](#models-layer-appmodels)
-- [Request Flow](#request-flow)
-- [Key Endpoints](#key-endpoints)
+- [API Surface](#api-surface)
   - [Authentication](#authentication)
-  - [Competent Authority (CA) - Requires `sdep_ca` role](#competent-authority-ca-requires-sdep_ca-role)
-  - [Short-Term Rental Platform (STR) - Requires `sdep_str` role](#short-term-rental-platform-str-requires-sdep_str-role)
-  - [Health](#health)
-- [Security](#security)
-  - [Audit Logging](#audit-logging)
-  - [Security Headers](#security-headers)
-  - [Middleware Ordering](#middleware-ordering)
+  - [Competent Authority Endpoints](#competent-authority-endpoints)
+  - [STR Platform Endpoints](#str-platform-endpoints)
+  - [Health Endpoints](#health-endpoints)
+- [Request Flow](#request-flow)
+- [Data and Lifecycle Design](#data-and-lifecycle-design)
+  - [ID Management](#id-management)
+  - [Versioning](#versioning)
+  - [Soft-Delete](#soft-delete)
+  - [Hard-Delete](#hard-delete)
+  - [Locking](#locking)
+    - [Behavior During Concurrent Requests](#behavior-during-concurrent-requests)
+    - [Performance Considerations](#performance-considerations)
+  - [Lazy Loading](#lazy-loading)
 - [Transaction Management](#transaction-management)
 - [Validation](#validation)
   - [Layers](#layers)
-  - [Functional IDs (general)](#functional-ids-general)
-  - [Functional IDs (user-supplied)](#functional-ids-user-supplied)
-  - [Functional IDs (JWT-provisioned)](#functional-ids-jwt-provisioned)
-- [Exception Handling](#exception-handling)
-- [Bulk updates](#bulk-updates)
+  - [Functional IDs (General)](#functional-ids-general)
+  - [Functional IDs (User-Supplied)](#functional-ids-user-supplied)
+  - [Functional IDs (JWT-Provisioned)](#functional-ids-jwt-provisioned)
+- [Status Codes and Exception Handling](#status-codes-and-exception-handling)
+- [Bulk Activity Submissions](#bulk-activity-submissions)
   - [Approach](#approach)
-  - [Validation](#validation-1)
-  - [Validation flow (4 steps)](#validation-flow-4-steps)
-  - [HTTP status codes (bulk-specific)](#http-status-codes-bulk-specific)
-  - [Design decisions](#design-decisions)
-- [Development Workflow](#development-workflow)
-- [Testing Strategy](#testing-strategy)
-  - [Unit Tests (`backend/tests/`)](#unit-tests-backendtests)
-  - [Integration Tests (`tests/`)](#integration-tests-tests)
-  - [Performance Tests (`tests/perf/`)](#performance-tests-testsperf)
-- [SQLite vs PostgreSQL](#sqlite-vs-postgresql)
-  - [Dialect differences](#dialect-differences)
-  - [Bridging dialect gaps with SQLAlchemy `TypeDecorator`](#bridging-dialect-gaps-with-sqlalchemy-typedecorator)
-  - [PostgreSQL-specific CHECK constraints](#postgresql-specific-check-constraints)
-  - [Porting checklist when adding a new database engine](#porting-checklist-when-adding-a-new-database-engine)
-- [Key Configuration Files](#key-configuration-files)
+  - [Validation Flow](#validation-flow)
+  - [Status Codes](#status-codes)
+  - [Design Decisions](#design-decisions)
+
+See also: [Database Dialects](./DATABASE_DIALECTS.md) | [Development](./DEVELOPMENT.md)
 
 ---
 
@@ -59,6 +57,10 @@ SDEP is a FastAPI-based REST API that enables:
 - Short-Term Rental platforms (STR) to query regulated areas and submit rental activities
 - Competent Authorities (CA) to query rental activities
 - Compliance with EU Regulation 2024/1028
+
+---
+
+## Scope and Reference Implementation
 
 **Production (NL):** https://sdep.gov.nl/api/docs
 
@@ -92,7 +94,7 @@ SDEP is a FastAPI-based REST API that enables:
 
 ---
 
-## Directory Structure
+## Repository / Directory Structure
 
 ```
 sdep-app/
@@ -222,14 +224,22 @@ sdep-app/
 │
 ├── docs/                                       # Documentation
 │   ├── API.md                                  # API documentation
+│   ├── ARCHITECTURE_FUNC.md                    # Functional architecture
 │   ├── ARCHITECTURE_TECH.md                    # Architecture overview (this file)
-│   ├── DATAMODEL.md                            # Data model documentation
+│   ├── DATABASE_DIALECTS.md                    # SQLite/PostgreSQL compatibility
+│   ├── DATAMODEL.md                            # Data Model documentation
+│   ├── DEVELOPMENT.md                          # Workflow, testing, configuration
+│   ├── GET_STARTED_PRD.md                      # Getting started with the production (PRD) environment
+│   ├── GET_STARTED_PRE.md                      # Getting started with the pre-production (PRE) environment
 │   ├── INTEGRATION_TESTS.md                    # Integration test documentation
 │   ├── LISTING_ACTIVITY.md                     # Activity listing documentation
+│   ├── MIGRATION_ADDRESS_INSPIRE.md            # Address field migration guide (INSPIRE/STR-AP)
 │   ├── PERFORMANCE_TESTS.md                    # Performance test documentation
-│   ├── PRE.md                                  # Pre-conditions documentation
 │   ├── SECURITY.md                             # Security documentation
 │   ├── WOW.md                                  # Ways of working
+│   ├── sdep_openapi_auth_v1.pdf                # OpenAPI auth v1 PDF export
+│   ├── sdep_openapi_ca_v1.pdf                  # OpenAPI CA v1 PDF export
+│   ├── sdep_openapi_str_v1.pdf                 # OpenAPI STR v1 PDF export
 │   └── diagrams/                               # Architecture and data model diagrams
 │       ├── ACTIVITY.excalidraw
 │       ├── ACTIVITY.svg
@@ -279,7 +289,7 @@ The backend follows a **layered architecture** pattern:
 - Business logic implementation
 - Validation (Layer 2: business rules, e.g. area exists, platform lookup/creation)
 - Raises `ApplicationValidationError` for domain-level errors (e.g. area not found)
-- No transaction management (delegated to API layer)
+- Does not commit or roll back transactions directly (delegated to API layer)
 
 ### CRUD Layer (`app/crud/`)
 - Database operations (Create, Read, Update, Delete)
@@ -291,16 +301,42 @@ The backend follows a **layered architecture** pattern:
 - SQLAlchemy ORM models
 - Database table definitions
 - Relationships and constraints
-- Includes `audit_log.py` for the audit trail (see [Security > Audit Logging](#audit-logging))
+- Includes `audit_log.py` for audit trail
 
-For key patterns, see also [Datamodel](./DATAMODEL.md), [Security](./SECURITY.md), and [API](./API.md).
+For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.md), and [API](./API.md).
+
+---
+
+## API Surface
+
+### Authentication
+- `POST /api/auth/v1/token` - OAuth2 token endpoint
+
+### Competent Authority Endpoints
+- `POST /api/ca/v1/areas` - Submit a single area (multipart/form-data: file + optional areaId, areaName)
+- `GET /api/ca/v1/areas` - List own areas (pagination: offset, limit)
+- `GET /api/ca/v1/areas/count` - Count own areas
+- `GET /api/ca/v1/areas/{areaId}` - Download shapefile for own area
+- `DELETE /api/ca/v1/areas/{areaId}` - Delete (deactivate) an own area
+- `GET /api/ca/v1/activities` - Query rental activities (pagination: offset, limit)
+- `GET /api/ca/v1/activities/count` - Count activities
+
+### STR Platform Endpoints
+- `GET /api/str/v1/areas` - List regulated areas (pagination: offset, limit)
+- `GET /api/str/v1/areas/count` - Count areas
+- `GET /api/str/v1/areas/{areaId}` - Download shapefile for area
+- `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
+
+### Health Endpoints
+- `GET /api/health` - Health check (unauthenticated, infrastructure use)
+- `GET /api/ping` - Ping endpoint (authenticated, requires valid bearer token)
 
 ---
 
 ## Request Flow
 
 ```
-POST /str/activities/bulk (JSON body with activities array)
+POST /api/str/v1/activities/bulk (JSON body with activities array)
   │
   ├── API Layer (str_activities_bulk.py)
   │   ├── verify_bearer_token() → auth checks (roles, claims)
@@ -322,7 +358,7 @@ POST /str/activities/bulk (JSON body with activities array)
   └── Response: 201 (all OK) / 200 (partial) / 422 (all NOK)
        + ActivityBulkResponse (camelCase JSON)
 
-POST /ca/areas (multipart/form-data: file + optional areaId, areaName)
+POST /api/ca/v1/areas (multipart/form-data: file + optional areaId, areaName)
   │
   ├── API Layer (ca_areas.py)
   │   ├── verify_bearer_token() → auth checks (roles, claims)
@@ -343,74 +379,206 @@ POST /ca/areas (multipart/form-data: file + optional areaId, areaName)
 
 ---
 
-## Key Endpoints
+## Data and Lifecycle Design
 
-### Authentication
-- `POST /api/auth/v1/token` - OAuth2 token endpoint
+### ID Management
 
-### Competent Authority (CA) - Requires `sdep_ca` role
-- `POST /api/ca/v1/areas` - Submit a single area (multipart/form-data: file + optional areaId, areaName)
-- `GET /api/ca/v1/areas` - List own areas (pagination: offset, limit)
-- `GET /api/ca/v1/areas/count` - Count own areas
-- `GET /api/ca/v1/areas/{areaId}` - Download shapefile for own area
-- `DELETE /api/ca/v1/areas/{areaId}` - Delete (deactivate) an own area
-- `GET /api/ca/v1/activities` - Query rental activities (pagination: offset, limit)
-- `GET /api/ca/v1/activities/count` - Count activities
+**Technical IDs**
 
-### Short-Term Rental Platform (STR) - Requires `sdep_str` role
-- `GET /api/str/v1/areas` - List regulated areas (pagination: offset, limit)
-- `GET /api/str/v1/areas/count` - Count areas
-- `GET /api/str/v1/areas/{areaId}` - Download shapefile for area
-- `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
+- Represent technical keys, on the **"inside"** (under the hood)
+- These are used for referential integrity within the database
 
-### Health
-- `GET /api/health` - Health check (unauthenticated)
-- `GET /api/ping` - Ping endpoint (authenticated)
+**Functional IDs**
 
-## Security
+- Represent business identifiers, on the **"outside"**
+- Are client-provided (optional), or auto-provisioned otherwise (UUIDv4 RFC 9562)
+  - Exception: `platformId` and `competentAuthorityId` (these are auto-provisioned from JWT-claim)
+- After a POST, functional IDs are always returned/made visible
+- This allows them to be reused in subsequent submissions
+- Functional IDs enable versioning (in combination with a timestamp)
 
-- **Protocol:** OAuth2 Client Credentials flow
-- **Identity Provider:** Keycloak
-- **Token Type:** JWT Bearer tokens
-- **Roles:**
-  - `sdep_ca` - Competent Authority access
-  - `sdep_str` - STR Platform access
-  - `sdep_read` - Read operations
-  - `sdep_write` - Write operations
-- **JWT Claims:**
-  - `client_id` - Maps to platform/competent authority functional ID
-  - `client_name` - Maps to platform/competent authority name
-  - `realm_access.roles` - Role-based authorization
+https://datatracker.ietf.org/doc/rfc9562/
 
-### Audit Logging
+### Versioning
 
-**AuditLogMiddleware** (`security/audit.py`) tracks all API requests to the `audit_log` table:
-- Records: request ID, client ID, etc.
-- Skips low-value paths (health, docs, root)
-- Extracts JWT claims without verification (auth happens in route dependencies)
-- Writes records asynchronously to avoid blocking responses; audit failures never break the request
+- Same functional ID can be resubmitted with new timestamp for versioning
+  - Entities use `(functionalId, createdAt)` as unique constraint
+- Stacking
+  - Last becomes current (empty `endedAt`)
+  - Previous becomes ended (`endedAt`)
+- Enables historical tracking and updates without losing previous versions
+- Standard retrieve only yields the current
 
-**Audit retention** (`security/audit_retention.py`) runs a background cleanup loop (started via lifespan) that periodically deletes audit log rows older than the configured retention period (`AUDITLOG_RETENTION` setting), processing in batches of 1000.
+### Soft-Delete
 
-For details, see [Security](./SECURITY.md#audit-log).
+- When all versions of a functional ID have `endedAt` set, the entity is considered **deactivated**
+- Creating a new version with a deactivated functional ID is rejected (HTTP 422)
+- This prevents "resurrecting" soft-deleted entities
+- The guard applies to: `competentAuthorityId`, `platformId`, `areaId`, and `activityId`
 
-### Security Headers
+### Hard-Delete
 
-**SecurityHeadersMiddleware** (`security/headers.py`) adds OWASP-recommended security headers to all responses:
-- `X-Frame-Options: DENY` - clickjacking protection
-- `X-Content-Type-Options: nosniff` - MIME-sniffing protection
-- `Content-Security-Policy` - XSS protection (optional, configurable)
-- `Strict-Transport-Security` - HTTPS enforcement (optional, usually handled by reverse proxy)
-- `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy` - cross-origin isolation
-- `Permissions-Policy` - restrict browser features
-- `Referrer-Policy: no-referrer` - prevent information leakage
-- Strict `Cache-Control` for sensitive endpoints (auth, activities, areas)
+Hard-delete removes a row from the database (as opposed to soft-delete, which sets `endedAt`).
 
-### Middleware Ordering
+When a parent row has child rows referencing it via a foreign key, the database must decide what to do with those children. The three standard behaviors are:
 
-Starlette processes middleware LIFO (last added = outermost = runs first). In `main.py`:
-1. **SecurityHeadersMiddleware** (outermost) - added last, runs first
-2. **AuditLogMiddleware** (inner) - added first, runs inside security headers
+| Behavior       | FK clause                                     | Effect                                                 | When to use                                                                                  |
+| :------------- | :-------------------------------------------- | :----------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+| **Restricted** | `NO ACTION` / `RESTRICT` (PostgreSQL default) | Parent delete is **blocked** if children exist         | When children must not exist without their parent, and accidental deletion must be prevented |
+| **Nullified**  | `ON DELETE SET NULL`                          | Child FK column is set to `NULL`; children survive     | When children can exist independently (optional relationship)                                |
+| **Cascaded**   | `ON DELETE CASCADE`                           | Children are **automatically deleted** with the parent | When children have no meaning without their parent (composition)                             |
+
+**Current implementation:**
+
+All foreign keys use the PostgreSQL default (`NO ACTION`), which is **restricted delete**:
+
+| Parent             | Child         | FK column                     | Hard-delete behavior                     |
+| :----------------- | :------------ | :---------------------------- | :--------------------------------------- |
+| CompetentAuthority | Area          | `area.competent_authority_id` | Restricted — blocked if Areas exist      |
+| Area               | Activity      | `activity.area_id`            | Restricted — blocked if Activities exist |
+| Platform           | Activity      | `activity.platform_id`        | Restricted — blocked if Activities exist |
+| Activity           | *(leaf node)* | —                             | Unrestricted — deletes cleanly           |
+
+In practice, the application uses **soft-delete** (`mark_as_ended`) for all production operations. The CRUD-layer `delete()` functions exist but are not called from any service or API route.
+
+### Locking
+
+In internet applications, three common locking strategies are typically used:
+
+- **No locking**
+  No concurrency protection is applied. This is simple and fast, but concurrent updates may overwrite each other and lead to inconsistent data.
+
+- **Optimistic locking**
+  Multiple transactions are allowed to proceed concurrently. Conflicts are detected only when data is written, typically using a version number or timestamp. If a conflict occurs, one transaction must retry.
+
+- **Pessimistic locking**
+  Data is locked before modification to prevent concurrent transactions from changing the same records simultaneously. Other transactions must wait until the lock is released.
+
+In SDEP, **pessimistic locking** is used:
+
+- Versioned write operations follow a *mark-as-ended → create-new-version* pattern.
+- To prevent concurrent requests from creating duplicate "current" versions, these operations use `SELECT ... FOR UPDATE`.
+
+This approach was chosen because:
+
+- Concurrency on the same entity is expected to be very low.
+- Compared to optimistic locking, pessimistic locking is simpler to implement and does not require retry logic.
+
+Pessimistic locking applies to:
+
+- `CompetentAuthority` versioning (single POST)
+- `Area` versioning (single POST)
+- `Activity` bulk versioning (bulk POST)
+
+---
+
+#### Behavior During Concurrent Requests
+
+If two requests attempt to version the same entity at the same time:
+
+1. The first request acquires the row lock
+2. The second request waits until the first transaction commits
+3. The second request then continues safely using the updated state
+
+This guarantees consistent versioning without duplicate active records.
+
+---
+
+#### Performance Considerations
+
+---
+
+**Single-entity versioning**
+
+For single-entity versioning operations, the impact of pessimistic locking is minimal.
+
+- E.g. `POST /area`.
+
+Lock characteristics:
+
+- The lock is applied at **row level** (not table level)
+- Only a single row is locked per transaction
+- The lock is held for a very short time (~5 ms):
+  - Read current version
+  - Mark as ended
+  - Insert new version
+  - Commit transaction
+
+Parallel processing:
+
+- Locks are isolated per functional ID. For example:
+- Locking `CompetentAuthority "0363"` does **not** block operations for other authorities
+- Requests for different entities continue fully in parallel
+
+Likelihood of contention - only occurs when:
+
+- Two requests target the **same functional ID**, at nearly the **same moment**
+- Since each Competent Authority manages only its own areas (scoped through the JWT `client_id`), this scenario is considered extremely unlikely
+
+Expected impact:
+
+- The expected performance impact is negligible
+- The overhead of the row-level lock is significantly smaller than the database I/O cost of the query itself
+
+**Bulk activity versioning**
+
+Bulk versioning operations use the same locking strategy, but involve larger transactions.
+
+- E.g. `POST /activities/bulk`
+
+Lock characteristics:
+
+- Locks remain **row-level**
+- Up to 1000 rows may be locked in a single batch (maximum batch size)
+- The transaction duration is longer because it includes:
+  - Validation
+  - Mark-as-ended operations
+  - Bulk insert
+  - Commit transaction
+
+Typical transaction duration:
+
+- ~50–200 ms, depending on batch size
+
+Likelihood of contention - only occurs when:
+
+- Two bulk requests originate from the **same platform**
+- Both contain overlapping activity IDs
+- Both are submitted simultaneously
+
+Different platforms never block each other because queries are filtered by `platform_id`.
+
+Worst-case scenario:
+
+- The same platform submits two overlapping 1000-item batches simultaneously
+- The second transaction waits for the first to complete (~200 ms)
+
+Even in this scenario:
+
+- No requests fail
+- No data corruption occurs
+- Consistency is preserved
+
+Expected impact:
+
+- For the expected workload (periodic batch submissions, typically one platform at a time), the performance impact is effectively unnoticeable
+- The locking overhead remains lightweight compared to the database cost of the bulk insert itself
+
+### Lazy Loading
+
+- **Default lazy loading**
+  - Relationships have no explicit `lazy=` parameter (uses SQLAlchemy defaults)
+- **Custom eager loading** via `selectinload()` at query time
+  - When relationships are needed, CRUD functions explicitly load them, e.g.:
+    ```python
+    stmt = select(Activity).options(
+        selectinload(Activity.platform),
+        selectinload(Activity.area).selectinload(Area.competent_authority),
+    )
+    ```
+- **Benefits**
+  - Eager-when-needed (loads relationships in bulk via `selectinload`)
+  - Idiomatic (reduced boilerplate, less-verbose than manual queries)
 
 ---
 
@@ -439,7 +607,7 @@ Validation is distributed across three layers, each with a distinct responsibili
 | **Service**                       | Business rules: referential integrity, state checks         | Python logic, database lookups                      | Area must exist, deactivated entities cannot be resubmitted          |
 | **Model (SQLAlchemy/PostgreSQL)** | Data integrity: uniqueness, foreign keys, check constraints | Database constraints, model defaults                | Unique constraint on `(area_id, competent_authority_id, created_at)` |
 
-### Functional IDs (general)
+### Functional IDs (General)
 
 All functional IDs conform to a single pattern defined in `app/schemas/common.py`:
 
@@ -455,24 +623,24 @@ This pattern is expressed as two reusable types:
 | `OptionalFunctionalId` | `str \| None` | IDs that **may** be omitted (create inputs where the system generates a UUID if not provided)    |
 
 
-### Functional IDs (user-supplied)
+### Functional IDs (User-Supplied)
 
 **Area and Activity functional IDs** are user-supplied.
 
 These IDs are submitted by the caller in the request body or form fields and validated **declaratively by Pydantic** before the endpoint function body runs:
 
-| Endpoint                    | Field                 | Type                   | Pydantic validates?                                       | When omitted                                                |
-| --------------------------- | --------------------- | ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------- |
-| `POST /ca/areas`            | `areaId` (form field) | `OptionalFunctionalId` | Yes - `Annotated[OptionalFunctionalId, Form()]`           | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
-| `POST /str/activities/bulk` | `activityId` per item | `OptionalFunctionalId` | Yes - via `TypeAdapter(ActivityRequest)` in service layer | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
+| Endpoint                           | Field                 | Type                   | Pydantic validates?                                       | When omitted                                                |
+| ---------------------------------- | --------------------- | ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------- |
+| `POST /api/ca/v1/areas`            | `areaId` (form field) | `OptionalFunctionalId` | Yes - `Annotated[OptionalFunctionalId, Form()]`           | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
+| `POST /api/str/v1/activities/bulk` | `activityId` per item | `OptionalFunctionalId` | Yes - via `TypeAdapter(ActivityRequest)` in service layer | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
 
-**Why `POST /ca/areas` uses `Form()` instead of a JSON body** (see implementation):
+**Why `POST /api/ca/v1/areas` uses `Form()` instead of a JSON body** (see implementation):
 
-- `POST /ca/areas` accepts **multipart/form-data** (required for file upload), so each field is an individual `Form()` parameter
+- `POST /api/ca/v1/areas` accepts **multipart/form-data** (required for file upload), so each field is an individual `Form()` parameter
   - The `Annotated[OptionalFunctionalId, Form()]` type annotation ensures Pydantic still validates the form field declaratively, just like JSON body fields
-- `POST /str/activities/bulk` accepts a JSON body; per-item validation is done via `TypeAdapter(ActivityRequest)` in the service layer
+- `POST /api/str/v1/activities/bulk` accepts a JSON body; per-item validation is done via `TypeAdapter(ActivityRequest)` in the service layer
 
-### Functional IDs (JWT-provisioned)
+### Functional IDs (JWT-Provisioned)
 
 **Platform and Competent Authority functional IDs** are provisioned from JWT.
 
@@ -480,24 +648,26 @@ These IDs are **not** supplied by the user in the request payload. They are extr
 
 This function checks the same pattern (`^[A-Za-z0-9-]+$`, 1–64 chars) and raises `ValueError` on mismatch, which the API layer converts to HTTP 422.
 
-| Endpoint                    | Router                   | Extracted as             | Validated by               |
-| --------------------------- | ------------------------ | ------------------------ | -------------------------- |
-| `POST /ca/areas`            | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
-| `GET /ca/areas`             | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
-| `GET /ca/areas/count`       | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
-| `GET /ca/areas/{areaId}`    | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
-| `DELETE /ca/areas/{areaId}` | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
-| `GET /ca/activities`        | `ca_activities.py`       | `competent_authority_id` | `validate_functional_id()` |
-| `GET /ca/activities/count`  | `ca_activities.py`       | `competent_authority_id` | `validate_functional_id()` |
-| `POST /str/activities/bulk` | `str_activities_bulk.py` | `platform_id`            | `validate_functional_id()` |
+| Endpoint                           | Router                   | Extracted as             | Validated by               |
+| ---------------------------------- | ------------------------ | ------------------------ | -------------------------- |
+| `POST /api/ca/v1/areas`            | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
+| `GET /api/ca/v1/areas`             | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
+| `GET /api/ca/v1/areas/count`       | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
+| `GET /api/ca/v1/areas/{areaId}`    | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
+| `DELETE /api/ca/v1/areas/{areaId}` | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
+| `GET /api/ca/v1/activities`        | `ca_activities.py`       | `competent_authority_id` | `validate_functional_id()` |
+| `GET /api/ca/v1/activities/count`  | `ca_activities.py`       | `competent_authority_id` | `validate_functional_id()` |
+| `POST /api/str/v1/activities/bulk` | `str_activities_bulk.py` | `platform_id`            | `validate_functional_id()` |
 
 **Why imperative, not declarative:** JWT claims are not part of the request body or form fields - they arrive via the `verify_bearer_token` dependency as a plain `dict`. Pydantic schema validation does not apply to them, so the API layer validates them explicitly before passing them to the service layer.
 
 ---
 
-## Exception Handling
+## Status Codes and Exception Handling
 
-All exceptions are handled by global exception handlers defined in `app/exceptions/handlers.py` and registered in `app/api/common/exception_handlers.py`. For the complete list of HTTP status codes used by the API, see [HTTP status codes](API.md#http-status-codes).
+For the complete list of HTTP status codes used by the API, see [HTTP Status Codes](API.md#http-status-codes).
+
+All exceptions are handled by global exception handlers defined in `app/exceptions/handlers.py` and registered in `app/api/common/exception_handlers.py`.
 
 The table below shows how application exceptions map to HTTP status codes:
 
@@ -518,9 +688,9 @@ The table below shows how application exceptions map to HTTP status codes:
 
 ---
 
-## Bulk updates
+## Bulk Activity Submissions
 
-The bulk endpoint `POST /str/activities/bulk` is the single entry point for all STR activity submissions.
+The bulk endpoint `POST /api/str/v1/activities/bulk` is the single entry point for all STR activity submissions.
 
 ### Approach
 
@@ -546,7 +716,7 @@ Five implementation strategies were evaluated:
 
 Synchronous bulk gives the client **immediate, per-item feedback** (OK/NOK with error reasons) in the same HTTP response, requires **no extra infrastructure** beyond the API and database, and keeps the architecture simple - validation and insert happen in one transaction with no background workers or message brokers.
 
-### Validation
+### Validation Flow
 
 Instead of having the database check each record via savepoints, errors are caught in the application layer:
 
@@ -554,11 +724,11 @@ Instead of having the database check each record via savepoints, errors are caug
 - **Horizontally scalable**: add more API nodes under load
 - **Single reference query per batch** (not per record)
 - Only "clean" (validated) data reaches the database
--  No savepoints or nested transactions needed, which avoids the overhead of extra database round-trips.
+- No savepoints or nested transactions needed, which avoids the overhead of extra database round-trips
 
 The wire contract (OpenAPI) and the runtime validation behavior are deliberately decoupled:
 
-- **Contract (OpenAPI)** — `ActivityBulkRequest.activities` is typed concretely as `list[ActivityRequest]`, so the spec documents the full item shape instead of an untyped object
+- **Contract (OpenAPI)** — `ActivityBulkRequest.activities` is typed concretely as `list[ActivityRequest]`, so the spec documents the full item shape instead of an untyped object.
 - **Runtime** — items are *not* validated at request-parse time. If Pydantic validated the whole list eagerly, one bad item would return HTTP 422 for the entire batch and the per-item OK/NOK flow would be unreachable.
 
 Implementation:
@@ -577,8 +747,6 @@ Result:
 - The contract is schema-concrete and reusable
 - Runtime behavior preserves per-item NOK feedback unchanged
 
-### Validation flow (4 steps)
-
 | Step                               | What                                                                                                                                                                                                                  | How                                                       |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | **1. Pydantic Check**              | Validate each item individually against the ActivityRequest schema. Mark failed items as NOK with the error reason.                                                                                                   | `TypeAdapter(ActivityRequest).validate_python()` per item |
@@ -589,7 +757,7 @@ Result:
 **Motivation for step 2 after step 1:** \
 Prevents unvalidated (untrusted) data from being used in database operations.
 
-### HTTP status codes (bulk-specific)
+### Status Codes
 
 | HTTP Status                   | When                                                                |
 | ----------------------------- | ------------------------------------------------------------------- |
@@ -597,134 +765,16 @@ Prevents unvalidated (untrusted) data from being used in database operations.
 | **200 OK**                    | Partial success: some OK, some NOK (`succeeded > 0 AND failed > 0`) |
 | **422 Unprocessable Content** | All items failed validation (`succeeded == 0`)                      |
 
-### Design decisions
+### Design Decisions
 
-| #      | Decision                                                                                                                                                                                                          | Rationale                                                                                                                                                               |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D1** | **Per-item Pydantic validation** - the request accepts raw dicts, each validated individually in the service layer                                                                                                | One invalid item should not block the other (999) items in the batch. If one item has a missing field, the rest are still processed.                                    |
-| **D2** | **Intra-batch duplicates: last-wins** - when the same `activityId` appears multiple times in a single batch, only the last occurrence is processed; earlier occurrences receive NOK                               | Deterministic and predictable for clients. Avoids ambiguity about which version "wins".                                                                                 |
-| **D3** | **Versioning: batch UPDATE before INSERT** - existing current versions in the database are marked as ended via a single batch `UPDATE ... WHERE activity_id IN (...)` before the bulk INSERT creates new versions | Consistent with single-endpoint versioning semantics, but uses batch operations (1 UPDATE + 1 INSERT) instead of per-item queries.                                      |
-| **D4** | **Platform resolution: version only on name change** - platform is resolved once per batch; a new version is only created if the JWT claim (`client_name`) has changed                                            | Avoids unnecessary versioning churn when the same platform submits many batches with unchanged credentials.                                                             |
-| **D5** | **Deactivated entities rejected** - if an `activityId` has been deactivated (all versions have `endedAt` set), submitting it again is rejected (NOK)                                                              | Prevents "resurrecting" soft-deleted entities. Consistent with single endpoint behavior.                                                                                |
-| **D6** | **No `ON CONFLICT DO NOTHING`** - SDEP uses explicit versioning (mark-as-ended + new insert) instead of database-level upsert                                                                                     | `ON CONFLICT DO NOTHING` is a general best practice for idempotency in bulk inserts. However, SDEP's data model requires explicit versioning with `endedAt` timestamps. |
-| **D7** | **Single transaction scope** - the entire bulk operation runs in a single transaction; if the bulk INSERT fails, all changes roll back                                                                            | No partial database state. Consistent with the single endpoint's `get_async_db` auto-commit/rollback model.                                                             |
-| **D8** | **SQLite compatibility** - the bulk INSERT and all queries work on both PostgreSQL and SQLite                                                                                                                     | Unit tests run on SQLite in-memory without requiring PostgreSQL. The `StringArray` TypeDecorator handles dialect differences.                                           |
-| **D9** | **Lifecycle status on activities** - activity records carry `status` with values `finished` (default) or `cancelled`; resubmitting the same `activityId` with `cancelled` creates a new current cancelled version | Allows platforms to correct previously submitted stays without changing the existing versioning model.                                                                  |
-
----
-
-## Development Workflow
-
-See makefile help
-```
-make
-```
-
----
-
-## Testing Strategy
-
-### Unit Tests (`backend/tests/`)
-- pytest with parallel execution (`-n auto`)
-- Async test support
-- Fixtures for database and authentication
-- Code coverage tracking
-- **Run:** `cd backend && make test`
-
-### Integration Tests (`tests/`)
-- Shell scripts using curl
-- Test OAuth2 flows
-- Test API endpoints with single-item and bulk POST payloads
-- Test security headers (OWASP compliance)
-- Test validation (Pydantic + business logic)
-- **Run:** `make test`
-- See [Integration Tests](INTEGRATION_TESTS.md) for detailed test documentation
-
-### Performance Tests (`tests/perf/`)
-- Locust-based load testing for the bulk activity endpoint (`POST /str/activities/bulk`)
-- Measures throughput (activities/sec), extrapolates capacity (activities/day), compares against configurable target
-- Uses isolated test data (`sdep-test-perf-*` prefix) by default; optionally keeps data in database (`PERF_KEEP_DATA=true`)
-- Configurable: `PERF_ACTIVITIES_TARGET` (total target volume), `PERF_USERS` (concurrent users to reach target), `PERF_MAX_DURATION_SECONDS`, `PERF_BATCH_SIZE`, `PERF_KEEP_DATA`
-- **Run:** `make test-perf` (or e.g. `make test-perf PERF_USERS=5 PERF_ACTIVITIES_TARGET=1000000 PERF_MAX_DURATION_SECONDS=10`)
-- See [Performance Tests](PERFORMANCE_TESTS.md) for detailed documentation
-
----
-
-## SQLite vs PostgreSQL
-
-The internal data model targets **PostgreSQL** as the production database. **SQLite** is used for unit tests (in-memory) to keep the test cycle fast and self-contained.
-
-**Unit tests** (`backend/tests/`) automatically switch to an in-memory SQLite database (`sqlite+aiosqlite:///:memory:`) when no `DATABASE_URL` environment variable is set. This lets developers run unit tests without PostgreSQL installed or running.
-
-**Integration tests** (`tests/`) and **Production** both use PostgreSQL (`postgresql+asyncpg`) configured via environment variables (`POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB_NAME`, etc.).
-
-|                 | Production | Integration tests (`tests/`) | Unit tests (`backend/tests/`) |
-| --------------- | ---------- | ---------------------------- | ----------------------------- |
-| **Database**    | PostgreSQL | PostgreSQL                   | SQLite (in-memory)            |
-| **Trigger**     | always     | always                       | `DATABASE_URL` not set        |
-| **Persistence** | persistent | persistent                   | ephemeral (per test)          |
-| **Dependency**  | `asyncpg`  | `asyncpg`                    | `aiosqlite` (dev only)        |
-
-### Dialect differences
-
-SQLAlchemy abstracts most of the differences, but a few PostgreSQL-specific types and constructs require dialect-aware handling to keep both engines green.
-
-| Concern                                        | PostgreSQL                                                        | SQLite (tests)                                                |
-| :--------------------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------------ |
-| **Enum (`regulation`)**                        | Native `ENUM` type via `CREATE TYPE`                              | Emulated as `VARCHAR` with a `CHECK (col IN (...))`           |
-| **String array (`countryOfGuests`)**           | Native `ARRAY(String)`                                            | Emulated as JSON text via custom `StringArray` type decorator |
-| **Functional IDs (`areaId`, `activityId`, …)** | Stored as `VARCHAR(64)` deliberately, not `UUID` - see note below | Stored as `VARCHAR(64)`                                       |
-| **`largeBinary` (`filedata`)**                 | `BYTEA`                                                           | `BLOB`                                                        |
-| **`timestamptz` (`createdAt`, `endedAt`)**     | `TIMESTAMP WITH TIME ZONE`                                        | `TEXT` (ISO-8601)                                             |
-| **`func.now()` defaults**                      | `now()` (transaction time)                                        | `CURRENT_TIMESTAMP`                                           |
-| **CHECK constraints**                          | Fully supported                                                   | Fully supported                                               |
-| **`ddl_if(dialect=...)`**                      | Used to gate PG-only DDL                                          | Skipped on SQLite                                             |
-
-### Bridging dialect gaps with SQLAlchemy `TypeDecorator`
-
-Where a PostgreSQL-only type has no equivalent in another engine, the project bridges the gap with a custom `TypeDecorator` instead of branching the model layer.
-
-- The `StringArray` decorator in `app/models/types.py` is the canonical example
-- It stores a `list[str]` as a native PostgreSQL `ARRAY(String)` in production and as JSON text in SQLite, transparently to the rest of the code
-- The same pattern can be reused for any other type that needs an engine-specific representation - keep the decorator next to the model layer so all dialect awareness lives in one place
-
-For built-in enum support, prefer SQLAlchemy's `Enum(..., native_enum=True)` over a custom decorator: it emits `CREATE TYPE` on engines that have native enums and falls back to `VARCHAR` + `CHECK` elsewhere, with no application-level branching.
-
-**Why functional IDs are `VARCHAR(64)` and not `UUID`**
-
-Clients are allowed to submit their own functional IDs (alphanumeric with hyphens, ≤ 64 chars, e.g. `"amsterdam-area0363"`). These are not required to be UUIDs, so the column type must accept arbitrary short strings.
-
-### PostgreSQL-specific CHECK constraints
-
-Because some CHECK constraints rely on PostgreSQL-specific SQL (e.g. `array_length`) and cannot run on SQLite, they are declared PostgreSQL-only in both the model (`.ddl_if(dialect="postgresql")`) and the Alembic migration (wrapped in `if is_postgres:`); the DDL is skipped under SQLite, so enforcement falls back to the application layers above the DB:
-
-- **Model** (`backend/app/models/activity.py`) - `CheckConstraint("number_of_guests = array_length(country_of_guests, 1)", name="ck_activity_guests_cardinality").ddl_if(dialect="postgresql")`
-- **Migration** (`backend/alembic/versions/001_initial.py`) - the `create_check_constraint(...)` call is inside an `if is_postgres:` guard
-- **Pydantic fallback** - `ActivityRequest.validate_guest_cardinality` (`@model_validator(mode="after")`) rejects mismatched requests, covering every API/bulk path including SQLite-backed unit tests
-- **Factory fallback** - `ActivityFactory.country_of_guests = LazyAttribute(lambda o: ["NLD"] * o.number_of_guests)` guarantees consistency for CRUD-level tests that call `activity.create()` directly and bypass Pydantic
-
-A direct CRUD call on SQLite with manually mismatched lists would not be caught by either DB or Pydantic; tests must route through Pydantic or use the factory to stay consistent.
-
-### Porting checklist when adding a new database engine
-
-1. **Driver** - verify SQLAlchemy has a working async driver for the target engine, and that it is compatible with the project's SQLAlchemy version.
-2. **Dialect-specific imports** - audit the model layer for `postgresql.*` (or any other dialect-specific) imports; replace them with a `TypeDecorator` (see `app/models/types.py`) so the same model definition works on every engine.
-3. **Native types vs. fallbacks** - review the dialect differences table above and confirm each "PostgreSQL" cell has a working equivalent on the target engine. For types without a native equivalent, decide between (a) a `TypeDecorator` that emulates the type, or (b) a normalized child table.
-4. **Default-value functions** - confirm that any `server_default` / `func.*` calls resolve to a valid expression on the target engine (timestamps, UUIDs, sequence-style identifiers).
-5. **Migrations** - re-run the Alembic migrations against a clean instance of the target engine. Pay attention to operations that PostgreSQL allows but other engines do not (e.g. creating an enum type, transactional DDL, deferred constraints) and gate them with `op.get_bind().dialect.name` or `ddl_if(dialect=...)`.
-6. **Constraints** - verify that CHECK, UNIQUE, and FOREIGN KEY constraints are enforced (some older engine versions parse but ignore CHECK constraints).
-7. **Transaction & isolation semantics** - test concurrency-sensitive code paths (versioning, soft-delete, bulk insert) on a real instance of the target engine; isolation defaults and locking behaviour vary considerably between engines.
-8. **Run the full test suite** - point the test config at a real instance of the target engine and run `make test`. SQLite-only validation is not enough to catch dialect-specific behaviour.
-
----
-
-## Key Configuration Files
-
-- **`.env`** - Base environment variables for local development
-- **`.env.extra`** - Optional local overrides loaded by Make/docker compose when present
-- **`docker-compose.yml`** - Container orchestration
-- **`backend/pyproject.toml`** - Python dependencies and tool configuration
-- **`backend/alembic.ini`** - Database migration configuration
-- **`keycloak/machine-clients.yaml`** - Test machine client definitions (OAuth2)
-- **`keycloak/roles.yaml`** - Test role definitions
-- **`Makefile`** - Development automation
+| #      | Decision                                                                                                                                                                                                          | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D1** | **Per-item Pydantic validation** - the request accepts raw dicts, each validated individually in the service layer                                                                                                | One invalid item should not block the other (999) items in the batch. If one item has a missing field, the rest are still processed.                                                                                                                                                                                                                                                                                                    |
+| **D2** | **Intra-batch duplicates: last-wins** - when the same `activityId` appears multiple times in a single batch, only the last occurrence is processed; earlier occurrences receive NOK                               | Deterministic and predictable for clients. Avoids ambiguity about which version "wins". Combined with pessimistic locking ([Locking](#locking)), this extends across requests: if two concurrent batches contain the same `activityId`, `SELECT ... FOR UPDATE` serializes them so the second batch waits for the first to commit, then overwrites it — consistent last-wins semantics at both the intra-batch and cross-request level. |
+| **D3** | **Versioning: batch UPDATE before INSERT** - existing current versions in the database are marked as ended via a single batch `UPDATE ... WHERE activity_id IN (...)` before the bulk INSERT creates new versions | Consistent with single-endpoint versioning semantics, but uses batch operations (1 UPDATE + 1 INSERT) instead of per-item queries.                                                                                                                                                                                                                                                                                                      |
+| **D4** | **Platform resolution: version only on name change** - platform is resolved once per batch; a new version is only created if the JWT claim (`client_name`) has changed                                            | Avoids unnecessary versioning churn when the same platform submits many batches with unchanged credentials.                                                                                                                                                                                                                                                                                                                             |
+| **D5** | **Deactivated entities rejected** - if an `activityId` has been deactivated (all versions have `endedAt` set), submitting it again is rejected (NOK)                                                              | Prevents "resurrecting" soft-deleted entities. Consistent with single endpoint behavior.                                                                                                                                                                                                                                                                                                                                                |
+| **D6** | **No `ON CONFLICT DO NOTHING`** - SDEP uses explicit versioning (mark-as-ended + new insert) instead of database-level upsert                                                                                     | `ON CONFLICT DO NOTHING` is a general best practice for idempotency in bulk inserts. However, SDEP's data model requires explicit versioning with `endedAt` timestamps.                                                                                                                                                                                                                                                                 |
+| **D7** | **Single transaction scope** - the entire bulk operation runs in a single transaction; if the bulk INSERT fails, all changes roll back                                                                            | No partial database state. Consistent with the single endpoint's `get_async_db` auto-commit/rollback model.                                                                                                                                                                                                                                                                                                                             |
+| **D8** | **SQLite compatibility** - the bulk INSERT and all queries work on both PostgreSQL and SQLite                                                                                                                     | Unit tests run on SQLite in-memory without requiring PostgreSQL. The `StringArray` TypeDecorator handles dialect differences.                                                                                                                                                                                                                                                                                                           |
+| **D9** | **Lifecycle status on activities** - activity records carry `status` with values `finished` (default) or `cancelled`; resubmitting the same `activityId` with `cancelled` creates a new current cancelled version | Allows platforms to correct previously submitted stays without changing the existing versioning model.                                                                                                                                                                                                                                                                                                                                  |

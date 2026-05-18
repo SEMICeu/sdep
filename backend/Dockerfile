@@ -46,7 +46,7 @@ COPY ./pyproject.toml ./uv.lock /backend/
 ENV UV_PROJECT_ENVIRONMENT="/usr/local/"
 # Increase HTTP timeout for slow network connections
 ENV UV_HTTP_TIMEOUT=300
-RUN uv sync --frozen --no-install-project
+RUN uv sync --frozen --no-install-project --no-dev
 
 # -- Stage 2 - runtime (final image with build artifacts and without source code)
 
@@ -58,10 +58,10 @@ ENV IMAGE_TAG=${IMAGE_TAG}
 
 WORKDIR /backend
 
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install runtime dependencies and apply security patches for OS-level packages
+# Note: curl is NOT installed here — K8s probes use httpGet; docker-compose healthcheck uses python urllib
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     libpq5 \
-    curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -69,10 +69,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
+# Remove pip — not needed at runtime, reduces CVE surface
+RUN rm -rf /usr/local/lib/python3.13/site-packages/pip* /usr/local/bin/pip*
+
 # Copy application files
 COPY ./alembic.ini /backend/alembic.ini
 COPY ./alembic /backend/alembic
 COPY ./app /backend/app
+
+RUN groupadd -r app && useradd -r -g app app
+USER app
 
 EXPOSE 8000
 

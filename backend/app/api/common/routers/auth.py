@@ -87,9 +87,9 @@ async def post_auth_token(
         f"{settings.KC_BASE_URL.rstrip('/')}/realms/sdep/protocol/openid-connect/token"
     )
 
-    # Forward the request to Keycloak
+    # Forward the request to Keycloak (explicit timeout prevents hung workers if Keycloak is unresponsive)
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 token_endpoint,
                 data=token_data,

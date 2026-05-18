@@ -4,16 +4,33 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 
+import jwt
 import pytest
 from app.main import app
-from app.security.audit import SKIP_PATHS, _resolve_action
+from app.security.audit import SKIP_PATHS, AuditLogMiddleware, _resolve_action
+from fastapi import FastAPI, Response, status
 from httpx import ASGITransport, AsyncClient
-from jose import jwt
 
 
 def _make_jwt(claims: dict) -> str:
     """Create an unsigned JWT for testing."""
-    return jwt.encode(claims, key="test-secret", algorithm="HS256")
+    return jwt.encode(
+        claims,
+        key="test-secret-that-is-at-least-32-bytes",
+        algorithm="HS256",
+    )
+
+
+def _make_audit_test_app(status_code: int) -> FastAPI:
+    """Create a minimal app to exercise audit middleware status branches."""
+    test_app = FastAPI()
+    test_app.add_middleware(AuditLogMiddleware)
+
+    @test_app.get("/api/ping")
+    async def ping():
+        return Response(status_code=status_code)
+
+    return test_app
 
 
 @pytest.mark.asyncio
@@ -128,6 +145,39 @@ class TestAuditMiddleware:
                 record = mock_write.call_args[0][0]
                 assert record.http_status_code >= 400
                 assert record.status_code == "NOK"
+
+    async def test_success_status_logs_jwt_roles(self):
+        """Test that successful requests log roles extracted from the bearer token."""
+        token = _make_jwt({"realm_access": {"roles": ["role-a", "role-b"]}})
+        transport = ASGITransport(app=_make_audit_test_app(status.HTTP_200_OK))
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            with patch(
+                "app.security.audit._write_audit_record", new_callable=AsyncMock
+            ) as mock_write:
+                await client.get(
+                    "/api/ping", headers={"Authorization": f"Bearer {token}"}
+                )
+                await asyncio.sleep(0.1)
+
+                record = mock_write.call_args[0][0]
+                assert record.http_status_code < 400
+                assert record.roles == "role-a,role-b"
+
+    async def test_forbidden_status_logs_unauthorized_roles(self):
+        """Test that forbidden requests are logged as unauthorized."""
+        transport = ASGITransport(app=_make_audit_test_app(status.HTTP_403_FORBIDDEN))
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            with patch(
+                "app.security.audit._write_audit_record", new_callable=AsyncMock
+            ) as mock_write:
+                await client.get(
+                    "/api/ping", headers={"Authorization": "Bearer invalid"}
+                )
+                await asyncio.sleep(0.1)
+
+                record = mock_write.call_args[0][0]
+                assert record.http_status_code == 403
+                assert record.roles == "UNAUTHORIZED"
 
     async def test_audit_write_failure_does_not_break_request(self):
         """Test that audit write failure doesn't break the request."""

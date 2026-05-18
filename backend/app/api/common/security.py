@@ -4,21 +4,33 @@ This module provides version-agnostic JWT validation logic that can be reused
 across different API versions (v1, v2, etc.).
 """
 
+import threading
 from collections.abc import Callable
 from enum import StrEnum
-from functools import lru_cache
 from typing import Any
 
-import httpx
+# PyJWT replaces python-jose (unmaintained since 2022, CVE-2024-33663 algorithm confusion)
+import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.openapi.models import OAuthFlowClientCredentials, OAuthFlows
 from fastapi.security import OAuth2
 from fastapi.security.utils import get_authorization_scheme_param
-from jose import JWTError, jwt
-from jose.exceptions import ExpiredSignatureError, JWTClaimsError
+from jwt import (
+    DecodeError,
+    ExpiredSignatureError,
+    InvalidAudienceError,
+    InvalidTokenError,
+    PyJWKClient,
+)
 
 from app.config import settings
 from app.exceptions.infrastructure import AuthorizationServerOperationalError
+
+# JWKS client with built-in caching (TTL 300s = 5 min, supports key rotation)
+_jwks_client: PyJWKClient | None = None
+_jwks_client_lock = threading.Lock()
+
+JWKS_CACHE_TTL = 300
 
 
 class Role(StrEnum):
@@ -30,34 +42,33 @@ class Role(StrEnum):
     WRITE = "sdep_write"
 
 
-@lru_cache(maxsize=1)
-def get_keycloak_public_key() -> dict[str, Any]:
-    """Fetch Keycloak public key for JWT validation.
+def _get_jwks_client() -> PyJWKClient:
+    """Get or create the JWKS client (thread-safe, lazy init)."""
+    global _jwks_client
+    if _jwks_client is not None:
+        return _jwks_client
 
-    Cached to avoid repeated network calls.
+    with _jwks_client_lock:
+        if _jwks_client is not None:
+            return _jwks_client
 
-    Returns:
-        JWKS (JSON Web Key Set) dictionary
+        if not settings.KC_BASE_URL:
+            raise AuthorizationServerOperationalError("Keycloak URL is not configured")
 
-    Raises:
-        HTTPException: If unable to fetch public key
-    """
-    if not settings.KC_BASE_URL:
-        raise AuthorizationServerOperationalError("Keycloak URL is not configured")
+        certs_url = f"{settings.KC_BASE_URL.rstrip('/')}/realms/sdep/protocol/openid-connect/certs"
 
-    # Construct the certs endpoint URL
-    certs_url = (
-        f"{settings.KC_BASE_URL.rstrip('/')}/realms/sdep/protocol/openid-connect/certs"
-    )
+        try:
+            _jwks_client = PyJWKClient(
+                certs_url,
+                cache_jwk_set=True,
+                lifespan=JWKS_CACHE_TTL,
+            )
+        except Exception as e:
+            raise AuthorizationServerOperationalError(
+                f"Failed to initialize JWKS client: {e!s}"
+            ) from e
 
-    try:
-        response = httpx.get(certs_url, timeout=10.0)
-        response.raise_for_status()
-        return response.json()
-    except httpx.HTTPError as e:
-        raise AuthorizationServerOperationalError(
-            f"Failed to fetch Keycloak public key: {e!s}"
-        ) from e
+        return _jwks_client
 
 
 def validate_jwt_token(token: str) -> dict[str, Any]:
@@ -75,21 +86,16 @@ def validate_jwt_token(token: str) -> dict[str, Any]:
         HTTPException: If token is invalid, expired, or has invalid claims
     """
     try:
-        # Get Keycloak public keys
-        jwks = get_keycloak_public_key()
+        client = _get_jwks_client()
+        signing_key = client.get_signing_key_from_jwt(token)
 
-        # Decode and validate the token
-        # The library selects the correct key from JWKS automatically
+        # Audience verification is disabled: Keycloak client credentials tokens do not
+        # include an "aud" claim by default, and enforcing it would reject all current clients.
         payload = jwt.decode(
             token,
-            jwks,
+            signing_key.key,
             algorithms=["RS256"],
-            audience="account",  # Keycloak default audience
-            options={
-                "verify_signature": True,
-                "verify_aud": True,
-                "verify_exp": True,
-            },
+            options={"verify_aud": False},
         )
 
         return payload
@@ -100,13 +106,13 @@ def validate_jwt_token(token: str) -> dict[str, Any]:
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
-    except JWTClaimsError as e:
+    except InvalidAudienceError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token claims: {e!s}",
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
-    except JWTError as e:
+    except (DecodeError, InvalidTokenError) as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {e!s}",

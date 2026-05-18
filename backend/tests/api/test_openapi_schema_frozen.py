@@ -6,6 +6,7 @@ with `make openapi-snapshot-update` from `backend/Makefile` and review the diff.
 
 from __future__ import annotations
 
+import difflib
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -53,6 +54,18 @@ def _serialize_openapi(schema: dict[str, Any]) -> str:
     return json.dumps(schema, indent=2, sort_keys=True) + "\n"
 
 
+def _expand_for_diff(text: str) -> str:
+    """Expand \\n inside JSON strings into real newlines for readable diffs."""
+    result = []
+    for line in text.splitlines():
+        if "\\n" in line:
+            indent = len(line) - len(line.lstrip())
+            result.append(line.replace("\\n", "\n" + " " * (indent + 2)))
+        else:
+            result.append(line)
+    return "\n".join(result)
+
+
 def write_openapi_snapshots() -> list[Path]:
     """Write normalized OpenAPI snapshots for all domains."""
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -78,8 +91,20 @@ def test_openapi_schema_is_frozen(domain: str) -> None:
     expected = path.read_text()
     actual = _serialize_openapi(_normalized_openapi(app))
 
-    assert actual == expected, (
-        f"OpenAPI schema for {domain} changed. If this is intentional, refresh "
-        "the snapshots with `make openapi-snapshot-update` from `backend/Makefile` "
-        "and review the diff before committing."
-    )
+    if actual != expected:
+        diff = "\n".join(
+            difflib.unified_diff(
+                _expand_for_diff(expected).splitlines(),
+                _expand_for_diff(actual).splitlines(),
+                fromfile=f"snapshot ({domain})",
+                tofile=f"current ({domain})",
+                lineterm="",
+            )
+        )
+        banner = "=" * 72
+        # First line is visible in `make test` (--tb=line); full diff shows in `make test-verbose`
+        pytest.fail(
+            f"OpenAPI schema for {domain} changed. "
+            "Run `make test-verbose` to see the diff, or `make openapi-snapshot-update` to refresh."
+            f"\n\n{banner}\n  OpenAPI diff: {domain}\n{banner}\n\n{diff}\n\n{banner}"
+        )

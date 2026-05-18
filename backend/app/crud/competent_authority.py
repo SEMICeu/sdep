@@ -34,7 +34,10 @@ async def create(
 
 async def delete(session: AsyncSession, id: int) -> bool:
     """
-    Delete a competent authority by id.
+    Hard-delete a competent authority by id.
+
+    Not yet called from production code (API uses soft-delete via mark_as_ended).
+    Present for future anticipated hard-deletes and currently used by tests.
 
     Args:
         session: Async database session
@@ -130,6 +133,8 @@ async def get_by_id(session: AsyncSession, id: int) -> CompetentAuthority | None
 async def get_by_competent_authority_id(
     session: AsyncSession,
     competent_authority_id: str,
+    *,
+    for_update: bool = False,
 ) -> CompetentAuthority | None:
     """
     Get current competent authority by competent_authority_id (ended_at IS NULL).
@@ -137,6 +142,7 @@ async def get_by_competent_authority_id(
     Args:
         session: Async database session
         competent_authority_id: Competent authority identifier
+        for_update: If True, acquire a row-level lock (SELECT ... FOR UPDATE)
 
     Returns:
         Current CompetentAuthority instance for the given competent_authority_id, or None if not found
@@ -145,6 +151,8 @@ async def get_by_competent_authority_id(
         CompetentAuthority.competent_authority_id == competent_authority_id,
         CompetentAuthority.ended_at.is_(None),
     )
+    if for_update:
+        stmt = stmt.with_for_update()
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 

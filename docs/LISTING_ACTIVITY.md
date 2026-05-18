@@ -32,16 +32,16 @@ Although for random checks only **listings** apply, this document covers both **
   - [Inform](#inform)
   - [Enforce](#enforce)
   - [Monitor](#monitor)
-- [Activity regulation](#activity-regulation-1)
+- [Activity Regulation](#activity-regulation-1)
 - [Flow](#flow-1)
 - [Dependencies](#dependencies-1)
   - [Report](#report-1)
   - [Enforce](#enforce-1)
   - [Monitor](#monitor-1)
-- [Design notes](#design-notes)
+- [Design Notes](#design-notes)
   - [Asynchronous](#asynchronous)
   - [Adress](#adress)
-  - [Area - CA - RR](#area-ca-rr)
+  - [Area - CA - RR](#area---ca---rr)
   - [Unit](#unit)
 
 <div style="page-break-after: always"></div>
@@ -162,7 +162,7 @@ This process is outside scope of **SDEP**.
 | No                     | Yes                  | -    | -   | N/a.                                                                                                 |             |
 | No                     | No                   | -    | -   | N/a.                                                                                                 |             |
 
-**European Commission**: responsibility for this process lies primarily with **STR** (the STR-platforms), not with **SDEP**.
+**European Commission**: Responsibility for this process lies primarily with **STR** (the STR-platforms), not with **SDEP**.
 
 ### Inform
 
@@ -194,7 +194,7 @@ In the Netherlands, the **LMA** is the Autoriteit Consument & Markt (**ACM**).
 
 ---
 
-## Activity regulation
+## Activity Regulation
 
 If an activity address falls within a regulated area, then following regulatory actions apply:
 
@@ -244,7 +244,7 @@ In The Netherlands, the **AMA** is the Inspectie Leefomgeving en Transport (**IL
 
 ---
 
-## Design notes
+## Design Notes
 
 ### Asynchronous
 
@@ -264,7 +264,7 @@ Motivation:
 - Reducing these dependencies lowers implementation risk
 - This approach is agnostic to individual EU Member State implementations
 
-### Adress
+### Address
 
 The RR delivers a reg# address to SDEP.
 

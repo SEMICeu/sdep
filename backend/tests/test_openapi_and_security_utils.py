@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-import httpx
+from unittest.mock import MagicMock, patch
+
+import jwt
 import pytest
 from app.api.common import openapi as openapi_utils
 from app.api.common import security as common_security
@@ -9,8 +11,12 @@ from app.security.audit import _extract_jwt_roles
 from fastapi import FastAPI, HTTPException
 from fastapi.openapi.models import OAuthFlows
 from fastapi.security import OAuth2
-from jose import JWTError, jwt
-from jose.exceptions import ExpiredSignatureError, JWTClaimsError
+from jwt import (
+    DecodeError,
+    ExpiredSignatureError,
+    InvalidAudienceError,
+    InvalidTokenError,
+)
 from starlette.requests import Request
 
 
@@ -216,45 +222,82 @@ def test_create_custom_openapi_caches_and_reuses_generated_schema():
     assert "Auth.TokenRequest" in first["components"]["schemas"]
 
 
-def test_get_keycloak_public_key_handles_configuration_and_http_errors(monkeypatch):
-    common_security.get_keycloak_public_key.cache_clear()
+def test_get_jwks_client_handles_configuration_errors(monkeypatch):
+    monkeypatch.setattr(common_security, "_jwks_client", None)
     monkeypatch.setattr(common_security.settings, "KC_BASE_URL", "")
     with pytest.raises(common_security.AuthorizationServerOperationalError):
-        common_security.get_keycloak_public_key()
+        common_security._get_jwks_client()
 
-    common_security.get_keycloak_public_key.cache_clear()
+
+def test_get_jwks_client_creates_client_with_correct_url(monkeypatch):
+    monkeypatch.setattr(common_security, "_jwks_client", None)
     monkeypatch.setattr(common_security.settings, "KC_BASE_URL", "https://kc.example")
 
-    class SuccessfulResponse:
-        def raise_for_status(self):
-            pass
+    with patch("app.api.common.security.PyJWKClient") as mock_cls:
+        mock_cls.return_value = MagicMock()
+        client = common_security._get_jwks_client()
 
-        def json(self):
-            return {"keys": [{"kid": "test-key"}]}
+        mock_cls.assert_called_once_with(
+            "https://kc.example/realms/sdep/protocol/openid-connect/certs",
+            cache_jwk_set=True,
+            lifespan=common_security.JWKS_CACHE_TTL,
+        )
+        assert client is mock_cls.return_value
 
-    def successful_get(url, **kwargs):
-        assert url == "https://kc.example/realms/sdep/protocol/openid-connect/certs"
-        assert kwargs == {"timeout": 10.0}
-        return SuccessfulResponse()
+    monkeypatch.setattr(common_security, "_jwks_client", None)
 
-    monkeypatch.setattr(common_security.httpx, "get", successful_get)
-    assert common_security.get_keycloak_public_key() == {"keys": [{"kid": "test-key"}]}
 
-    common_security.get_keycloak_public_key.cache_clear()
+def test_get_jwks_client_returns_cached_instance(monkeypatch):
+    sentinel = MagicMock()
+    monkeypatch.setattr(common_security, "_jwks_client", sentinel)
+    assert common_security._get_jwks_client() is sentinel
 
-    def raise_error(*args, **kwargs):
-        request = httpx.Request("GET", "https://kc.example")
-        raise httpx.ConnectError("boom", request=request)
 
-    monkeypatch.setattr(common_security.httpx, "get", raise_error)
-    with pytest.raises(common_security.AuthorizationServerOperationalError):
-        common_security.get_keycloak_public_key()
+def test_get_jwks_client_returns_cached_instance_inside_lock(monkeypatch):
+    sentinel = MagicMock()
+    real_lock = common_security._jwks_client_lock
+
+    class _LockThatSimulatesRace:
+        def __enter__(self):
+            real_lock.__enter__()
+            common_security._jwks_client = sentinel
+            return self
+
+        def __exit__(self, *args):
+            return real_lock.__exit__(*args)
+
+    monkeypatch.setattr(common_security, "_jwks_client", None)
+    monkeypatch.setattr(common_security, "_jwks_client_lock", _LockThatSimulatesRace())
+    assert common_security._get_jwks_client() is sentinel
+    monkeypatch.setattr(common_security, "_jwks_client", None)
+
+
+def test_get_jwks_client_wraps_constructor_exception(monkeypatch):
+    monkeypatch.setattr(common_security, "_jwks_client", None)
+    monkeypatch.setattr(common_security.settings, "KC_BASE_URL", "https://kc.example")
+
+    with (
+        patch(
+            "app.api.common.security.PyJWKClient",
+            side_effect=RuntimeError("connection refused"),
+        ),
+        pytest.raises(
+            common_security.AuthorizationServerOperationalError,
+            match="Failed to initialize",
+        ),
+    ):
+        common_security._get_jwks_client()
+
+    monkeypatch.setattr(common_security, "_jwks_client", None)
 
 
 def test_validate_jwt_token_success_and_error_paths(monkeypatch):
-    monkeypatch.setattr(
-        common_security, "get_keycloak_public_key", lambda: {"keys": []}
-    )
+    mock_client = MagicMock()
+    mock_signing_key = MagicMock()
+    mock_signing_key.key = "test-key"
+    mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
+    monkeypatch.setattr(common_security, "_get_jwks_client", lambda: mock_client)
+
     monkeypatch.setattr(
         common_security.jwt, "decode", lambda *args, **kwargs: {"sub": "ok"}
     )
@@ -271,7 +314,9 @@ def test_validate_jwt_token_success_and_error_paths(monkeypatch):
     monkeypatch.setattr(
         common_security.jwt,
         "decode",
-        lambda *args, **kwargs: (_ for _ in ()).throw(JWTClaimsError("bad claims")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            InvalidAudienceError("bad audience")
+        ),
     )
     with pytest.raises(HTTPException, match="Invalid token claims"):
         common_security.validate_jwt_token("token")
@@ -279,9 +324,17 @@ def test_validate_jwt_token_success_and_error_paths(monkeypatch):
     monkeypatch.setattr(
         common_security.jwt,
         "decode",
-        lambda *args, **kwargs: (_ for _ in ()).throw(JWTError("bad token")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(DecodeError("bad token")),
     )
     with pytest.raises(HTTPException, match="Invalid token: bad token"):
+        common_security.validate_jwt_token("token")
+
+    monkeypatch.setattr(
+        common_security.jwt,
+        "decode",
+        lambda *args, **kwargs: (_ for _ in ()).throw(InvalidTokenError("invalid")),
+    )
+    with pytest.raises(HTTPException, match="Invalid token: invalid"):
         common_security.validate_jwt_token("token")
 
     monkeypatch.setattr(
@@ -322,7 +375,7 @@ def test_extract_jwt_roles_handles_missing_invalid_and_valid_tokens():
 
     token = jwt.encode(
         {"realm_access": {"roles": ["role-a", "role-b"]}},
-        key="secret",
+        key="test-key-that-is-at-least-32-bytes!",
         algorithm="HS256",
     )
     assert _extract_jwt_roles(_request(auth=f"Bearer {token}")) == "role-a,role-b"

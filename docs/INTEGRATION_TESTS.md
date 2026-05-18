@@ -6,24 +6,24 @@ These tests verify API functionality, authentication, authorization, and securit
 
 - [Running Tests](#running-tests)
 - [Test Scripts](#test-scripts)
-  - [Authentication \& authorization tests](#authentication-authorization-tests)
+  - [Authentication \& Authorization Tests](#authentication-authorization-tests)
     - [`test_auth_client.sh`](#test_auth_clientsh)
     - [`test_auth_credentials.sh`](#test_auth_credentialssh)
     - [`test_auth_headers.sh`](#test_auth_headerssh)
     - [`test_auth_unauthorized.sh`](#test_auth_unauthorizedsh)
-  - [Healthcheck tests](#healthcheck-tests)
+  - [Healthcheck Tests](#healthcheck-tests)
     - [`test_health_ping.sh`](#test_health_pingsh)
-  - [Competent Authority (CA) tests](#competent-authority-ca-tests)
+  - [Competent Authority (CA) Tests](#competent-authority-ca-tests)
     - [`test_ca_areas.sh`](#test_ca_areassh)
     - [`test_ca_activities.sh`](#test_ca_activitiessh)
-  - [Short-Term Rental (STR) Platform tests](#short-term-rental-str-platform-tests)
+  - [Short-Term Rental (STR) Platform Tests](#short-term-rental-str-platform-tests)
     - [`test_str_areas.sh`](#test_str_areassh)
     - [`test_str_activities_bulk.sh`](#test_str_activities_bulksh)
-  - [Helper scripts](#helper-scripts)
+  - [Helper Scripts](#helper-scripts)
     - [`lib/create_fixture_areas.sh`](#libcreate_fixture_areassh)
 - [Configuration](#configuration)
   - [Credentials](#credentials)
-  - [Bearer tokens](#bearer-tokens)
+  - [Bearer Tokens](#bearer-tokens)
   - [Exit Codes](#exit-codes)
 
 
@@ -41,7 +41,7 @@ See [../Makefile](../Makefile). Available targets:
 
 ## Test Scripts
 
-### Authentication & authorization tests
+### Authentication & Authorization Tests
 
 #### `test_auth_client.sh`
 **Purpose:** Utility script to authenticate and save bearer token
@@ -110,7 +110,7 @@ See [../Makefile](../Makefile). Available targets:
 
 ---
 
-### Healthcheck tests
+### Healthcheck Tests
 
 #### `test_health_ping.sh`
 **Purpose:** Basic API availability test
@@ -122,7 +122,7 @@ See [../Makefile](../Makefile). Available targets:
 
 ---
 
-### Competent Authority (CA) tests
+### Competent Authority (CA) Tests
 
 #### `test_ca_areas.sh`
 **Purpose:** Test single area submission for competent authorities
@@ -184,7 +184,7 @@ See [../Makefile](../Makefile). Available targets:
 
 ---
 
-### Short-Term Rental (STR) Platform tests
+### Short-Term Rental (STR) Platform Tests
 
 #### `test_str_areas.sh`
 **Purpose:** Comprehensive testing of area lookup endpoints for STR platforms
@@ -240,7 +240,7 @@ Where `results[].status` is the batch processing status (`OK`/`NOK`) and `result
 
 ---
 
-### Helper scripts
+### Helper Scripts
 
 #### `lib/create_fixture_areas.sh`
 **Purpose:** Create fixture areas for test isolation
@@ -276,7 +276,7 @@ Default test clients are configured in Keycloak. The Makefile retrieves secrets 
 
 ---
 
-### Bearer tokens
+### Bearer Tokens
 
 - Tokens are saved to `./tmp/.bearer_token` by `test_auth_client.sh`
 - Other scripts automatically load tokens from this file

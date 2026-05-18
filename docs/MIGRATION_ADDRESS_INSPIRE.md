@@ -91,7 +91,7 @@ This migration aligns SDEP with these standards, enabling:
 
 ---
 
-## Addition of `fullAddress` field
+## Addition of `fullAddress` Field
 
 A new required `fullAddress` string field has been added to the Address composite.
 

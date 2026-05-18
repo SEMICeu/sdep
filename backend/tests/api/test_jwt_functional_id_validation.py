@@ -16,6 +16,8 @@ from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.api.zip_stub import ZIP
+
 # --- Invalid client_id values ---
 
 INVALID_CLIENT_IDS = [
@@ -82,7 +84,7 @@ class TestInvalidCAClientId:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -300,7 +302,7 @@ class TestValidClientIdAccepted:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
 

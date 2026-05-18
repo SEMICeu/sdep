@@ -7,7 +7,7 @@ https://sdep.gov.nl/api/docs
 
 <h2>Table of Contents</h2>
 
-- [Data model](#data-model)
+- [Data Model](#data-model)
   - [Competent Authority](#competent-authority)
   - [Platform](#platform)
   - [Area](#area)
@@ -15,14 +15,8 @@ https://sdep.gov.nl/api/docs
   - [Address (Composite)](#address-composite)
   - [Temporal (Composite)](#temporal-composite)
   - [AuditLog](#auditlog)
-- [Key Patterns](#key-patterns)
-  - [OLTP](#oltp)
-  - [ID Management](#id-management)
-  - [Versioning](#versioning)
-  - [Soft-Delete](#soft-delete)
-  - [Lazy load](#lazy-load)
 
-## Data model
+## Data Model
 
 Overview:
 
@@ -50,7 +44,7 @@ The datamodel is a logical datamodel: references are expressed as objects instea
 | **competentAuthorityName** | string    | optional, length <= 64, e.g. "Gemeente Amsterdam"                                                       |
 | **createdAt**              | datetime  | required, UTC                                                                                           |
 | **endedAt**                | datetime  | optional, UTC                                                                                           |
-| **areas**                  | reference | optional, references many Area                                                                          |
+| **areas**                  | reference | optional, references many Area, restricted delete                                                       |
 
 **Class Constraints:**
 
@@ -69,7 +63,7 @@ The datamodel is a logical datamodel: references are expressed as objects instea
 | **platformName** | string    | optional, length <= 64, e.g. "Example platform"                                                         |
 | **createdAt**    | datetime  | required, UTC                                                                                           |
 | **endedAt**      | datetime  | optional, UTC                                                                                           |
-| **activities**   | reference | optional, references many Activity                                                                      |
+| **activities**   | reference | optional, references many Activity, restricted delete                                                   |
 
 **Class Constraints:**
 
@@ -92,7 +86,7 @@ The datamodel is a logical datamodel: references are expressed as objects instea
 | **competentAuthority** | reference   | required, references single Competent Authority                                                                                  |
 | **filename**           | string      | required, length <= 64, e.g. "Amsterdam.zip"                                                                                     |
 | **filedata**           | largeBinary | required, max size 1MiB, e.g. a .zip with a collection of ESRI shapefile files                                                   |
-| **activities**         | reference   | optional, references many Activity                                                                                               |
+| **activities**         | reference   | optional, references many Activity, restricted delete                                                                            |
 
 **Class Constraints:**
 
@@ -183,77 +177,22 @@ The datamodel is a logical datamodel: references are expressed as objects instea
 
 **Purpose:** Append-only log of API requests for compliance, security monitoring, and operational accountability
 
-| Attribute          | Type     | Constraints                                       |
-| :----------------- | :------- | :------------------------------------------------ |
-| **id**             | int      | required, is technical id                         |
-| **timestamp**      | datetime | required, UTC, server default now()               |
-| **requestId**      | string   | required, UUID4, length <= 64                     |
-| **roles**          | string   | optional, length <= 256, comma-separated from JWT |
-| **resourceType**   | string   | optional, length <= 32                            |
-| **action**         | string   | required, length <= 64, semantic action name      |
-| **httpMethod**     | string   | required, length <= 10                            |
-| **path**           | string   | required, length <= 512                           |
-| **httpStatusCode** | int      | required                                          |
-| **statusCode**     | string   | required, length <= 3, "OK" if < 400 else "NOK"   |
-| **durationMs**     | int      | optional                                          |
+| Attribute          | Type     | Constraints                                                                                                                          |
+| :----------------- | :------- | :----------------------------------------------------------------------------------------------------------------------------------- |
+| **id**             | int      | required, is technical id                                                                                                            |
+| **timestamp**      | datetime | required, UTC, server default now()                                                                                                  |
+| **requestId**      | string   | required, UUID4, length <= 64                                                                                                        |
+| **roles**          | string   | optional, length <= 256; verified roles (comma-separated), `REJECTED` (401), `UNAUTHORIZED` (403), or `null` (not yet authenticated) |
+| **resourceType**   | string   | optional, length <= 32                                                                                                               |
+| **action**         | string   | required, length <= 64, semantic action name                                                                                         |
+| **httpMethod**     | string   | required, length <= 10                                                                                                               |
+| **path**           | string   | required, length <= 512                                                                                                              |
+| **httpStatusCode** | int      | required                                                                                                                             |
+| **statusCode**     | string   | required, length <= 3, "OK" if < 400 else "NOK"                                                                                      |
+| **durationMs**     | int      | optional                                                                                                                             |
 
 **Notes:**
 - Append-only: no updates or deletes (except automated retention cleanup)
 - Standalone table with no foreign key relationships
 - Indexes on: `timestamp`, `request_id`
 - **Retention:** rows older than `AUDITLOG_RETENTION` days (default 1) are automatically deleted by a background task
-
----
-
-## Key Patterns
-
-### OLTP
-- Bulk POST (`POST /str/activities/bulk`) - for all platforms (up to 1000 items/batch)
-- Single concurrency (no optimistic locking)
-
-### ID Management
-
-Technical IDs
-- Represent technical keys, on the **“inside”** (under the hood)
-- These are used for referential integrity within the database
-
-Functional IDs
-- Represent business identifiers, on the **“outside”**
-- Are client-provided (optional), or auto-provisioned otherwise (UUIDv4 RFC 9562)
-  - Exception: `platformId` and `competentAuthorityId` (these are auto-provisioned from JWT-claim)
-- After a POST, functional IDs are always returned/made visible
-- This allows them to be reused in subsequent submissions
-- Functional IDs enable versioning (in combination with a timestamp)
-
-https://datatracker.ietf.org/doc/rfc9562/
-
-### Versioning
-- Same functional ID can be resubmitted with new timestamp for versioning
-  - Entities use `(functionalId, createdAt)` as unique constraint
-- Stacking
-  - Last becomes current (empty `endedAt`)
-  - Previous becomes ended (`endedAt`)
-- Enables historical tracking and updates without losing previous versions
-- Standard retrieve only yields the current
-
-### Soft-Delete
-- When all versions of a functional ID have `endedAt` set, the entity is considered **deactivated**
-- Creating a new version with a deactivated functional ID is rejected (HTTP 422)
-- This prevents "resurrecting" soft-deleted entities
-- The guard applies to: `competentAuthorityId`, `platformId`, `areaId`, and `activityId`
-
-### Lazy load
-
-- **Default lazy loading**
-  - Relationships have no explicit `lazy=` parameter (uses SQLAlchemy defaults)
-- **Custom eager loading** via `selectinload()` at query time
-  - When relationships are needed, CRUD functions explicitly load them, e.g.:
-    ```python
-    stmt = select(Activity).options(
-        selectinload(Activity.platform),
-        selectinload(Activity.area).selectinload(Area.competent_authority),
-    )
-    ```
-- **Benefits**
-  - Eager-when-needed (loads relationships in bulk via `selectinload`)
-  - Idiomatic (reduced boilerplate, less-verbose than manual queries)

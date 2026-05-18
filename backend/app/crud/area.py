@@ -52,7 +52,10 @@ async def create(
 
 async def delete(session: AsyncSession, area_id: int) -> bool:
     """
-    Delete an area by technical id.
+    Hard-delete an area by technical id.
+
+    Not yet called from production code (API uses soft-delete via mark_as_ended).
+    Present for future anticipated hard-deletes and currently used by tests.
 
     Args:
         session: Async database session
@@ -145,13 +148,19 @@ async def get_by_id(session: AsyncSession, area_id: int) -> Area | None:
     return result.scalar_one_or_none()
 
 
-async def get_by_area_id(session: AsyncSession, area_id: str) -> Area | None:
+async def get_by_area_id(
+    session: AsyncSession,
+    area_id: str,
+    *,
+    for_update: bool = False,
+) -> Area | None:
     """
     Get current area by functional ID (ended_at IS NULL).
 
     Args:
         session: Async database session
         area_id: Area functional ID (UUID string)
+        for_update: If True, acquire a row-level lock (SELECT ... FOR UPDATE)
 
     Returns:
         Current Area instance for the given area_id, or None if not found
@@ -160,6 +169,8 @@ async def get_by_area_id(session: AsyncSession, area_id: str) -> Area | None:
         Area.area_id == area_id,
         Area.ended_at.is_(None),
     )
+    if for_update:
+        stmt = stmt.with_for_update()
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 

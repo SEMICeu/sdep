@@ -10,6 +10,8 @@ from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.api.zip_stub import ZIP, zip_named
+
 
 def mock_verify_bearer_token() -> dict[str, Any]:
     """Mock token verification for testing with ca role."""
@@ -67,7 +69,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -88,7 +90,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 data={"areaId": "my-custom-id"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -106,7 +108,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 data={"areaId": "My-AREA-Id-123"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -123,7 +125,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 data={"areaName": "Amsterdam Central"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -141,7 +143,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -162,7 +164,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 data={"regulation": ""},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -179,7 +181,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 data={"regulation": "listing"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -196,7 +198,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 data={"regulation": "nonsense"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -212,7 +214,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -230,7 +232,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -256,6 +258,40 @@ class TestCAAreaAPI:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
+    async def test_post_area_rejects_non_zip_filename(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test POST /ca/areas rejects files without a .zip extension."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/areas",
+                files={"file": ("Area.txt", ZIP, "text/plain")},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert response.json()["detail"][0]["msg"] == "Only .zip files are accepted."
+
+    async def test_post_area_rejects_invalid_zip_content(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test POST /ca/areas rejects .zip files with invalid magic bytes."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/areas",
+                files={"file": ("Area.zip", b"not-a-zip", "application/zip")},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert response.json()["detail"][0]["msg"] == (
+            "File is not a valid ZIP archive: mismatch in the identifying first bytes (the magic bytes)."
+        )
+
     async def test_post_area_unauthorized_no_token(
         self, async_session: AsyncSession, setup_db_only
     ):
@@ -265,7 +301,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
             )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -299,7 +335,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -332,7 +368,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -348,7 +384,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 data={"areaId": "INVALID_ID"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -364,7 +400,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 data={"areaId": "a" * 65},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -380,7 +416,7 @@ class TestCAAreaAPI:
         ) as client:
             response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -401,7 +437,7 @@ class TestCAAreaAPI:
             # Submit v1
             response1 = await client.post(
                 "/areas",
-                files={"file": ("Area_v1.zip", b"zipdata_v1", "application/zip")},
+                files={"file": ("Area_v1.zip", zip_named("v1"), "application/zip")},
                 data={"areaId": "versioned-area"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -413,7 +449,7 @@ class TestCAAreaAPI:
             # Submit v2 with same areaId
             response2 = await client.post(
                 "/areas",
-                files={"file": ("Area_v2.zip", b"zipdata_v2", "application/zip")},
+                files={"file": ("Area_v2.zip", zip_named("v2"), "application/zip")},
                 data={"areaId": "versioned-area"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -451,7 +487,7 @@ class TestCAAreaAPI:
             # Create an area for this CA
             await client.post(
                 "/areas",
-                files={"file": ("MyArea.zip", b"mydata", "application/zip")},
+                files={"file": ("MyArea.zip", ZIP, "application/zip")},
                 data={"areaId": "my-area"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -560,7 +596,7 @@ class TestCAAreaAPI:
             # Create two areas for this CA
             await client.post(
                 "/areas",
-                files={"file": ("Area1.zip", b"data1", "application/zip")},
+                files={"file": ("Area1.zip", zip_named("d1"), "application/zip")},
                 data={"areaId": "count-area-1"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -570,7 +606,7 @@ class TestCAAreaAPI:
 
             await client.post(
                 "/areas",
-                files={"file": ("Area2.zip", b"data2", "application/zip")},
+                files={"file": ("Area2.zip", zip_named("d2"), "application/zip")},
                 data={"areaId": "count-area-2"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -597,7 +633,7 @@ class TestCAAreaAPI:
             # Create an area first
             post_response = await client.post(
                 "/areas",
-                files={"file": ("Area.zip", b"zipdata", "application/zip")},
+                files={"file": ("Area.zip", ZIP, "application/zip")},
                 data={"areaId": "delete-test-area"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -755,7 +791,7 @@ class TestCAAreaAPI:
             # Create an area first
             post_response = await client.post(
                 "/areas",
-                files={"file": ("MyArea.zip", b"zipbinary", "application/zip")},
+                files={"file": ("MyArea.zip", ZIP, "application/zip")},
                 data={"areaId": "get-area-test"},
                 headers={"Authorization": "Bearer test_token"},
             )
@@ -768,7 +804,7 @@ class TestCAAreaAPI:
             )
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.content == b"zipbinary"
+        assert response.content == ZIP
         assert "application/zip" in response.headers["content-type"]
         assert 'filename="MyArea.zip"' in response.headers["content-disposition"]
 
@@ -820,7 +856,7 @@ class TestCAAreaAPI:
             # Create an area, delete it, then try to GET it
             await client.post(
                 "/areas",
-                files={"file": ("ToDelete.zip", b"data", "application/zip")},
+                files={"file": ("ToDelete.zip", ZIP, "application/zip")},
                 data={"areaId": "get-deleted-area"},
                 headers={"Authorization": "Bearer test_token"},
             )

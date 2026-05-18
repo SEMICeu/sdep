@@ -233,7 +233,7 @@ async def create_activities_bulk(
 
         if ids_for_versioning:
             current_ids = await activity_crud.get_current_by_activity_ids(
-                session, ids_for_versioning, platform.id
+                session, ids_for_versioning, platform.id, for_update=True
             )
             ids_to_end = [aid for aid in ids_for_versioning if aid in current_ids]
             if ids_to_end:

@@ -45,7 +45,7 @@ async def validation_exception_handler(
     Returns 422 Unprocessable Entity for other methods (request body validation).
     """
     logger = _get_logger()
-    logger.warning(f"Validation error on {request.url.path}: {exc}")
+    logger.warning("Validation error on %s: %s", request.url.path, exc)
 
     # Standard error response
     details = []
@@ -87,7 +87,7 @@ async def business_logic_exception_handler(
 ) -> JSONResponse:
     """Handle business logic errors."""
     logger = _get_logger()
-    logger.warning(f"Business logic error on {request.url.path}: {exc}")
+    logger.warning("Business logic error on %s: %s", request.url.path, exc)
 
     # Import here to avoid circular dependency
     from app.exceptions.business import DuplicateResourceError
@@ -115,7 +115,7 @@ async def authentication_exception_handler(
 ) -> JSONResponse:
     """Handle authentication errors."""
     logger = _get_logger()
-    logger.warning(f"Authentication error on {request.url.path}: {exc}")
+    logger.warning("Authentication error on %s: %s", request.url.path, exc)
 
     error_response = ErrorResponse(
         detail=[
@@ -138,7 +138,7 @@ async def authorization_exception_handler(
 ) -> JSONResponse:
     """Handle authorization errors."""
     logger = _get_logger()
-    logger.warning(f"Authorization error on {request.url.path}: {exc}")
+    logger.warning("Authorization error on %s: %s", request.url.path, exc)
 
     error_response = ErrorResponse(
         detail=[ErrorDetail(msg=str(exc), type="authorization_error")],
@@ -155,7 +155,7 @@ async def resource_not_found_exception_handler(
 ) -> JSONResponse:
     """Handle resource not found errors."""
     logger = _get_logger()
-    logger.warning(f"Resource not found error on {request.url.path}: {exc}")
+    logger.warning("Resource not found error on %s: %s", request.url.path, exc)
 
     error_response = ErrorResponse(
         detail=[ErrorDetail(msg=str(exc), type="not_found_error")],
@@ -186,7 +186,10 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         error_type = "server_error"
 
     logger.warning(
-        f"HTTP exception on {request.url.path}: {exc.detail} (status: {exc.status_code})"
+        "HTTP exception on %s: %s (status: %s)",
+        request.url.path,
+        exc.detail,
+        exc.status_code,
     )
 
     error_response = ErrorResponse(
@@ -210,7 +213,7 @@ async def database_unavailable_exception_handler(
 ) -> JSONResponse:
     """Handle database operational errors (DB connection failures) as 503."""
     logger = _get_logger()
-    logger.error(f"Database unavailable on {request.url.path}: {exc}")
+    logger.error("Database unavailable on %s: %s", request.url.path, exc)
 
     error_response = ErrorResponse(
         detail=[
@@ -230,7 +233,7 @@ async def authorization_server_unavailable_exception_handler(
 ) -> JSONResponse:
     """Handle authorization server (Keycloak) unavailability as 503."""
     logger = _get_logger()
-    logger.error(f"Authorization server unavailable on {request.url.path}: {exc}")
+    logger.error("Authorization server unavailable on %s: %s", request.url.path, exc)
 
     error_response = ErrorResponse(
         detail=[
@@ -255,7 +258,7 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
     logger = _get_logger()
 
     # Log full stack trace server-side for debugging
-    logger.error(f"Unhandled exception on {request.url.path}: {exc}", exc_info=True)
+    logger.error("Unhandled exception on %s: %s", request.url.path, exc, exc_info=True)
 
     # Return clean error to client (NO stack trace!)
     error_response = ErrorResponse(

@@ -9,13 +9,13 @@
 - Use GitHub tags for initial versioning
 - Use API versioning later (once competent authorities and platforms are connected)
 
-## Issue management
+## Issue Management
 
 - **Anyone** can enter new issues
 - **Team SDEP (NL)** assigns (exactly one) **label** to the issue and puts it into the SDEP **project**
 - **Anyone** can enter comments in (closed) issues
 
-## Issue labels
+## Issue Labels
 
 Each issue is assigned exactly one label:
 
@@ -29,15 +29,15 @@ Each issue is assigned exactly one label:
 | **Enhancement** | Standard enhancement to the reference implementation or documentation     |
 | **Bug**         | Defect in the reference implementation or documentation                   |
 
-[1] Unless commented otherwise: this label is added 72h after discussion/agreement, after which it will be implemented.
+[1] Unless commented otherwise: This label is added 72h after discussion/agreement, after which it will be implemented.
 
-## Work in progress
+## Work in Progress
 
 - **Team SDEP (NL)** maintains work in progress on **Kanban boards** in **milestones**
 - **Collaborators** can see the project's Kanban boards
 - https://github.com/orgs/SEMICeu/projects/3/views/1?groupedBy%5BcolumnId%5D=Milestone
 
-## Work completed
+## Work Completed
 
 - Change log - https://github.com/SEMICeu/sdep/blob/main/CHANGELOG.md
 - Closed issues - https://github.com/SEMICeu/sdep/issues?q=is%3Aissue%20state%3Aclosed

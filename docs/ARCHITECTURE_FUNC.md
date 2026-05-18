@@ -1,11 +1,13 @@
 <h1>Functional Architecture</h1>
 
-This document provides an overview of the SDEP (Single Digital Entry Point) functional architecture:
+This document provides an overview of the SDEP (Single Digital Entry Point) functional architecture.
+
+Table of contents:
 
 - [Diagram](#diagram)
-- [PDF export](#pdf-export)
-- [Update of shapefiles](#update-of-shapefiles)
-- [Send activity data](#send-activity-data)
+- [PDF Export](#pdf-export)
+- [Update of Shapefiles](#update-of-shapefiles)
+- [Send Activity Data](#send-activity-data)
 
 ## Diagram
 
@@ -13,7 +15,7 @@ Arrows indicate information flows:
 
 ![](./diagrams/ARCHITECTURE_FUNC.png)
 
-## PDF export
+## PDF Export
 
 For current API versions:
 
@@ -21,11 +23,11 @@ For current API versions:
 - [API ca_v1 pdf](./sdep_openapi_ca_v1.pdf)
 - [API str_v1 pdf](./sdep_openapi_str_v1.pdf)
 
-## Update of shapefiles
+## Update of Shapefiles
 
 Update of shapefiles at the beginning of each month.
 
-As discussed in the technical working group: this logic is not handled by the SDEP, but by agreement on a process.
+As discussed in the technical working group: This logic is not handled by the SDEP, but by agreement on a process.
 
 For example, a new Competent Authority want to regulate their area.
 
@@ -34,11 +36,11 @@ For example, a new Competent Authority want to regulate their area.
 
 See also https://github.com/SEMICeu/sdep/issues/22.
 
-## Send activity data
+## Send Activity Data
 
 The activity data should only be sent by STR platforms after the stay completion.
 
-As discussed in the technical working group: use the check-out date as the determining factor for which reporting period an activity record belongs to.
+As discussed in the technical working group: Use the check-out date as the determining factor for which reporting period an activity record belongs to.
 
 Example:
 

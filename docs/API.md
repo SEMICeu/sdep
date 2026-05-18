@@ -6,10 +6,10 @@ Table of contents
 
 - [Principle](#principle)
 - [Patterns](#patterns)
-- [HTTP status codes](#http-status-codes)
+- [HTTP Status Codes](#http-status-codes)
   - [Success](#success)
-  - [Client errors](#client-errors)
-  - [Server errors](#server-errors)
+  - [Client Errors](#client-errors)
+  - [Server Errors](#server-errors)
 - [OpenAPI vs Swagger UI](#openapi-vs-swagger-ui)
   - [OpenAPI](#openapi)
   - [Swagger UI](#swagger-ui)
@@ -43,7 +43,7 @@ Table of contents
 | **API&nbsp;03** | Use nouns instead of verbs                         | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
 | **API&nbsp;04** | Use plurals for resources that affect collections  | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
 | **API&nbsp;05** | Consistent datamodel                               | Avoid code duplication, e.g. have unified `Activity`, `Area` and error responses                                       |
-| **API&nbsp;06** | Consistent endpoints                               | Collection endpoints, explicit "bulk" qualification where needed: `POST /ca/areas`, `POST /str/activities/bulk`        |
+| **API&nbsp;06** | Consistent endpoints                               | Collection endpoints, explicit "bulk" qualification where needed: `POST /ca/areas` vs. `POST /str/activities/bulk`     |
 | **API&nbsp;07** | Consistent pagination                              | Have `offset` and `limit` for all endpoints with (potential) many records                                              |
 | **API&nbsp;08** | Syntax validation                                  | Example: `postal code`                                                                                                 |
 | **API&nbsp;09** | Semantical validation                              | Example: `begin timestamp < end timestamp`                                                                             |
@@ -52,13 +52,13 @@ Table of contents
 | **API&nbsp;12** | Logical ordering => readability                    | For POST, request and response follow the same ordering, extra data in response (e.g. `createdAt`) is moved to the end |
 | **API&nbsp;13** | Essentiality                                       | Example: in `/str/activities/bulk`, only `areaId`, but no `competentAuthorityId`                                       |
 | **API&nbsp;14** | Essentiality/security                              | Example: in POST activities, no need to include `platformId`                                                           |
-| **API&nbsp;15** | Consistent HTTP response codes                     | See [HTTP status codes](#http-status-codes) below                                                                      |
+| **API&nbsp;15** | Consistent HTTP response codes                     | See [HTTP Status Codes](#http-status-codes) below                                                                      |
 | **API&nbsp;16** | STR and CA: manage area change                     | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                         |
 | **API&nbsp;17** | Unified response format                            | Example: `ActivityResponse` (for STR and CA, both contain `competentAuthorityName`')                                   |
 
 ---
 
-## HTTP status codes
+## HTTP Status Codes
 
 ### Success
 
@@ -68,7 +68,7 @@ Table of contents
 | 201         | Created    | POST request created a single new resource                                                          |
 | 204         | No Content | DELETE request completed successfully (e.g. deactivate area)                                        |
 
-### Client errors
+### Client Errors
 
 | HTTP Status | Meaning               | When                                                                                                                          |
 | ----------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -79,14 +79,14 @@ Table of contents
 | 409         | Conflict              | Duplicate resource (unique constraint violation)                                                                              |
 | 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field), or business rule violation (e.g. start time > end time) |
 
-### Server errors
+### Server Errors
 
 | HTTP Status | Meaning               | When                                                                   |
 | ----------- | --------------------- | ---------------------------------------------------------------------- |
 | 500         | Internal Server Error | Unexpected condition that prevented fulfilling the request (catch-all) |
 | 503         | Service Unavailable   | Database or authorization server (Keycloak) temporarily unavailable    |
 
-For the mapping between application exceptions and HTTP status codes, see [Exception Handling](ARCHITECTURE_TECH.md#exception-handling) in the Architecture document.
+For the mapping between application exceptions and HTTP status codes, see [Status Codes and Exception Handling](ARCHITECTURE_TECH.md#status-codes-and-exception-handling) in the Architecture document.
 
 ---
 
@@ -256,10 +256,10 @@ In context of SDEP NL:
 
 - **Operational simplicity is a key design principle** \
   Avoiding an extra gateway reduces:
-  - latency in the request path
-  - duplication of security and routing policies
-  - risk of configuration drift
-  - an additional operational and failure domain
+  - Latency in the request path
+  - Duplication of security and routing policies
+  - Risk of configuration drift
+  - An additional operational and failure domain
 
 - **Authorization is intentionally handled at the right layers** \
   Identity and access control are enforced via the identity provider and the application itself, aligning with SDEP’s architecture rather than shifting logic to an external gateway.

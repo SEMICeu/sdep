@@ -57,7 +57,7 @@ class TestAuthRouter:
             )
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
-        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda: fake_client)
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         credentials = base64.b64encode(b"client-a:secret-a").decode()
         async with AsyncClient(
@@ -89,7 +89,7 @@ class TestAuthRouter:
             response=_MockResponse(200, {"access_token": "abc"})
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example/")
-        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda: fake_client)
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         credentials = base64.b64encode(b"basic-client:basic-secret").decode()
         async with AsyncClient(
@@ -147,7 +147,7 @@ class TestAuthRouter:
             response=_MockResponse(401, {"error_description": "bad credentials"})
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
-        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda: fake_client)
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(
             transport=ASGITransport(app=app_auth_v1), base_url="http://test"
@@ -168,7 +168,7 @@ class TestAuthRouter:
             response=_MockResponse(401, json_error=ValueError("not json"))
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
-        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda: fake_client)
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(
             transport=ASGITransport(app=app_auth_v1), base_url="http://test"
@@ -187,7 +187,7 @@ class TestAuthRouter:
             error=httpx.RequestError("network down", request=request)
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
-        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda: fake_client)
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(
             transport=ASGITransport(app=app_auth_v1), base_url="http://test"

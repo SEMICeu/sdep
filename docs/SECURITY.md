@@ -5,27 +5,33 @@ SDEP is an API-first application built to support machine-to-machine (M2M) inter
 The following security considerations apply:
 
 - [Identification](#identification)
-- [Authentication and authorization](#authentication-and-authorization)
-- [Smaller platforms](#smaller-platforms)
-- [Audit log](#audit-log)
+- [Authentication and Authorization](#authentication-and-authorization)
+- [Smaller Platforms](#smaller-platforms)
+- [Audit Log](#audit-log)
 - [OWASP](#owasp)
-- [XSS, CSP, SQL, Path (injection)](#xss-csp-sql-path-injection)
+- [XSS, CSP, SQL, Path (Injection)](#xss-csp-sql-path-injection)
 - [CSRF](#csrf)
 - [Swagger UI](#swagger-ui)
-- [File upload](#file-upload)
+- [File Upload](#file-upload)
 - [Secrets](#secrets)
-- [Dependency scanning](#dependency-scanning)
-- [Security headers](#security-headers)
-- [Security headers, DNS, TLS](#security-headers-dns-tls)
-- [Audit log (details)](#audit-log-details)
+- [Security Headers](#security-headers)
+- [Content-Disposition](#content-disposition)
+- [Middleware Ordering](#middleware-ordering)
+- [Security Headers, DNS, TLS](#security-headers-dns-tls)
+- [Rate Limiting](#rate-limiting)
+- [Dependency Version Pinning](#dependency-version-pinning)
+- [Non-Root Containers](#non-root-containers)
+- [Container Image Scans](#container-image-scans)
+- [Authentication and Authorization (Details)](#authentication-and-authorization-details)
+- [Audit Log (Details)](#audit-log-details)
 
-*This document applies to the application scope only, as CI/CD-related aspects are outside the scope of this repo.*
+*This document applies to the application scope only (CI/CD-aspects are outside the scope of this repo).*
 
 ## Identification
 
 Upfront identification of machine-clients is handled process-wise (outside the scope of this repo).
 
-## Authentication and authorization
+## Authentication and Authorization
 
 For authentication and authorization, SDEP adopts OAuth 2.0 with JWT-based authentication, which is the industry standard for trusted machine-to-machine (M2M) communication using the OAuth 2.0 Client Credentials Flow (RFC 6749, section 4.4).
 
@@ -46,13 +52,30 @@ SDEP-NL adopts client_id and client_secret, motivated by:
 - Based on the client's identity and pre-configured permissions, the server issues an access token containing specific scopes.
 - The client then presents this as a Bearer token during API calls to access protected resources.
 
-## Smaller platforms
+**Roles:**
+
+| Role         | Purpose                    |
+| :----------- | :------------------------- |
+| `sdep_ca`    | Competent Authority access |
+| `sdep_str`   | STR Platform access        |
+| `sdep_read`  | Read operations            |
+| `sdep_write` | Write operations           |
+
+**JWT Claims used by the application:**
+
+| Claim                | Maps to                                       |
+| :------------------- | :-------------------------------------------- |
+| `client_id`          | Platform or Competent Authority functional ID |
+| `client_name`        | Platform or Competent Authority display name  |
+| `realm_access.roles` | Role-based authorization                      |
+
+## Smaller Platforms
 
 Smaller platforms can opt for delegating SDEP API-invocation to third-parties.
 
 In such case, the platform arranges data submission with their party; the party becomes registered in SDEP.
 
-## Audit log
+## Audit Log
 
 The audit log, implemented in [`audit.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/security/audit.py), logs "**who** did **what**, **where**, **when**, **from where**, and with what **result**".
 
@@ -111,27 +134,39 @@ Together, the database table and stdout output provide complementary access path
 
 ---
 
-For more details, see section [Audit log (details)](#audit-log-details).
-
+For more details, see section [Audit Log (Details)](#audit-log-details).
 
 ## OWASP
 
-Measures taken based on https://owasp.org/Top10/2025/:
+Measures taken based on:
 
-| ID           | Subject                               | Explanation                                                                               | Measure                                                                                 |
-| :----------- | :------------------------------------ | :---------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
-| **A01:2025** | Broken Access Control                 | Unauthorized access to data or functions                                                  | Endpoints secured by OAuth2 with JWT                                                    |
-| **A02:2025** | Security misconfiguration             | Bad configurations / insecure defaults / environment mistakes                             | Externalized config (`config.py`)                                                       |
-| **A03:2025** | Software supply chain failures        | Vulnerabilities in dependencies and external libraries                                    | Image scans (part of CI/CD)                                                             |
-| **A04:2025** | Cryptographic failures                | Failures in encryption, key management                                                    | TLS terminated at Gateway (part of CI/CD); RS256 for JWT (e.g. Keycloak, part of CI/CD) |
-| **A05:2025** | Injection                             | Injection attacks (SQL, XSS, command, path, etc.)                                         | See section [XSS, CSP, SQL, Path (injection)](#xss-csp-sql-path-injection) below                                      |
-| **A06:2025** | Insecure design                       | Poor security considered already at design/architecture phase                             | Security by design (SDEP documentation)                                                 |
-| **A07:2025** | Authentication Failures               | Weak or faulty authentication mechanisms (login, session management, credential handling) | Endpoints secured by OAuth2 with JWT                                                    |
-| **A08:2025** | Software or data integrity failures   | Failures in ensuring data / code integrity                                                | Pydantic validation (application) and source code control (part of CI/CD)                             |
-| **A09:2025** | Logging and alerting failures         | Insufficient or missing logging/monitoring, alerting of security-relevant events          | Audit log                                                                               |
-| **A10:2025** | Mishandling of exceptional conditions | Improper handling of errors, exceptions, edge-cases, unexpected inputs or states          | Exception handling (`exception_handlers.py`)                                            |
+- https://owasp.org/Top10/2025/
+- https://owasp.org/API-Security/editions/2023/en/0x00-header/
 
-## XSS, CSP, SQL, Path (injection)
+| ID             | Subject                                         | Explanation                                                                               | Measure                                                                                        |
+| :------------- | :---------------------------------------------- | :---------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
+| **A01:2025**   | Broken Access Control                           | Unauthorized access to data or functions                                                  | Endpoints secured by OAuth2 with JWT                                                           |
+| **A02:2025**   | Security misconfiguration                       | Bad configurations / insecure defaults / environment mistakes                             | Externalized config (`config.py`)                                                              |
+| **A03:2025**   | Software supply chain failures                  | Vulnerabilities in dependencies and external libraries                                    | [Container Image Scans](#container-image-scans) (part of CI/CD)                                |
+| **A04:2025**   | Cryptographic failures                          | Failures in encryption, key management                                                    | TLS terminated at Gateway (part of CI/CD); RS256 for JWT in IAM (e.g. Keycloak, part of CI/CD) |
+| **A05:2025**   | Injection                                       | Injection attacks (SQL, XSS, command, path, etc.)                                         | See section [XSS, CSP, SQL, Path (Injection)](#xss-csp-sql-path-injection) below               |
+| **A06:2025**   | Insecure design                                 | Poor security considered already at design/architecture phase                             | Security by design (SDEP documentation)                                                        |
+| **A07:2025**   | Authentication Failures                         | Weak or faulty authentication mechanisms (login, session management, credential handling) | Endpoints secured by OAuth2 with JWT                                                           |
+| **A08:2025**   | Software or data integrity failures             | Failures in ensuring data / code integrity                                                | Pydantic validation (application) and source code control (part of CI/CD)                      |
+| **A09:2025**   | Logging and alerting failures                   | Insufficient or missing logging/monitoring, alerting of security-relevant events          | Audit log                                                                                      |
+| **A10:2025**   | Mishandling of exceptional conditions           | Improper handling of errors, exceptions, edge-cases, unexpected inputs or states          | Exception handling (`exception_handlers.py`)                                                   |
+| **API1:2023**  | Broken Object Level Authorization               | Unauthorized access to objects by manipulating IDs                                        | Object-level scoping via JWT `client_id` in service/CRUD layer                                 |
+| **API2:2023**  | Broken Authentication                           | Flawed identity verification allowing unauthorized access                                 | OAuth2 with JWT (RS256), JWKS key rotation, token proxy timeout                                |
+| **API3:2023**  | Broken Object Property Level Authorization      | Exposing sensitive properties or allowing unauthorized property modification              | Pydantic schemas (explicit fields, no mass assignment, `frozen=True` on auth models)           |
+| **API4:2023**  | Unrestricted Resource Consumption               | Missing limits on resources allowing DoS or cost exploitation                             | Upload/batch/pagination limits; rate limiting at deployment level                              |
+| **API5:2023**  | Broken Function Level Authorization             | Accessing admin or restricted functions without proper authorization                      | Role-based endpoint protection via `RequireRoles`                                              |
+| **API6:2023**  | Unrestricted Access to Sensitive Business Flows | Automated abuse of sensitive business operations at scale                                 | M2M only; client registration is process-controlled (not applicable)                           |
+| **API7:2023**  | Server-Side Request Forgery                     | API fetches remote resources based on user-supplied URLs without validation               | No user-supplied URL fetching; IAM (e.g. Keycloak) URL is server-configured (not applicable)   |
+| **API8:2023**  | Security Misconfiguration                       | Inappropriate security hardening across the application stack                             | Security headers, TLS, non-root container, no stack traces in responses                        |
+| **API9:2023**  | Improper Inventory Management                   | Lack of visibility and documentation of API assets and versions                           | Versioned API mounts (`/api/{domain}/v1`); auto-generated OpenAPI docs                         |
+| **API10:2023** | Unsafe Consumption of APIs                      | Integrating with external APIs without proper security controls                           | IAM (e.g. Keycloak) integration with TLS, timeout (10 s), JWKS caching                         |
+
+## XSS, CSP, SQL, Path (Injection)
 
 ---
 
@@ -208,28 +243,20 @@ The Swagger UI is intentionally served publicly by FastAPI without authenticatio
 
 Unauthorized usage of API endpoints is mitigated through the OAuth2 client-credentials flow using JWT bearer tokens.
 
-## File upload
+## File Upload
 
 File upload is implemented in [`ca_areas.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/routers/ca_areas.py) (`post_area`).
 
-File uploads are protected by size limit (`MAX_FILE_SIZE = 1_048_576` = 1 MiB)
+File uploads are protected by:
 
-- Oversized uploads return `422`.
-
-Todo:
-
-- Only accept .zip as input format - see comments in issue [#73](https://github.com/SEMICeu/sdep/issues/73)
-- This change is beyond the current CA v1 freeze (because of contract narrowing)
+- **Format:** only `.zip` files are accepted (validated by filename extension and ZIP magic bytes `PK\x03\x04`); non-zip uploads return `422`
+- **Size:** max 1 MiB (`MAX_FILE_SIZE = 1_048_576`); oversized uploads return `422`
 
 ## Secrets
 
 To avoid data leaks, secrets are externalized in [`config.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/config.py).
 
-## Dependency scanning
-
-To avoid common vulnerabilities (CVEs), image scans are assumed to be part of CI/CD (out of scope of this repo).
-
-## Security headers
+## Security Headers
 
 To avoid misuse on various layers, HTTP-headers are hardened in [`main.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/main.py) and [`headers.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/security/headers.py):
 
@@ -252,7 +279,7 @@ Although CI/CD-related aspects are outside the scope of this repo, test results 
 - SDEP-NL scores `A+` on [securityheaders.com](https://securityheaders.com/?q=https%3A%2F%2Fsdep.gov.nl)
 - This validates that response headers provide adequate browser-side protection
 
-Note: the `Access-Control-Allow-Origin` (CORS) header is not applicable for SDEP.
+Note: The `Access-Control-Allow-Origin` (CORS) header is not applicable for SDEP.
 
 - SDEP is a backend API consumed by server-side clients using machine-to-machine (M2M) OAuth2 tokens
   - Server-to-server calls do not go through a browser
@@ -260,31 +287,158 @@ Note: the `Access-Control-Allow-Origin` (CORS) header is not applicable for SDEP
 - Swagger UI is served from the same origin as the API
   - So its requests are same-origin and CORS does not apply
 
-## Security headers, DNS, TLS
+## Content-Disposition
+
+Filenames in `Content-Disposition` response headers (area file downloads) are sanitized to prevent header injection:
+
+- Characters that could break or inject headers are stripped (`"`, `\`, CR, LF, control characters)
+- Path separators (`/`, `\`) are replaced with `_`.
+
+## Middleware Ordering
+
+Starlette processes middleware LIFO (last added = outermost = runs first). In `main.py`:
+1. **SecurityHeadersMiddleware** (outermost) - added last, runs first
+2. **AuditLogMiddleware** (inner) - added first, runs inside security headers
+
+## Security Headers, DNS, TLS
 
 Although CI/CD-related aspects are outside the scope of this repo, additional test results for SDEP-NL are as follows.
 
 - SDEP-NL scores `100%` on [internet.nl](https://internet.nl/site/sdep.gov.nl)
 - This validates that transport-level security is correctly applied (poor basic configuration would increase the attack surface)
 
-## Audit log (details)
+## Rate Limiting
+
+Rate limiting protects against brute-force attacks and abuse, particularly on the unauthenticated `/token` endpoint where an attacker could attempt credential stuffing at network speed.
+
+Rate limiting is usally applied per unique client IP address, and handled in the deployment environment (e.g. by a (Kubernetes) Nginx Ingress controller, (HAProxy) load balancer, ...).
+
+These deployment aspects are outside the scope of this repo.
+
+## Dependency Version Pinning
+
+Dependencies are declared with flexible lower bounds (`>=`) in `pyproject.toml` and locked to exact versions in `uv.lock`.
+
+**Why `>=` instead of `==` in `pyproject.toml`**
+
+- `pyproject.toml` declares the minimum acceptable version of each dependency (the *intent*)
+- `uv.lock` records the exact resolved version of every package, including transitive dependencies (the *pin*)
+- The Dockerfile installs with `uv sync --frozen`, which enforces the lock file exactly — no version can drift at build time
+- Using `==` in `pyproject.toml` would duplicate what the lock file already does, while making legitimate upgrades harder and not covering transitive dependencies
+
+**Docker base images**
+
+- The Python base image is pinned to a minor version (`python:3.13-slim`) via `ARG PYTHON_IMAGE`
+- The `uv` installer is pinned to a specific release (`ghcr.io/astral-sh/uv:0.5.4`)
+- PostgreSQL and Keycloak versions are externalized via environment variables in `docker-compose.yml`
+
+**Keeping dependencies up to date**
+
+- Running `uv lock --upgrade` regenerates the lock file with the latest compatible versions
+- The lock file should be committed and reviewed as part of the normal change process
+
+## Non-Root Containers
+
+The Docker container runs as a non-root user (`app`), following the principle of least privilege. This limits the impact of a container escape or application compromise.
+
+## Container Image Scans
+
+To minimize exposure to Common Vulnerabilities and Exposures (CVEs), container image scanning is assumed to be part of CI/CD (outside the scope of this repository):
+
+- Continuously monitor and remediate Critical and High severity CVEs.
+- Implement remediation according to a “comply (fix) or explain” policy.
+
+---
+
+**Each EU member state implementing an SDEP is responsible for monitoring and remediating CVEs within its own CI/CD.**
+
+## Authentication and Authorization (Details)
+
+SDEP interacts with IAM (e.g. Keycloak) in two distinct ways: **token issuance** (active HTTP call) and **token validation** (local signature verification using cached public keys).
+
+---
+
+**Token issuance (proxy to Keycloak)**
+
+When an external client needs a JWT, it calls SDEP's `/api/auth/v1/token` endpoint. SDEP acts as a proxy: it takes the client's `client_id` + `client_secret` (from HTTP Basic Auth or form body), forwards them to Keycloak's token endpoint at `/realms/sdep/protocol/openid-connect/token`, and returns the resulting JWT. This is a synchronous request-response — every token request hits Keycloak directly.
+
+See [`auth.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/routers/auth.py).
+
+---
+
+**Token validation (JWKS public key verification)**
+
+On every subsequent API call, the client sends the JWT as a `Bearer` token. SDEP verifies the token signature locally — without calling Keycloak on every request — using the JSON Web Key Set (JWKS) protocol:
+
+1. Keycloak signs JWTs with its private RSA key and publishes the corresponding public keys at the JWKS endpoint: `/realms/sdep/protocol/openid-connect/certs`
+2. `PyJWKClient` fetches that key set and caches it in-memory
+3. For each incoming request, `get_signing_key_from_jwt(token)` reads the JWT's `kid` (key ID) header, finds the matching public key from the cached set, and verifies the RS256 signature
+4. The decoded payload is returned — no HTTP call to Keycloak needed
+
+See [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/security.py).
+
+---
+
+**JWKS key rotation (5-minute TTL)**
+
+`PyJWKClient` is configured with `cache_jwk_set=True` and `lifespan=300` (5 minutes). This ensures that when Keycloak rotates or revokes signing keys, SDEP picks up the changes within at most 5 minutes — without requiring a restart. The alternative (`@lru_cache`) would cache keys indefinitely, meaning rotated or revoked keys would never be refreshed until the process was restarted.
+
+| Concern        | How it's addressed                                                                                                      |
+| :------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| Performance    | 99.9% of requests use cached keys — no network call to Keycloak                                                         |
+| Key rotation   | New keys are picked up within 5 minutes                                                                                 |
+| Key revocation | Revoked keys stop being trusted within 5 minutes                                                                        |
+| Thread safety  | `_get_jwks_client()` uses double-checked locking to ensure exactly one `PyJWKClient` instance is created across threads |
+
+---
+
+**Request authentication flow**
+
+```
+Client request with Bearer token
+  → OAuth2ClientCredentials extracts the token from the Authorization header
+    → verify_bearer_token() calls validate_jwt_token()
+      → _get_jwks_client() returns the singleton PyJWKClient
+        → client.get_signing_key_from_jwt(token) matches the JWT kid to a cached public key
+          → jwt.decode() verifies signature + expiry using that key
+            → get_parsed_token() extracts realm_access.roles, client_id, client_name
+              → RequireRoles checks roles against endpoint requirements
+                → Endpoint handler executes
+```
+
+See [`auth_dependencies.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/auth_dependencies.py).
+
+## Audit Log (Details)
 
 **Audit fields**
 
 For each request that matters, capture:
 
-| Field              | Source                      | Description                              | Answers |
-| :----------------- | :-------------------------- | :--------------------------------------- | :------ |
-| **timestamp**      | Server clock                | UTC, server default `now()`              | When    |
-| **requestId**      | Generated                   | UUID4 correlation ID                     | -       |
-| **roles**          | JWT `realm_access.roles`    | Comma-separated role list (nullable)     | Who     |
-| **resourceType**   | Derived from path           | Entity type, e.g. `area`, `activity`     | Where   |
-| **action**         | Derived from method + path  | Semantic action verb, e.g. `create`      | What    |
-| **httpMethod**     | Request                     | HTTP method (`GET`, `POST`, `DELETE`)    | What    |
-| **path**           | Request                     | Request path, e.g. `/api/ca/v1/areas`    | Where   |
-| **httpStatusCode** | Response                    | HTTP status code                         | Result  |
-| **statusCode**     | Derived from httpStatusCode | `OK` if httpStatusCode < 400, else `NOK` | Result  |
-| **durationMs**     | Calculated                  | Request processing time in milliseconds  | -       |
+| Field              | Source                      | Description                                                                   | Answers |
+| :----------------- | :-------------------------- | :---------------------------------------------------------------------------- | :------ |
+| **timestamp**      | Server clock                | UTC, server default `now()`                                                   | When    |
+| **requestId**      | Generated                   | UUID4 correlation ID                                                          | -       |
+| **roles**          | JWT `realm_access.roles`    | Verified roles, `REJECTED`, `UNAUTHORIZED`, or `null` (not yet authenticated) | Who     |
+| **resourceType**   | Derived from path           | Entity type, e.g. `area`, `activity`                                          | Where   |
+| **action**         | Derived from method + path  | Semantic action verb, e.g. `create`                                           | What    |
+| **httpMethod**     | Request                     | HTTP method (`GET`, `POST`, `DELETE`)                                         | What    |
+| **path**           | Request                     | Request path, e.g. `/api/ca/v1/areas`                                         | Where   |
+| **httpStatusCode** | Response                    | HTTP status code                                                              | Result  |
+| **statusCode**     | Derived from httpStatusCode | `OK` if httpStatusCode < 400, else `NOK`                                      | Result  |
+| **durationMs**     | Calculated                  | Request processing time in milliseconds                                       | -       |
+
+---
+
+**Role extraction — only from verified tokens**
+
+The audit middleware extracts `roles` from the JWT **only when the request succeeded** (HTTP status < 400). A successful response means the route's auth dependency already verified the token signature and roles — so the logged roles are trustworthy. For rejected requests, the `roles` field indicates why, preventing forged tokens from polluting the audit trail.
+
+| Scenario                               | What happens                       | `roles` in audit log      |
+| :------------------------------------- | :--------------------------------- | :------------------------ |
+| Valid JWT, authorized (2xx)            | Auth dependency verified the token | Verified roles from token |
+| Forged, tampered, or expired JWT (401) | Auth dependency rejected the token | `REJECTED`                |
+| Valid JWT, missing required role (403) | Token valid, but role check failed | `UNAUTHORIZED`            |
+| No JWT (e.g. `/token` endpoint)        | Not yet authenticated              | `null`                    |
 
 ---
 
@@ -330,6 +484,7 @@ Unmatched paths fall back to action `unknown`.
 The following paths are **not** audited (high-frequency, low-value):
 
 - `/` (root)
+- `/favicon.ico` (browsers request this automatically; the application does not serve a favicon)
 - `/api/docs` (landing page)
 - `/api/health`
 - `/api/auth/v1/openapi.json`, `/api/ca/v1/openapi.json`, `/api/str/v1/openapi.json`
@@ -346,7 +501,7 @@ The following paths are **not** audited (high-frequency, low-value):
 
 The retention logic in `audit_retention.py` is split into two functions with distinct responsibilities:
 
-- `delete_old_audit_logs` does the actual work;
+- `delete_old_audit_logs` does the actual work.
 - `audit_log_cleanup_loop` is the scheduler that ensures that work runs repeatedly for the lifetime of the application.
 
 | Function                                                   | Responsibility                                                                                                                                                                                                                                                               | Invocation                                                                                                                                                                                                  |

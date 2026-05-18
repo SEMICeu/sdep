@@ -171,9 +171,9 @@ async def create_area(
     """
     if regulation is None:
         regulation = REGULATION_DEFAULT
-    # Look up or create CompetentAuthority
+    # Look up or create CompetentAuthority (lock row to prevent concurrent versioning)
     competent_authority = await competent_authority_crud.get_by_competent_authority_id(
-        session, competent_authority_id_str
+        session, competent_authority_id_str, for_update=True
     )
 
     if competent_authority is None:
@@ -199,9 +199,11 @@ async def create_area(
             competent_authority_name=competent_authority_name,
         )
 
-    # Mark existing current area as ended if same functional ID exists
+    # Mark existing current area as ended if same functional ID exists (lock row to prevent concurrent versioning)
     if area_id is not None:
-        existing_area = await area_crud.get_by_area_id(session, area_id)
+        existing_area = await area_crud.get_by_area_id(
+            session, area_id, for_update=True
+        )
         if existing_area is not None:
             await area_crud.mark_as_ended(
                 session, area_id, existing_area.competent_authority_id

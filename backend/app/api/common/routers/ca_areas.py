@@ -12,6 +12,7 @@ Pattern:
 """
 
 import logging
+import re
 from typing import Annotated
 
 from fastapi import (
@@ -54,6 +55,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ca"])
 
 MAX_FILE_SIZE = 1048576  # 1 MiB
+ZIP_MAGIC = b"PK\x03\x04"
+
+_UNSAFE_FILENAME_CHARS = re.compile(r'["\\\r\n\x00-\x1f]')
+
+
+def _sanitize_filename(filename: str) -> str:
+    """Strip characters that could break or inject Content-Disposition headers."""
+    sanitized = _UNSAFE_FILENAME_CHARS.sub("", filename)
+    sanitized = sanitized.replace("/", "_").replace("\\", "_")
+    return sanitized or "download"
 
 
 @router.post(
@@ -69,6 +80,7 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 - Unique constraint: (areaId, createdAt, current authenticated competent authority)
 
 **Limiting:**
+- Only `.zip` files are accepted (validated by filename extension and file content)
 - Max. 1 MiB (1,048,576 bytes) per file
 - This is to ensure predictable performance, reduce abuse risk, and improve overall reliability
 
@@ -76,7 +88,7 @@ MAX_FILE_SIZE = 1048576  # 1 MiB
 - `areaId`: Functional ID identifying this area (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)
 - `areaName`: Display name (optional, max 64 chars)
 - `regulation`: Regulation type of the area - 'listing', 'activity', or 'all' (optional, defaults to 'all' when not supplied)
-- `file`: Shapefile upload (max 1 MiB)
+- `file`: Shapefile upload (.zip only, max 1 MiB)
 
 **The response contains:**
 - `areaId`: Functional ID identifying this area
@@ -127,6 +139,13 @@ async def post_area(
     - Competent authority name extracted from token's "client_name" claim
     """
     # Read and validate file
+    filename = file.filename or "unnamed"
+    if not filename.lower().endswith(".zip"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Only .zip files are accepted.",
+        )
+
     filedata = await file.read()
     if len(filedata) > MAX_FILE_SIZE:
         raise HTTPException(
@@ -134,7 +153,11 @@ async def post_area(
             detail=f"File exceeds maximum size of 1 MiB ({MAX_FILE_SIZE} bytes). Received {len(filedata)} bytes.",
         )
 
-    filename = file.filename or "unnamed"
+    if not filedata.startswith(ZIP_MAGIC):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="File is not a valid ZIP archive: mismatch in the identifying first bytes (the magic bytes).",
+        )
 
     # Normalize empty strings to None
     area_id = areaId if areaId != "" else None
@@ -239,7 +262,7 @@ async def post_area(
 )
 async def get_own_areas(
     client: ClientDependency,
-    session: AsyncSession = Depends(get_async_db),
+    session: AsyncSession = Depends(get_async_db_read_only),
     offset: Annotated[
         int, Query(ge=0, description="Number of records to skip (default: 0)")
     ] = 0,
@@ -370,7 +393,7 @@ async def get_own_area(
 
     # Return raw binary data (or empty bytes if filedata is None)
     binary_data = area_data.filedata if area_data.filedata is not None else b""
-    filename = area_data.filename
+    filename = _sanitize_filename(area_data.filename)
 
     return Response(
         content=binary_data,
