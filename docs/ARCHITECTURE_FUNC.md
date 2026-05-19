@@ -17,11 +17,13 @@ Arrows indicate information flows:
 
 ## PDF Export
 
-For current API versions:
+For current API versions.
 
 - [API auth_v1 pdf](./sdep_openapi_auth_v1.pdf)
 - [API ca_v1 pdf](./sdep_openapi_ca_v1.pdf)
 - [API str_v1 pdf](./sdep_openapi_str_v1.pdf)
+
+> Disclaimer: These PDFs were generated as part of the v1 freeze on 28 April 2026. While the /v1 API is frozen, implementation details may still differ in certain cases (see the [changelog](../CHANGELOG.md) for updates).
 
 ## Update of Shapefiles
 
