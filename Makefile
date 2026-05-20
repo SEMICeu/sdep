@@ -1,10 +1,11 @@
 SHELL := /bin/bash
 
 .PHONY: .build .clean-stale \
-        .clean-database .migrate-database .load-test-data \
+        .drop-database .migrate-database .load-test-data \
         postgres-up postgres-down \
-        postgres-login postgres-status postgres-status-full postgres-auditlog postgres-activity-count \
-        postgres-clean postgres-migrate postgres-load postgres-clean-migrate postgres-clean-migrate-load \
+        postgres-login postgres-status postgres-status-full postgres-auditlog \
+        postgres-activity-count postgres-area-count postgres-platform-count postgres-competent-authority-count postgres-audit-log-count postgres-all-count \
+        postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load \
         generate-area-sql \
         dbgate-up dbgate-down dbgate-restart dbgate-status \
         .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles .keycloak-machine-clients .get-client-credentials \
@@ -12,7 +13,7 @@ SHELL := /bin/bash
         backend-up backend-down backend-restart \
         up down restart status \
         .is-up .clean-testrun \
-        test test-keep test-verbose test-security test-ca test-str \
+        test test-keep test-verbose test-smoke test-security test-ca test-str \
         test-perf test-perf-verbose \
         postgres-logs keycloak-logs backend-logs dbgate-logs fullstack-logs \
         help
@@ -42,11 +43,11 @@ DBGATE_PROCESS_PATTERN := /tmp/.mount_[d]bgate.*/dbgate|dbgate-7\.1\.2-linux_x86
 
 ##@ Postgres
 
-.clean-database: ## Drop database
+.drop-database: ## Drop database
 	@set -a && source .env && set +a && \
-	echo "🧹 Cleaning database $$POSTGRES_DB_NAME..." && \
+	echo "🗑️ Dropping database $$POSTGRES_DB_NAME..." && \
 	docker exec -i sdep-postgres psql -U $$POSTGRES_SUPER_USER -d postgres < postgres/clean-app.sql
-	@echo "✅ Database cleaned!"
+	@echo "✅ Database dropped!"
 
 .migrate-database: ## Migrate database (create/update tables)
 	@echo "🔄 Running database migrations..."
@@ -110,19 +111,12 @@ postgres-status-full: postgres-status ## Show postgres tables with full details
 		fi; \
 	done
 
-postgres-auditlog: ## Show audit log
-	@set -a && source .env && set +a && \
-	echo "Showing audit log for database $$POSTGRES_DB_NAME..." && \
-	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT * FROM audit_log"
+##@ Postgres Data
 
-postgres-activity-count: ## Count activities in database
-	@set -a && source .env && set +a && \
-	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM activity;"
-
-postgres-clean: .clean-stale ## Clean postgres (drop tables)
+postgres-drop: .clean-stale ## Drop postgres (drop tables)
 	@echo "🚀 Dropping sdep-database tables..."
-	@$(MAKE) --no-print-directory .clean-database
-	@echo "✅ SDEP database cleaned!"
+	@$(MAKE) --no-print-directory .drop-database
+	@echo "✅ SDEP database dropped!"
 
 postgres-migrate: ## Migrate postgres (create/update tables)
 	@echo "🚀 Migrating sdep-database..."
@@ -134,17 +128,54 @@ postgres-load: .clean-stale ## Load test data
 	@$(MAKE) --no-print-directory .load-test-data
 	@echo "✅ SDEP test data loaded!"
 
-postgres-clean-migrate: .clean-stale ## Clean postgres (drop + migrate)
+postgres-drop-migrate: .clean-stale ## Drop postgres (drop + migrate)
 	@echo "🚀 Resetting sdep-database in postgres ..."
-	@$(MAKE) --no-print-directory .clean-database .migrate-database
+	@$(MAKE) --no-print-directory .drop-database .migrate-database
 	@echo "✅ SDEP database reset!"
 
-postgres-clean-migrate-load: .clean-stale ## Clean postgres (drop + migrate + load)
+postgres-drop-migrate-load: .clean-stale ## Drop postgres (drop + migrate + load)
 	@echo "🚀 Resetting and loading sdep-database in postgres ..."
-	@$(MAKE) --no-print-directory .clean-database .migrate-database .load-test-data
+	@$(MAKE) --no-print-directory .drop-database .migrate-database .load-test-data
 	@echo "✅ SDEP database reset and loaded!"
 
-##@ Postgres testdata
+postgres-auditlog: ## Show audit log
+	@set -a && source .env && set +a && \
+	echo "Showing audit log for database $$POSTGRES_DB_NAME..." && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT * FROM audit_log"
+
+##@ Postgres Count
+
+postgres-activity-count: ## Count activities in database
+	@set -a && source .env && set +a && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM activity;"
+
+postgres-area-count: ## Count areas in database
+	@set -a && source .env && set +a && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM area;"
+
+postgres-platform-count: ## Count platforms in database
+	@set -a && source .env && set +a && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM platform;"
+
+postgres-competent-authority-count: ## Count competent authorities in database
+	@set -a && source .env && set +a && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM competent_authority;"
+
+postgres-audit-log-count: ## Count audit log entries in database
+	@set -a && source .env && set +a && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM audit_log;"
+
+postgres-all-count: ## Count all tables in database
+	@set -a && source .env && set +a && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c " \
+	  SELECT \
+	    (SELECT COUNT(*) FROM activity) AS activity, \
+	    (SELECT COUNT(*) FROM area) AS area, \
+	    (SELECT COUNT(*) FROM platform) AS platform, \
+	    (SELECT COUNT(*) FROM competent_authority) AS competent_authority, \
+	    (SELECT COUNT(*) FROM audit_log) AS audit_log;"
+
+##@ Postgres Testdata
 
 generate-area-sql: ## Generate test-data/02-area-generated.sql (when shapefiles changed)
 	@echo "🔄 Generating area SQL file with embedded shapefile data..."
@@ -315,7 +346,7 @@ up: .build .clean-stale ## Start
 	@echo "✅ Keycloak configured!"
 
 	@echo "🚀 Initializing database..."
-	@$(MAKE) --no-print-directory postgres-clean-migrate-load
+	@$(MAKE) --no-print-directory postgres-drop-migrate-load
 	@echo "✅ Database initialized!"
 
 	@echo "🚀 Showing stack status..."
@@ -443,6 +474,12 @@ test-str: .is-up .get-client-credentials ## Test STR endpoints
 	./tests/test_str_areas.sh 2>&1 | tee $$OUTPUT_FILE && \
 	./tests/test_str_activities_bulk.sh 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ STR endpoints tested"
+
+test-smoke: .is-up ## Test the smoke test endpoints (audit-excluded, no auth needed)
+	@set -a && source ./.env && set +a && \
+	echo "🔍 Testing smoke test endpoints..." && \
+	./tests/test_smoketest.sh && \
+	echo "✅ Smoke test endpoints tested"
 
 ##@ Performance
 

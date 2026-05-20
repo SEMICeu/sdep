@@ -13,6 +13,8 @@ These tests verify API functionality, authentication, authorization, and securit
     - [`test_auth_unauthorized.sh`](#test_auth_unauthorizedsh)
   - [Healthcheck Tests](#healthcheck-tests)
     - [`test_health_ping.sh`](#test_health_pingsh)
+  - [Smoke Tests](#smoke-tests)
+    - [`test_smoketest.sh`](#test_smoketestsh)
   - [Competent Authority (CA) Tests](#competent-authority-ca-tests)
     - [`test_ca_areas.sh`](#test_ca_areassh)
     - [`test_ca_activities.sh`](#test_ca_activitiessh)
@@ -119,6 +121,33 @@ See [../Makefile](../Makefile). Available targets:
 - Ping endpoint responds with HTTP 200 and `{"status":"OK"}`
 - Supports both authenticated (with `BEARER_TOKEN`) and unauthenticated requests
 - Automatically loads token from `./tmp/.bearer_token` if `BEARER_TOKEN` is not set
+
+---
+
+### Smoke Tests
+
+#### `test_smoketest.sh`
+**Purpose:** Smoke test for audit-excluded endpoints (SKIP_PATHS)
+
+**What it tests:**
+- All audit-excluded, unauthenticated endpoints return HTTP 200
+- Safe for production: read-only, no authentication, no test data
+
+**Endpoints tested:**
+- `/` — Root endpoint
+- `/api/docs` — Landing page
+- `/api/health` — Health check
+- `/api/auth/v1/openapi.json` — Auth OpenAPI spec
+- `/api/auth/v1/docs` — Auth Swagger UI
+- `/api/ca/v1/openapi.json` — CA OpenAPI spec
+- `/api/ca/v1/docs` — CA Swagger UI
+- `/api/str/v1/openapi.json` — STR OpenAPI spec
+- `/api/str/v1/docs` — STR Swagger UI
+
+**Required environment variables:**
+- `BACKEND_BASE_URL` — API base URL
+
+**Run:** `make test-smoke`
 
 ---
 

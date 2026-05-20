@@ -20,10 +20,10 @@ RESULTS_FILE=$(mktemp)
 FAILED_TESTS_FILE=$(mktemp)
 OUTPUT_FILE=$(mktemp)
 SUITE_RESULTS_FILE=$(mktemp)
-PRE_RAW_COUNTS_FILE=$(mktemp)
-PRE_COUNTS_FILE=$(mktemp)
-POST_COUNTS_FILE=$(mktemp)
-trap "rm -f $RESULTS_FILE $FAILED_TESTS_FILE $OUTPUT_FILE $SUITE_RESULTS_FILE $PRE_RAW_COUNTS_FILE $PRE_COUNTS_FILE $POST_COUNTS_FILE" EXIT
+BEFORE_RAW_COUNTS_FILE=$(mktemp)
+BEFORE_COUNTS_FILE=$(mktemp)
+AFTER_COUNTS_FILE=$(mktemp)
+trap "rm -f $RESULTS_FILE $FAILED_TESTS_FILE $OUTPUT_FILE $SUITE_RESULTS_FILE $BEFORE_RAW_COUNTS_FILE $BEFORE_COUNTS_FILE $AFTER_COUNTS_FILE" EXIT
 
 echo "🧪 Running all tests..."
 echo ""
@@ -50,13 +50,13 @@ run_suite() {
 }
 
 # --- Capture PRE-test row counts (RAW, before any cleanup) ---
-echo "📊 Capturing PRE-test row counts (includes any leftover sdep-test-* rows)..."
+echo "📊 Capturing BEFORE-test row counts (includes any leftover sdep-test-* rows)..."
 docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
-  -t -A -F'|' < postgres/count-app.sql > "$PRE_COUNTS_FILE"
+  -t -A -F'|' < postgres/count-app.sql > "$BEFORE_COUNTS_FILE"
 
 while IFS='|' read -r tname tcount; do
   printf "    %-25s %s\n" "$tname:" "$tcount"
-done < "$PRE_COUNTS_FILE"
+done < "$BEFORE_COUNTS_FILE"
 echo ""
 
 # --- Pre-clean leftover sdep-test-* data (unless KEEP_TEST_DATA=true) ---
@@ -70,9 +70,10 @@ fi
 
 # Internal baseline (post pre-clean) used for the isolation check.
 docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
-  -t -A -F'|' < postgres/count-app.sql > "$PRE_RAW_COUNTS_FILE"
+  -t -A -F'|' < postgres/count-app.sql > "$BEFORE_RAW_COUNTS_FILE"
 
 # --- Run test suites ---
+run_suite test-smoke
 run_suite test-security
 run_suite test-str
 run_suite test-ca
@@ -87,13 +88,13 @@ else
 fi
 
 # --- Capture POST-test row counts ---
-echo "📊 Capturing POST-test row counts..."
+echo "📊 Capturing AFTER-test row counts..."
 docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
-  -t -A -F'|' < postgres/count-app.sql > "$POST_COUNTS_FILE"
+  -t -A -F'|' < postgres/count-app.sql > "$AFTER_COUNTS_FILE"
 
 while IFS='|' read -r tname tcount; do
   printf "    %-25s %s\n" "$tname:" "$tcount"
-done < "$POST_COUNTS_FILE"
+done < "$AFTER_COUNTS_FILE"
 echo ""
 
 # --- Results summary ---
@@ -123,17 +124,17 @@ echo ""
 if [ "${KEEP_TEST_DATA:-false}" = "true" ]; then
   echo "  Test Isolation: skipped (KEEP_TEST_DATA=true)"
 else
-  echo "  Test Isolation (PRE/POST row counts):"
-  while IFS='|' read -r PRE_NAME PRE_COUNT; do
-    BASELINE_COUNT=$(grep "^$PRE_NAME|" "$PRE_RAW_COUNTS_FILE" | cut -d'|' -f2)
-    POST_COUNT=$(grep "^$PRE_NAME|" "$POST_COUNTS_FILE" | cut -d'|' -f2)
-    if [ "$BASELINE_COUNT" = "$POST_COUNT" ]; then
-      printf "    %-25s PRE=%-5s POST=%-5s ✅\n" "$PRE_NAME:" "$PRE_COUNT" "$POST_COUNT"
+  echo "  Test Isolation (BEFORE/AFTER row counts):"
+  while IFS='|' read -r BEFORE_NAME BEFORE_COUNT; do
+    BASELINE_COUNT=$(grep "^$BEFORE_NAME|" "$BEFORE_RAW_COUNTS_FILE" | cut -d'|' -f2)
+    AFTER_COUNT=$(grep "^$BEFORE_NAME|" "$AFTER_COUNTS_FILE" | cut -d'|' -f2)
+    if [ "$BASELINE_COUNT" = "$AFTER_COUNT" ]; then
+      printf "    %-25s BEFORE=%-5s AFTER=%-5s ✅\n" "$BEFORE_NAME:" "$BEFORE_COUNT" "$AFTER_COUNT"
     else
-      printf "    %-25s PRE=%-5s POST=%-5s ❌\n" "$PRE_NAME:" "$PRE_COUNT" "$POST_COUNT"
+      printf "    %-25s BEFORE=%-5s AFTER=%-5s ❌\n" "$BEFORE_NAME:" "$BEFORE_COUNT" "$AFTER_COUNT"
       ISOLATION_OK=false
     fi
-  done < "$PRE_COUNTS_FILE"
+  done < "$BEFORE_COUNTS_FILE"
 fi
 
 echo ""

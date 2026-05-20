@@ -40,7 +40,7 @@ Although for random checks only **listings** apply, this document covers both **
   - [Monitor](#monitor-1)
 - [Design Notes](#design-notes)
   - [Asynchronous](#asynchronous)
-  - [Adress](#adress)
+  - [Address](#address)
   - [Area - CA - RR](#area---ca---rr)
   - [Unit](#unit)
 

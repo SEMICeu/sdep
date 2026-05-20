@@ -195,6 +195,7 @@ sdep-app/
 │   ├── test_ca_activities.sh                   # Test CA activity endpoints
 │   ├── test_ca_areas.sh                        # Test CA area submission
 │   ├── test_health_ping.sh                     # Health check tests
+│   ├── test_smoketest.sh                       # Smoke test audit-excluded endpoints
 │   ├── test_str_activities_bulk.sh             # Test STR bulk activity submission
 │   └── test_str_areas.sh                       # Test STR area query endpoints
 │

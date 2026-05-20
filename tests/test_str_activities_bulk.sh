@@ -287,40 +287,29 @@ fi
 
 echo
 
-# Test 5: Stacked insert + cancel for an Amsterdam activity (CA count unchanged)
+# Test 5: Stacked insert + cancel (CA count unchanged)
 # Step A: POST activityId=X with default status=finished     → CA count = N+1
 # Step B: POST activityId=X with status=cancelled            → CA count still N+1
 #         (cancellation is a new version of the same functional activityId,
 #          not an additional current activity)
-echo "Test 5: Stacked insert + cancel for Amsterdam activity (CA count stays the same)"
+echo "Test 5: Stacked insert + cancel (CA count stays the same)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
 if [ -n "$BEARER_TOKEN" ]; then
-    # Use the Amsterdam area pre-loaded by test-data/02-area-generated.sql
-    # (CA: sdep-ca0363 "Amsterdam (inclusief Weesp)") so the test exercises
-    # real seed data.
-    AMSTERDAM_AREA_ID="959a7439-7cad-4009-96ec-353b44723db9"
     STACKED_ID="sdep-test-bulk-stacked-$TIMESTAMP"
     START_TIME_5=$(date -u -d "+4 hours" +"%Y-%m-%dT%H:%M:%SZ")
     END_TIME_5=$(date -u -d "+5 hours" +"%Y-%m-%dT%H:%M:%SZ")
 
-    # Amsterdam CA credentials: on local dev machine-clients.yaml uses a
-    # well-known secret equal to the client id; on deployed envs the caller
-    # (get-client-credentials.sh / CI) must export AMSTERDAM_CA_CLIENT_ID and
-    # AMSTERDAM_CA_CLIENT_SECRET fetched from e.g. Keycloak.
-    AMSTERDAM_CA_CLIENT_ID="${AMSTERDAM_CA_CLIENT_ID:-sdep-ca0363}"
-    AMSTERDAM_CA_CLIENT_SECRET="${AMSTERDAM_CA_CLIENT_SECRET:-sdep-ca0363}"
-
     CA_TOKEN_RESPONSE=$(curl -s -X POST \
         -H "Content-Type: application/x-www-form-urlencoded" \
         --data-urlencode "grant_type=client_credentials" \
-        --data-urlencode "client_id=${AMSTERDAM_CA_CLIENT_ID}" \
-        --data-urlencode "client_secret=${AMSTERDAM_CA_CLIENT_SECRET}" \
+        --data-urlencode "client_id=${CA_CLIENT_ID}" \
+        --data-urlencode "client_secret=${CA_CLIENT_SECRET}" \
         "${BACKEND_BASE_URL}/api/auth/${API_VERSION}/token")
     CA_BEARER=$(echo "$CA_TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*"' | sed 's/"access_token":"\([^"]*\)"/\1/')
     if [ -z "$CA_BEARER" ]; then
-        echo "❌ Test 5 failed: could not authenticate as Amsterdam CA (${AMSTERDAM_CA_CLIENT_ID})"
+        echo "❌ Test 5 failed: could not authenticate as CA (${CA_CLIENT_ID})"
         echo "   Response: $CA_TOKEN_RESPONSE"
         FAILED_TESTS=$((FAILED_TESTS + 1))
         echo
@@ -350,7 +339,7 @@ if [ -n "$BEARER_TOKEN" ]; then
   "registrationNumber": "REGSTACK001",
   "address": {"thoroughfare": "Prinsengracht", "locatorDesignatorNumber": 265, "postCode": "1016HV", "postName": "Amsterdam", "fullAddress": "Prinsengracht 265, 1016HV Amsterdam"},
   "temporal": {"startDatetime": "$START_TIME_5", "endDatetime": "$END_TIME_5"},
-  "areaId": "$AMSTERDAM_AREA_ID",
+  "areaId": "$AREA_ID_1",
   "numberOfGuests": 2,
   "countryOfGuests": ["NLD", "NLD"]
 }]}
@@ -377,7 +366,7 @@ EOF
   "registrationNumber": "REGSTACK001",
   "address": {"thoroughfare": "Prinsengracht", "locatorDesignatorNumber": 265, "postCode": "1016HV", "postName": "Amsterdam", "fullAddress": "Prinsengracht 265, 1016HV Amsterdam"},
   "temporal": {"startDatetime": "$START_TIME_5", "endDatetime": "$END_TIME_5"},
-  "areaId": "$AMSTERDAM_AREA_ID",
+  "areaId": "$AREA_ID_1",
   "numberOfGuests": 2,
   "countryOfGuests": ["NLD", "NLD"]
 }]}

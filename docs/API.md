@@ -6,6 +6,10 @@ Table of contents
 
 - [Principle](#principle)
 - [Patterns](#patterns)
+- [Versioning](#versioning)
+  - [API Versioning](#api-versioning)
+  - [Backward and Forward Compatibility](#backward-and-forward-compatibility)
+  - [Application Versioning](#application-versioning)
 - [HTTP Status Codes](#http-status-codes)
   - [Success](#success)
   - [Client Errors](#client-errors)
@@ -55,6 +59,46 @@ Table of contents
 | **API&nbsp;15** | Consistent HTTP response codes                     | See [HTTP Status Codes](#http-status-codes) below                                                                      |
 | **API&nbsp;16** | STR and CA: manage area change                     | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                         |
 | **API&nbsp;17** | Unified response format                            | Example: `ActivityResponse` (for STR and CA, both contain `competentAuthorityName`')                                   |
+
+---
+
+## Versioning
+
+### API Versioning
+
+The API version (contract) is embedded in the URL path (`/api/{domain}/v1/...`).
+
+A new version (e.g. v2) is introduced only when a **breaking change** to the contract is unavoidable — a removed or renamed field, a changed type, or altered semantics.
+
+Additive changes (new optional fields, new endpoints) do **not** require a new version.
+
+When a new API version is released, the previous version (N-1) remains available for a deprecation period to give clients time to migrate. Only the current (N) and previous (N-1) versions are supported simultaneously.
+
+### Backward and Forward Compatibility
+
+Backward compatibility:
+
+- Clients built against an older contract continue to work against a newer release of the same API version
+- This is the primary design goal: existing integrations must not break on a same-version update
+
+Forward compatibility:
+
+- An older server gracefully handling newer client payloads (e.g. by ignoring unknown fields)
+- Is a best-effort courtesy, not a guarantee across API versions
+
+### Application Versioning
+
+The deployed application (serving the contract) follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`):
+
+- **MAJOR** — incompatible changes (e.g. architectural overhaul, removed internal behavior)
+- **MINOR** — backward-compatible new functionality
+- **PATCH** — backward-compatible bug fixes
+
+The application version is **independent** of the API version.
+
+An application major bump does not necessarily coincide with an API version bump, and vice versa.
+
+Internal refactors, dependency upgrades, or infrastructure changes may warrant a new application MAJOR while the API contract stays on v1.
 
 ---
 

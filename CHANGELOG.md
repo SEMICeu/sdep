@@ -1,5 +1,13 @@
 # Changelog
 
+*No impact on the API contract, unless explicitly specified otherwise.*
+
+## 1.0.0
+
+- Added versioning policy to the [API documentation](./docs/API.md)
+- Added a smoke test that runs without test data, making it particularly useful for execution against production environments
+- Added postgres utility targets to Makefile
+
 ## 260518
 
 - Replaced `python-jose` with `PyJWT`
@@ -37,8 +45,6 @@
   - Rejected tokens now log `REJECTED` (401) or `UNAUTHORIZED` (403) instead of attacker-controlled role values
   - Previously, forged JWTs containing fabricated roles could pollute audit records even when the request was rejected
 
-*No API v1 impact*
-
 ## 260507
 
 - Improved API doc (corrected a typo)
@@ -46,13 +52,9 @@
 - Improved security headers (enabled CORP, fixed CSP, consistently enabled HSTS)
 - Improved [security documentation](./docs/SECURITY.md)
 
-*No API v1 impact*
-
 ## 260506
 
 - Improved API doc
-
-*No API v1 impact*
 
 ## 260505
 
@@ -65,8 +67,6 @@
 - Enforced code coverage to 100% (TYPE_CHECKING blocks excluded since they never run at runtime; guard: --cov-fail-under=100)
 - Added a "make check" prerequisite to "make test" targets
 
-*No API v1 impact*
-
 ## 260424 - API v1 freeze
 
 - Froze the API into `/v1`
@@ -74,6 +74,8 @@
 - Health and ping are unversioned at `/api/health` and `/api/ping`
 - PDF exports included
 - No schema changes
+
+*Impact on API contract: /v1 is frozen.*
 
 ## 260422
 
@@ -120,7 +122,9 @@
 
 ## 260401
 
-- Harmonized `Address` to EU/INSPIRE >> impacts API >> see [migration guide](./docs/MIGRATION_ADDRESS_INSPIRE.md) ([#31](https://github.com/SEMICeu/sdep/issues/31))
+- Harmonized `Address` to EU/INSPIRE
+
+*Impact on API contract: see [migration guide](./docs/MIGRATION_ADDRESS_INSPIRE.md) ([#31](https://github.com/SEMICeu/sdep/issues/31))*
 
 ## 260330
 

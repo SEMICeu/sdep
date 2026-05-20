@@ -39,13 +39,13 @@ https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
 
 **Authentication** proves who the client is.
 
-- For machine-to-machine (M2M) communication, the client uses the Client Credentials Flow to identify itself to the authorization server in exchange for an access token
-- Authentication typically takes place via client_id and client_secret, or a signed JWT assertion
+- For machine-to-machine (M2M) communication, the client uses the Client Credentials Flow to identify itself to the authorization server in exchange for an access token.
+- Authentication typically takes place via client_id and client_secret, or a signed JWT assertion.
 
 SDEP-NL adopts client_id and client_secret, motivated by:
 
-- Compatibility: better support across legacy libraries and third-party tools.
-- Reduced complexity: avoids the operational burden of managing keystores and certificates.
+- Compatibility: better support across legacy libraries and third-party tools
+- Reduced complexity: avoids the operational burden of managing keystores and certificates
 
 **Authorization** determines what the client is allowed to do.
 
