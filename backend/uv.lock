@@ -146,6 +146,15 @@ wheels = [
 ]
 
 [[package]]
+name = "clamd"
+version = "1.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/14/8b/55332f1f79f28a5ccc50f66364087e64fae8e4ed62e52007ca82b3072221/clamd-1.0.2.tar.gz", hash = "sha256:d82a2fd814684a35a1b31feadafb2e69c8ebde9403613f6bdaa5d877c0f29560", size = 8218, upload-time = "2014-08-21T14:58:18.562Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3d/d0/84614de2a53ad52370adc9f9260bea420e53e0c228a248ec0eacfa65ccbb/clamd-1.0.2-py2.py3-none-any.whl", hash = "sha256:5c32546b7d1eb00fd6be00a889d79e00fbf980ed082826ccfa369bce3dcff5e7", size = 6684, upload-time = "2014-08-21T14:58:22.946Z" },
+]
+
+[[package]]
 name = "click"
 version = "8.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -864,6 +873,7 @@ dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "cachetools" },
+    { name = "clamd" },
     { name = "email-validator" },
     { name = "fastapi" },
     { name = "greenlet" },
@@ -917,6 +927,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.14.0" },
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "cachetools", specifier = ">=6.1.0" },
+    { name = "clamd", specifier = ">=1.0.2,<2.0.0" },
     { name = "email-validator", specifier = ">=2.2.0" },
     { name = "factory-boy", marker = "extra == 'dev'", specifier = ">=3.3.1" },
     { name = "faker", marker = "extra == 'dev'", specifier = ">=33.1.0" },

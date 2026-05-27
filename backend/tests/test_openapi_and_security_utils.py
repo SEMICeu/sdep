@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import jwt
 import pytest
 from app.api.common import openapi as openapi_utils
 from app.api.common import security as common_security
@@ -356,7 +355,11 @@ async def test_create_verify_bearer_token_dependency_and_oauth2_client_credentia
         common_security, "validate_jwt_token", lambda token: {"token": token}
     )
 
-    assert await verify("abc") == {"token": "abc"}
+    # verify_bearer_token now stashes the verified payload on request.state so
+    # the audit middleware can reuse it without re-decoding the token.
+    request = _request()
+    assert await verify(request, "abc") == {"token": "abc"}
+    assert request.state.jwt_payload == {"token": "abc"}
 
     strict = OAuth2ClientCredentials(flows=OAuthFlows(), auto_error=True)
     with pytest.raises(HTTPException, match="Not authenticated"):
@@ -367,15 +370,29 @@ async def test_create_verify_bearer_token_dependency_and_oauth2_client_credentia
     assert await strict(_request(auth="Bearer hello")) == "hello"
 
 
-def test_extract_jwt_roles_handles_missing_invalid_and_valid_tokens():
+def test_extract_jwt_roles_reads_from_request_state():
+    """_extract_jwt_roles reads only from request.state.jwt_payload.
+
+    The audit middleware never re-decodes the Authorization header: a request
+    without a stashed payload yields None even if it carries a bearer token,
+    and a request with a stashed payload yields the joined roles list.
+    """
+    # No payload on state → None, even when an Authorization header is present
     assert _extract_jwt_roles(_request()) is None
+    assert _extract_jwt_roles(_request(auth="Bearer not-a-jwt")) is None
 
-    bad = _extract_jwt_roles(_request(auth="Bearer not-a-jwt"))
-    assert bad is None
+    # Empty / missing realm_access → None
+    request_empty = _request()
+    request_empty.state.jwt_payload = {}
+    assert _extract_jwt_roles(request_empty) is None
 
-    token = jwt.encode(
-        {"realm_access": {"roles": ["role-a", "role-b"]}},
-        key="test-key-that-is-at-least-32-bytes!",
-        algorithm="HS256",
-    )
-    assert _extract_jwt_roles(_request(auth=f"Bearer {token}")) == "role-a,role-b"
+    request_no_roles = _request()
+    request_no_roles.state.jwt_payload = {"realm_access": {"roles": []}}
+    assert _extract_jwt_roles(request_no_roles) is None
+
+    # Verified payload → comma-joined roles
+    request_with_roles = _request()
+    request_with_roles.state.jwt_payload = {
+        "realm_access": {"roles": ["role-a", "role-b"]}
+    }
+    assert _extract_jwt_roles(request_with_roles) == "role-a,role-b"

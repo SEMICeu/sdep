@@ -1,4 +1,7 @@
+#
+# Resources in this realm are provisioned idempotently when their id/name follows the configured idempotency key
+#
 config:
   name: sdep
-  display-name: "SDEP application"
-  shortname: ""
+  display_name: "SDEP Application"
+  idempotency_key: "sdep"

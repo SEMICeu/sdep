@@ -766,6 +766,7 @@ class TestStrAreaAPI:
         assert f'filename="{test_filename}"' in response.headers.get(
             "content-disposition", ""
         )
+        assert "filename*=UTF-8''" in response.headers.get("content-disposition", "")
 
     async def test_get_area_without_authentication(
         self, async_session: AsyncSession, setup_db_only, competent_authority

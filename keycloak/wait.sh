@@ -73,6 +73,7 @@ until curl -sf "${KC_BASE_URL}/realms/master/.well-known/openid-configuration" >
         echo "❌ Timed out waiting for Keycloak OpenID configuration endpoint" >&2
         echo "  URL: ${KC_BASE_URL}/realms/master/.well-known/openid-configuration" >&2
         echo "  Timeout: ${OIDC_TIMEOUT_SECONDS}s" >&2
+        _kc_diagnostics
         exit 1
     fi
     printf "."
@@ -112,6 +113,7 @@ if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
     echo "" >&2
     echo "💡 Suggestion: KC_ADMIN_REALM_ADMIN_USERNAME and KC_ADMIN_REALM_ADMIN_PASSWORD should be" >&2
     echo "   the username and password of a Keycloak admin user in the master realm." >&2
+    _kc_diagnostics
     exit 1
 fi
 

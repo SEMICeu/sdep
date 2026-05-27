@@ -13,12 +13,14 @@ The following security considerations apply:
 - [CSRF](#csrf)
 - [Swagger UI](#swagger-ui)
 - [File Upload](#file-upload)
+- [File Download (Content-Disposition)](#file-download-content-disposition)
+- [Malware scanning](#malware-scanning)
 - [Secrets](#secrets)
 - [Security Headers](#security-headers)
-- [Content-Disposition](#content-disposition)
 - [Middleware Ordering](#middleware-ordering)
 - [Security Headers, DNS, TLS](#security-headers-dns-tls)
-- [Rate Limiting](#rate-limiting)
+- [Rate Limiting (Throttling)](#rate-limiting-throttling)
+- [Rate Limiting (Throttling)](#rate-limiting-throttling-1)
 - [Dependency Version Pinning](#dependency-version-pinning)
 - [Non-Root Containers](#non-root-containers)
 - [Container Image Scans](#container-image-scans)
@@ -35,11 +37,11 @@ Upfront identification of machine-clients is handled process-wise (outside the s
 
 For authentication and authorization, SDEP adopts OAuth 2.0 with JWT-based authentication, which is the industry standard for trusted machine-to-machine (M2M) communication using the OAuth 2.0 Client Credentials Flow (RFC 6749, section 4.4).
 
-https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
+<https://datatracker.ietf.org/doc/html/rfc6749#section-4.4>
 
 **Authentication** proves who the client is.
 
-- For machine-to-machine (M2M) communication, the client uses the Client Credentials Flow to identify itself to the authorization server in exchange for an access token.
+- For machine-to-machine (M2M) communication, the client uses the Client Credentials Flow to identify itself to the authorization server (the OAuth 2.0 component that authenticates clients and issues access tokens; in SDEP-NL this role is fulfilled by Keycloak) in exchange for an access token.
 - Authentication typically takes place via client_id and client_secret, or a signed JWT assertion.
 
 SDEP-NL adopts client_id and client_secret, motivated by:
@@ -140,8 +142,8 @@ For more details, see section [Audit Log (Details)](#audit-log-details).
 
 Measures taken based on:
 
-- https://owasp.org/Top10/2025/
-- https://owasp.org/API-Security/editions/2023/en/0x00-header/
+- <https://owasp.org/Top10/2025/>
+- <https://owasp.org/API-Security/editions/2023/en/0x00-header/>
 
 | ID             | Subject                                         | Explanation                                                                               | Measure                                                                                        |
 | :------------- | :---------------------------------------------- | :---------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
@@ -195,7 +197,7 @@ SDEP mitigates these phases as follows.
 - Implemented in the [`headers.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/security/headers.py) middleware (tells the browser which sources are allowed to execute, and blocks everything else)
 - Applies a **route-specific CSP** (strict on all API and root paths, relaxed only on Swagger UI docs pages)
 - Motivation: Swagger UI requires `'unsafe-inline'` for its inline scripts and `style=""` attributes (nonces/hashes cannot cover the inline style attributes here)
-- https://thecodebuzz.com/content-security-policy-csp-swagger-ui-openapi/
+- <https://thecodebuzz.com/content-security-policy-csp-swagger-ui-openapi/>
 
 ---
 
@@ -251,6 +253,74 @@ File uploads are protected by:
 
 - **Format:** only `.zip` files are accepted (validated by filename extension and ZIP magic bytes `PK\x03\x04`); non-zip uploads return `422`
 - **Size:** max 1 MiB (`MAX_FILE_SIZE = 1_048_576`); oversized uploads return `422`
+- **Malware scanning:** uploads are scanned with ClamAV before being accepted; infected files return `400`
+- **Filename sanitization at upload time:** the uploaded filename is sanitized before it is stored in the database, using the shared [`filename.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/filename.py) utility (`sanitize_upload_filename`). This prevents malicious filenames from being persisted, eliminating stored denial-of-service risks. Sanitization includes:
+  - Path separators are stripped (extracts basename from Unix `/` and Windows `\` paths)
+  - Control characters (C0 range `\x00`–`\x1f`, CR, LF), double quotes, and backslashes are removed
+  - Leading/trailing dots and whitespace are stripped; consecutive dots are collapsed
+  - If the resulting base name (before `.zip`) is empty, the upload is rejected with `422`
+  - Filenames exceeding 64 characters after sanitization are rejected with `422`
+
+Together with the download-time sanitization and RFC 5987 encoding described in the [File Download (Content-Disposition)](#file-download-content-disposition) section, this provides defense-in-depth: malicious filenames are rejected at upload, re-sanitized at download, and safely encoded in the response header.
+
+## File Download (Content-Disposition)
+
+Area file downloads construct the `Content-Disposition` header using the shared [`filename.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/filename.py) utility. This complements the upload-time sanitization described in [File Upload](#file-upload) with two download-time measures:
+
+---
+
+**Defense-in-depth re-sanitization (`sanitize_download_filename`)**
+
+As a second line of defense, the download path re-sanitizes the stored filename before constructing the header. If re-sanitization strips all characters (e.g. a filename consisting entirely of control characters), the result would be an empty string. Rather than emitting an empty `Content-Disposition` filename, the function returns the literal string `"download"` as a safe fallback so the client always receives a usable filename. In practice this cannot occur because upload-time sanitization (see [File Upload](#file-upload)) already rejects such filenames — the fallback is a defensive guard only.
+
+---
+
+**RFC 5987 encoding (`content_disposition_header`)**
+
+The header is encoded per [RFC 5987](https://datatracker.ietf.org/doc/html/rfc5987), which defines how to include non-ASCII characters in HTTP header field parameters. Both `filename=` and `filename*=` are emitted:
+
+```
+Content-Disposition: attachment; filename="ascii-safe.zip"; filename*=UTF-8''percent-encoded.zip
+```
+
+- `filename="..."` is the ASCII-safe fallback for legacy clients (non-ASCII characters are replaced with `_`)
+- `filename*=UTF-8''...` is the RFC 5987 form for modern clients, using UTF-8 encoding with percent-encoded characters (via `urllib.parse.quote`)
+- When both are present, compliant clients prefer `filename*=` over `filename=` (per [RFC 6266, section 4.3](https://datatracker.ietf.org/doc/html/rfc6266#section-4.3))
+
+RFC 5987 solves three problems:
+
+- **Non-ASCII filenames:** characters like `é`, `ü`, or `ñ` are percent-encoded instead of being silently dropped or causing encoding errors
+- **Header injection prevention:** percent-encoding neutralizes characters that would otherwise break HTTP header syntax (CR, LF, `"`, `;`)
+- **Cross-browser compatibility:** the dual `filename=` / `filename*=` pattern ensures all clients receive a usable filename, regardless of their RFC 5987 support
+
+## Malware scanning
+
+The application is configured to use ClamAV for malware scanning of uploaded files. Use environment variables for configuration:
+
+| Environment variable          | Default | Description                                 |
+| :---------------------------- | :------ | :------------------------------------------ |
+| `MALWARE_SCAN_ENABLED`        | `true`  | Enables or disables upload malware scanning |
+| `MALWARE_SCAN_CLAMAV_HOST`    | `""`    | ClamAV daemon host                          |
+| `MALWARE_SCAN_CLAMAV_PORT`    | `3310`  | ClamAV daemon port                          |
+| `MALWARE_SCAN_CLAMAV_TIMEOUT` | `10`    | ClamAV scan timeout in seconds              |
+
+For local testing, Docker Compose starts ClamAV together with the rest of the stack:
+
+```sh
+make up
+```
+
+This uses `docker-compose.yml` through the top-level Makefile and loads `.env` plus `.env.extra` when that optional override file exists.
+
+The malware scan is tested automatically.
+
+However, to manually test malware detection, generate an EICAR test archive:
+
+```sh
+scripts/generate-eicar-zip.sh
+```
+
+Upload the generated file shown by the script through the CA area upload endpoint. The upload should be rejected with `400` because ClamAV detects the EICAR test signature.
 
 ## Secrets
 
@@ -271,7 +341,7 @@ To avoid misuse on various layers, HTTP-headers are hardened in [`main.py`](http
 | Frame protection                | `frame-ancestors 'none'`                                                                                                          | Clickjacking                                                                                                       |
 | Frame protection                | `X-Frame-Options: DENY`                                                                                                           | Clickjacking                                                                                                       |
 | MIME protection                 | `X-Content-Type-Options: nosniff`                                                                                                 | MIME-sniffing                                                                                                      |
-| Permissions                     | `Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), speaker=(self)` | Unauthorized access to device features (geolocation, microphone, ...)                                              |
+| Permissions                     | `Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()` | Unauthorized access to device features (geolocation, microphone, ...)                                              |
 | Referrer policy                 | `Referrer-Policy: no-referrer`                                                                                                    | Information leakage via Referer                                                                                    |
 
 Although CI/CD-related aspects are outside the scope of this repo, test results for SDEP-NL are as follows.
@@ -287,16 +357,10 @@ Note: The `Access-Control-Allow-Origin` (CORS) header is not applicable for SDEP
 - Swagger UI is served from the same origin as the API
   - So its requests are same-origin and CORS does not apply
 
-## Content-Disposition
-
-Filenames in `Content-Disposition` response headers (area file downloads) are sanitized to prevent header injection:
-
-- Characters that could break or inject headers are stripped (`"`, `\`, CR, LF, control characters)
-- Path separators (`/`, `\`) are replaced with `_`.
-
 ## Middleware Ordering
 
 Starlette processes middleware LIFO (last added = outermost = runs first). In `main.py`:
+
 1. **SecurityHeadersMiddleware** (outermost) - added last, runs first
 2. **AuditLogMiddleware** (inner) - added first, runs inside security headers
 
@@ -307,13 +371,21 @@ Although CI/CD-related aspects are outside the scope of this repo, additional te
 - SDEP-NL scores `100%` on [internet.nl](https://internet.nl/site/sdep.gov.nl)
 - This validates that transport-level security is correctly applied (poor basic configuration would increase the attack surface)
 
-## Rate Limiting
+## Rate Limiting (Throttling)
 
-Rate limiting protects against brute-force attacks and abuse, particularly on the unauthenticated `/token` endpoint where an attacker could attempt credential stuffing at network speed.
+Rate limiting (throttling) helps protect against brute-force attacks and abuse, particularly on unauthenticated endpoints such as `/token`, where an attacker could attempt credential stuffing at network speed.
 
-Rate limiting is usally applied per unique client IP address, and handled in the deployment environment (e.g. by a (Kubernetes) Nginx Ingress controller, (HAProxy) load balancer, ...).
+Rate limiting is typically applied per client IP address and is often enforced at the deployment or infrastructure layer (for example through a Kubernetes Ingress controller, HAProxy load balancer, or Keycloak authorization server).
 
-These deployment aspects are outside the scope of this repo.
+These deployment-specific concerns are outside the scope of this repository.
+
+## Rate Limiting (Throttling)
+
+Rate limiting (throttling) helps protect against brute-force attacks and abuse, particularly on unauthenticated endpoints such as /token, where an attacker could attempt credential stuffing at network speed.
+
+Rate limiting is typically applied per client IP address and is often enforced at the deployment or infrastructure layer (for example through a Kubernetes Ingress controller, or an HAProxy load balancer).
+
+These deployment-specific concerns are outside the scope of this repository.
 
 ## Dependency Version Pinning
 
@@ -330,7 +402,7 @@ Dependencies are declared with flexible lower bounds (`>=`) in `pyproject.toml` 
 
 - The Python base image is pinned to a minor version (`python:3.13-slim`) via `ARG PYTHON_IMAGE`
 - The `uv` installer is pinned to a specific release (`ghcr.io/astral-sh/uv:0.5.4`)
-- PostgreSQL and Keycloak versions are externalized via environment variables in `docker-compose.yml`
+- PostgreSQL, Keycloak and ClamAV versions are externalized via environment variables in `docker-compose.yml`
 
 **Keeping dependencies up to date**
 
@@ -379,6 +451,22 @@ See [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/co
 
 ---
 
+**Audience validation**
+
+A JWT can contain an `aud` (audience) claim that says *which application* the token was issued for. When an application checks `aud`, it rejects tokens that were meant for a different service — even if the signature is valid. This prevents a token issued for Service A from being reused against Service B.
+
+SDEP currently does **not** check `aud`. The reason is practical: Keycloak does not include an `aud` claim in the client-credentials tokens it issues to SDEP clients by default. If SDEP started requiring `aud`, every existing client would be rejected until the Keycloak configuration is updated to include it.
+
+As SDEP is the only application in the Keycloak realm, the aud claim will always originate from SDEP itself. Therefore this has no security impact.
+
+The current validation guarantees are therefore:
+
+- RS256 signature verification using Keycloak JWKS (proves the token was issued by Keycloak and has not been tampered with)
+- Expiry (`exp`) verification (rejects tokens that are no longer valid)
+- No `aud` verification (a valid Keycloak token for another service would be accepted)
+
+---
+
 **JWKS key rotation (5-minute TTL)**
 
 `PyJWKClient` is configured with `cache_jwk_set=True` and `lifespan=300` (5 minutes). This ensures that when Keycloak rotates or revokes signing keys, SDEP picks up the changes within at most 5 minutes — without requiring a restart. The alternative (`@lru_cache`) would cache keys indefinitely, meaning rotated or revoked keys would never be refreshed until the process was restarted.
@@ -418,7 +506,7 @@ For each request that matters, capture:
 | :----------------- | :-------------------------- | :---------------------------------------------------------------------------- | :------ |
 | **timestamp**      | Server clock                | UTC, server default `now()`                                                   | When    |
 | **requestId**      | Generated                   | UUID4 correlation ID                                                          | -       |
-| **roles**          | JWT `realm_access.roles`    | Verified roles, `REJECTED`, `UNAUTHORIZED`, or `null` (not yet authenticated) | Who     |
+| **roles**          | JWT `realm_access.roles`    | Verified roles, or `null` when no token was authenticated (401, or unauthenticated endpoints) | Who     |
 | **resourceType**   | Derived from path           | Entity type, e.g. `area`, `activity`                                          | Where   |
 | **action**         | Derived from method + path  | Semantic action verb, e.g. `create`                                           | What    |
 | **httpMethod**     | Request                     | HTTP method (`GET`, `POST`, `DELETE`)                                         | What    |
@@ -431,14 +519,16 @@ For each request that matters, capture:
 
 **Role extraction — only from verified tokens**
 
-The audit middleware extracts `roles` from the JWT **only when the request succeeded** (HTTP status < 400). A successful response means the route's auth dependency already verified the token signature and roles — so the logged roles are trustworthy. For rejected requests, the `roles` field indicates why, preventing forged tokens from polluting the audit trail.
+The audit middleware reads `roles` from the JWT payload that the auth dependency (`verify_bearer_token`) stashes on `request.state.jwt_payload` after signature and expiry verification. Tokens that fail verification never reach `request.state`, so forged tokens cannot pollute the audit trail. The middleware does not re-decode the token, avoiding a duplicate signature check per audited request.
 
-| Scenario                               | What happens                       | `roles` in audit log      |
-| :------------------------------------- | :--------------------------------- | :------------------------ |
-| Valid JWT, authorized (2xx)            | Auth dependency verified the token | Verified roles from token |
-| Forged, tampered, or expired JWT (401) | Auth dependency rejected the token | `REJECTED`                |
-| Valid JWT, missing required role (403) | Token valid, but role check failed | `UNAUTHORIZED`            |
-| No JWT (e.g. `/token` endpoint)        | Not yet authenticated              | `null`                    |
+The 401 vs 403 distinction is encoded in the `httpStatusCode` column; the `roles` column carries the verified role set when one is available and `null` otherwise. Audience validation remains disabled today as described above: `aud` is not enforced until Keycloak token configuration supports it.
+
+| Scenario                               | What happens                                                                                | `roles` in audit log      |
+| :------------------------------------- | :------------------------------------------------------------------------------------------ | :------------------------ |
+| Valid JWT, authorized (2xx)            | Auth dependency verifies the token and stashes the payload on `request.state`               | Verified roles from token |
+| Valid JWT, missing required role (403) | Token verified by `verify_bearer_token`; `RequireRoles` then rejects on insufficient role   | Verified roles from token |
+| Forged, tampered, or expired JWT (401) | Auth dependency rejected the token before the handler ran; no payload on `request.state`    | `null`                    |
+| No JWT (e.g. `/token` endpoint)        | No bearer credentials presented                                                             | `null`                    |
 
 ---
 

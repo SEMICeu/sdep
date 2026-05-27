@@ -1,6 +1,7 @@
 """Authentication endpoints using Keycloak."""
 
 import base64
+import binascii
 
 import httpx
 from fastapi import APIRouter, Form, HTTPException, Request, status
@@ -61,8 +62,9 @@ async def post_auth_token(
                 client_id = basic_client_id
             if not client_secret:
                 client_secret = basic_client_secret
-        except Exception:
-            # If Basic Auth parsing fails, continue with form parameters
+        except (ValueError, binascii.Error, UnicodeDecodeError):
+            # Malformed Basic Auth header → fall back to form parameters.
+            # ValueError covers a missing ":" separator in the decoded payload.
             pass
 
     # Validate that we have credentials from either source

@@ -226,27 +226,6 @@ class TestActivityCRUD:
             == address_locator_designator_addition
         )
 
-    async def test_delete_activity(self, async_session: AsyncSession):
-        """Test deleting an existing activity."""
-        # Arrange
-        act = await ActivityFactory.create_async(async_session)
-
-        # Act
-        result = await activity.delete(async_session, act.id)
-
-        # Assert
-        assert result is True
-        retrieved = await activity.get_by_id(async_session, act.id)
-        assert retrieved is None
-
-    async def test_delete_activity_not_found(self, async_session: AsyncSession):
-        """Test deleting a non-existent activity."""
-        # Act
-        result = await activity.delete(async_session, 99999)
-
-        # Assert
-        assert result is False
-
     async def test_exists_activity(self, async_session: AsyncSession):
         """Test checking if activity exists."""
         # Arrange
@@ -460,61 +439,6 @@ class TestActivityCRUD:
         # Assert
         assert len(results) == 0
 
-    async def test_get_by_competent_authority_id(self, async_session: AsyncSession):
-        """Test getting activities by competent_authority_id."""
-        # Arrange
-        area = await AreaFactory.create_async(
-            async_session,
-            competent_authority_id="0363",
-            competent_authority_name="Gemeente Amsterdam",
-        )
-        act = await ActivityFactory.create_async(async_session, area_id=area.id)
-
-        # Act
-        results = await activity.get_by_competent_authority_id(async_session, "0363")
-
-        # Assert
-        assert len(results) == 1
-        assert results[0].id == act.id
-
-    async def test_get_by_competent_authority_id_not_found(
-        self, async_session: AsyncSession
-    ):
-        """Test getting activities by non-existent competent_authority_id."""
-        # Act
-        results = await activity.get_by_competent_authority_id(async_session, "9999")
-
-        # Assert
-        assert len(results) == 0
-
-    async def test_count_by_competent_authority_id(self, async_session: AsyncSession):
-        """Test counting activities by competent_authority_id."""
-        # Arrange
-        area = await AreaFactory.create_async(
-            async_session,
-            competent_authority_id="0518",
-            competent_authority_name="Gemeente Den Haag",
-        )
-        await ActivityFactory.create_async(async_session, area_id=area.id)
-        await ActivityFactory.create_async(async_session, area_id=area.id)
-        await ActivityFactory.create_async(async_session, area_id=area.id)
-
-        # Act
-        total = await activity.count_by_competent_authority_id(async_session, "0518")
-
-        # Assert
-        assert total == 3
-
-    async def test_count_by_competent_authority_id_not_found(
-        self, async_session: AsyncSession
-    ):
-        """Test counting activities by non-existent competent_authority_id."""
-        # Act
-        total = await activity.count_by_competent_authority_id(async_session, "9999")
-
-        # Assert
-        assert total == 0
-
     async def test_get_by_activity_id(self, async_session: AsyncSession):
         """Test getting activity by functional activity_id (UUID)."""
         # Arrange
@@ -630,10 +554,8 @@ class TestActivityCRUD:
     async def test_activity_query_helpers_with_limit_and_bulk_mutations(
         self, async_session: AsyncSession
     ):
-        competent_authority_id = "0363"
         area = await AreaFactory.create_async(
             async_session,
-            competent_authority_id=competent_authority_id,
             competent_authority_name="Gemeente Amsterdam",
         )
         platform = await PlatformFactory.create_async(async_session)
@@ -658,15 +580,11 @@ class TestActivityCRUD:
             async_session, platform.id, limit=1
         )
         area_results = await activity.get_by_area_id(async_session, area.id, limit=1)
-        ca_results = await activity.get_by_competent_authority_id(
-            async_session, competent_authority_id, limit=1
-        )
 
         assert len(reg_results) == 1
         assert reg_results[0].id in {reg_one.id, reg_two.id}
         assert len(platform_results) == 1
         assert len(area_results) == 1
-        assert len(ca_results) == 1
 
         await activity.bulk_mark_as_ended(
             async_session,

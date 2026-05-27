@@ -1,3 +1,6 @@
+#
+# Roles are provisioned idempotently using the naming convention: name = *sdep*
+#
 roles:
   - name: "sdep_read"
     description: "Permission to read"

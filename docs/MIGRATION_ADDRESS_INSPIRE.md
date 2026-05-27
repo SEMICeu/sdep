@@ -1,4 +1,4 @@
-# Migration Guide: Address Fields (INSPIRE/STR-AP)
+<h1>Migration Guide: Address Fields (INSPIRE/STR-AP)</h1>
 
 This document describes the breaking change to address field names in the SDEP API,
 aligned with the INSPIRE directive and SEMIC STR-AP standard for EU interoperability.

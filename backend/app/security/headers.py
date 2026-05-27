@@ -52,11 +52,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Referrer policy - prevent information leakage
         response.headers["Referrer-Policy"] = "no-referrer"
 
-        # Permissions policy - restrict browser features
+        # Permissions policy - restrict browser features.
+        # Note: "speaker" is not a registered Permissions-Policy feature and is
+        # silently ignored by browsers. The (now obsolete) "Speaker API" was
+        # never standardized; current audio-output control is governed by
+        # getUserMedia and "speaker-selection" (still experimental, limited
+        # implementation), neither of which we need to expose. Listing it would
+        # only mislead readers into thinking the header gates speaker access.
         response.headers["Permissions-Policy"] = (
             "geolocation=(), microphone=(), camera=(), "
-            "payment=(), usb=(), magnetometer=(), gyroscope=(), "
-            "speaker=(self)"
+            "payment=(), usb=(), magnetometer=(), gyroscope=()"
         )
 
         # COOP (Cross-Origin-Opener-Policy) - isolate browsing context so a

@@ -23,12 +23,18 @@ from app.schemas.activity_bulk import (
     ActivityBulkResultItem,
 )
 from app.schemas.error import ErrorDetail, ErrorResponse
-from fastapi import HTTPException, UploadFile
+from app.security.malware_scan import ScanResult
+from fastapi import HTTPException, Request, UploadFile
 
 from tests.api.zip_stub import ZIP
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _stub_request(headers: dict[str, str] | None = None) -> Request:
+    """Minimal Request stub for direct router calls — only `.headers.get(...)` is exercised."""
+    return cast("Request", SimpleNamespace(headers=headers or {}))
 
 
 @pytest.mark.asyncio
@@ -93,8 +99,21 @@ async def test_ca_activities_direct_branches(monkeypatch):
 async def test_ca_areas_direct_branches(monkeypatch):
     session = cast("AsyncSession", object())
 
+    async def clean_scan(filedata: bytes) -> ScanResult:
+        return ScanResult(
+            passed_malware_scan=True,
+            message="mocked clean file",
+        )
+
+    monkeypatch.setattr(
+        ca_areas,
+        "scan_file_for_malware",
+        clean_scan,
+    )
+
     with pytest.raises(HTTPException, match="at most 64 characters"):
         await ca_areas.post_area(
+            request=_stub_request(),
             client=NamedClient(id="ca-1", name="CA"),
             session=session,
             areaId=None,
@@ -112,11 +131,16 @@ async def test_ca_areas_direct_branches(monkeypatch):
                 area_name="Area",
                 regulation="all",
                 filename="area.zip",
+                competent_authority=SimpleNamespace(
+                    competent_authority_id="ca-public-id",
+                    competent_authority_name="CA",
+                ),
                 created_at="2025-01-01T00:00:00Z",
             )
         ),
     )
     created = await ca_areas.post_area(
+        request=_stub_request(),
         client=NamedClient(id="ca-1", name="CA"),
         session=session,
         areaId=None,
@@ -126,9 +150,68 @@ async def test_ca_areas_direct_branches(monkeypatch):
     )
     assert json.loads(bytes(created.body))["areaId"] == "area-1"
 
+    monkeypatch.setattr(ca_areas, "sanitize_upload_filename", lambda raw: ".zip")
+    with pytest.raises(HTTPException, match=r"must contain a name before the \.zip"):
+        await ca_areas.post_area(
+            request=_stub_request(),
+            client=NamedClient(id="ca-1", name="CA"),
+            session=session,
+            areaId=None,
+            areaName=None,
+            regulation=None,
+            file=UploadFile(filename=".zip", file=io.BytesIO(ZIP)),
+        )
+    monkeypatch.undo()
+
+    async def rejected_scan(filedata: bytes) -> ScanResult:
+        return ScanResult(passed_malware_scan=False, message="malware")
+
+    monkeypatch.setattr(
+        ca_areas,
+        "scan_file_for_malware",
+        rejected_scan,
+    )
+    with pytest.raises(HTTPException, match="may contain malicious content"):
+        await ca_areas.post_area(
+            request=_stub_request(),
+            client=NamedClient(id="ca-1", name="CA"),
+            session=session,
+            areaId=None,
+            areaName=None,
+            regulation=None,
+            file=UploadFile(filename="area.zip", file=io.BytesIO(b"data")),
+        )
+
+    # Content-Length fail-fast: advertised size above the envelope cap → 413
+    oversize = ca_areas.MAX_REQUEST_SIZE + 1
+    with pytest.raises(HTTPException) as oversize_exc:
+        await ca_areas.post_area(
+            request=_stub_request(headers={"content-length": str(oversize)}),
+            client=NamedClient(id="ca-1", name="CA"),
+            session=session,
+            areaId=None,
+            areaName=None,
+            regulation=None,
+            file=UploadFile(filename="area.zip", file=io.BytesIO(ZIP)),
+        )
+    assert oversize_exc.value.status_code == 413
+
+    # Malformed Content-Length is ignored (falls through to body-length check);
+    # the rest of the validation pipeline still runs.
+    with pytest.raises(HTTPException, match="may contain malicious content"):
+        await ca_areas.post_area(
+            request=_stub_request(headers={"content-length": "not-a-number"}),
+            client=NamedClient(id="ca-1", name="CA"),
+            session=session,
+            areaId=None,
+            areaName=None,
+            regulation=None,
+            file=UploadFile(filename="area.zip", file=io.BytesIO(b"data")),
+        )
+
     monkeypatch.setattr(
         ca_areas.area_service,
-        "get_areas_by_competent_authority",
+        "get_areas_by_client_id",
         AsyncMock(
             return_value=[
                 SimpleNamespace(
@@ -136,8 +219,10 @@ async def test_ca_areas_direct_branches(monkeypatch):
                     area_name="Area",
                     regulation="all",
                     filename="area.zip",
-                    competent_authority_id_functional="ca-1",
-                    competent_authority_name="CA",
+                    competent_authority=SimpleNamespace(
+                        competent_authority_id="ca-1",
+                        competent_authority_name="CA",
+                    ),
                     created_at=datetime(2025, 1, 1, tzinfo=UTC),
                 )
             ]
@@ -150,7 +235,7 @@ async def test_ca_areas_direct_branches(monkeypatch):
 
     monkeypatch.setattr(
         ca_areas.area_service,
-        "count_areas_by_competent_authority",
+        "count_areas_by_client_id",
         AsyncMock(return_value=2),
     )
     count = await ca_areas.count_own_areas(
@@ -159,7 +244,9 @@ async def test_ca_areas_direct_branches(monkeypatch):
     assert count.count == 2
 
     monkeypatch.setattr(
-        ca_areas.area_service, "get_own_area_by_id", AsyncMock(return_value=None)
+        ca_areas.area_service,
+        "get_area_by_area_id_and_client_id",
+        AsyncMock(return_value=None),
     )
     with pytest.raises(HTTPException, match="not found"):
         await ca_areas.get_own_area(
@@ -167,7 +254,7 @@ async def test_ca_areas_direct_branches(monkeypatch):
         )
     monkeypatch.setattr(
         ca_areas.area_service,
-        "get_own_area_by_id",
+        "get_area_by_area_id_and_client_id",
         AsyncMock(
             return_value=SimpleNamespace(filedata=b"zipdata", filename="owned.zip")
         ),
@@ -175,9 +262,10 @@ async def test_ca_areas_direct_branches(monkeypatch):
     response = await ca_areas.get_own_area(
         client=Client(id="ca-1", name="CA"), areaId="area-1", session=session
     )
-    assert response.headers["content-disposition"] == 'attachment; filename="owned.zip"'
+    assert 'filename="owned.zip"' in response.headers["content-disposition"]
+    assert "filename*=UTF-8''owned.zip" in response.headers["content-disposition"]
 
-    monkeypatch.setattr(ca_areas.area_service, "delete_area", AsyncMock())
+    monkeypatch.setattr(ca_areas.area_service, "delete_area_by_client_id", AsyncMock())
     deleted = await ca_areas.delete_area(
         client=Client(id="ca-1", name="CA"), areaId="area-1", session=session
     )
@@ -257,8 +345,10 @@ async def test_str_areas_direct_branches(monkeypatch):
                     area_name="Area",
                     regulation="all",
                     filename="area.zip",
-                    competent_authority_id_functional="ca-1",
-                    competent_authority_name="CA",
+                    competent_authority=SimpleNamespace(
+                        competent_authority_id="ca-1",
+                        competent_authority_name="CA",
+                    ),
                     created_at=datetime(2025, 1, 1, tzinfo=UTC),
                 )
             ]
@@ -280,7 +370,5 @@ async def test_str_areas_direct_branches(monkeypatch):
         AsyncMock(return_value=SimpleNamespace(filedata=b"zip", filename="shared.zip")),
     )
     area_response = await str_areas.get_area("area-1", session=session)
-    assert (
-        area_response.headers["content-disposition"]
-        == 'attachment; filename="shared.zip"'
-    )
+    assert 'filename="shared.zip"' in area_response.headers["content-disposition"]
+    assert "filename*=UTF-8''shared.zip" in area_response.headers["content-disposition"]

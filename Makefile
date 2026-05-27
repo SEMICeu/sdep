@@ -4,7 +4,7 @@ SHELL := /bin/bash
         .drop-database .migrate-database .load-test-data \
         postgres-up postgres-down \
         postgres-login postgres-status postgres-status-full postgres-auditlog \
-        postgres-activity-count postgres-area-count postgres-platform-count postgres-competent-authority-count postgres-audit-log-count postgres-all-count \
+        postgres-activity-count postgres-area-count postgres-platform-count postgres-competent-authority-count postgres-audit-log-count postgres-count-all \
         postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load \
         generate-area-sql \
         dbgate-up dbgate-down dbgate-restart dbgate-status \
@@ -13,8 +13,9 @@ SHELL := /bin/bash
         backend-up backend-down backend-restart \
         up down restart status \
         .is-up .clean-testrun \
-        test test-keep test-verbose test-smoke test-security test-ca test-str \
+        test-full test-full-keep test-full-verbose test-smoke test-ca test-str test-security test-malware \
         test-perf test-perf-verbose \
+        test \
         postgres-logs keycloak-logs backend-logs dbgate-logs fullstack-logs \
         help
 
@@ -165,7 +166,7 @@ postgres-audit-log-count: ## Count audit log entries in database
 	@set -a && source .env && set +a && \
 	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM audit_log;"
 
-postgres-all-count: ## Count all tables in database
+postgres-count-all: ## Count all tables in database
 	@set -a && source .env && set +a && \
 	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c " \
 	  SELECT \
@@ -297,10 +298,13 @@ dbgate-status: ## Show DBGate and Postgres status
 	@set -a && source .env && set +a && \
 	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
 	source ./keycloak/get-client-secret.sh && \
-	KC_APP_REALM_CLIENT_ID=sdep-test-ca01 && get_client_secret && CA_CLIENT_ID=$$KC_APP_REALM_CLIENT_ID && CA_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
-	KC_APP_REALM_CLIENT_ID=sdep-test-str01 && get_client_secret && STR_CLIENT_ID=$$KC_APP_REALM_CLIENT_ID && STR_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
-	echo "export CA_CLIENT_ID=$$CA_CLIENT_ID" > ./tmp/.credentials && \
-	echo "export CA_CLIENT_SECRET=$$CA_CLIENT_SECRET" >> ./tmp/.credentials && \
+	CA1_CLIENT_ID=sdep-test-ca01 && KC_APP_REALM_CLIENT_ID=$$CA1_CLIENT_ID && get_client_secret && CA1_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	CA2_CLIENT_ID=sdep-test-ca02 && KC_APP_REALM_CLIENT_ID=$$CA2_CLIENT_ID && get_client_secret && CA2_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	STR_CLIENT_ID=sdep-test-str01 && KC_APP_REALM_CLIENT_ID=$$STR_CLIENT_ID && get_client_secret && STR_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	echo "export CA1_CLIENT_ID=$$CA1_CLIENT_ID" > ./tmp/.credentials && \
+	echo "export CA1_CLIENT_SECRET=$$CA1_CLIENT_SECRET" >> ./tmp/.credentials && \
+	echo "export CA2_CLIENT_ID=$$CA2_CLIENT_ID" >> ./tmp/.credentials && \
+	echo "export CA2_CLIENT_SECRET=$$CA2_CLIENT_SECRET" >> ./tmp/.credentials && \
 	echo "export STR_CLIENT_ID=$$STR_CLIENT_ID" >> ./tmp/.credentials && \
 	echo "export STR_CLIENT_SECRET=$$STR_CLIENT_SECRET" >> ./tmp/.credentials
 
@@ -375,7 +379,7 @@ status: ## Show status
 	printf "  %-42s %s\n" "Keycloak:" "$$KC_BASE_URL/admin"
 	@echo ""
 
-##@ Test
+##@ Test Fullstack
 
 .is-up: ## Check if services are running
 	@echo "🔍 Checking if services are up..." && \
@@ -409,35 +413,18 @@ status: ## Show status
 	docker exec -i sdep-postgres psql -U $$POSTGRES_SUPER_USER -d $$POSTGRES_DB_NAME \
 		-v ON_ERROR_STOP=1 < postgres/clean-testrun.sql
 
-test: .is-up ## Test all (quiet)
+test-full: .is-up ## Test fullstack (quiet)
 	@set -a && source ./.env && set +a && \
 	set -o pipefail && \
-	$(MAKE) --no-print-directory test-verbose 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
+	$(MAKE) --no-print-directory test-full-verbose 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
 
-test-keep: .is-up .get-client-credentials ## Test all (quiet, keep test data)
+test-full-keep: .is-up .get-client-credentials ## Test fullstack (quiet, keep test data)
 	@set -a && source ./.env && set +a && \
 	set -o pipefail && \
 	KEEP_TEST_DATA=true $(CURDIR)/scripts/run-tests.sh 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
 
-test-verbose: .is-up .get-client-credentials ## Test all (verbose)
+test-full-verbose: .is-up .get-client-credentials ## Test fullstack (verbose)
 	@$(CURDIR)/scripts/run-tests.sh
-
-test-security: .is-up .get-client-credentials ## Test security (headers, unauthorized, credentials)
-	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
-	OUTPUT_FILE=$$(mktemp) && \
-	trap "rm -f $$OUTPUT_FILE" EXIT && \
-	echo "🔒 Testing security..." && \
-	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
-	echo "" && \
-	echo "Testing security headers..." && \
-	./tests/test_auth_headers.sh 2>&1 | tee $$OUTPUT_FILE && \
-	echo "" && \
-	echo "Testing unauthorized access..." && \
-	./tests/test_auth_unauthorized.sh 2>&1 | tee $$OUTPUT_FILE && \
-	echo "" && \
-	echo "Testing credentials..." && \
-	./tests/test_auth_credentials.sh 2>&1 | tee $$OUTPUT_FILE && \
-	echo "✅ Security tested"
 
 test-ca: .is-up .get-client-credentials ## Test CA endpoints
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
@@ -446,7 +433,7 @@ test-ca: .is-up .get-client-credentials ## Test CA endpoints
 	echo "🏛️  Testing CA endpoints..." && \
 	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
 	echo "" && \
-	if CLIENT_ID=$$CA_CLIENT_ID CLIENT_SECRET=$$CA_CLIENT_SECRET ./tests/test_auth_client.sh; then \
+	if CLIENT_ID=$$CA1_CLIENT_ID CLIENT_SECRET=$$CA1_CLIENT_SECRET ./tests/test_auth_client.sh; then \
 		echo "✅ CA client authorized"; \
 	else \
 		echo "❌ CA client authorization failed"; \
@@ -475,13 +462,40 @@ test-str: .is-up .get-client-credentials ## Test STR endpoints
 	./tests/test_str_activities_bulk.sh 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ STR endpoints tested"
 
-test-smoke: .is-up ## Test the smoke test endpoints (audit-excluded, no auth needed)
+test-smoke: .is-up ## Test smoke test endpoints (audit-excluded, no auth needed)
 	@set -a && source ./.env && set +a && \
 	echo "🔍 Testing smoke test endpoints..." && \
 	./tests/test_smoketest.sh && \
 	echo "✅ Smoke test endpoints tested"
 
-##@ Performance
+test-security: .is-up .get-client-credentials ## Test security (headers, unauthorized, credentials)
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
+	OUTPUT_FILE=$$(mktemp) && \
+	trap "rm -f $$OUTPUT_FILE" EXIT && \
+	echo "🔒 Testing security..." && \
+	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
+	echo "" && \
+	echo "Testing security headers..." && \
+	./tests/test_auth_headers.sh 2>&1 | tee $$OUTPUT_FILE && \
+	echo "" && \
+	echo "Testing unauthorized access..." && \
+	./tests/test_auth_unauthorized.sh 2>&1 | tee $$OUTPUT_FILE && \
+	echo "" && \
+	echo "Testing credentials..." && \
+	./tests/test_auth_credentials.sh 2>&1 | tee $$OUTPUT_FILE && \
+	echo "✅ Security tested"
+
+##@ Test Integration
+
+test-malware: ## Test malware scanning (starts ClamAV via Docker Compose if not already running)
+	@echo "🧪 Running malware scanning tests..."
+	@if [ -z "$$CI" ]; then \
+		$(DOCKER_COMPOSE) up -d clamav; \
+	fi
+	uv run --script tests/malware/test_malware_scan.py
+	@echo "✅ Malware scanning tests completed!"
+
+##@ Test Performance
 
 PERF_ACTIVITIES_TARGET ?= 5000
 PERF_MAX_DURATION_SECONDS ?= 300
@@ -506,6 +520,21 @@ test-perf: .is-up .get-client-credentials ## Run bulk performance test (PERF_YES
 
 test-perf-verbose: .is-up .get-client-credentials ## Run bulk performance test with periodic Locust stats
 	@$(PERF_ENV) PERF_VERBOSE=true $(CURDIR)/scripts/run-tests-perf.sh
+
+##@ Test All
+
+test: ## Run all tests (fullstack + integration + performance)
+	@echo "🧪 Running all tests..."
+	@echo ""
+	@echo "  1. Fullstack tests (test-full)"
+	@echo "  2. Integration tests (test-malware)"
+	@echo "  3. Performance tests (test-perf)"
+	@echo ""
+	@$(MAKE) --no-print-directory test-full
+	@$(MAKE) --no-print-directory test-malware
+	@$(MAKE) --no-print-directory test-perf PERF_YES=true
+	@echo ""
+	@echo "✅ All tests completed (fullstack + integration + performance)"
 
 ##@ Logs
 

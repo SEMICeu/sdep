@@ -8,10 +8,12 @@ pattern: ^[A-Za-z0-9-]+$ (1-64 chars).
 from typing import Any
 
 import pytest
+from app.api.common.routers import ca_areas
 from app.api.common.security import verify_bearer_token
 from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.str.v1 import app_str_v1
 from app.db.config import get_async_db, get_async_db_read_only
+from app.security.malware_scan import ScanResult
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +30,23 @@ INVALID_CLIENT_IDS = [
     pytest.param("slash/path", id="slash"),
     pytest.param("a" * 65, id="too-long-65-chars"),
 ]
+
+
+@pytest.fixture(autouse=True)
+def mock_malware_scan(monkeypatch):
+    """Keep API tests independent from the real ClamAV daemon."""
+
+    async def clean_scan(filedata: bytes) -> ScanResult:
+        return ScanResult(
+            passed_malware_scan=True,
+            message="mocked clean file",
+        )
+
+    monkeypatch.setattr(
+        ca_areas,
+        "scan_file_for_malware",
+        clean_scan,
+    )
 
 
 def _make_ca_token(client_id: str) -> dict[str, Any]:

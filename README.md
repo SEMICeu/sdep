@@ -166,7 +166,7 @@ make test-verbose
 The tests cover the cases as described in the [integration test documentation](./docs/INTEGRATION_TESTS.md).
 
 - Tests are executed against the complete Dockerized stack
-- Test suites run sequentially: `test-security`, `test-str`, and `test-ca` - each exercising the live API via curl
+- Test suites run sequentially: `test-security`, `test-str`, `test-ca`, and `test-malware` - each exercising the live API via curl
 - Test data uses the `sdep-test-*` naming convention; this data is automatically detected and removed after each test run (`postgres/clean-testrun.sql`)
 - Test isolation is enforced by comparing table row counts before and after execution (PRE/POST); any discrepancy causes the build to fail
 - A consolidated summary report presents per-suite and overall totals (executed/passed/failed) and exits with a non-zero status if any test fails

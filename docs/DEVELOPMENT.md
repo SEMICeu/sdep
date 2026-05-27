@@ -43,7 +43,7 @@ make
 - **Run:** `make test`
 - See [Integration Tests](INTEGRATION_TESTS.md) for detailed test documentation
 
-### Performance Tests (`tests/perf/`)
+### Performance Tests (`tests/performance/`)
 - Locust-based load testing for the bulk activity endpoint (`POST /api/str/v1/activities/bulk`)
 - Measures throughput (activities/sec), extrapolates capacity (activities/day), compares against configurable target
 - Uses isolated test data (`sdep-test-perf-*` prefix) by default; optionally keeps data in database (`PERF_KEEP_DATA=true`)

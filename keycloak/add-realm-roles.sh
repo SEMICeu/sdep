@@ -26,7 +26,10 @@ if [ ! -f "${KC_APP_REALM_CONFIG_YAML}" ]; then
     echo "❌ Error: KC_APP_REALM_CONFIG_YAML not found: ${KC_APP_REALM_CONFIG_YAML}" >&2; exit 1
 fi
 REALM_NAME=$(yq -r '.config.name' "$KC_APP_REALM_CONFIG_YAML")
-REALM_SHORTNAME=$(yq -r '.config.shortname // ""' "$KC_APP_REALM_CONFIG_YAML")
+IDEMPOTENCY_KEY=$(yq -r '.config.idempotency_key // ""' "$KC_APP_REALM_CONFIG_YAML")
+if [ -z "$IDEMPOTENCY_KEY" ]; then
+    echo "❌ Error: config.idempotency_key is not defined in ${KC_APP_REALM_CONFIG_YAML}" >&2; exit 1
+fi
 
 if [ -z "${KC_APP_REALM_ADMIN_ID:-}" ]; then
     echo "❌ Error: KC_APP_REALM_ADMIN_ID is not set (commandline .env* or in pipeline)" >&2
@@ -94,23 +97,22 @@ EXISTING_ROLES=$(curl -s -H "Authorization: Bearer $TOKEN" \
 
 # Build desired roles array from YAML and validate prefix
 ROLE_COUNT=$(yq '.roles | length' "$KC_APP_REALM_ROLE_YAML")
-REALM_PREFIX="${REALM_NAME}_"
-SHORTNAME_PREFIX="${REALM_SHORTNAME:+${REALM_SHORTNAME}_}"
+IDEMPOTENCY_PREFIX="${IDEMPOTENCY_KEY}_"
 DESIRED_ROLE_NAMES="["
 VALID_INDICES=()
 
 for i in $(seq 0 $((ROLE_COUNT - 1))); do
     ROLE_NAME=$(yq -r ".roles[$i].name" "$KC_APP_REALM_ROLE_YAML")
 
-    # Validate that role has REALM prefix or shortname prefix
-    if [[ "$ROLE_NAME" =~ ^${REALM_PREFIX} ]] || { [ -n "$SHORTNAME_PREFIX" ] && [[ "$ROLE_NAME" =~ ^${SHORTNAME_PREFIX} ]]; }; then
+    # Validate that role has idempotency_key prefix
+    if [[ "$ROLE_NAME" =~ ^${IDEMPOTENCY_PREFIX} ]]; then
         VALID_INDICES+=("$i")
         if [ "$DESIRED_ROLE_NAMES" != "[" ]; then
             DESIRED_ROLE_NAMES="$DESIRED_ROLE_NAMES,"
         fi
         DESIRED_ROLE_NAMES="$DESIRED_ROLE_NAMES\"$ROLE_NAME\""
     else
-        echo "⚠️  Rejected: '$ROLE_NAME' - missing required prefix '${REALM_PREFIX}' or '${SHORTNAME_PREFIX}'"
+        echo "⚠️  Rejected: '$ROLE_NAME' — missing required idempotency_key prefix '${IDEMPOTENCY_PREFIX}'"
         REJECTED_COUNT=$((REJECTED_COUNT + 1))
         REJECTED_ITEMS="${REJECTED_ITEMS:+$REJECTED_ITEMS, }$ROLE_NAME"
     fi
@@ -199,19 +201,14 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
     fi
 done
 
-# Remove roles that exist in realm but not in YAML (only those with REALM prefix or shortname prefix)
+# Remove roles that exist in realm but not in YAML (only those with idempotency_key prefix)
 # Skip deletion when there are no valid entries (e.g. NOK test files) to avoid wiping existing roles
 if [ ${#VALID_INDICES[@]} -eq 0 ]; then
     echo "⏭️  Skipping deletion check (no valid entries in YAML)"
 else
     echo "🔍 Checking for roles to remove..."
-    if [ -n "$SHORTNAME_PREFIX" ]; then
-        ROLES_TO_REMOVE=$(echo "$EXISTING_ROLES" | jq -r --argjson desired "$DESIRED_ROLE_NAMES" --arg prefix "${REALM_PREFIX}" --arg shortnamePrefix "${SHORTNAME_PREFIX}" \
-            '[.[] | select(.composite == false and .clientRole == false and ((.name | startswith($prefix)) or (.name | startswith($shortnamePrefix))) and ([.name] | inside($desired) | not)) | .name] | .[]')
-    else
-        ROLES_TO_REMOVE=$(echo "$EXISTING_ROLES" | jq -r --argjson desired "$DESIRED_ROLE_NAMES" --arg prefix "${REALM_PREFIX}" \
-            '[.[] | select(.composite == false and .clientRole == false and (.name | startswith($prefix)) and ([.name] | inside($desired) | not)) | .name] | .[]')
-    fi
+    ROLES_TO_REMOVE=$(echo "$EXISTING_ROLES" | jq -r --argjson desired "$DESIRED_ROLE_NAMES" --arg idempotencyPrefix "${IDEMPOTENCY_PREFIX}" \
+        '[.[] | select(.composite == false and .clientRole == false and (.name | startswith($idempotencyPrefix)) and ([.name] | inside($desired) | not)) | .name] | .[]')
 
     if [ -n "$ROLES_TO_REMOVE" ]; then
         while IFS= read -r ROLE_NAME; do

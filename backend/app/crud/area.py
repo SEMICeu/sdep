@@ -50,29 +50,6 @@ async def create(
     return area
 
 
-async def delete(session: AsyncSession, area_id: int) -> bool:
-    """
-    Hard-delete an area by technical id.
-
-    Not yet called from production code (API uses soft-delete via mark_as_ended).
-    Present for future anticipated hard-deletes and currently used by tests.
-
-    Args:
-        session: Async database session
-        area_id: Area technical id (integer)
-
-    Returns:
-        True if deleted, False if not found
-    """
-    area = await get_by_id(session, area_id)
-    if area is None:
-        return False
-
-    await session.delete(area)
-    await session.flush()
-    return True
-
-
 async def exists(session: AsyncSession, area_id: int) -> bool:
     """
     Check if an area exists by technical id.
@@ -205,33 +182,32 @@ async def get_by_competent_authority_id(
     return list(result.scalars().all())
 
 
-async def get_by_competent_authority_id_str(
+async def get_by_competent_authority_client_id(
     session: AsyncSession,
-    competent_authority_id_str: str,
+    client_id: str,
     offset: int = 0,
     limit: int | None = None,
 ) -> list[Area]:
     """
-    Get current areas by competent authority functional ID (ended_at IS NULL).
+    Get current areas by competent authority private client_id (ended_at IS NULL).
 
     Args:
         session: Async database session
-        competent_authority_id_str: Competent authority functional ID string (e.g., "0363")
+        client_id: Private authentication client identifier
         offset: Number of records to skip (default: 0)
         limit: Maximum number of records to return (default: no limit)
 
     Returns:
-        List of current Area instances for the given competent authority
+        List of current Area instances for the given authenticated client
     """
     stmt = (
         select(Area)
         .join(CompetentAuthority, Area.competent_authority_id == CompetentAuthority.id)
         .options(selectinload(Area.competent_authority))
         .where(
-            CompetentAuthority.competent_authority_id == competent_authority_id_str,
+            CompetentAuthority.client_id == client_id,
             Area.ended_at.is_(None),
         )
-        # Secondary sort on id ensures deterministic pagination order when rows share the same created_at
         .order_by(Area.created_at.desc(), Area.id.desc())
         .offset(offset)
     )
@@ -265,26 +241,26 @@ async def get_by_filename(
     return list(result.scalars().all())
 
 
-async def count_by_competent_authority_id_str(
+async def count_by_competent_authority_client_id(
     session: AsyncSession,
-    competent_authority_id_str: str,
+    client_id: str,
 ) -> int:
     """
-    Count current areas by competent authority functional ID (ended_at IS NULL).
+    Count current areas by competent authority private client_id (ended_at IS NULL).
 
     Args:
         session: Async database session
-        competent_authority_id_str: Competent authority functional ID string (e.g., "0363")
+        client_id: Private authentication client identifier
 
     Returns:
-        Total number of current areas for the given competent authority
+        Total number of current areas for the given authenticated client
     """
     stmt = (
         select(func.count())
         .select_from(Area)
         .join(CompetentAuthority, Area.competent_authority_id == CompetentAuthority.id)
         .where(
-            CompetentAuthority.competent_authority_id == competent_authority_id_str,
+            CompetentAuthority.client_id == client_id,
             Area.ended_at.is_(None),
         )
     )
@@ -295,6 +271,8 @@ async def count_by_competent_authority_id_str(
 async def exists_any_by_area_id(
     session: AsyncSession,
     area_id: str,
+    *,
+    competent_authority_id_str: str | None = None,
 ) -> bool:
     """
     Check if any version of an area exists by functional ID (regardless of ended_at).
@@ -302,11 +280,20 @@ async def exists_any_by_area_id(
     Args:
         session: Async database session
         area_id: Area functional ID
+        competent_authority_id_str: If provided, restrict the check to areas owned by
+            the given competent authority (functional ID, e.g., "0363"). When omitted,
+            the check spans all competent authorities.
 
     Returns:
         True if any version exists, False otherwise
     """
     stmt = select(func.count()).select_from(Area).where(Area.area_id == area_id)
+    if competent_authority_id_str is not None:
+        stmt = stmt.join(
+            CompetentAuthority, Area.competent_authority_id == CompetentAuthority.id
+        ).where(
+            CompetentAuthority.competent_authority_id == competent_authority_id_str,
+        )
     result = await session.execute(stmt)
     return result.scalar_one() > 0
 
@@ -315,6 +302,8 @@ async def get_by_area_id_and_competent_authority_id_str(
     session: AsyncSession,
     area_id: str,
     competent_authority_id_str: str,
+    *,
+    for_update: bool = False,
 ) -> Area | None:
     """
     Get current area by functional ID and competent authority functional ID.
@@ -323,6 +312,7 @@ async def get_by_area_id_and_competent_authority_id_str(
         session: Async database session
         area_id: Area functional ID
         competent_authority_id_str: Competent authority functional ID string (e.g., "0363")
+        for_update: If True, acquire a row-level lock (SELECT ... FOR UPDATE)
 
     Returns:
         Current Area instance or None if not found
@@ -336,6 +326,42 @@ async def get_by_area_id_and_competent_authority_id_str(
             Area.ended_at.is_(None),
         )
     )
+    if for_update:
+        stmt = stmt.with_for_update()
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def get_by_area_id_and_competent_authority_client_id(
+    session: AsyncSession,
+    area_id: str,
+    client_id: str,
+    *,
+    for_update: bool = False,
+) -> Area | None:
+    """
+    Get current area by functional ID and competent authority private client_id.
+
+    Args:
+        session: Async database session
+        area_id: Area functional ID
+        client_id: Private authentication client identifier
+        for_update: If True, acquire a row-level lock (SELECT ... FOR UPDATE)
+
+    Returns:
+        Current Area instance or None if not found
+    """
+    stmt = (
+        select(Area)
+        .join(CompetentAuthority, Area.competent_authority_id == CompetentAuthority.id)
+        .where(
+            Area.area_id == area_id,
+            CompetentAuthority.client_id == client_id,
+            Area.ended_at.is_(None),
+        )
+    )
+    if for_update:
+        stmt = stmt.with_for_update()
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 

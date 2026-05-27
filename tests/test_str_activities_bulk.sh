@@ -304,12 +304,12 @@ if [ -n "$BEARER_TOKEN" ]; then
     CA_TOKEN_RESPONSE=$(curl -s -X POST \
         -H "Content-Type: application/x-www-form-urlencoded" \
         --data-urlencode "grant_type=client_credentials" \
-        --data-urlencode "client_id=${CA_CLIENT_ID}" \
-        --data-urlencode "client_secret=${CA_CLIENT_SECRET}" \
+        --data-urlencode "client_id=${CA1_CLIENT_ID}" \
+        --data-urlencode "client_secret=${CA1_CLIENT_SECRET}" \
         "${BACKEND_BASE_URL}/api/auth/${API_VERSION}/token")
     CA_BEARER=$(echo "$CA_TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*"' | sed 's/"access_token":"\([^"]*\)"/\1/')
     if [ -z "$CA_BEARER" ]; then
-        echo "❌ Test 5 failed: could not authenticate as CA (${CA_CLIENT_ID})"
+        echo "❌ Test 5 failed: could not authenticate as CA (${CA1_CLIENT_ID})"
         echo "   Response: $CA_TOKEN_RESPONSE"
         FAILED_TESTS=$((FAILED_TESTS + 1))
         echo

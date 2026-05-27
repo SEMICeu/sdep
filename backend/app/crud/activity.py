@@ -88,29 +88,6 @@ async def create(
     return activity
 
 
-async def delete(session: AsyncSession, activity_id: int) -> bool:
-    """
-    Delete an activity by technical id.
-
-    Not yet called from production code (API uses soft-delete via mark_as_ended).
-    Present for future anticipated hard-deletes and currently used by tests.
-
-    Args:
-        session: Async database session
-        activity_id: Activity technical id (integer)
-
-    Returns:
-        True if deleted, False if not found
-    """
-    activity = await get_by_id(session, activity_id)
-    if activity is None:
-        return False
-
-    await session.delete(activity)
-    await session.flush()
-    return True
-
-
 async def exists(session: AsyncSession, activity_id: int) -> bool:
     """
     Check if an activity exists by technical id.
@@ -300,26 +277,23 @@ async def get_by_area_id(
     return list(result.scalars().all())
 
 
-async def get_by_competent_authority_id(
+async def get_by_competent_authority_client_id(
     session: AsyncSession,
-    competent_authority_id: str,
+    client_id: str,
     offset: int = 0,
     limit: int | None = None,
 ) -> list[Activity]:
     """
-    Get current activities by competent authority ID with pagination (ended_at IS NULL).
-
-    Uses a JOIN query through Area to get all Activity for a given competent authority.
-    Eagerly loads the Platform relationship to avoid lazy loading issues.
+    Get current activities by competent authority private client_id.
 
     Args:
         session: Async database session
-        competent_authority_id: Competent authority ID string (e.g., "0363")
+        client_id: Private authentication client identifier
         offset: Number of records to skip (default: 0)
         limit: Maximum number of records to return (default: no limit)
 
     Returns:
-        List of current Activity instances for the given competent authority
+        List of current Activity instances for the authenticated competent authority
     """
     stmt = (
         select(Activity)
@@ -330,10 +304,9 @@ async def get_by_competent_authority_id(
         .join(Area, Activity.area_id == Area.id)
         .join(CompetentAuthority, Area.competent_authority_id == CompetentAuthority.id)
         .where(
-            CompetentAuthority.competent_authority_id == competent_authority_id,
+            CompetentAuthority.client_id == client_id,
             Activity.ended_at.is_(None),
         )
-        # Secondary sort on id ensures deterministic pagination order when rows share the same created_at
         .order_by(Activity.created_at.desc(), Activity.id.desc())
         .offset(offset)
     )
@@ -344,21 +317,19 @@ async def get_by_competent_authority_id(
     return list(result.scalars().all())
 
 
-async def count_by_competent_authority_id(
+async def count_by_competent_authority_client_id(
     session: AsyncSession,
-    competent_authority_id: str,
+    client_id: str,
 ) -> int:
     """
-    Count current activities by competent authority ID (ended_at IS NULL).
-
-    Uses a JOIN query through Area to count Activity for a given competent authority.
+    Count current activities by competent authority private client_id.
 
     Args:
         session: Async database session
-        competent_authority_id: Competent authority ID string (e.g., "0363")
+        client_id: Private authentication client identifier
 
     Returns:
-        Total number of current activities for the given competent authority
+        Total number of current activities for the authenticated competent authority
     """
     stmt = (
         select(func.count())
@@ -366,7 +337,7 @@ async def count_by_competent_authority_id(
         .join(Area, Activity.area_id == Area.id)
         .join(CompetentAuthority, Area.competent_authority_id == CompetentAuthority.id)
         .where(
-            CompetentAuthority.competent_authority_id == competent_authority_id,
+            CompetentAuthority.client_id == client_id,
             Activity.ended_at.is_(None),
         )
     )

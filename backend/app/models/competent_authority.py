@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -19,15 +20,17 @@ class CompetentAuthority(Base):
 
     A Competent Authority (CA) is a regulatory body responsible for short-term rental regulation.
     A Competent Authority can regulate multiple areas.
-    The combination of (competent_authority_id, created_at) is unique to enable versioning.
+    The combination of (competent_authority_id, client_id, created_at) is unique to enable versioning.
+    The client_id is the private authentication identifier used for JWT scoping.
     """
 
     __tablename__ = "competent_authority"
     __table_args__ = (
         UniqueConstraint(
             "competent_authority_id",
+            "client_id",
             "created_at",
-            name="uq_competent_authority_competent_authority_id_created_at",
+            name="uq_competent_authority_competent_authority_id_client_id_created_at",
         ),
     )
 
@@ -36,12 +39,16 @@ class CompetentAuthority(Base):
 
     # Attributes
     competent_authority_id: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )  # Required, unique with created_at (versioning), lowercase alphanumeric with hyphens, max 64 chars, for example "0363" or "sdep-ca0363"
+        String(64), nullable=False, index=True, default=lambda: str(uuid.uuid4())
+    )  # Public functional ID, generated UUID string
 
     competent_authority_name: Mapped[str | None] = mapped_column(
         String(64), nullable=True
     )  # Optional, human-readable, max 64 chars, for example "Gemeente Amsterdam"
+
+    client_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True
+    )  # Private authentication client ID from JWT, part of owner-scoped versioning, never exposed in API responses
 
     # Audit attributes
     created_at: Mapped[datetime] = mapped_column(

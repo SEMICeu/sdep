@@ -32,7 +32,7 @@ async def count_activity(session: AsyncSession) -> int:
 
 
 async def count_activity_by_competent_authority(
-    session: AsyncSession, competent_authority_id: str
+    session: AsyncSession, client_id: str
 ) -> int:
     """
     Count activities for a competent authority.
@@ -45,19 +45,19 @@ async def count_activity_by_competent_authority(
 
     Args:
         session: Async database session (read-only)
-        competent_authority_id: Competent authority ID string (e.g., "0363")
+        client_id: client ID from JWT
 
     Returns:
         Total number of activity records for the given competent authority
     """
-    return await activity_crud.count_by_competent_authority_id(
-        session, competent_authority_id
+    return await activity_crud.count_by_competent_authority_client_id(
+        session, client_id
     )
 
 
 async def get_activity_list(
     session: AsyncSession,
-    competent_authority_id: str,
+    client_id: str,
     offset: int = 0,
     limit: int | None = None,
 ) -> list[Activity]:
@@ -71,16 +71,16 @@ async def get_activity_list(
 
     Args:
         session: Async database session (read-only)
-        competent_authority_id: Competent authority ID string (e.g., "0363")
+        client_id: client ID from JWT
         offset: Number of records to skip (default: 0)
         limit: Maximum number of records to return (default: no limit)
 
     Returns:
         List of Activity objects with platform/area relationships eagerly loaded.
     """
-    return await activity_crud.get_by_competent_authority_id(
+    return await activity_crud.get_by_competent_authority_client_id(
         session,
-        competent_authority_id,
+        client_id,
         offset=offset,
         limit=limit,
     )

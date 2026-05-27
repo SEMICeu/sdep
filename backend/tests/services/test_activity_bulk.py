@@ -37,7 +37,7 @@ class TestActivityBulkService:
         )
         monkeypatch.setattr(
             activity_bulk.platform_crud,
-            "get_by_platform_id",
+            "get_by_client_id",
             AsyncMock(
                 return_value=type(
                     "Platform", (), {"id": 1, "platform_name": "Platform"}
@@ -54,7 +54,7 @@ class TestActivityBulkService:
         response = await activity_bulk.create_activities_bulk(
             session=session,
             activities_raw=[{"activityId": "a-1"}],
-            platform_id_str="platform-1",
+            client_id="platform-1",
             platform_name="Platform",
         )
 
@@ -73,12 +73,12 @@ class TestActivityBulkService:
         session = cast("AsyncSession", object())
         monkeypatch.setattr(
             activity_bulk.platform_crud,
-            "get_by_platform_id",
+            "get_by_client_id",
             AsyncMock(return_value=None),
         )
         monkeypatch.setattr(
             activity_bulk.platform_crud,
-            "exists_any_by_platform_id",
+            "exists_any_by_client_id",
             AsyncMock(return_value=True),
         )
 
@@ -86,7 +86,7 @@ class TestActivityBulkService:
             await activity_bulk.create_activities_bulk(
                 session=session,
                 activities_raw=[],
-                platform_id_str="platform-1",
+                client_id="platform-1",
                 platform_name="Platform",
             )
 
@@ -94,9 +94,15 @@ class TestActivityBulkService:
         self, monkeypatch
     ):
         session = cast("AsyncSession", object())
-        platform = type("Platform", (), {"id": 7, "platform_name": "Old name"})()
+        platform = type(
+            "Platform",
+            (),
+            {"id": 7, "platform_id": "platform-public-id", "platform_name": "Old name"},
+        )()
         created_platform = type(
-            "Platform", (), {"id": 8, "platform_name": "New name"}
+            "Platform",
+            (),
+            {"id": 8, "platform_id": "platform-public-id", "platform_name": "New name"},
         )()
         mark_as_ended = AsyncMock()
         bulk_mark_as_ended = AsyncMock()
@@ -104,12 +110,12 @@ class TestActivityBulkService:
 
         monkeypatch.setattr(
             activity_bulk.platform_crud,
-            "get_by_platform_id",
+            "get_by_client_id",
             AsyncMock(return_value=platform),
         )
         monkeypatch.setattr(
             activity_bulk.platform_crud,
-            "mark_as_ended",
+            "mark_as_ended_by_client_id",
             mark_as_ended,
         )
         monkeypatch.setattr(
@@ -188,7 +194,7 @@ class TestActivityBulkService:
         response = await activity_bulk.create_activities_bulk(
             session=session,
             activities_raw=activities_raw,
-            platform_id_str="platform-1",
+            client_id="platform-1",
             platform_name="New name",
         )
 
@@ -206,12 +212,16 @@ class TestActivityBulkService:
 
     async def test_create_activities_bulk_marks_missing_area_as_nok(self, monkeypatch):
         session = cast("AsyncSession", object())
-        platform = type("Platform", (), {"id": 3, "platform_name": "Platform"})()
+        platform = type(
+            "Platform",
+            (),
+            {"id": 3, "platform_id": "platform-public-id", "platform_name": "Platform"},
+        )()
         bulk_create = AsyncMock()
 
         monkeypatch.setattr(
             activity_bulk.platform_crud,
-            "get_by_platform_id",
+            "get_by_client_id",
             AsyncMock(return_value=platform),
         )
         monkeypatch.setattr(
@@ -257,7 +267,7 @@ class TestActivityBulkService:
                     },
                 }
             ],
-            platform_id_str="platform-1",
+            client_id="platform-1",
             platform_name="Platform",
         )
 
@@ -273,18 +283,20 @@ class TestActivityBulkService:
     ):
         session = cast("AsyncSession", object())
         created_platform = type(
-            "Platform", (), {"id": 4, "platform_name": "Platform"}
+            "Platform",
+            (),
+            {"id": 4, "platform_id": "platform-public-id", "platform_name": "Platform"},
         )()
         bulk_create = AsyncMock()
 
         monkeypatch.setattr(
             activity_bulk.platform_crud,
-            "get_by_platform_id",
+            "get_by_client_id",
             AsyncMock(return_value=None),
         )
         monkeypatch.setattr(
             activity_bulk.platform_crud,
-            "exists_any_by_platform_id",
+            "exists_any_by_client_id",
             AsyncMock(return_value=False),
         )
         monkeypatch.setattr(
@@ -354,7 +366,7 @@ class TestActivityBulkService:
                     },
                 },
             ],
-            platform_id_str="platform-1",
+            client_id="platform-1",
             platform_name="Platform",
         )
 

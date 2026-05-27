@@ -41,6 +41,7 @@ dependencies = [
     "httpx>=0.28.1",
     # Caching
     "cachetools>=6.1.0",
+    "clamd>=1.0.2,<2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -175,14 +176,14 @@ addopts = [
 asyncio_mode = "auto"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
     "auth: marks tests that require authentication",
     "database: marks tests that require database access",
 ]
 
-# Suppress warnings in tests
 filterwarnings = [
+    # Fail tests on warnings unless a warning is explicitly allowed below
+    "error",
     # Suppress Pydantic serialization warnings for intentionally invalid test data
     # These warnings occur when validation errors include the original invalid data
     # (e.g., string where int expected). The validation errors array shows what's wrong.

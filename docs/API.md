@@ -2,7 +2,7 @@
 
 This document describes principles and patterns for the SDEP API.
 
-Table of contents
+<h2>Table of Contents</h2>
 
 - [Principle](#principle)
 - [Patterns](#patterns)
@@ -114,21 +114,22 @@ Internal refactors, dependency upgrades, or infrastructure changes may warrant a
 
 ### Client Errors
 
-| HTTP Status | Meaning               | When                                                                                                                          |
-| ----------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 400         | Bad Request           | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`), or missing client credentials                    |
-| 401         | Unauthorized          | Missing, invalid, or expired authentication token; missing required token claims (`client_id`, `client_name`)                 |
-| 403         | Forbidden             | Authenticated but missing a required role (`sdep_ca`, `sdep_str`, `sdep_read`, `sdep_write`)                                  |
-| 404         | Not Found             | Requested resource does not exist, is unavailable, or has been deleted                                                        |
-| 409         | Conflict              | Duplicate resource (unique constraint violation)                                                                              |
-| 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field), or business rule violation (e.g. start time > end time) |
+| HTTP Status | Meaning               | When                                                                                                                                                                              |
+| ----------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400         | Bad Request           | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`), or missing client credentials                                                                        |
+| 401         | Unauthorized          | Missing, invalid, or expired authentication token; missing required token claims (`client_id`, `client_name`)                                                                     |
+| 403         | Forbidden             | Authenticated but missing a required role (`sdep_ca`, `sdep_str`, `sdep_read`, `sdep_write`)                                                                                      |
+| 404         | Not Found             | Requested resource does not exist, is unavailable, or has been deleted                                                                                                            |
+| 409         | Conflict              | Duplicate resource (unique constraint violation)                                                                                                                                  |
+| 413         | Payload Too Large     | Upload exceeds the per-endpoint size limit (e.g. `POST /api/ca/v1/areas` rejects requests whose `Content-Length` exceeds the 1 MiB file-size cap plus a small multipart envelope) |
+| 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field), or business rule violation (e.g. start time > end time)                                                     |
 
 ### Server Errors
 
-| HTTP Status | Meaning               | When                                                                   |
-| ----------- | --------------------- | ---------------------------------------------------------------------- |
-| 500         | Internal Server Error | Unexpected condition that prevented fulfilling the request (catch-all) |
-| 503         | Service Unavailable   | Database or authorization server (Keycloak) temporarily unavailable    |
+| HTTP Status | Meaning               | When                                                                     |
+| ----------- | --------------------- | ------------------------------------------------------------------------ |
+| 500         | Internal Server Error | Unexpected condition that prevented fulfilling the request (catch-all)   |
+| 503         | Service Unavailable   | Database or authorization server (e.g. Keycloak) temporarily unavailable |
 
 For the mapping between application exceptions and HTTP status codes, see [Status Codes and Exception Handling](ARCHITECTURE_TECH.md#status-codes-and-exception-handling) in the Architecture document.
 

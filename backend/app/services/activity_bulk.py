@@ -45,7 +45,7 @@ _activity_request_adapter = TypeAdapter(ActivityRequest)
 async def create_activities_bulk(
     session: AsyncSession,
     activities_raw: list[dict[str, Any]],
-    platform_id_str: str,
+    client_id: str,
     platform_name: str,
 ) -> ActivityBulkResponse:
     """
@@ -54,7 +54,7 @@ async def create_activities_bulk(
     Args:
         session: Async database session
         activities_raw: List of raw activity dicts from the request
-        platform_id_str: Platform ID string from JWT token (client_id claim)
+        client_id: Private platform client ID from JWT token
         platform_name: Platform name from JWT token (client_name claim)
 
     Returns:
@@ -109,53 +109,60 @@ async def create_activities_bulk(
         valid_indexes.append(i)
 
     # ── Platform resolution (once per batch) ────────────────────────────
-    platform = await platform_crud.get_by_platform_id(session, platform_id_str)
+    platform = await platform_crud.get_by_client_id(session, client_id)
 
     if platform is None:
         # Check if deactivated
-        if await platform_crud.exists_any_by_platform_id(session, platform_id_str):
+        platform_deactivated = await platform_crud.exists_any_by_client_id(
+            session, client_id
+        )
+        if platform_deactivated:
             raise InvalidOperationError(
-                f"Platform '{platform_id_str}' has been deactivated"
+                f"Platform client '{client_id}' has been deactivated"
             )
         platform = await platform_crud.create(
             session=session,
-            platform_id=platform_id_str,
+            client_id=client_id,
             platform_name=platform_name,
         )
     elif platform.platform_name != platform_name:
         # Name changed in JWT claim → version: mark old as ended, create new
-        await platform_crud.mark_as_ended(session, platform_id_str)
+        public_platform_id = platform.platform_id
+        await platform_crud.mark_as_ended_by_client_id(session, client_id)
         platform = await platform_crud.create(
             session=session,
-            platform_id=platform_id_str,
+            platform_id=public_platform_id,
+            client_id=client_id,
             platform_name=platform_name,
         )
     # else: platform exists and name unchanged → reuse as-is
 
     # ── Intra-batch duplicate handling (last-wins) ──────────────────────
-    # Scan for duplicate activityId values; only the last occurrence proceeds
+    # Pass 1: record the latest position for each activity_id
     activity_id_last_index: dict[str, int] = {}
     for i in valid_indexes:
-        activity_req = validated_items[i]
-        activity_id = activity_req.validated_activity_id
-        if activity_id in activity_id_last_index:
-            # Mark the earlier occurrence as NOK
-            earlier_idx = activity_id_last_index[activity_id]
-            results[earlier_idx] = ActivityBulkResultItem(
-                activityIndex=earlier_idx,
-                activityId=client_supplied_ids[earlier_idx],
-                status="NOK",
-                activity=None,
-                errors=ErrorResponse(
-                    detail=[
-                        ErrorDetail(
-                            msg=f"Superseded by later item in batch at index {i}",
-                            type="duplicate_error",
-                        )
-                    ]
-                ),
-            )
+        activity_id = validated_items[i].validated_activity_id
         activity_id_last_index[activity_id] = i
+
+    # Pass 2: mark every non-final occurrence as NOK (superseded)
+    for i in valid_indexes:
+        last_idx = activity_id_last_index[validated_items[i].validated_activity_id]
+        if i == last_idx:
+            continue
+        results[i] = ActivityBulkResultItem(
+            activityIndex=i,
+            activityId=client_supplied_ids[i],
+            status="NOK",
+            activity=None,
+            errors=ErrorResponse(
+                detail=[
+                    ErrorDetail(
+                        msg=f"Superseded by later item in batch at index {last_idx}",
+                        type="duplicate_error",
+                    )
+                ]
+            ),
+        )
 
     # Rebuild valid_indexes excluding superseded items
     valid_indexes = [i for i in valid_indexes if results[i] is None]
@@ -291,7 +298,7 @@ async def create_activities_bulk(
                 start_datetime=activity_req.temporal.start_date_time,
                 end_datetime=activity_req.temporal.end_date_time,
             ),
-            platform_id=platform_id_str,
+            platform_id=platform.platform_id,
             platform_name=platform_name,
             created_at=batch_created_at,
         )

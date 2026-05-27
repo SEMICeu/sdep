@@ -2,7 +2,7 @@
 
 This document provides an overview of the SDEP (Single Digital Entry Point) functional architecture.
 
-Table of contents:
+<h2>Table of Contents</h2>
 
 - [Diagram](#diagram)
 - [PDF Export](#pdf-export)

@@ -8,7 +8,7 @@ import jwt
 import pytest
 from app.main import app
 from app.security.audit import SKIP_PATHS, AuditLogMiddleware, _resolve_action
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, HTTPException, Response, status
 from httpx import ASGITransport, AsyncClient
 
 
@@ -21,14 +21,30 @@ def _make_jwt(claims: dict) -> str:
     )
 
 
-def _make_audit_test_app(status_code: int) -> FastAPI:
-    """Create a minimal app to exercise audit middleware status branches."""
+def _make_audit_test_app(status_code: int, jwt_payload: dict | None = None) -> FastAPI:
+    """Create a minimal app to exercise audit middleware status branches.
+
+    When ``jwt_payload`` is provided, an inner middleware stashes it on
+    ``request.state.jwt_payload`` — mirroring what the real auth dependency
+    does after JWT signature verification, so the audit middleware has
+    something to read.
+    """
     test_app = FastAPI()
-    test_app.add_middleware(AuditLogMiddleware)
+
+    if jwt_payload is not None:
+
+        @test_app.middleware("http")
+        async def _stash_jwt(request, call_next):
+            request.state.jwt_payload = jwt_payload
+            return await call_next(request)
 
     @test_app.get("/api/ping")
     async def ping():
         return Response(status_code=status_code)
+
+    # Added last → outermost, so audit's `dispatch` reads request.state after
+    # the inner stash middleware has populated it inside `call_next`.
+    test_app.add_middleware(AuditLogMiddleware)
 
     return test_app
 
@@ -147,8 +163,62 @@ class TestAuditMiddleware:
                 assert record.status_code == "NOK"
 
     async def test_success_status_logs_jwt_roles(self):
-        """Test that successful requests log roles extracted from the bearer token."""
-        token = _make_jwt({"realm_access": {"roles": ["role-a", "role-b"]}})
+        """Successful requests log roles read from request.state.jwt_payload."""
+        transport = ASGITransport(
+            app=_make_audit_test_app(
+                status.HTTP_200_OK,
+                jwt_payload={"realm_access": {"roles": ["role-a", "role-b"]}},
+            )
+        )
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            with patch(
+                "app.security.audit._write_audit_record", new_callable=AsyncMock
+            ) as mock_write:
+                await client.get("/api/ping")
+                await asyncio.sleep(0.1)
+
+                record = mock_write.call_args[0][0]
+                assert record.http_status_code < 400
+                assert record.roles == "role-a,role-b"
+
+    async def test_forged_token_roles_are_not_written_to_audit_outputs(self):
+        """Test that attacker-controlled roles from forged tokens are not audited."""
+        token = _make_jwt({"realm_access": {"roles": ["sdep_admin", "sdep_write"]}})
+        transport = ASGITransport(app=_make_audit_test_app(status.HTTP_200_OK))
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            with (
+                patch(
+                    "app.security.audit._write_audit_record", new_callable=AsyncMock
+                ) as mock_write,
+                patch("app.security.audit.audit_logger") as mock_logger,
+            ):
+                await client.get(
+                    "/api/ping", headers={"Authorization": f"Bearer {token}"}
+                )
+                await asyncio.sleep(0.1)
+
+                record = mock_write.call_args[0][0]
+                assert record.roles is None
+
+                raw = mock_logger.info.call_args[0][0]
+                stdout_record = json.loads(raw)
+                assert stdout_record["roles"] is None
+
+    async def test_success_status_verifies_jwt_signature_before_logging_roles(
+        self, monkeypatch
+    ):
+        """Test that audit roles are taken only from signature-verified JWTs."""
+
+        def reject_unverified_token(token: str) -> dict:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+        monkeypatch.setattr(
+            "app.security.audit.validate_jwt_token",
+            reject_unverified_token,
+            raising=False,
+        )
+
+        token = _make_jwt({"realm_access": {"roles": ["sdep_admin", "sdep_write"]}})
         transport = ASGITransport(app=_make_audit_test_app(status.HTTP_200_OK))
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             with patch(
@@ -160,24 +230,33 @@ class TestAuditMiddleware:
                 await asyncio.sleep(0.1)
 
                 record = mock_write.call_args[0][0]
-                assert record.http_status_code < 400
-                assert record.roles == "role-a,role-b"
+                assert record.roles is None
 
-    async def test_forbidden_status_logs_unauthorized_roles(self):
-        """Test that forbidden requests are logged as unauthorized."""
-        transport = ASGITransport(app=_make_audit_test_app(status.HTTP_403_FORBIDDEN))
+    async def test_forbidden_status_logs_verified_roles(self):
+        """403 audit rows carry the verified role set (not a sentinel).
+
+        For a 403, ``verify_bearer_token`` has already verified the JWT and
+        stashed the payload on ``request.state``; ``RequireRoles`` then raises
+        because the role set is insufficient. The audit row should reflect the
+        actual verified roles — that's the forensically useful signal — rather
+        than the literal string ``"UNAUTHORIZED"`` that the old code wrote.
+        """
+        transport = ASGITransport(
+            app=_make_audit_test_app(
+                status.HTTP_403_FORBIDDEN,
+                jwt_payload={"realm_access": {"roles": ["sdep_read"]}},
+            )
+        )
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             with patch(
                 "app.security.audit._write_audit_record", new_callable=AsyncMock
             ) as mock_write:
-                await client.get(
-                    "/api/ping", headers={"Authorization": "Bearer invalid"}
-                )
+                await client.get("/api/ping")
                 await asyncio.sleep(0.1)
 
                 record = mock_write.call_args[0][0]
                 assert record.http_status_code == 403
-                assert record.roles == "UNAUTHORIZED"
+                assert record.roles == "sdep_read"
 
     async def test_audit_write_failure_does_not_break_request(self):
         """Test that audit write failure doesn't break the request."""

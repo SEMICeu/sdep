@@ -90,7 +90,7 @@ test_credentials() {
 # Always test both credentials
 test_credentials "${STR_CLIENT_ID}" "${STR_CLIENT_SECRET}" "STR"
 echo
-test_credentials "${CA_CLIENT_ID}" "${CA_CLIENT_SECRET}" "CA"
+test_credentials "${CA1_CLIENT_ID}" "${CA1_CLIENT_SECRET}" "CA"
 
 # Summary
 echo

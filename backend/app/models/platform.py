@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -18,16 +19,18 @@ class Platform(Base):
     """Platform model representing a short-term rental platform.
 
     A Platform delivers rental activities to the system.
-    Platforms are identified by their unique platformId and have a human-readable platformName.
-    The combination of (platform_id, created_at) is unique to enable versioning.
+    Platforms have a public platformId and a human-readable platformName.
+    The combination of (platform_id, client_id, created_at) is unique to enable versioning.
+    The client_id is the private authentication identifier used for JWT scoping.
     """
 
     __tablename__ = "platform"
     __table_args__ = (
         UniqueConstraint(
             "platform_id",
+            "client_id",
             "created_at",
-            name="uq_platform_platform_id_created_at",
+            name="uq_platform_platform_id_client_id_created_at",
         ),
     )
 
@@ -36,12 +39,16 @@ class Platform(Base):
 
     # Attributes
     platform_id: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )  # Required, unique with created_at (versioning), lowercase alphanumeric with hyphens, max 64 chars, for example "platform01"
+        String(64), nullable=False, index=True, default=lambda: str(uuid.uuid4())
+    )  # Public functional ID, generated UUID string
 
     platform_name: Mapped[str | None] = mapped_column(
         String(64), nullable=True
     )  # Optional, human-readable, max 64 chars, for example "Example.com"
+
+    client_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True
+    )  # Private authentication client ID from JWT, part of owner-scoped versioning, never exposed in API responses
 
     # Audit attributes
     created_at: Mapped[datetime] = mapped_column(

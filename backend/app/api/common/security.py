@@ -139,11 +139,15 @@ def create_verify_bearer_token(
     """
 
     async def verify_bearer_token(
+        request: Request,
         token: str = Depends(oauth2_scheme),
     ) -> dict[str, Any]:
         """Verify JWT bearer token using the configured OAuth2 scheme.
 
         Args:
+            request: FastAPI request — used to stash the parsed payload on
+                ``request.state`` so the audit middleware can reuse it instead
+                of re-running JWT signature verification.
             token: JWT Bearer token from OAuth2 flow
 
         Returns:
@@ -152,7 +156,9 @@ def create_verify_bearer_token(
         Raises:
             HTTPException: If token is invalid
         """
-        return validate_jwt_token(token)
+        payload = validate_jwt_token(token)
+        request.state.jwt_payload = payload
+        return payload
 
     return verify_bearer_token
 

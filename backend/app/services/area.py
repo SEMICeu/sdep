@@ -78,22 +78,21 @@ async def count_areas(session: AsyncSession) -> int:
     return await area_crud.count(session)
 
 
-async def count_areas_by_competent_authority(
-    session: AsyncSession, competent_authority_id_str: str
+async def count_areas_by_client_id(
+    session: AsyncSession,
+    client_id: str,
 ) -> int:
     """
-    Count areas for a specific competent authority (own areas).
+    Count areas for a specific authenticated client.
 
     Args:
         session: Async database session
-        competent_authority_id_str: Competent authority functional ID
+        client_id: Client ID from JWT token
 
     Returns:
-        Total number of current areas for the given competent authority
+        Total number of current areas for the given authenticated client
     """
-    return await area_crud.count_by_competent_authority_id_str(
-        session, competent_authority_id_str
-    )
+    return await area_crud.count_by_competent_authority_client_id(session, client_id)
 
 
 async def get_area_by_id(session: AsyncSession, area_id: str) -> Area | None:
@@ -115,24 +114,24 @@ async def get_area_by_id(session: AsyncSession, area_id: str) -> Area | None:
     return area
 
 
-async def get_own_area_by_id(
+async def get_area_by_area_id_and_client_id(
     session: AsyncSession,
     area_id: str,
-    competent_authority_id_str: str,
+    client_id: str,
 ) -> Area | None:
     """
-    Get a specific area by functional ID, scoped to the currently authenticated competent authority.
+    Get a specific area by functional ID, scoped to the authenticated client.
 
     Args:
         session: Async database session
         area_id: Functional area ID
-        competent_authority_id_str: Competent authority functional ID from JWT
+        client_id: Client ID from JWT token
 
     Returns:
-        Area object, or None if not found / not owned by CA
+        Area object, or None if not found / not owned by client
     """
-    area = await area_crud.get_by_area_id_and_competent_authority_id_str(
-        session, area_id, competent_authority_id_str
+    area = await area_crud.get_by_area_id_and_competent_authority_client_id(
+        session, area_id, client_id
     )
     if area is None:
         return None
@@ -145,8 +144,8 @@ async def create_area(
     area_name: str | None,
     filename: str,
     filedata: bytes,
-    competent_authority_id_str: str,
     competent_authority_name: str,
+    client_id: str,
     regulation: Regulation | None = None,
 ) -> Area:
     """
@@ -162,7 +161,7 @@ async def create_area(
         area_name: Optional display name
         filename: Filename of the uploaded file
         filedata: Binary file data
-        competent_authority_id_str: Competent authority ID from JWT token
+        client_id: Client ID from JWT token
         competent_authority_name: Competent authority name from JWT token
         regulation: Regulation type (defaults to 'all' when None)
 
@@ -171,44 +170,53 @@ async def create_area(
     """
     if regulation is None:
         regulation = REGULATION_DEFAULT
+    public_competent_authority_id: str | None = None
     # Look up or create CompetentAuthority (lock row to prevent concurrent versioning)
-    competent_authority = await competent_authority_crud.get_by_competent_authority_id(
-        session, competent_authority_id_str, for_update=True
+    competent_authority = await competent_authority_crud.get_by_client_id(
+        session, client_id, for_update=True
     )
 
     if competent_authority is None:
-        if await competent_authority_crud.exists_any_by_competent_authority_id(
-            session, competent_authority_id_str
-        ):
-            raise InvalidOperationError(
-                f"CompetentAuthority '{competent_authority_id_str}' has been deactivated"
-            )
+        if await competent_authority_crud.exists_any_by_client_id(session, client_id):
+            message = f"CompetentAuthority client '{client_id}' has been deactivated"
+            raise InvalidOperationError(message)
         competent_authority = await competent_authority_crud.create(
             session=session,
-            competent_authority_id=competent_authority_id_str,
+            competent_authority_id=public_competent_authority_id,
+            client_id=client_id,
             competent_authority_name=competent_authority_name,
         )
-    else:
-        # CA exists - mark existing CA as ended and create new version
-        await competent_authority_crud.mark_as_ended(
-            session, competent_authority_id_str
-        )
+    elif competent_authority.competent_authority_name != competent_authority_name:
+        # Name changed in JWT claim → version: mark old as ended, create new
+        public_competent_authority_id = competent_authority.competent_authority_id
+        await competent_authority_crud.mark_as_ended_by_client_id(session, client_id)
         competent_authority = await competent_authority_crud.create(
             session=session,
-            competent_authority_id=competent_authority_id_str,
+            competent_authority_id=public_competent_authority_id,
+            client_id=client_id,
             competent_authority_name=competent_authority_name,
         )
+    # else: CA exists and name unchanged → reuse as-is
 
-    # Mark existing current area as ended if same functional ID exists (lock row to prevent concurrent versioning)
+    # Mark existing current area as ended if same functional ID exists for THIS CA
+    # (lock row to prevent concurrent versioning). Other CAs may keep an area with
+    # the same functional ID — they must not be affected.
     if area_id is not None:
-        existing_area = await area_crud.get_by_area_id(
-            session, area_id, for_update=True
+        existing_area = await area_crud.get_by_area_id_and_competent_authority_id_str(
+            session,
+            area_id,
+            competent_authority.competent_authority_id,
+            for_update=True,
         )
         if existing_area is not None:
             await area_crud.mark_as_ended(
                 session, area_id, existing_area.competent_authority_id
             )
-        elif await area_crud.exists_any_by_area_id(session, area_id):
+        elif await area_crud.exists_any_by_area_id(
+            session,
+            area_id,
+            competent_authority_id_str=competent_authority.competent_authority_id,
+        ):
             raise InvalidOperationError(f"Area '{area_id}' has been deactivated")
 
     # Save area (CRUD only flushes)
@@ -221,54 +229,55 @@ async def create_area(
         filedata=filedata,
         competent_authority_id=competent_authority.id,  # Use the FK (int)
     )
+    area_obj.competent_authority = competent_authority
 
     return area_obj
 
 
-async def get_areas_by_competent_authority(
+async def get_areas_by_client_id(
     session: AsyncSession,
-    competent_authority_id_str: str,
+    client_id: str,
     offset: int = 0,
     limit: int | None = None,
 ) -> list[Area]:
     """
-    Get areas for a specific competent authority (own areas).
+    Get areas for a specific authenticated client.
 
     Args:
         session: Async database session
-        competent_authority_id_str: Competent authority functional ID
+        client_id: Client ID from JWT token
         offset: Number of records to skip (default: 0)
         limit: Maximum number of records to return (default: no limit)
 
     Returns:
         List of current Area objects with competent_authority eagerly loaded.
     """
-    areas = await area_crud.get_by_competent_authority_id_str(
-        session, competent_authority_id_str, offset=offset, limit=limit
+    areas = await area_crud.get_by_competent_authority_client_id(
+        session, client_id, offset=offset, limit=limit
     )
 
     return areas
 
 
-async def delete_area(
+async def delete_area_by_client_id(
     session: AsyncSession,
     area_id: str,
-    competent_authority_id_str: str,
+    client_id: str,
 ) -> None:
     """
-    Soft-delete an area by setting ended_at = now().
+    Soft-delete an area by authenticated client ID.
 
     Args:
         session: Async database session
         area_id: Area functional ID
-        competent_authority_id_str: Competent authority functional ID from JWT token
+        client_id: Client ID from JWT token
 
     Raises:
         ResourceNotFoundError: If the area doesn't exist, is already ended,
             or belongs to a different CA
     """
-    area_obj = await area_crud.get_by_area_id_and_competent_authority_id_str(
-        session, area_id, competent_authority_id_str
+    area_obj = await area_crud.get_by_area_id_and_competent_authority_client_id(
+        session, area_id, client_id
     )
 
     if area_obj is None:

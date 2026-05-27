@@ -26,7 +26,10 @@ if [ ! -f "${KC_APP_REALM_CONFIG_YAML}" ]; then
     echo "❌ Error: KC_APP_REALM_CONFIG_YAML not found: ${KC_APP_REALM_CONFIG_YAML}" >&2; exit 1
 fi
 REALM_NAME=$(yq -r '.config.name' "$KC_APP_REALM_CONFIG_YAML")
-REALM_SHORTNAME=$(yq -r '.config.shortname // ""' "$KC_APP_REALM_CONFIG_YAML")
+IDEMPOTENCY_KEY=$(yq -r '.config.idempotency_key // ""' "$KC_APP_REALM_CONFIG_YAML")
+if [ -z "$IDEMPOTENCY_KEY" ]; then
+    echo "❌ Error: config.idempotency_key is not defined in ${KC_APP_REALM_CONFIG_YAML}" >&2; exit 1
+fi
 
 if [ -z "${KC_APP_REALM_ADMIN_ID:-}" ]; then
     echo "❌ Error: KC_APP_REALM_ADMIN_ID is not set (commandline .env* or in pipeline)" >&2
@@ -89,20 +92,24 @@ echo "✅ Authentication successful"
 echo "📄 Processing clients from ${KC_APP_REALM_MACHINE_CLIENT_YAML}..."
 
 CLIENT_COUNT=$(yq '.clients | length' "$KC_APP_REALM_MACHINE_CLIENT_YAML")
-REALM_PREFIX="${REALM_NAME}-"
-SHORTNAME_PREFIX="${REALM_SHORTNAME:+${REALM_SHORTNAME}-}"
+IDEMPOTENCY_SUBSTR="${IDEMPOTENCY_KEY}"
+CLIENTID_REGEX=$(yq -r '.config.clientid_regex // "^[A-Za-z0-9._\-]+$"' "$KC_APP_REALM_CONFIG_YAML")
 
-# First pass: validate all clients have REALM prefix or shortname prefix, collect valid indices
+# First pass: validate clients contain idempotency_key and match clientid_regex, collect valid indices
 VALID_INDICES=()
 for i in $(seq 0 $((CLIENT_COUNT - 1))); do
     CLIENT_ID=$(yq -r ".clients[$i].id" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
 
-    if [[ "$CLIENT_ID" =~ ^${REALM_PREFIX} ]] || { [ -n "$SHORTNAME_PREFIX" ] && [[ "$CLIENT_ID" =~ ^${SHORTNAME_PREFIX} ]]; }; then
-        VALID_INDICES+=("$i")
-    else
-        echo "⚠️  Rejected: '$CLIENT_ID' - missing required prefix '${REALM_PREFIX}' or '${SHORTNAME_PREFIX}'"
+    if ! [[ "$CLIENT_ID" == *"$IDEMPOTENCY_SUBSTR"* ]]; then
+        echo "⚠️  Rejected: '$CLIENT_ID' — does not contain required idempotency_key substring '${IDEMPOTENCY_SUBSTR}'"
         REJECTED_COUNT=$((REJECTED_COUNT + 1))
         REJECTED_ITEMS="${REJECTED_ITEMS:+$REJECTED_ITEMS, }$CLIENT_ID"
+    elif ! [[ "$CLIENT_ID" =~ $CLIENTID_REGEX ]]; then
+        echo "⚠️  Rejected: '$CLIENT_ID' — does not match clientid_regex '${CLIENTID_REGEX}'"
+        REJECTED_COUNT=$((REJECTED_COUNT + 1))
+        REJECTED_ITEMS="${REJECTED_ITEMS:+$REJECTED_ITEMS, }$CLIENT_ID"
+    else
+        VALID_INDICES+=("$i")
     fi
 done
 
@@ -119,6 +126,10 @@ DESIRED_CLIENT_IDS="$DESIRED_CLIENT_IDS]"
 
 # Second pass: process valid clients
 for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
+    CLIENT_WAS_UNMODIFIED=false
+    CLIENT_PROPS_UPDATED=false
+    ROLES_CHANGED=false
+    CLIENT_CHANGES=""
     CLIENT_ID=$(yq -r ".clients[$i].id" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
     CLIENT_NAME=$(yq -r ".clients[$i].name" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
     CLIENT_DESC=$(yq -r ".clients[$i].description" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
@@ -138,8 +149,17 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
         CURRENT_LIFESPAN=$(echo "$CLIENT_CHECK" | jq -r '.[0].attributes["access.token.lifespan"] // ""')
 
         NEEDS_UPDATE=false
-        if [ "$CURRENT_NAME" != "$CLIENT_NAME" ] || [ "$CURRENT_DESC" != "$CLIENT_DESC" ] || [ "$CURRENT_LIFESPAN" != "$ACCESS_TOKEN_LIFESPAN" ]; then
+        if [ "$CURRENT_NAME" != "$CLIENT_NAME" ]; then
             NEEDS_UPDATE=true
+            CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }name changed"
+        fi
+        if [ "$CURRENT_DESC" != "$CLIENT_DESC" ]; then
+            NEEDS_UPDATE=true
+            CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }description changed"
+        fi
+        if [ "$CURRENT_LIFESPAN" != "$ACCESS_TOKEN_LIFESPAN" ]; then
+            NEEDS_UPDATE=true
+            CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }token lifespan changed"
         fi
 
         # Check secret if defined in YAML
@@ -149,6 +169,7 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
             CURRENT_SECRET=$(echo "$CURRENT_SECRET_RESPONSE" | jq -r '.value // ""')
             if [ "$CURRENT_SECRET" != "$CLIENT_SECRET" ]; then
                 NEEDS_UPDATE=true
+                CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }secret changed"
             fi
         fi
 
@@ -180,11 +201,7 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
             if [ "$UPDATE_HTTP_CODE" = "204" ] || [ "$UPDATE_HTTP_CODE" = "200" ]; then
                 echo "✅ Client $CLIENT_ID updated successfully"
                 UPDATED_COUNT=$((UPDATED_COUNT + 1))
-                if [ -z "$UPDATED_ITEMS" ]; then
-                    UPDATED_ITEMS="$CLIENT_ID"
-                else
-                    UPDATED_ITEMS="$UPDATED_ITEMS, $CLIENT_ID"
-                fi
+                CLIENT_PROPS_UPDATED=true
             else
                 echo "❌ Failed to update client $CLIENT_ID" >&2
                 echo "Response: $UPDATE_RESPONSE" >&2
@@ -193,6 +210,7 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
         else
             echo "✅ Client $CLIENT_ID already exists (no changes)"
             UNMODIFIED_COUNT=$((UNMODIFIED_COUNT + 1))
+            CLIENT_WAS_UNMODIFIED=true
             if [ -z "$UNMODIFIED_ITEMS" ]; then
                 UNMODIFIED_ITEMS="$CLIENT_ID"
             else
@@ -382,6 +400,8 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
             if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
                 ADDED_NAMES=$(echo "$ROLES_TO_ADD" | jq -r '[.[].name] | join(", ")')
                 echo "✅ Added roles to $CLIENT_ID: $ADDED_NAMES"
+                ROLES_CHANGED=true
+                CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }roles added: $ADDED_NAMES"
             else
                 echo "❌ Failed to add roles to $CLIENT_ID" >&2
                 echo "Response: $ADD_RESPONSE" >&2
@@ -402,6 +422,8 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
             if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
                 REMOVED_NAMES=$(echo "$ROLES_TO_REMOVE" | jq -r '[.[].name] | join(", ")')
                 echo "✅ Removed roles from $CLIENT_ID: $REMOVED_NAMES"
+                ROLES_CHANGED=true
+                CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }roles removed: $REMOVED_NAMES"
             else
                 echo "❌ Failed to remove roles from $CLIENT_ID" >&2
                 echo "Response: $REMOVE_RESPONSE" >&2
@@ -415,9 +437,37 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
             echo "✅ Roles already in sync for $CLIENT_ID: $ROLE_NAMES"
         fi
     fi
+
+    # Reclassify from Unmodified to Updated if only roles changed
+    if [ "$CLIENT_WAS_UNMODIFIED" = true ] && [ "$ROLES_CHANGED" = true ]; then
+        UNMODIFIED_COUNT=$((UNMODIFIED_COUNT - 1))
+        UPDATED_COUNT=$((UPDATED_COUNT + 1))
+        NEW_UNMODIFIED=""
+        IFS=',' read -ra _ITEMS <<< "$UNMODIFIED_ITEMS"
+        for _item in "${_ITEMS[@]}"; do
+            _item="${_item# }"
+            if [ "$_item" != "$CLIENT_ID" ]; then
+                NEW_UNMODIFIED="${NEW_UNMODIFIED:+$NEW_UNMODIFIED, }$_item"
+            fi
+        done
+        UNMODIFIED_ITEMS="$NEW_UNMODIFIED"
+    fi
+
+    # Append to UPDATED_ITEMS with change details
+    if [ "$CLIENT_PROPS_UPDATED" = true ] || { [ "$CLIENT_WAS_UNMODIFIED" = true ] && [ "$ROLES_CHANGED" = true ]; }; then
+        UPDATED_ENTRY="$CLIENT_ID"
+        if [ -n "$CLIENT_CHANGES" ]; then
+            UPDATED_ENTRY="$CLIENT_ID ($CLIENT_CHANGES)"
+        fi
+        if [ -z "$UPDATED_ITEMS" ]; then
+            UPDATED_ITEMS="$UPDATED_ENTRY"
+        else
+            UPDATED_ITEMS=$(printf '%s\n%s' "$UPDATED_ITEMS" "$UPDATED_ENTRY")
+        fi
+    fi
 done
 
-# Remove clients with REALM prefix (or shortname prefix) that are not in YAML
+# Remove clients containing idempotency_key that are not in YAML
 # Skip deletion when there are no valid entries (e.g. NOK test files) to avoid wiping existing clients
 if [ ${#VALID_INDICES[@]} -eq 0 ]; then
     echo "⏭️  Skipping deletion check (no valid entries in YAML)"
@@ -428,15 +478,10 @@ else
     ALL_CLIENTS=$(curl -s -H "Authorization: Bearer $TOKEN" \
         "${KC_BASE_URL}/admin/realms/${REALM_NAME}/clients")
 
-    # Find machine clients with REALM prefix that are not in YAML
+    # Find machine clients containing idempotency_key that are not in YAML
     # Only target clients with serviceAccountsEnabled=true and standardFlowEnabled=false (machine clients)
-    if [ -n "$SHORTNAME_PREFIX" ]; then
-        CLIENTS_TO_REMOVE=$(echo "$ALL_CLIENTS" | jq -r --argjson desired "$DESIRED_CLIENT_IDS" --arg prefix "${REALM_PREFIX}" --arg shortnamePrefix "${SHORTNAME_PREFIX}" \
-            '[.[] | select((.clientId | startswith($prefix)) or (.clientId | startswith($shortnamePrefix))) | select(.serviceAccountsEnabled == true and .standardFlowEnabled == false) | select([.clientId] | inside($desired) | not) | {id: .id, clientId: .clientId}] | .[]')
-    else
-        CLIENTS_TO_REMOVE=$(echo "$ALL_CLIENTS" | jq -r --argjson desired "$DESIRED_CLIENT_IDS" --arg prefix "${REALM_PREFIX}" \
-            '[.[] | select(.clientId | startswith($prefix)) | select(.serviceAccountsEnabled == true and .standardFlowEnabled == false) | select([.clientId] | inside($desired) | not) | {id: .id, clientId: .clientId}] | .[]')
-    fi
+    CLIENTS_TO_REMOVE=$(echo "$ALL_CLIENTS" | jq -r --argjson desired "$DESIRED_CLIENT_IDS" --arg idempotencySubstr "${IDEMPOTENCY_SUBSTR}" \
+        '[.[] | select(.clientId | contains($idempotencySubstr)) | select(.serviceAccountsEnabled == true and .standardFlowEnabled == false) | select([.clientId] | inside($desired) | not) | {id: .id, clientId: .clientId}] | .[]')
 
     if [ -n "$CLIENTS_TO_REMOVE" ]; then
         echo "$CLIENTS_TO_REMOVE" | jq -c '.' | while IFS= read -r CLIENT_OBJ; do
@@ -475,7 +520,10 @@ else
     echo "  Created: 0 client(s)"
 fi
 if [ $UPDATED_COUNT -gt 0 ]; then
-    echo "  Updated: $UPDATED_COUNT client(s) - $UPDATED_ITEMS"
+    echo "  Updated: $UPDATED_COUNT client(s)"
+    while IFS= read -r _line; do
+        echo "    - $_line"
+    done <<< "$UPDATED_ITEMS"
 else
     echo "  Updated: 0 client(s)"
 fi

@@ -84,7 +84,7 @@ class Activity(Base):
         nullable=False,
         index=True,
         default=lambda: str(uuid.uuid4()),
-    )  # Functional ID (business-facing, API-exposed, lowercase alphanumeric with hyphens, max 64 chars), e.g., "550e8400-e29b-41d4-a716-446655440000"
+    )  # Functional ID (business-facing, API-exposed, alphanumeric with hyphens, max 64 chars), e.g., "550e8400-e29b-41d4-a716-446655440000"
 
     activity_name: Mapped[str | None] = mapped_column(
         String(64), nullable=True

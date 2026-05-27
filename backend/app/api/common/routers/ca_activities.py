@@ -52,8 +52,8 @@ router = APIRouter(tags=["ca"])
                                 "activityId": "550e8400-e29b-41d4-a716-446655440000",
                                 "activityName": "Amsterdam Summer Rental",
                                 "status": "finished",
-                                "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
-                                "competentAuthorityId": "sdep-ca0363",
+                                "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                                "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                                 "competentAuthorityName": "Gemeente Amsterdam",
                                 "url": "http://example.com/amsterdam-myhouse-1",
                                 "address": {
@@ -70,7 +70,7 @@ router = APIRouter(tags=["ca"])
                                     "startDatetime": "2025-06-01T14:00:00Z",
                                     "endDatetime": "2025-06-07T11:00:00Z",
                                 },
-                                "platformId": "sdep-str01",
+                                "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
                                 "platformName": "Test STR 01 (interactive usage, persistent)",
                                 "createdAt": "2025-06-01T12:00:00Z",
                             }
@@ -119,10 +119,9 @@ async def get_activities(
     - offset: Number of records to skip (default: 0)
     - limit: Maximum number of records to return (default: no limit, max: 1000)
     """
-    # Call business service with competent authority ID from token
     activity_objects = await activity.get_activity_list(
         session,
-        competent_authority_id=client.id,
+        client_id=client.id,
         offset=offset,
         limit=limit,
     )

@@ -77,12 +77,6 @@ def empty_string_to_none(v: str | None) -> str | None:
 class ActivityRequest(BaseModel):
     """Activity request schema for creating rental activities.
 
-    Platform:
-    - NOT in request payload (extracted from JWT token at API layer)
-    - PlatformId comes from token's client_id claim
-    - PlatformName comes from token's client_name claim
-    - Will be auto-created if it doesn't exist yet
-
     Activity ID:
     - Optional: If not provided, will be auto-generated (RFC 9562 UUID)
 
@@ -93,7 +87,7 @@ class ActivityRequest(BaseModel):
     - Validates all syntax constraints (lengths, ranges, types)
 
     Constraints (enforced at database level):
-    - Unique constraint: (activityId, createdAt, platform) for versioning support
+    - Unique constraint: (activityId, platformId, createdAt) for versioning support
     """
 
     model_config = ConfigDict(
@@ -257,7 +251,10 @@ class ActivityResponse(BaseModel):
         # The ORM model exposes a convenience property for the functional CA ID.
         validation_alias="competent_authority_id_functional",
         description="Functional ID referencing the competent authority that owns the area",
-        examples=["sdep-ca0363", "SDEP-CA0363"],
+        examples=[
+            "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+            "a30df3a7-7e38-534c-b9c0-7666bad077d2",
+        ],
     )  # Attribute
     competent_authority_name: str | None = Field(
         None,
@@ -296,7 +293,10 @@ class ActivityResponse(BaseModel):
         # The ORM model exposes a convenience property for the functional platform ID.
         validation_alias="platform_id_functional",
         description="Functional ID referencing the platform that owns the activity",
-        examples=["str01", "STR01"],
+        examples=[
+            "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+            "227e07d4-37c4-4ceb-aa16-80346d258f6b",
+        ],
     )  # Attribute
     platform_name: str | None = Field(
         None,

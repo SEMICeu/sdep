@@ -2,6 +2,33 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.0.1
+
+- Fixed a bug where one CA could take over another CA’s areaId
+- Improved file upload/download sanitization
+- Added JWT signature verification to prevent audit-log role forgery/poisoning
+  - Now recording verified role sets for 403 responses only, while preserving protection against forged JWT role data
+  - 401 (unauthorized): `roles = NULL`;
+  - 403 (forbidden): the verified role set
+  - Removed the earlier introduced `REJECTED` / `UNAUTHORIZED` sentinel role values (see 260518)
+- Added malware scanning support, including tests
+- Removed invalid `speaker=(self)` from `Permissions-Policy`
+- Narrowed Basic Auth parser exception handling on `/api/auth/v1/token` (previously a bare `except Exception` could mask unrelated errors)
+- Optimized audit middleware by reusing the verified JWT payload from `request.state` instead of re-verifying the token
+- Removed the no-op `add_done_callback` on the audit-write background task and replaced it with strong task references (so the task is not garbage-collected mid-flight)
+- Refactored intra-batch deduplication in `services/activity_bulk.py` into a clearer two-pass form (build last-index map, then mark superseded items NOK); behavior unchanged
+- Removed empty `AuditLogMiddleware.__init__` override
+- Implemented fail fast for oversized area uploads (HTTP 413 when `Content-Length` exceeds the configured limit
+  - Technically narrows the CA v1 contract, but does not demand for a CA `/v2` yet
+- Fixed API exposure to return functional identifiers instead of JWT-based client identifiers for Platform and Competent Authority
+  - Ensures private authentication identifiers remain internal
+  - Exposes only functional identifiers intended for external API usage
+  - Updated the examples in the Swagger docs accordingly
+- Added support for periods and underscores in JWT client-ids
+- Added some Makefile improvements
+- Removed unused code (CRUD hard deletes)
+- Extended tests and updated documentation
+
 ## 1.0.0
 
 - Added versioning policy to the [API documentation](./docs/API.md)
@@ -90,7 +117,7 @@
 - Improved OpenAPI schema titles to qualifier-first dotted form (e.g. `Activity.Request`, `Activity.BulkRequest`, ...)
 - Promoted `Address` and `Temporal` composites to the new `Common` qualifier
 - Renamed Python classes to match the qualifier-first convention (`BulkActivityRequest` → `ActivityBulkRequest`, `AddressRequest` → `CommonAddressRequest`, etc.)
-- Improved Dockerfile to harden outage of `install.sh` package from https://astral.sh/uv
+- Improved Dockerfile to harden outage of `install.sh` package from <https://astral.sh/uv>
 - Extended the integration tests (added bulk to the standard "make test", and allow for a "make test-keep")
 - Hardened the performance tests
 

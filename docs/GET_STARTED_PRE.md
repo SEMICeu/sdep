@@ -2,7 +2,7 @@
 
 Welcome to the **SDEP NL pre-production environment (PRE)**.
 
-Table of contents:
+<h2>Table of Contents</h2>
 
 - [Introduction](#introduction)
 - [Get Access](#get-access)

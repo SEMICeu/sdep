@@ -1,11 +1,14 @@
 """Tests for CA Area API endpoints."""
 
 from typing import Any
+from uuid import UUID
 
 import pytest
+from app.api.common.routers import ca_areas
 from app.api.common.security import verify_bearer_token
 from app.api.domains.ca.v1 import app_ca_v1
 from app.db.config import get_async_db, get_async_db_read_only
+from app.security.malware_scan import ScanResult
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +35,22 @@ class TestCAAreaAPI:
         """Auto-cleanup fixture that runs before and after each test."""
         yield
         app_ca_v1.dependency_overrides.clear()
+
+    @pytest.fixture(autouse=True)
+    def mock_malware_scan(self, monkeypatch):
+        """Keep API tests independent from the real ClamAV daemon."""
+
+        async def clean_scan(filedata: bytes) -> ScanResult:
+            return ScanResult(
+                passed_malware_scan=True,
+                message="mocked clean file",
+            )
+
+        monkeypatch.setattr(
+            ca_areas,
+            "scan_file_for_malware",
+            clean_scan,
+        )
 
     @pytest.fixture
     def setup_overrides(self, async_session: AsyncSession):
@@ -78,7 +97,8 @@ class TestCAAreaAPI:
         assert "areaId" in data
         assert data["filename"] == "Area.zip"
         assert "createdAt" in data
-        assert data["competentAuthorityId"] == "0363"
+        UUID(data["competentAuthorityId"])
+        assert data["competentAuthorityId"] != "0363"
         assert data["competentAuthorityName"] == "Gemeente Amsterdam"
 
     async def test_post_area_with_area_id(
@@ -238,7 +258,8 @@ class TestCAAreaAPI:
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert data["competentAuthorityId"] == "0363"
+        UUID(data["competentAuthorityId"])
+        assert data["competentAuthorityId"] != "0363"
         assert data["competentAuthorityName"] == "Gemeente Amsterdam"
 
     async def test_post_area_file_too_large(
@@ -291,6 +312,81 @@ class TestCAAreaAPI:
         assert response.json()["detail"][0]["msg"] == (
             "File is not a valid ZIP archive: mismatch in the identifying first bytes (the magic bytes)."
         )
+
+    async def test_post_area_sanitizes_path_in_filename(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test POST /ca/areas strips path components from filename."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/areas",
+                files={"file": ("C:\\Users\\data\\Area.zip", ZIP, "application/zip")},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["filename"] == "Area.zip"
+
+    async def test_post_area_sanitizes_unix_path_in_filename(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test POST /ca/areas strips Unix path prefix from filename."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/areas",
+                files={"file": ("/tmp/uploads/Area.zip", ZIP, "application/zip")},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["filename"] == "Area.zip"
+
+    async def test_post_area_rejects_filename_exceeding_64_chars(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test POST /ca/areas rejects filenames longer than 64 characters."""
+        long_name = "a" * 61 + ".zip"  # 65 chars total
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/areas",
+                files={"file": (long_name, ZIP, "application/zip")},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    async def test_post_area_download_roundtrip_sanitized(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """Test that a filename with path prefix is stored clean and downloaded clean."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
+        ) as client:
+            post_response = await client.post(
+                "/areas",
+                files={"file": ("/tmp/uploads/MyArea.zip", ZIP, "application/zip")},
+                data={"areaId": "roundtrip-test"},
+                headers={"Authorization": "Bearer test_token"},
+            )
+            assert post_response.status_code == status.HTTP_201_CREATED
+            assert post_response.json()["filename"] == "MyArea.zip"
+
+            get_response = await client.get(
+                "/areas/roundtrip-test",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert get_response.status_code == status.HTTP_200_OK
+        assert 'filename="MyArea.zip"' in get_response.headers["content-disposition"]
+        assert "filename*=UTF-8''" in get_response.headers["content-disposition"]
 
     async def test_post_area_unauthorized_no_token(
         self, async_session: AsyncSession, setup_db_only
@@ -502,7 +598,8 @@ class TestCAAreaAPI:
         data = response.json()
         assert len(data["areas"]) == 1
         assert data["areas"][0]["areaId"] == "my-area"
-        assert data["areas"][0]["competentAuthorityId"] == "0363"
+        UUID(data["areas"][0]["competentAuthorityId"])
+        assert data["areas"][0]["competentAuthorityId"] != "0363"
         assert data["areas"][0]["competentAuthorityName"] == "Gemeente Amsterdam"
         # Should NOT contain endedAt
         assert "endedAt" not in data["areas"][0]
@@ -807,6 +904,7 @@ class TestCAAreaAPI:
         assert response.content == ZIP
         assert "application/zip" in response.headers["content-type"]
         assert 'filename="MyArea.zip"' in response.headers["content-disposition"]
+        assert "filename*=UTF-8''" in response.headers["content-disposition"]
 
     async def test_get_own_area_not_found(
         self, async_session: AsyncSession, setup_overrides

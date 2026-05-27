@@ -118,7 +118,7 @@ if [ "$P_VERBOSE" != "true" ]; then
 fi
 
 EXIT_CODE=0
-uvx --from 'locust>=2.20' locust -f tests/perf/locustfile.py \
+uvx --from 'locust>=2.20' locust -f tests/performance/locustfile.py \
   --headless \
   --host "$BACKEND_BASE_URL" \
   -u "$P_USERS" \

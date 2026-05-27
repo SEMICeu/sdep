@@ -20,11 +20,15 @@ class Settings(BaseSettings):
         env_file="../.env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        env_ignore_empty=True,
         extra="ignore",
     )
 
     # Application settings
-    APP_NAME: str = "Single Digital Entrypoint"
+    APP_NAME: str = Field(
+        default="Single Digital Entrypoint",
+        description="Application name",
+    )
 
     # OS settings
     DTAP: str = Field(
@@ -48,6 +52,24 @@ class Settings(BaseSettings):
         description="Keycloak server URL for token endpoint",
     )
 
+    # Malware scan settings
+    MALWARE_SCAN_ENABLED: bool = Field(
+        default=True,
+        description="Enable upload malware scanning with ClamAV",
+    )
+    MALWARE_SCAN_CLAMAV_HOST: str = Field(
+        default="",
+        description="ClamAV daemon host",
+    )
+    MALWARE_SCAN_CLAMAV_PORT: int = Field(
+        default=3310,
+        description="ClamAV daemon port",
+    )
+    MALWARE_SCAN_CLAMAV_TIMEOUT: int = Field(
+        default=10,
+        description="ClamAV scan timeout in seconds",
+    )
+
     # Audit log settings
     AUDITLOG_RETENTION: int = Field(
         default=1,
@@ -59,15 +81,23 @@ class Settings(BaseSettings):
         default="localhost",
         description="PostgreSQL server",
     )
-    POSTGRES_PORT: int = Field(default=5432, description="Database port")
-    POSTGRES_DB_NAME: str = Field(default="sdep", description="Database name")
+    POSTGRES_PORT: int = Field(
+        default=5432,
+        description="Database port",
+    )
+    POSTGRES_DB_NAME: str = Field(
+        default="sdep",
+        description="Database name",
+    )
 
     # Database credentials
     POSTGRES_DB_USER: str = Field(
-        default="undefined", description="Database application user"
+        default="undefined",
+        description="Database application user",
     )
     POSTGRES_DB_PASSWORD: str = Field(
-        default="undefined", description="Database application password"
+        default="undefined",
+        description="Database application password",
     )
 
     # App connection pool settings
@@ -94,10 +124,12 @@ class Settings(BaseSettings):
     # only caps how many client connections PgBouncer accepts, not how many reach PostgreSQL.
     # With session pooling, default_pool_size remains the binding server-side constraint.
     APP_POOL_SIZE: int = Field(
-        default=20, description="SQLAlchemy connection pool size"
+        default=20,
+        description="SQLAlchemy connection pool size",
     )
     APP_POOL_MAX_OVERFLOW: int = Field(
-        default=30, description="SQLAlchemy max overflow connections"
+        default=30,
+        description="SQLAlchemy max overflow connections",
     )
 
 

@@ -20,8 +20,6 @@ if [ ! -f "${KC_APP_REALM_CONFIG_YAML}" ]; then
     echo "❌ Error: KC_APP_REALM_CONFIG_YAML not found: ${KC_APP_REALM_CONFIG_YAML}" >&2; exit 1
 fi
 REALM_NAME=$(yq -r '.config.name' "$KC_APP_REALM_CONFIG_YAML")
-REALM_SHORTNAME=$(yq -r '.config.shortname // ""' "$KC_APP_REALM_CONFIG_YAML")
-
 if [ -z "${KC_ADMIN_REALM_ADMIN_USERNAME:-}" ]; then
     echo "❌ Error: KC_ADMIN_REALM_ADMIN_USERNAME is not set (commandline .env* or in pipeline)" >&2
     exit 1

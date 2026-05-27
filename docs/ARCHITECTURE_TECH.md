@@ -2,7 +2,7 @@
 
 This document provides an overview of the SDEP (Single Digital Entry Point) technical architecture.
 
-Table of contents:
+<h2>Table of Contents</h2>
 
 - [Overview](#overview)
 - [Scope and Reference Implementation](#scope-and-reference-implementation)
@@ -22,22 +22,21 @@ Table of contents:
   - [Competent Authority Endpoints](#competent-authority-endpoints)
   - [STR Platform Endpoints](#str-platform-endpoints)
   - [Health Endpoints](#health-endpoints)
-- [Request Flow](#request-flow)
+  - [Request Flow](#request-flow)
 - [Data and Lifecycle Design](#data-and-lifecycle-design)
   - [ID Management](#id-management)
   - [Versioning](#versioning)
-  - [Soft-Delete](#soft-delete)
-  - [Hard-Delete](#hard-delete)
+  - [Deleting](#deleting)
   - [Locking](#locking)
-    - [Behavior During Concurrent Requests](#behavior-during-concurrent-requests)
-    - [Performance Considerations](#performance-considerations)
+  - [Tenant Isolation](#tenant-isolation)
   - [Lazy Loading](#lazy-loading)
+  - [Data Flow](#data-flow)
 - [Transaction Management](#transaction-management)
 - [Validation](#validation)
   - [Layers](#layers)
   - [Functional IDs (General)](#functional-ids-general)
   - [Functional IDs (User-Supplied)](#functional-ids-user-supplied)
-  - [Functional IDs (JWT-Provisioned)](#functional-ids-jwt-provisioned)
+  - [Owner IDs and JWT Client IDs](#owner-ids-and-jwt-client-ids)
 - [Status Codes and Exception Handling](#status-codes-and-exception-handling)
 - [Bulk Activity Submissions](#bulk-activity-submissions)
   - [Approach](#approach)
@@ -76,12 +75,12 @@ SDEP is a FastAPI-based REST API that enables:
 - **ORM:** SQLAlchemy 2.0+ (async)
 - **Migrations:** Alembic
 - **Validation:** Pydantic 2.10+
-- **Authentication:** OAuth2 Client Credentials via Keycloak
+- **Authentication:** OAuth2 Client Credentials via authorization server (e.g. Keycloak)
 - **Server:** Uvicorn
 
 ### Infrastructure
 - **Container Platform:** Docker + Docker Compose
-- **Identity Provider:** Keycloak (OAuth2/OIDC)
+- **Identity Provider:** e.g. Keycloak (OAuth2/OIDC)
 - **Database:** PostgreSQL 15+
 - **Package Manager:** uv (Python)
 
@@ -334,7 +333,7 @@ For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.m
 
 ---
 
-## Request Flow
+### Request Flow
 
 ```
 POST /api/str/v1/activities/bulk (JSON body with activities array)
@@ -393,7 +392,7 @@ POST /api/ca/v1/areas (multipart/form-data: file + optional areaId, areaName)
 
 - Represent business identifiers, on the **"outside"**
 - Are client-provided (optional), or auto-provisioned otherwise (UUIDv4 RFC 9562)
-  - Exception: `platformId` and `competentAuthorityId` (these are auto-provisioned from JWT-claim)
+  - Exception: `platformId` and `competentAuthorityId` are never client-provided; they are always auto-provisioned server-side (UUIDv4 RFC 9562). The owning identity comes from the JWT `client_id` claim, which is stored separately as `clientId`.
 - After a POST, functional IDs are always returned/made visible
 - This allows them to be reused in subsequent submissions
 - Functional IDs enable versioning (in combination with a timestamp)
@@ -410,14 +409,20 @@ https://datatracker.ietf.org/doc/rfc9562/
 - Enables historical tracking and updates without losing previous versions
 - Standard retrieve only yields the current
 
-### Soft-Delete
+### Deleting
+
+---
+
+**Soft-Delete**
 
 - When all versions of a functional ID have `endedAt` set, the entity is considered **deactivated**
 - Creating a new version with a deactivated functional ID is rejected (HTTP 422)
 - This prevents "resurrecting" soft-deleted entities
 - The guard applies to: `competentAuthorityId`, `platformId`, `areaId`, and `activityId`
 
-### Hard-Delete
+---
+
+**Hard-Delete**
 
 Hard-delete removes a row from the database (as opposed to soft-delete, which sets `endedAt`).
 
@@ -440,7 +445,7 @@ All foreign keys use the PostgreSQL default (`NO ACTION`), which is **restricted
 | Platform           | Activity      | `activity.platform_id`        | Restricted — blocked if Activities exist |
 | Activity           | *(leaf node)* | —                             | Unrestricted — deletes cleanly           |
 
-In practice, the application uses **soft-delete** (`mark_as_ended`) for all production operations. The CRUD-layer `delete()` functions exist but are not called from any service or API route.
+In practice, the application uses **soft-delete** (`mark_as_ended`) for all operations. Hard-delete functions are not provided.
 
 ### Locking
 
@@ -473,7 +478,7 @@ Pessimistic locking applies to:
 
 ---
 
-#### Behavior During Concurrent Requests
+**Behavior During Concurrent Requests**
 
 If two requests attempt to version the same entity at the same time:
 
@@ -485,7 +490,7 @@ This guarantees consistent versioning without duplicate active records.
 
 ---
 
-#### Performance Considerations
+**Performance Considerations**
 
 ---
 
@@ -565,6 +570,40 @@ Expected impact:
 - For the expected workload (periodic batch submissions, typically one platform at a time), the performance impact is effectively unnoticeable
 - The locking overhead remains lightweight compared to the database cost of the bulk insert itself
 
+### Tenant Isolation
+
+Each tenant — a Competent Authority (CA) for areas, or a Platform (STR) for activities — can only affect its own data. Isolation is enforced at multiple layers: JWT identity, service-layer scoping, CRUD-layer filtering, and database constraints.
+
+---
+
+**Area operations (CA-scoped)**
+
+- **Create / update (versioning):** The `mark-as-ended` + `create-new-version` lookup is scoped to the authenticated CA via `get_by_area_id_and_competent_authority_id_str()` with `SELECT ... FOR UPDATE`. Another CA may hold an area with the same `areaId` — it is not affected.
+- **Delete (soft-delete):** Scoped lookup by `(areaId, competentAuthorityId)`. If the area belongs to a different CA, the operation returns 404.
+- **Deactivation guard:** `exists_any_by_area_id()` is CA-scoped. A deactivated `areaId` from one CA does not block another CA from using the same `areaId`.
+- **DB constraint:** `UNIQUE(area_id, competent_authority_id, created_at)` allows the same `areaId` to be used independently by different CAs.
+
+---
+
+**Activity operations (platform-scoped)**
+
+- **Create / update (bulk versioning):** `get_current_by_activity_ids()` and `bulk_mark_as_ended()` both filter by `platform_id`. Platform-A cannot version Platform-B's activities, even if they share the same `activityId`.
+- **Delete:** No delete endpoint exists for activities.
+- **DB constraint:** `UNIQUE(activity_id, platform_id, created_at)` allows the same `activityId` to be used independently by different platforms.
+- **Deactivation guard:** `get_deactivated_activity_ids()` operates globally (not platform-scoped) and is called on every bulk submission. However, no code path currently puts an activity into a deactivated state — there is no DELETE endpoint, and versioning always creates a new current version. The guard is defensive: if a DELETE endpoint is added in the future, it will prevent resurrection of deactivated activities. Compare with the equivalent Area guard (`exists_any_by_area_id`), which can trigger because areas can be soft-deleted via `DELETE /ca/areas/{areaId}`.
+
+---
+
+**Enforcement layers**
+
+| Layer       | Area                                                                | Activity                                                            |
+| :---------- | :------------------------------------------------------------------ | :------------------------------------------------------------------ |
+| **JWT**     | `client_id` identifies the CA                                       | `client_id` identifies the platform (STR)                           |
+| **API**     | Passes `client.id` to service; cannot be overridden by request body | Passes `client.id` to service; cannot be overridden by request body |
+| **Service** | Scoped lookups via `competent_authority_id_str`                     | Scoped lookups via `platform_id`                                    |
+| **CRUD**    | WHERE clauses include `competent_authority_id`                      | WHERE clauses include `platform_id`                                 |
+| **DB**      | `UNIQUE(area_id, competent_authority_id, created_at)` + FK          | `UNIQUE(activity_id, platform_id, created_at)` + FK                 |
+
 ### Lazy Loading
 
 - **Default lazy loading**
@@ -580,6 +619,165 @@ Expected impact:
 - **Benefits**
   - Eager-when-needed (loads relationships in bulk via `selectinload`)
   - Idiomatic (reduced boilerplate, less-verbose than manual queries)
+
+### Data Flow
+
+---
+
+**CA POST /areas**
+
+A. Inputs:
+
+- From JWT (verified by the auth dependency):
+  - `clientId` ← `client_id` claim
+  - `competentAuthorityName` ← `client_name` claim
+- From multipart payload:
+  - `areaId` (optional functional id, alphanumeric with hyphens, length <= 64)
+  - `areaName` (optional, length <= 64)
+  - `regulation` (optional enum, defaults to `all`)
+  - `file` (.zip, max 1 MiB, ZIP-magic verified, malware-scanned)
+
+B. Steps:
+
+1. Resolve or version the `CompetentAuthority` (row-locked `FOR UPDATE` on `clientId`):
+
+   - No row e xists for `clientId`: create a new Competent Authority
+     - Technical id `id`: autogenerated (int)
+     - Functional id `competentAuthorityId`: auto-generated (UUIDv4)
+     - Name `competentAuthorityName`: ← JWT
+     - Reference `clientId`: ← JWT
+     - Timestamp `createdAt`: autogenerated (`now()`)
+   - `clientId` exists and `competentAuthorityName` unchanged: reuse as is
+   - `clientId` exists and `competentAuthorityName` changed: mark the current Competent Authority as ended (`endedAt = now()`) and insert a new version
+     - Technical id `id`: autogenerated (int)
+     - Functional id `competentAuthorityId`: same as is
+     - Name `competentAuthorityName`: ← JWT
+     - Reference `clientId`: same as is
+     - Timestamp `createdAt`: autogenerated (`now()`)
+   - Only ended rows exist for `clientId`: reject as deactivated
+
+2. Resolve or version the `Area` (row-locked `FOR UPDATE` on `(areaId, competentAuthorityId)` when `areaId` is supplied):
+
+   - `areaId` is not supplied: create a brand-new Area
+     - Technical id `id`: autogenerated (int)
+     - Functional id `areaId`: auto-generated (UUIDv4)
+     - Name `areaName`: ← payload
+     - Regulation `regulation`: ← payload
+     - File name `filename`: ← payload
+     - File data `filedata`: ← payload
+     - CA reference `competent_authority_id`: ← technical `id` of the CA row from step 1
+     - Timestamp `createdAt`: autogenerated (`now()`)
+     - End timestamp `endedAt`: `NULL`
+
+   - `areaId` is supplied and no row exists for `(areaId, competentAuthorityId)`: create a new Area using the supplied functional id
+     - Technical id `id`: autogenerated (int)
+     - Functional id `areaId`: ← payload
+     - Name `areaName`: ← payload
+     - Regulation `regulation`: ← payload
+     - File name `filename`: ← payload
+     - File data `filedata`: ← payload
+     - CA reference `competent_authority_id`: ← technical `id` of the CA row from step 1
+     - Timestamp `createdAt`: autogenerated (`now()`)
+     - End timestamp `endedAt`: `NULL`
+
+   - `areaId` is supplied and an active row exists for `(areaId, competentAuthorityId)`: mark the current Area as ended (`endedAt = now()`) and insert a new version
+     - Technical id `id`: autogenerated (int)
+     - Functional id `areaId`: same as supplied
+     - Name `areaName`: ← payload
+     - Regulation `regulation`: ← payload
+     - File name `filename`: ← payload
+     - File data `filedata`: ← payload
+     - CA reference `competent_authority_id`: ← technical `id` of the CA row from step 1
+     - Timestamp `createdAt`: autogenerated (`now()`)
+     - End timestamp `endedAt`: `NULL`
+
+   - `areaId` is supplied and only ended rows exist for `(areaId, competentAuthorityId)`: reject as deactivated
+
+3. Commit at the API transaction boundary (CRUD layer only flushes)
+
+Net effect:
+
+- 1x new `competent_authority` row inserted only when the CA is new or its name changed; the previous version is marked ended in the latter case
+- 1x new `area` row, with FK `area.competent_authority_id → competent_authority.id`
+- Optionally 1 old `area` row marked ended if the same `areaId` was resubmitted for this CA
+
+---
+
+**STR POST /activities/bulk**
+
+A. Inputs:
+
+- From JWT (verified by the auth dependency):
+  - `clientId` ← `client_id` claim
+  - `platformName` ← `client_name` claim
+- From JSON payload:
+  - `activities`: array of 1–1000 activity items; each item carries:
+    - `activityId` (optional functional id, alphanumeric with hyphens, length <= 64)
+    - `activityName` (optional, length <= 64)
+    - `status` (optional enum, defaults to `finished`; may also be `cancelled`)
+    - `areaId` (required functional id, must reference an existing area)
+    - `url` (length <= 128)
+    - `address` (composite: `thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)
+    - `registrationNumber` (length <= 32)
+    - `numberOfGuests` (1–1024)
+    - `countryOfGuests` (array, 1–1024 elements; each ISO 3166-1 alpha-3 or `N/A`, uppercase; length must equal `numberOfGuests`)
+    - `temporal` (composite: `startDatetime`, `endDatetime`)
+
+B. Steps:
+
+1. Per-item Pydantic validation (`TypeAdapter(ActivityRequest)`):
+
+   - Invalid items are marked NOK with their errors; valid items continue
+   - The original client-supplied `activityId` (or `None`) is preserved for the response
+   - For valid items, a missing `activityId` is auto-generated (UUIDv4)
+
+2. Resolve or version the `Platform` once per batch:
+
+   - No row exists for `clientId`: create a new Platform
+     - Technical id `id`: autogenerated (int)
+     - Functional id `platformId`: auto-generated (UUIDv4)
+     - Name `platformName`: ← JWT
+     - Reference `clientId`: ← JWT
+     - Timestamp `createdAt`: autogenerated (`now()`)
+   - `clientId` exists and `platformName` unchanged: reuse as is
+   - `clientId` exists and `platformName` changed: mark the current Platform as ended (`endedAt = now()`) and insert a new version
+     - Technical id `id`: autogenerated (int)
+     - Functional id `platformId`: same as is
+     - Name `platformName`: ← JWT
+     - Reference `clientId`: same as is
+     - Timestamp `createdAt`: autogenerated (`now()`)
+   - Only ended rows exist for `clientId`: reject as deactivated
+
+3. Intra-batch deduplication on `activityId` (last-wins): when a batch contains multiple valid items with the same `activityId`, only the last occurrence proceeds; earlier occurrences are marked NOK with a "superseded by later item in batch at index N" error.
+
+4. Referential integrity check (single query): resolve `areaId` → technical `id` (and owning CA) for all referenced areas via `get_area_ca_map`. Items pointing at unknown areas are marked NOK.
+
+5. Resolve or version each `Activity` (row-locked `FOR UPDATE` on `(activityId, platformId)` when `activityId` is supplied):
+
+   - `activityId` was auto-generated in step 1: defer to step 6 (no versioning lookup; brand-new functional id)
+   - `activityId` is supplied and no active row exists for `(activityId, platformId)`: defer to step 6 (insert using the supplied functional id)
+   - `activityId` is supplied and an active row exists for `(activityId, platformId)`: mark the current Activity as ended (`endedAt = now()`); the new version is inserted in step 6
+   - `activityId` is supplied and only ended rows exist (across any platform): reject as deactivated
+
+6. Bulk insert all remaining valid items in a single multi-row INSERT, using one `batch_created_at` (= `now()` at INSERT time) for the whole batch. Each new `activity` row:
+
+   - Technical id `id`: autogenerated (int)
+   - Functional id `activityId`: ← validated request (supplied, or auto-generated UUIDv4 from step 1)
+   - Functional columns from the payload (`activityName`, `status`, `url`, address fields, `registrationNumber`, `numberOfGuests`, `countryOfGuests`, temporal fields)
+   - Platform reference `platform_id` (FK): ← technical `id` of the Platform row from step 2
+   - Area reference `area_id` (FK): ← technical `id` resolved in step 4
+   - Timestamp `createdAt`: ← `batch_created_at`
+   - End timestamp `endedAt`: `NULL`
+
+7. Commit at the API transaction boundary (CRUD layer only flushes); on any exception the whole batch rolls back.
+
+8. Return a per-item OK/NOK response preserving the original request order. HTTP status: `201` if all items succeeded, `200` on partial success, `422` if all items failed.
+
+Net effect:
+
+- 1x new `platform` row inserted only when the platform is new or its name changed; the previous version is marked ended in the latter case
+- N new `activity` rows (one per valid item), each with FKs `activity.platform_id → platform.id` and `activity.area_id → area.id`
+- Optionally M old `activity` rows marked ended when a supplied `activityId` had an active version for this platform
 
 ---
 
@@ -641,26 +839,26 @@ These IDs are submitted by the caller in the request body or form fields and val
   - The `Annotated[OptionalFunctionalId, Form()]` type annotation ensures Pydantic still validates the form field declaratively, just like JSON body fields
 - `POST /api/str/v1/activities/bulk` accepts a JSON body; per-item validation is done via `TypeAdapter(ActivityRequest)` in the service layer
 
-### Functional IDs (JWT-Provisioned)
+### Owner IDs and JWT Client IDs
 
-**Platform and Competent Authority functional IDs** are provisioned from JWT.
+**Platform and Competent Authority public functional IDs** are generated UUID strings stored in `platform.platform_id` and `competent_authority.competent_authority_id`.
 
-These IDs are **not** supplied by the user in the request payload. They are extracted from the JWT token's `client_id` claim at the API layer and validated imperatively using `validate_functional_id()` from `app/schemas/common.py`.
+These public owner IDs are returned as `platformId` and `competentAuthorityId` in API responses. They are not supplied in request payloads and are not derived from JWT usernames or client identifiers.
 
-This function checks the same pattern (`^[A-Za-z0-9-]+$`, 1–64 chars) and raises `ValueError` on mismatch, which the API layer converts to HTTP 422.
+The JWT token's `client_id` claim is stored separately in the private `client_id` column on `Platform` and `CompetentAuthority`. Service and CRUD code use this private value for lookup, ownership scoping, versioning, and deactivation checks.
 
-| Endpoint                           | Router                   | Extracted as             | Validated by               |
-| ---------------------------------- | ------------------------ | ------------------------ | -------------------------- |
-| `POST /api/ca/v1/areas`            | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
-| `GET /api/ca/v1/areas`             | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
-| `GET /api/ca/v1/areas/count`       | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
-| `GET /api/ca/v1/areas/{areaId}`    | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
-| `DELETE /api/ca/v1/areas/{areaId}` | `ca_areas.py`            | `competent_authority_id` | `validate_functional_id()` |
-| `GET /api/ca/v1/activities`        | `ca_activities.py`       | `competent_authority_id` | `validate_functional_id()` |
-| `GET /api/ca/v1/activities/count`  | `ca_activities.py`       | `competent_authority_id` | `validate_functional_id()` |
-| `POST /api/str/v1/activities/bulk` | `str_activities_bulk.py` | `platform_id`            | `validate_functional_id()` |
+| Endpoint                           | Router                   | JWT claim used for scoping | Public owner ID exposed in responses |
+| ---------------------------------- | ------------------------ | -------------------------- | ------------------------------------ |
+| `POST /api/ca/v1/areas`            | `ca_areas.py`            | `client_id`                | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas`             | `ca_areas.py`            | `client_id`                | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas/count`       | `ca_areas.py`            | `client_id`                | n/a                                  |
+| `GET /api/ca/v1/areas/{areaId}`    | `ca_areas.py`            | `client_id`                | n/a                                  |
+| `DELETE /api/ca/v1/areas/{areaId}` | `ca_areas.py`            | `client_id`                | n/a                                  |
+| `GET /api/ca/v1/activities`        | `ca_activities.py`       | `client_id`                | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v1/activities/count`  | `ca_activities.py`       | `client_id`                | n/a                                  |
+| `POST /api/str/v1/activities/bulk` | `str_activities_bulk.py` | `client_id`                | `competentAuthorityId`, `platformId` |
 
-**Why imperative, not declarative:** JWT claims are not part of the request body or form fields - they arrive via the `verify_bearer_token` dependency as a plain `dict`. Pydantic schema validation does not apply to them, so the API layer validates them explicitly before passing them to the service layer.
+The private `client_id` is never serialized in public API responses, OpenAPI examples, or public documentation as an owner ID.
 
 ---
 
@@ -675,7 +873,7 @@ The table below shows how application exceptions map to HTTP status codes:
 | HTTP Status                 | Exception                             | Description                                                                                                   |
 | --------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | 400                         | `RequestValidationError`              | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`)                                   |
-| 400 / 401 / 403 / 404 / 422 | `HTTPException`                       | Missing/invalid token claims, missing roles, missing credentials, inline input validation, resource not found |
+| 400 / 401 / 403 / 404 / 413 / 422 | `HTTPException`                       | Missing/invalid token claims, missing roles, missing credentials, inline input validation, resource not found, oversized upload (`Content-Length` exceeds the per-endpoint cap) |
 | 401                         | `InvalidTokenError`                   | Invalid token (subtype of AuthenticationError)                                                                |
 | 401                         | `AuthenticationError`                 | Invalid or expired token                                                                                      |
 | 403                         | `AuthorizationError`                  | Insufficient permissions                                                                                      |

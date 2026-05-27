@@ -1,6 +1,6 @@
 <h1>Performance Tests</h1>
 
-The [../tests/perf](../tests/perf) directory contains a [Locust](https://locust.io/) test for load testing the SDEP bulk activity endpoint (`POST /api/str/v1/activities/bulk`).
+The [../tests/performance](../tests/performance) directory contains a [Locust](https://locust.io/) test for load testing the SDEP bulk activity endpoint (`POST /api/str/v1/activities/bulk`).
 
 - [Running Performance Tests](#running-performance-tests)
 - [Implementation](#implementation)
@@ -39,13 +39,13 @@ Quick reference:
 The performance test consists of two files:
 
 - [`scripts/run-tests-perf.sh`](../scripts/run-tests-perf.sh) orchestrates configuration, fixture setup, the Locust run, and cleanup
-- [`tests/perf/locustfile.py`](../tests/perf/locustfile.py) contains the actual load test logic
+- [`tests/performance/locustfile.py`](../tests/performance/locustfile.py) contains the actual load test logic
 
 Both are invoked via `make test-perf`.
 
 ### Locust Test
 
-`perf/locustfile.py`
+`tests/performance/locustfile.py`
 
 **Purpose:** Load test the bulk activity endpoint (`POST /api/str/v1/activities/bulk`) to measure throughput and validate capacity.
 

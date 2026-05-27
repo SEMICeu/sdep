@@ -12,8 +12,8 @@ API_VERSION=${API_VERSION:-v1}
 TIMESTAMP=$(date +%s%N | cut -b1-13)
 
 # Use ephemeral test CA client
-FIXTURE_CA_CLIENT_ID="${CA_CLIENT_ID}"
-FIXTURE_CA_CLIENT_SECRET="${CA_CLIENT_SECRET}"
+FIXTURE_CA_CLIENT_ID="${CA1_CLIENT_ID}"
+FIXTURE_CA_CLIENT_SECRET="${CA1_CLIENT_SECRET}"
 
 # Get CA token (local variable only -does not modify ./tmp/.bearer_token)
 CA_TOKEN=$(curl -s -X POST \

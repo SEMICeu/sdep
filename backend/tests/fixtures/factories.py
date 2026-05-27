@@ -13,6 +13,7 @@ from app.models.competent_authority import CompetentAuthority
 from app.models.platform import Platform
 from app.models.temporal import Temporal
 from factory.faker import Faker
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -41,6 +42,7 @@ class CompetentAuthorityFactory(AsyncSQLAlchemyFactory):
     competent_authority_id = factory.Sequence(
         lambda n: f"{n:04d}"[:64]
     )  # "0001", "0002", etc.
+    client_id = factory.LazyAttribute(lambda o: o.competent_authority_id)
     competent_authority_name = Faker("company")
 
 
@@ -60,20 +62,24 @@ class AreaFactory(AsyncSQLAlchemyFactory):
     @classmethod
     async def create_async(cls, session: AsyncSession, **kwargs):
         """Create model instance asynchronously."""
-        from app.crud import competent_authority as ca_crud
-
         # Extract competent authority attributes if provided
         ca_id = kwargs.pop("competent_authority_id", None)
         ca_name = kwargs.pop("competent_authority_name", None)
 
-        # If competent_authority_id is provided as a string (the business key, not the database ID)
+        # If competent_authority_id is provided as a string (the public functional ID, not the database ID)
         # or if competent_authority_name is provided, find or create a CompetentAuthority
         if (isinstance(ca_id, str) and not ca_id.isdigit()) or ca_name:
-            # Try to find existing CompetentAuthority by competent_authority_id
+            # Try to find existing CompetentAuthority by public functional ID.
             if ca_id:
-                existing = await ca_crud.get_by_competent_authority_id(session, ca_id)
+                result = await session.execute(
+                    select(CompetentAuthority).where(
+                        CompetentAuthority.competent_authority_id == ca_id,
+                        CompetentAuthority.ended_at.is_(None),
+                    )
+                )
+                existing = result.scalar_one_or_none()
                 if existing is not None:
-                    ca = existing  # get_by_competent_authority_id returns a single instance or None
+                    ca = existing
                 else:
                     ca = await CompetentAuthorityFactory.create_async(
                         session,
@@ -107,6 +113,7 @@ class PlatformFactory(AsyncSQLAlchemyFactory):
     platform_id = factory.Sequence(
         lambda n: f"platform{n:02d}"
     )  # "platform01", "platform02", etc.
+    client_id = factory.LazyAttribute(lambda o: o.platform_id)
     platform_name = Faker("company")
 
 
@@ -193,7 +200,6 @@ class ActivityFactory(AsyncSQLAlchemyFactory):
     async def create_async(cls, session: AsyncSession, **kwargs):
         """Create model instance asynchronously."""
         from app.crud import area as area_crud
-        from app.crud import platform as platform_crud
 
         # Resolve area_id if UUID string provided
         area_id_param = kwargs.pop("area_id", None)
@@ -215,9 +221,13 @@ class ActivityFactory(AsyncSQLAlchemyFactory):
         platform_id_param = kwargs.pop("platform_id", None)
         if isinstance(platform_id_param, str):
             # UUID string - resolve to technical ID
-            platform = await platform_crud.get_by_platform_id(
-                session, platform_id_param
+            result = await session.execute(
+                select(Platform).where(
+                    Platform.platform_id == platform_id_param,
+                    Platform.ended_at.is_(None),
+                )
             )
+            platform = result.scalar_one_or_none()
             if not platform:
                 platform = await PlatformFactory.create_async(
                     session, platform_id=platform_id_param

@@ -1,55 +1,84 @@
+#
+# Clients are provisioned idempotently using the naming convention: id = *sdep*
+#
+# Test data created by clients with id = "sdep-test" is automatically removed after automated test runs
+# Test data created by clients with id != "sdep-test" is preserved and remains unaffected by automated test runs
+#
 clients:
 
-  # 1. Test clients (automated testruns, ephemeral)
-  # Naming convention sdep-test-ca*, sdep-test-str*, for automatic cleanup
+  # 1. Test clients whose test data is automatically removed after automated test runs
 
-  # -- Short-term rental platforms (STR)
+  # 1a. Short-term rental platforms (STR)
   - id: "sdep-test-str01"
     secret: "sdep-test-str01"
-    name: "Test STR 01 (test automation, ephemeral)"
+    name: "Test STR 01 (test automation, ephemeral data)"
     description: "STR client with read-write access"
     service_account_roles:
       - sdep_str
       - sdep_read
       - sdep_write
 
-  # -- Competent authorities (CA)
+  # 1b. Competent authorities (CA)
   - id: "sdep-test-ca01"
     secret: "sdep-test-ca01"
-    name: "Test CA 01 (test automation, ephemeral)"
+    name: "Test CA 01 (test automation, ephemeral data)"
     description: "CA client with read-write access"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
+  - id: "sdep-test-ca02"
+    secret: "sdep-test-ca02"
+    name: "Test CA 02 (test automation, ephemeral data)"
+    description: "Second CA client used for cross-CA isolation tests"
+    service_account_roles:
+      - sdep_ca
+      - sdep_read
+      - sdep_write
 
-  # 2. Test clients (interactive usage)
-  # Naming convention sdep-ca*, sdep-str* (avoid "sdep-test" to refrain from automatic cleanup)
+  # 2. Test clients whose test data remains unaffected after automated test runs
 
-  # -- Short-term rental platforms (STR)
+  # 2a. Short-term rental platforms (STR)
   - id: "sdep-str01"
     secret: "sdep-str01"
-    name: "Test STR 01 (interactive usage, persistent)"
+    name: "Test STR 01 (interactive usage, persistent data)"
+    description: "STR client with read-write access"
+    service_account_roles:
+      - sdep_str
+      - sdep_read
+      - sdep_write
+  # Best practice - https://www.oauth.com/oauth2-servers/client-registration/client-id-secret
+  - id: "381028359011.sdep.gov.local"
+    secret: "381028359011"
+    name: "Test STR 02 (interactive usage, persistent data)"
     description: "STR client with read-write access"
     service_account_roles:
       - sdep_str
       - sdep_read
       - sdep_write
 
-  # -- Competent authorities (CA)
+  # 2b. Competent authorities (CA)
   - id: "sdep-ca01"
     secret: "sdep-ca01"
-    name: "Test CA 01 (interactive usage, persistent)"
+    name: "Test CA 01 (interactive usage, persistent data)"
+    description: "CA client with read-write access"
+    service_account_roles:
+      - sdep_ca
+      - sdep_read
+      - sdep_write
+  # Best practice - https://www.oauth.com/oauth2-servers/client-registration/client-id-secret
+  - id: "833946726525.sdep.gov.local"
+    secret: "833946726525"
+    name: "Test CA 02 (interactive usage, persistent data)"
     description: "CA client with read-write access"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
 
-  #  3. Test clients (interactive usage, deployed with predefined testdata)
-  #  Naming convention sdep-ca*, sdep-str* (avoid "sdep-test" to refrain from automatic cleanup)
+  # 3. Test clients whose test data remains unaffected after automated test runs, deployed with predefined test data
 
-  # -- Competent authorities (CA)
+  # 3a. Competent authorities (CA)
   - id: "sdep-ca0363"
     secret: "sdep-ca0363"
     name: "Gemeente Amsterdam"

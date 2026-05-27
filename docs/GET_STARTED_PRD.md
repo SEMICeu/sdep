@@ -2,7 +2,7 @@
 
 Welcome to the **SDEP NL production environment (PRD)**.
 
-Table of contents:
+<h2>Table of Contents</h2>
 
 - [Introduction](#introduction)
 - [Get Access](#get-access)

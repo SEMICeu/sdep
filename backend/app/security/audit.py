@@ -8,10 +8,8 @@ import time
 import uuid
 from datetime import UTC, datetime
 
-import jwt
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
 
 from app.db.config import create_async_session
 from app.models.audit_log import AuditLog
@@ -69,33 +67,20 @@ def _resolve_action(method: str, path: str) -> tuple[str, str | None]:
 
 
 def _extract_jwt_roles(request: Request) -> str | None:
-    """Extract roles from JWT token without verification.
+    """Read roles from the JWT payload stashed on ``request.state`` by the auth dependency.
 
-    The actual authentication/verification happens in route dependencies.
-    This is read-only extraction for audit purposes.
+    The dependency has already verified the signature; the audit middleware does
+    not re-decode the token (would double signature verification per request).
+    Returns None when no payload was stashed (e.g. unauthenticated endpoints).
     """
-    auth_header = request.headers.get("authorization", "")
-    if not auth_header.startswith("Bearer "):
+    payload = getattr(request.state, "jwt_payload", None)
+    if not payload:
         return None
+    roles_list = payload.get("realm_access", {}).get("roles", [])
+    return ",".join(roles_list) if roles_list else None
 
-    token = auth_header[7:]
-    try:
-        # PyJWT requires algorithms to be specified even when not verifying signature
-        payload = jwt.decode(
-            token,
-            algorithms=["RS256"],
-            options={
-                "verify_signature": False,
-                "verify_aud": False,
-                "verify_exp": False,
-            },
-        )
-        # Extract roles from Keycloak realm_access claim
-        roles_list = payload.get("realm_access", {}).get("roles", [])
-        return ",".join(roles_list) if roles_list else None
-    except Exception:
-        logger.debug("Failed to decode JWT for audit logging", exc_info=True)
-        return None
+
+_pending_audit_writes: set[asyncio.Task] = set()
 
 
 async def _write_audit_record(record: AuditLog) -> None:
@@ -111,13 +96,10 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
     """Middleware that logs API requests to the audit_log table.
 
     - Skips low-value paths (health, docs, root)
-    - Extracts JWT roles without verification (auth happens in route deps)
+    - Extracts JWT roles only after signature verification
     - Writes audit records asynchronously to avoid blocking responses
     - Audit failures never break the request
     """
-
-    def __init__(self, app: ASGIApp) -> None:
-        super().__init__(app)
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Intercept request/response and create audit record."""
@@ -136,17 +118,13 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
 
         duration_ms = int((time.monotonic() - start) * 1000)
 
-        # Extract audit data
+        # Extract audit data. The auth dependency stashes the verified JWT
+        # payload on request.state for any request that reached a protected
+        # handler — including 403s raised by RequireRoles. 401s never get
+        # that far, so roles stays None there. The HTTP status column already
+        # encodes "rejected" (401) vs "insufficient permission" (403).
         method = request.method
-        status = response.status_code
-        if status < 400:
-            roles = _extract_jwt_roles(request)
-        elif status == 401:
-            roles = "REJECTED"
-        elif status == 403:
-            roles = "UNAUTHORIZED"
-        else:
-            roles = None
+        roles = _extract_jwt_roles(request)
         action, resource_type = _resolve_action(method, path)
 
         # Build audit record
@@ -180,11 +158,11 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
             )
         )
 
-        # Write asynchronously - never block the response
-        # Store reference to prevent task from being garbage-collected
+        # Write asynchronously - never block the response.
+        # Keep a strong reference in _pending_audit_writes until the task
+        # completes, otherwise the task can be garbage-collected mid-flight.
         task = asyncio.create_task(_write_audit_record(record))
-        task.add_done_callback(
-            lambda t: t.result() if not t.cancelled() and not t.exception() else None
-        )
+        _pending_audit_writes.add(task)
+        task.add_done_callback(_pending_audit_writes.discard)
 
         return response

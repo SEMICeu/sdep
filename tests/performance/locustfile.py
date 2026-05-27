@@ -14,7 +14,7 @@ Configuration via environment variables (set by Makefile):
 Usage:
     Typically invoked via `make test-perf`, not directly.
     For manual use:
-        locust -f tests/perf/locustfile.py --headless -u 1 -r 1 --run-time 60s
+        locust -f tests/performance/locustfile.py --headless -u 1 -r 1 --run-time 60s
 """
 
 import atexit

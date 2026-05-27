@@ -47,7 +47,7 @@
                     "thoroughfare": "Prinsengracht"
                   },
                   "areaId": "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
-                  "competentAuthorityId": "sdep-ca0363",
+                  "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                   "competentAuthorityName": "Gemeente Amsterdam",
                   "countryOfGuests": [
                     "NLD",
@@ -57,7 +57,7 @@
                   ],
                   "createdAt": "2025-06-01T12:00:00Z",
                   "numberOfGuests": 4,
-                  "platformId": "str01",
+                  "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
                   "platformName": "Test STR 01",
                   "registrationNumber": "REG0001",
                   "status": "finished",
@@ -204,7 +204,7 @@
         "type": "object"
       },
       "ActivityRequest": {
-        "description": "Activity request schema for creating rental activities.\n\nPlatform:\n- NOT in request payload (extracted from JWT token at API layer)\n- PlatformId comes from token's client_id claim\n- PlatformName comes from token's client_name claim\n- Will be auto-created if it doesn't exist yet\n\nActivity ID:\n- Optional: If not provided, will be auto-generated (RFC 9562 UUID)\n\nActivity Name:\n- Optional: Display name (max 64 chars)\n\nValidation Layer:\n- Validates all syntax constraints (lengths, ranges, types)\n\nConstraints (enforced at database level):\n- Unique constraint: (activityId, createdAt, platform) for versioning support",
+        "description": "Activity request schema for creating rental activities.\n\nActivity ID:\n- Optional: If not provided, will be auto-generated (RFC 9562 UUID)\n\nActivity Name:\n- Optional: Display name (max 64 chars)\n\nValidation Layer:\n- Validates all syntax constraints (lengths, ranges, types)\n\nConstraints (enforced at database level):\n- Unique constraint: (activityId, platformId, createdAt) for versioning support",
         "properties": {
           "activityId": {
             "anyOf": [
@@ -378,8 +378,8 @@
           "competentAuthorityId": {
             "description": "Functional ID referencing the competent authority that owns the area",
             "examples": [
-              "sdep-ca0363",
-              "SDEP-CA0363"
+              "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+              "a30df3a7-7e38-534c-b9c0-7666bad077d2"
             ],
             "maxLength": 64,
             "minLength": 1,
@@ -422,8 +422,8 @@
           "platformId": {
             "description": "Functional ID referencing the platform that owns the activity",
             "examples": [
-              "str01",
-              "STR01"
+              "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+              "227e07d4-37c4-4ceb-aa16-80346d258f6b"
             ],
             "maxLength": 64,
             "minLength": 1,
@@ -536,7 +536,7 @@
           "areaId": {
             "description": "Functional ID identifying this area",
             "examples": [
-              "959a7439-7cad-4009-96ec-353b44723db9"
+              "58ff0814-3aa1-5019-9afb-3cd9f398602c"
             ],
             "maxLength": 64,
             "minLength": 1,
@@ -563,7 +563,7 @@
           "competentAuthorityId": {
             "description": "Functional ID of the competent authority that owns the area",
             "examples": [
-              "sdep-ca0363"
+              "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
             ],
             "maxLength": 64,
             "minLength": 1,
@@ -955,7 +955,7 @@
                       "postName": "Amsterdam",
                       "thoroughfare": "Prinsengracht"
                     },
-                    "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                    "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
                     "countryOfGuests": [
                       "NLD",
                       "NLD",
@@ -980,7 +980,7 @@
                       "postName": "Rotterdam",
                       "thoroughfare": "Witte de Withstraat"
                     },
-                    "areaId": "904ee15d-70a6-4e69-a704-6018646803a8",
+                    "areaId": "974e2c23-b666-5044-a05c-9479a4c293a1",
                     "countryOfGuests": [
                       "FRA",
                       "FRA"
@@ -996,15 +996,15 @@
                   },
                   {
                     "activityId": "771a0622-g41d-63f6-c938-668877662222",
-                    "activityName": "Utrecht City Break",
+                    "activityName": "Amsterdam Canal House",
                     "address": {
-                      "fullAddress": "Oudegracht 100, 3511AX Utrecht",
+                      "fullAddress": "Herengracht 100, 1015BS Amsterdam",
                       "locatorDesignatorNumber": 100,
-                      "postCode": "3511AX",
-                      "postName": "Utrecht",
-                      "thoroughfare": "Oudegracht"
+                      "postCode": "1015BS",
+                      "postName": "Amsterdam",
+                      "thoroughfare": "Herengracht"
                     },
-                    "areaId": "bb22937c-fa9b-4ce6-b3d9-6e2ac49f621c",
+                    "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
                     "countryOfGuests": [
                       "GBR",
                       "GBR",
@@ -1016,24 +1016,24 @@
                       "endDatetime": "2025-08-05T14:00:00Z",
                       "startDatetime": "2025-08-10T11:00:00Z"
                     },
-                    "url": "http://example.com/utrecht-studio-3"
+                    "url": "http://example.com/amsterdam-canal-house-3"
                   },
                   {
-                    "activityName": "Den Haag Apartment",
+                    "activityName": "Rotterdam Harbor View",
                     "address": {
-                      "fullAddress": "Turfmarkt 147, 2500EA Den Haag",
-                      "locatorDesignatorNumber": 147,
-                      "postCode": "2500EA",
-                      "postName": "Den Haag",
-                      "thoroughfare": "Turfmarkt"
+                      "fullAddress": "Wilhelminakade 50, 3072AP Rotterdam",
+                      "locatorDesignatorNumber": 50,
+                      "postCode": "3072AP",
+                      "postName": "Rotterdam",
+                      "thoroughfare": "Wilhelminakade"
                     },
-                    "areaId": "6d1da866-c6c4-48f7-a15a-a7aae27c73f8",
+                    "areaId": "974e2c23-b666-5044-a05c-9479a4c293a1",
                     "countryOfGuests": [
                       "ESP"
                     ],
                     "numberOfGuests": 1,
                     "registrationNumber": "REG0004",
-                    "url": "http://example.com/denhaag-apartment-4"
+                    "url": "http://example.com/rotterdam-harbor-view-4"
                   },
                   {
                     "activityId": "882b1733-h52e-74g7-d049-779988773333",
@@ -1060,15 +1060,15 @@
                   },
                   {
                     "activityId": "993c2844-i63f-85h8-e15a-880099884444",
-                    "activityName": "Eindhoven Studio",
+                    "activityName": "Amsterdam Studio",
                     "address": {
-                      "fullAddress": "Stratumseind 12, 5611EP Eindhoven",
+                      "fullAddress": "Keizersgracht 12, 1015CS Amsterdam",
                       "locatorDesignatorNumber": 12,
-                      "postCode": "5611EP",
-                      "postName": "Eindhoven",
-                      "thoroughfare": "Stratumseind"
+                      "postCode": "1015CS",
+                      "postName": "Amsterdam",
+                      "thoroughfare": "Keizersgracht"
                     },
-                    "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                    "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
                     "countryOfGuests": [
                       "NLD",
                       "NLD"
@@ -1079,7 +1079,7 @@
                       "endDatetime": "2025-10-03T10:00:00Z",
                       "startDatetime": "2025-10-01T14:00:00Z"
                     },
-                    "url": "http://example.com/eindhoven-studio-6"
+                    "url": "http://example.com/amsterdam-studio-6"
                   }
                 ]
               },
@@ -1110,8 +1110,8 @@
                           "postName": "Amsterdam",
                           "thoroughfare": "Prinsengracht"
                         },
-                        "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
-                        "competentAuthorityId": "sdep-ca0363",
+                        "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                        "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                         "competentAuthorityName": "Amsterdam (inclusief Weesp)",
                         "countryOfGuests": [
                           "NLD",
@@ -1121,7 +1121,7 @@
                         ],
                         "createdAt": "2026-04-17T12:31:45.492466Z",
                         "numberOfGuests": 4,
-                        "platformId": "sdep-str01",
+                        "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
                         "platformName": "Test STR 01 (interactive usage, persistent)",
                         "registrationNumber": "REG0001",
                         "status": "finished",
@@ -1146,8 +1146,8 @@
                           "postName": "Rotterdam",
                           "thoroughfare": "Witte de Withstraat"
                         },
-                        "areaId": "904ee15d-70a6-4e69-a704-6018646803a8",
-                        "competentAuthorityId": "sdep-ca0599",
+                        "areaId": "974e2c23-b666-5044-a05c-9479a4c293a1",
+                        "competentAuthorityId": "a30df3a7-7e38-534c-b9c0-7666bad077d2",
                         "competentAuthorityName": "Rotterdam",
                         "countryOfGuests": [
                           "FRA",
@@ -1155,7 +1155,7 @@
                         ],
                         "createdAt": "2026-04-17T12:31:45.492466Z",
                         "numberOfGuests": 2,
-                        "platformId": "sdep-str01",
+                        "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
                         "platformName": "Test STR 01 (interactive usage, persistent)",
                         "registrationNumber": "REG0002",
                         "status": "cancelled",
@@ -1258,8 +1258,8 @@
                           "postName": "Amsterdam",
                           "thoroughfare": "Prinsengracht"
                         },
-                        "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
-                        "competentAuthorityId": "sdep-ca0363",
+                        "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                        "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                         "competentAuthorityName": "Amsterdam (inclusief Weesp)",
                         "countryOfGuests": [
                           "NLD",
@@ -1269,7 +1269,7 @@
                         ],
                         "createdAt": "2025-06-01T12:00:00Z",
                         "numberOfGuests": 4,
-                        "platformId": "str01",
+                        "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
                         "platformName": "Test STR 01",
                         "registrationNumber": "REG0001",
                         "status": "finished",
@@ -1293,8 +1293,8 @@
                           "postName": "Rotterdam",
                           "thoroughfare": "Witte de Withstraat"
                         },
-                        "areaId": "904ee15d-70a6-4e69-a704-6018646803a8",
-                        "competentAuthorityId": "sdep-ca0599",
+                        "areaId": "974e2c23-b666-5044-a05c-9479a4c293a1",
+                        "competentAuthorityId": "a30df3a7-7e38-534c-b9c0-7666bad077d2",
                         "competentAuthorityName": "Rotterdam",
                         "countryOfGuests": [
                           "FRA",
@@ -1302,7 +1302,7 @@
                         ],
                         "createdAt": "2025-06-01T12:00:00Z",
                         "numberOfGuests": 2,
-                        "platformId": "str01",
+                        "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
                         "platformName": "Test STR 01",
                         "registrationNumber": "REG0002",
                         "status": "cancelled",
@@ -1467,18 +1467,18 @@
                 "example": {
                   "areas": [
                     {
-                      "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                      "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
                       "areaName": "Amsterdam",
-                      "competentAuthorityId": "sdep-ca0363",
+                      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                       "competentAuthorityName": "Amsterdam (inclusief Weesp)",
                       "createdAt": "2025-01-01T00:00:00Z",
                       "filename": "Amsterdam.zip",
                       "regulation": "all"
                     },
                     {
-                      "areaId": "904ee15d-70a6-4e69-a704-6018646803a8",
+                      "areaId": "974e2c23-b666-5044-a05c-9479a4c293a1",
                       "areaName": "Rotterdam",
-                      "competentAuthorityId": "sdep-ca0599",
+                      "competentAuthorityId": "a30df3a7-7e38-534c-b9c0-7666bad077d2",
                       "competentAuthorityName": "Rotterdam",
                       "createdAt": "2025-01-01T00:00:00Z",
                       "filename": "Rotterdam.zip",

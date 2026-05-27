@@ -479,6 +479,76 @@ fi
 
 echo
 
+# Test 12: Cross-CA isolation - two CAs sharing the same areaId keep their own
+echo "Test 12: Cross-CA isolation - same areaId across two CAs"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+if [ -n "$BEARER_TOKEN" ] && [ -n "${CA2_CLIENT_ID:-}" ] && [ -n "${CA2_CLIENT_SECRET:-}" ]; then
+    # CA1 reuses the ambient BEARER_TOKEN; alias it so CA1_/CA2_ are explicit throughout this test
+    CA1_BEARER_TOKEN="$BEARER_TOKEN"
+
+    # Obtain a token for CA2
+    ca2_token_response=$(curl -s -X POST \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        --data-urlencode "grant_type=client_credentials" \
+        --data-urlencode "client_id=${CA2_CLIENT_ID}" \
+        --data-urlencode "client_secret=${CA2_CLIENT_SECRET}" \
+        "${BACKEND_BASE_URL}/api/auth/${API_VERSION}/token")
+    CA2_BEARER_TOKEN=$(echo "$ca2_token_response" | grep -o '"access_token":"[^"]*"' | sed 's/"access_token":"\([^"]*\)"/\1/')
+
+    if [ -z "$CA2_BEARER_TOKEN" ]; then
+        echo "❌ Test 12 failed: Could not obtain CA2 access token"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+    else
+        SHARED_AREA_ID="sdep-test-area-shared-$(date +%s)"
+
+        # CA1 POSTs the shared areaId
+        ca1_post=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer ${CA1_BEARER_TOKEN}" \
+            -F "file=@${SHAPEFILE_PATH}" \
+            -F "areaId=${SHARED_AREA_ID}" \
+            -F "areaName=CA1 area" \
+            "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas")
+        ca1_post_code=$(echo "$ca1_post" | tail -n1)
+
+        # CA2 POSTs the SAME areaId
+        ca2_post=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer ${CA2_BEARER_TOKEN}" \
+            -F "file=@${SHAPEFILE_PATH}" \
+            -F "areaId=${SHARED_AREA_ID}" \
+            -F "areaName=CA2 area" \
+            "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas")
+        ca2_post_code=$(echo "$ca2_post" | tail -n1)
+
+        # Each CA should still see their own area (GET /ca/areas/{id})
+        ca1_get_code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${CA1_BEARER_TOKEN}" \
+            "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas/${SHARED_AREA_ID}")
+        ca2_get_code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${CA2_BEARER_TOKEN}" \
+            "${BACKEND_BASE_URL}/api/ca/${API_VERSION}/areas/${SHARED_AREA_ID}")
+
+        echo "CA1 POST: $ca1_post_code  CA2 POST: $ca2_post_code  CA1 GET: $ca1_get_code  CA2 GET: $ca2_get_code"
+        echo
+
+        if [ "$ca1_post_code" -eq 201 ] && [ "$ca2_post_code" -eq 201 ] && \
+           [ "$ca1_get_code" -eq 200 ] && [ "$ca2_get_code" -eq 200 ]; then
+            echo "✅ Test 12 passed: Both CAs keep their own area despite shared areaId"
+            PASSED_TESTS=$((PASSED_TESTS + 1))
+        else
+            echo "❌ Test 12 failed: Expected both POSTs=201 and both GETs=200 (issue #141)"
+            FAILED_TESTS=$((FAILED_TESTS + 1))
+        fi
+    fi
+else
+    echo "⏭️  Skipping Test 12 (requires BEARER_TOKEN, CA2_CLIENT_ID, CA2_CLIENT_SECRET)"
+fi
+
+echo
+
 # Summary
 echo "═══════════════════════════════════════"
 echo "Test Summary:"

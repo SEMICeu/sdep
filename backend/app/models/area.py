@@ -64,7 +64,7 @@ class Area(Base):
         nullable=False,
         index=True,
         default=lambda: str(uuid.uuid4()),
-    )  # Functional ID (business-facing, API-exposed, lowercase alphanumeric with hyphens, max 64 chars) e.g., "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    )  # Functional ID (business-facing, API-exposed, alphanumeric with hyphens, max 64 chars) e.g., "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 
     area_name: Mapped[str | None] = mapped_column(
         String(64), nullable=True
@@ -106,13 +106,3 @@ class Area(Base):
     def __repr__(self) -> str:
         """String representation of Area."""
         return f"<Area(id={self.id}, area_id='{self.area_id}', filename='{self.filename}')>"
-
-    @property
-    def competent_authority_id_functional(self) -> str:
-        """Return the related competent authority functional ID."""
-        return self.competent_authority.competent_authority_id
-
-    @property
-    def competent_authority_name(self) -> str | None:
-        """Return the related competent authority display name."""
-        return self.competent_authority.competent_authority_name

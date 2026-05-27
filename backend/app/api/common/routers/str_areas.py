@@ -1,12 +1,15 @@
 """Areas endpoint."""
 
-import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.common.auth_dependencies import RequireRoles
+from app.api.common.filename import (
+    content_disposition_header,
+    sanitize_download_filename,
+)
 from app.api.common.security import Role
 from app.db.config import get_async_db_read_only
 from app.schemas.area import (
@@ -18,15 +21,6 @@ from app.schemas.error import ErrorResponse
 from app.services import area
 
 router = APIRouter(tags=["str"])
-
-_UNSAFE_FILENAME_CHARS = re.compile(r'["\\\r\n\x00-\x1f]')
-
-
-def _sanitize_filename(filename: str) -> str:
-    """Strip characters that could break or inject Content-Disposition headers."""
-    sanitized = _UNSAFE_FILENAME_CHARS.sub("", filename)
-    sanitized = sanitized.replace("/", "_").replace("\\", "_")
-    return sanitized or "download"
 
 
 @router.get(
@@ -53,20 +47,20 @@ def _sanitize_filename(filename: str) -> str:
                     "example": {
                         "areas": [
                             {
-                                "areaId": "959a7439-7cad-4009-96ec-353b44723db9",
+                                "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
                                 "areaName": "Amsterdam",
                                 "regulation": "all",
                                 "filename": "Amsterdam.zip",
-                                "competentAuthorityId": "sdep-ca0363",
+                                "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                                 "competentAuthorityName": "Amsterdam (inclusief Weesp)",
                                 "createdAt": "2025-01-01T00:00:00Z",
                             },
                             {
-                                "areaId": "904ee15d-70a6-4e69-a704-6018646803a8",
+                                "areaId": "974e2c23-b666-5044-a05c-9479a4c293a1",
                                 "areaName": "Rotterdam",
                                 "regulation": "all",
                                 "filename": "Rotterdam.zip",
-                                "competentAuthorityId": "sdep-ca0599",
+                                "competentAuthorityId": "a30df3a7-7e38-534c-b9c0-7666bad077d2",
                                 "competentAuthorityName": "Rotterdam",
                                 "createdAt": "2025-01-01T00:00:00Z",
                             },
@@ -206,10 +200,10 @@ async def get_area(
 
     # Return raw binary data (or empty bytes if filedata is None)
     binary_data = area_data.filedata if area_data.filedata is not None else b""
-    filename = _sanitize_filename(area_data.filename)
+    filename = sanitize_download_filename(area_data.filename)
 
     return Response(
         content=binary_data,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": content_disposition_header(filename)},
     )

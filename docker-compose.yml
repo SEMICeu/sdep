@@ -4,6 +4,7 @@
 
 volumes:
   postgres_data:
+  clamav_data:
 
 services:
 
@@ -51,6 +52,15 @@ services:
       postgres:
         condition: service_healthy
 
+  clamav:
+    image: clamav/clamav:stable
+    ports:
+      # Map host port to container port, defaults to 3310:3310
+      - "${MALWARE_SCAN_CLAMAV_PORT:-3310}:3310"
+    volumes:
+      - clamav_data:/var/lib/clamav
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -74,6 +84,9 @@ services:
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}
       POSTGRES_DB_USER: ${POSTGRES_DB_USER}
       POSTGRES_DB_PASSWORD: ${POSTGRES_DB_PASSWORD}
+      MALWARE_SCAN_CLAMAV_HOST: clamav
+      MALWARE_SCAN_CLAMAV_PORT: ${MALWARE_SCAN_CLAMAV_PORT}
+      MALWARE_SCAN_ENABLED: ${MALWARE_SCAN_ENABLED}
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('${BACKEND_BASE_URL}/api/health')\" || exit 1"]
@@ -84,3 +97,5 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      clamav:
+        condition: service_started

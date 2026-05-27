@@ -1,10 +1,10 @@
 """Verify OpenAPI example payloads resolve against seed SQL test data.
 
-Every `areaId` / `competentAuthorityId` referenced in a "Try it out" example
-(request body or response) must exist in `test-data/01-competent-authority.sql`
-or `test-data/02-area-generated.sql`, except for the documented sentinel
+Every `areaId` referenced in a "Try it out" example (request body or response)
+must exist in `test-data/02-area-generated.sql`, except for the documented sentinel
 `00000000-0000-0000-0000-000000000000` used to illustrate the area-not-found
-NOK path.
+NOK path. Every `competentAuthorityId` must be a UUID because owner IDs are
+generated separately from private `client_id` values.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.str.v1 import app_str_v1
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CA_SQL = REPO_ROOT / "test-data" / "01-competent-authority.sql"
 AREA_SQL = REPO_ROOT / "test-data" / "02-area-generated.sql"
 
 SENTINEL_INVALID_AREA_ID = "00000000-0000-0000-0000-000000000000"
@@ -25,11 +24,6 @@ SENTINEL_INVALID_AREA_ID = "00000000-0000-0000-0000-000000000000"
 UUID_RE = re.compile(
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 )
-CA_ID_RE = re.compile(r"sdep-ca\d+")
-
-
-def _load_valid_ca_ids() -> set[str]:
-    return set(CA_ID_RE.findall(CA_SQL.read_text()))
 
 
 def _load_valid_area_ids() -> set[str]:
@@ -93,13 +87,6 @@ def valid_area_ids() -> set[str]:
 
 
 @pytest.fixture(scope="module")
-def valid_ca_ids() -> set[str]:
-    ids = _load_valid_ca_ids()
-    assert ids, f"No competent authority ids parsed from {CA_SQL}"
-    return ids
-
-
-@pytest.fixture(scope="module")
 def openapi_specs() -> list[dict]:
     return [app_ca_v1.openapi(), app_str_v1.openapi()]
 
@@ -125,20 +112,18 @@ def test_openapi_area_ids_resolve_against_seed_sql(
     )
 
 
-def test_openapi_competent_authority_ids_resolve_against_seed_sql(
-    openapi_specs, valid_ca_ids
-) -> None:
+def test_openapi_competent_authority_ids_are_uuids(openapi_specs) -> None:
     failures: list[str] = []
     for spec in openapi_specs:
         for op_id, location, example in _iter_examples(spec):
             for path, key, value in _walk(example):
                 if key != "competentAuthorityId" or not isinstance(value, str):
                     continue
-                if value not in valid_ca_ids:
+                if not UUID_RE.fullmatch(value):
                     failures.append(
                         f"{op_id} @ {location} / {'.'.join(path)} = {value!r}"
                     )
     assert not failures, (
-        "OpenAPI examples reference competentAuthorityId values not in "
-        "test-data/01-competent-authority.sql:\n  " + "\n  ".join(failures)
+        "OpenAPI examples reference non-UUID competentAuthorityId values:\n  "
+        + "\n  ".join(failures)
     )

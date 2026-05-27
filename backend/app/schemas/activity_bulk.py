@@ -146,7 +146,7 @@ class ActivityBulkResponse(BaseModel):
                         "activityId": "550e8400-e29b-41d4-a716-446655440000",
                         "status": "finished",
                         "areaId": "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
-                        "competentAuthorityId": "sdep-ca0363",
+                        "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                         "competentAuthorityName": "Gemeente Amsterdam",
                         "url": "http://example.com/amsterdam-myhouse-1",
                         "address": {
@@ -163,7 +163,7 @@ class ActivityBulkResponse(BaseModel):
                             "startDatetime": "2025-06-01T14:00:00Z",
                             "endDatetime": "2025-06-07T11:00:00Z",
                         },
-                        "platformId": "str01",
+                        "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
                         "platformName": "Test STR 01",
                         "createdAt": "2025-06-01T12:00:00Z",
                     },

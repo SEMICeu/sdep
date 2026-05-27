@@ -23,39 +23,112 @@ class TestPlatformCRUD:
         # Act
         result = await platform.create(
             session=async_session,
+            client_id="platform01-client",
             platform_id=platform_id,
             platform_name=platform_name,
         )
 
         # Assert
         assert result.id is not None
+        assert result.client_id == "platform01-client"
         assert result.platform_id == platform_id
         assert result.platform_name == platform_name
         assert result.created_at is not None
         assert isinstance(result.created_at, datetime)
 
-    async def test_create_platform_with_duplicate_platform_id(
+    async def test_create_platform_allows_duplicate_platform_id(
         self, async_session: AsyncSession
     ):
-        """Test that creating a platform with duplicate platform_id raises IntegrityError."""
+        """Test that duplicate public platform_id values are allowed."""
         # Arrange
         duplicate_platform_id = "duplicate-platform"
 
         # Create first platform
         await platform.create(
             session=async_session,
+            client_id="duplicate-platform-client-1",
             platform_id=duplicate_platform_id,
             platform_name="First Platform",
         )
         await async_session.flush()
 
-        # Act & Assert - Try to create second platform with same platform_id
+        # Act
+        second = await platform.create(
+            session=async_session,
+            client_id="duplicate-platform-client-2",
+            platform_id=duplicate_platform_id,
+            platform_name="Second Platform",
+        )
+        await async_session.flush()
+
+        # Assert
+        assert second.platform_id == duplicate_platform_id
+
+    async def test_create_platform_with_duplicate_client_id_created_at(
+        self, async_session: AsyncSession
+    ):
+        """Test same client can create different public IDs at the same created_at."""
+        # Arrange
+        created_at = datetime(2026, 1, 1)
+
+        await platform.create(
+            session=async_session,
+            client_id="duplicate-platform-client",
+            platform_id="duplicate-platform-1",
+            platform_name="First Platform",
+        )
+        first = await platform.get_by_client_id(
+            async_session,
+            "duplicate-platform-client",
+        )
+        assert first is not None
+        first.created_at = created_at
+        await async_session.flush()
+
+        # Act
+        second = await platform.create(
+            session=async_session,
+            client_id="duplicate-platform-client",
+            platform_id="duplicate-platform-2",
+            platform_name="Second Platform",
+        )
+        second.created_at = created_at
+        await async_session.flush()
+
+        # Assert
+        assert second.client_id == first.client_id
+        assert second.platform_id != first.platform_id
+
+    async def test_create_platform_with_duplicate_client_public_id_created_at(
+        self, async_session: AsyncSession
+    ):
+        """Test duplicate public IDs within the same client/version raise IntegrityError."""
+        # Arrange
+        created_at = datetime(2026, 1, 1)
+
+        await platform.create(
+            session=async_session,
+            client_id="duplicate-platform-client",
+            platform_id="duplicate-platform",
+            platform_name="First Platform",
+        )
+        first = await platform.get_by_client_id(
+            async_session,
+            "duplicate-platform-client",
+        )
+        assert first is not None
+        first.created_at = created_at
+        await async_session.flush()
+
+        # Act & Assert
         with pytest.raises(IntegrityError):
-            await platform.create(
+            second = await platform.create(
                 session=async_session,
-                platform_id=duplicate_platform_id,
+                client_id="duplicate-platform-client",
+                platform_id="duplicate-platform",
                 platform_name="Second Platform",
             )
+            second.created_at = created_at
             await async_session.flush()
 
     async def test_get_by_id(self, async_session: AsyncSession):
@@ -76,32 +149,6 @@ class TestPlatformCRUD:
         """Test getting a non-existent platform by id."""
         # Act
         result = await platform.get_by_id(async_session, 99999)
-
-        # Assert
-        assert result is None
-
-    async def test_get_by_platform_id(self, async_session: AsyncSession):
-        """Test getting a platform by platform_id string."""
-        # Arrange
-        test_platform_id = "test-platform-xyz"
-        p = await PlatformFactory.create_async(
-            async_session, platform_id=test_platform_id
-        )
-
-        # Act
-        result = await platform.get_by_platform_id(async_session, test_platform_id)
-
-        # Assert
-        assert result is not None
-        assert result.id == p.id
-        assert result.platform_id == test_platform_id
-
-    async def test_get_by_platform_id_not_found(self, async_session: AsyncSession):
-        """Test getting a non-existent platform by platform_id."""
-        # Act
-        result = await platform.get_by_platform_id(
-            async_session, "non-existent-platform"
-        )
 
         # Assert
         assert result is None
@@ -158,37 +205,85 @@ class TestPlatformCRUD:
         # Assert
         assert total == 0
 
-    async def test_delete_platform_and_exists(self, async_session: AsyncSession):
+    async def test_exists_true(self, async_session: AsyncSession):
         created = await PlatformFactory.create_async(
-            async_session, platform_id="delete-me"
+            async_session, platform_id="exists-me"
+        )
+        assert await platform.exists(async_session, created.id) is True
+
+    async def test_exists_false(self, async_session: AsyncSession):
+        assert await platform.exists(async_session, 99999) is False
+
+    async def test_get_by_client_id_found(self, async_session: AsyncSession):
+        """Test getting a current platform by client_id."""
+        created = await platform.create(
+            async_session,
+            client_id="client-abc",
+            platform_name="My Platform",
         )
 
-        assert await platform.exists(async_session, created.id) is True
-        assert await platform.delete(async_session, created.id) is True
-        assert await platform.exists(async_session, created.id) is False
+        result = await platform.get_by_client_id(async_session, "client-abc")
 
-    async def test_delete_platform_not_found(self, async_session: AsyncSession):
-        assert await platform.delete(async_session, 99999) is False
+        assert result is not None
+        assert result.id == created.id
+        assert result.client_id == "client-abc"
 
-    async def test_exists_any_by_platform_id_true_for_ended(
+    async def test_get_by_client_id_not_found(self, async_session: AsyncSession):
+        """Test get_by_client_id returns None when client_id does not exist."""
+        result = await platform.get_by_client_id(async_session, "no-such-client")
+
+        assert result is None
+
+    async def test_get_by_client_id_returns_none_when_ended(
         self, async_session: AsyncSession
     ):
-        created = await PlatformFactory.create_async(
-            async_session, platform_id="ended-platform-id"
+        """Test get_by_client_id returns None for a soft-deleted (ended) platform."""
+        created = await platform.create(
+            async_session,
+            client_id="ended-client",
+            platform_name="Ended Platform",
+        )
+        await platform.mark_as_ended(async_session, created.platform_id)
+
+        result = await platform.get_by_client_id(async_session, "ended-client")
+
+        assert result is None
+
+    async def test_exists_any_by_client_id_true_for_ended(
+        self, async_session: AsyncSession
+    ):
+        """Test exists_any_by_client_id returns True even after the platform is ended."""
+        created = await platform.create(
+            async_session,
+            client_id="client-ended",
+            platform_name="Ended Platform",
         )
         await platform.mark_as_ended(async_session, created.platform_id)
 
         assert (
-            await platform.exists_any_by_platform_id(async_session, created.platform_id)
+            await platform.exists_any_by_client_id(async_session, "client-ended")
             is True
         )
 
-    async def test_exists_any_by_platform_id_false_for_nonexistent(
+    async def test_exists_any_by_client_id_false_for_nonexistent(
         self, async_session: AsyncSession
     ):
+        """Test exists_any_by_client_id returns False for unknown client_id."""
         assert (
-            await platform.exists_any_by_platform_id(
-                async_session, "missing-platform-id"
-            )
+            await platform.exists_any_by_client_id(async_session, "no-such-client-id")
             is False
         )
+
+    async def test_mark_as_ended_by_client_id(self, async_session: AsyncSession):
+        """Test that mark_as_ended_by_client_id sets ended_at on the current record."""
+        created = await platform.create(
+            async_session,
+            client_id="client-to-end",
+            platform_name="Platform To End",
+        )
+        assert created.ended_at is None
+
+        await platform.mark_as_ended_by_client_id(async_session, "client-to-end")
+        await async_session.refresh(created)
+
+        assert created.ended_at is not None

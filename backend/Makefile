@@ -1,7 +1,9 @@
+SHELL := /bin/bash
+
 .PHONY: init install \
         upgrade upgrade-sql downgrade revision show-history show-current \
         clean-stale up dev down \
-        test-crud test-services test-api test-security test test-coverage test-coverage-verbose openapi-snapshot-update \
+        test test-verbose test-coverage test-coverage-verbose test-crud test-services test-api test-security openapi-snapshot-update \
         format lint typecheck check \
         clean help
 
@@ -29,6 +31,7 @@ install: ## Install dependencies (from lockfile)
 
 upgrade: ## Upgrade database to latest revision
 	@uv run alembic upgrade head
+	@uv run alembic check
 
 upgrade-sql: ## Show upgrade SQL (offline, no database needed)
 	@uv run alembic upgrade head --sql
@@ -126,7 +129,7 @@ test-verbose: check ## Test all (verbose)
 
 test-coverage: check ## Test all (coverage, quiet)
 	@echo "🧪 Running tests with coverage..."
-	@uv run python -m pytest -n auto -q --tb=line --no-header --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=100 2>&1 | tail -40
+	@set -o pipefail; uv run python -m pytest -n auto -q --tb=line --no-header --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=100 2>&1 | tail -40
 	@echo "✅ Coverage tests completed! Coverage report in htmlcov/"
 
 test-coverage-verbose: check ## Test all (coverage, verbose)
@@ -153,6 +156,13 @@ test-security: check ## Test security only
 	@echo "🧪 Running security tests..."
 	uv run python -m pytest tests/security/ -n auto
 	@echo "✅ Security tests completed!"
+
+##@ Test all
+
+test: check ## Test all (check, coverage, quiet)
+	@echo "🧪 Running tests with check and coverage..."
+	@set -o pipefail; uv run python -m pytest -n auto -q --tb=line --no-header --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=100 2>&1 | tail -40
+	@echo "✅ Coverage tests completed! Coverage report in htmlcov/"
 
 ##@ Housekeeping
 

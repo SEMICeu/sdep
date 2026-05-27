@@ -5,7 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_serializer
+from pydantic import (
+    AliasPath,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    model_serializer,
+)
 
 from app.enums import Regulation
 from app.schemas.common import FunctionalId  # noqa: TC001
@@ -40,7 +47,7 @@ class AreaResponse(BaseModel):
         ...,
         serialization_alias="areaId",
         description="Functional ID identifying this area",
-        examples=["959a7439-7cad-4009-96ec-353b44723db9"],
+        examples=["58ff0814-3aa1-5019-9afb-3cd9f398602c"],
     )  # Functional ID
     area_name: str | None = Field(
         None,
@@ -63,14 +70,14 @@ class AreaResponse(BaseModel):
     competent_authority_id: FunctionalId = Field(
         ...,
         serialization_alias="competentAuthorityId",
-        # The ORM model exposes a convenience property for the functional CA ID.
-        validation_alias="competent_authority_id_functional",
+        validation_alias=AliasPath("competent_authority", "competent_authority_id"),
         description="Functional ID of the competent authority that owns the area",
-        examples=["sdep-ca0363"],
+        examples=["c4ac8ccf-a281-5789-bad7-28dfac20ca7f"],
     )  # Attribute
     competent_authority_name: str | None = Field(
         None,
         serialization_alias="competentAuthorityName",
+        validation_alias=AliasPath("competent_authority", "competent_authority_name"),
         max_length=64,
         description="Display name (optional) of the competent authority",
         examples=["Amsterdam (inclusief Weesp)"],

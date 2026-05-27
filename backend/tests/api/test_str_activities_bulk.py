@@ -1,6 +1,7 @@
 """Tests for STR Bulk Activities API endpoint."""
 
 from typing import Any
+from uuid import UUID
 
 import pytest
 import pytest_asyncio
@@ -8,8 +9,10 @@ from app.api.common.security import verify_bearer_token
 from app.api.domains.str.v1 import app_str_v1
 from app.db.config import get_async_db, get_async_db_read_only
 from app.enums import ActivityStatus
+from app.models.competent_authority import CompetentAuthority
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.fixtures.factories import AreaFactory, CompetentAuthorityFactory
@@ -86,9 +89,14 @@ class TestSTRActivitiesBulkAPI:
     async def test_areas(self, async_session: AsyncSession):
         """Create test areas for bulk activities tests."""
         from app.crud import area as area_crud
-        from app.crud import competent_authority as ca_crud
 
-        ca = await ca_crud.get_by_competent_authority_id(async_session, "test")
+        result = await async_session.execute(
+            select(CompetentAuthority).where(
+                CompetentAuthority.competent_authority_id == "test",
+                CompetentAuthority.ended_at.is_(None),
+            )
+        )
+        ca = result.scalar_one_or_none()
         if ca is None:
             ca = await CompetentAuthorityFactory.create_async(
                 async_session,
@@ -208,7 +216,8 @@ class TestSTRActivitiesBulkAPI:
         assert activity["countryOfGuests"] == ["NLD", "DEU", "BEL"]
         assert activity["temporal"]["startDatetime"] == "2025-06-01T14:00:00Z"
         assert activity["temporal"]["endDatetime"] == "2025-06-07T11:00:00Z"
-        assert activity["platformId"] == "str01"
+        UUID(activity["platformId"])
+        assert activity["platformId"] != "str01"
         assert activity["platformName"] == "STR Platform 01"
         assert activity["createdAt"] is not None
 

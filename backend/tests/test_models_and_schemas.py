@@ -317,8 +317,10 @@ def test_activity_and_area_schema_helpers_and_serializers():
             "area_name": None,
             "regulation": Regulation.all,
             "filename": "area.zip",
-            "competent_authority_id_functional": "ca-1",
-            "competent_authority_name": "Authority",
+            "competent_authority": {
+                "competent_authority_id": "ca-1",
+                "competent_authority_name": "Authority",
+            },
             "created_at": datetime(2025, 1, 1, tzinfo=UTC),
         }
     )
