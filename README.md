@@ -11,6 +11,7 @@ Overview:
 - [Unit Tests](#unit-tests)
 - [Integration Tests](#integration-tests)
 - [Performance Tests](#performance-tests)
+- [All Tests](#all-tests)
 - [Functional Design](#functional-design)
 - [Technical Design](#technical-design)
 - [Process](#process)
@@ -150,8 +151,6 @@ Backend only:
 ```
 cd backend
 make test
-make test-verbose
-make test-coverage
 ```
 
 ## Integration Tests
@@ -159,8 +158,8 @@ make test-coverage
 Fullstack:
 ```
 make up
-make test
-make test-verbose
+make test-full
+make test-malware
 ```
 
 The tests cover the cases as described in the [integration test documentation](./docs/INTEGRATION_TESTS.md).
@@ -184,6 +183,13 @@ make test-perf
 ```
 
 For full configuration options and usage examples, see [Performance Tests](./docs/PERFORMANCE_TESTS.md).
+
+## All Tests
+
+```
+make up
+make test
+```
 
 ## Functional Design
 

@@ -392,17 +392,18 @@ POST /api/ca/v1/areas (multipart/form-data: file + optional areaId, areaName)
 
 - Represent business identifiers, on the **"outside"**
 - Are client-provided (optional), or auto-provisioned otherwise (UUIDv4 RFC 9562)
-  - Exception: `platformId` and `competentAuthorityId` are never client-provided; they are always auto-provisioned server-side (UUIDv4 RFC 9562). The owning identity comes from the JWT `client_id` claim, which is stored separately as `clientId`.
 - After a POST, functional IDs are always returned/made visible
 - This allows them to be reused in subsequent submissions
 - Functional IDs enable versioning (in combination with a timestamp)
 
 https://datatracker.ietf.org/doc/rfc9562/
 
+See later in this document for more info on IDs.
+
 ### Versioning
 
 - Same functional ID can be resubmitted with new timestamp for versioning
-  - Entities use `(functionalId, createdAt)` as unique constraint
+  - Entities use `(functionalId, createdAt)` as (part of a) unique constraint
 - Stacking
   - Last becomes current (empty `endedAt`)
   - Previous becomes ended (`endedAt`)
@@ -490,11 +491,7 @@ This guarantees consistent versioning without duplicate active records.
 
 ---
 
-**Performance Considerations**
-
----
-
-**Single-entity versioning**
+**Performance Considerations - Single-entity versioning**
 
 For single-entity versioning operations, the impact of pessimistic locking is minimal.
 
@@ -526,7 +523,7 @@ Expected impact:
 - The expected performance impact is negligible
 - The overhead of the row-level lock is significantly smaller than the database I/O cost of the query itself
 
-**Bulk activity versioning**
+**Performance Considerations - Bulk activity versioning**
 
 Bulk versioning operations use the same locking strategy, but involve larger transactions.
 
