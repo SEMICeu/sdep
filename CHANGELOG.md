@@ -2,6 +2,10 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.1.1
+
+- Patch: periods and underscores were rejected erroneously, this is now fixed
+
 # 1.0.1
 
 - Fixed a bug where one CA could take over another CA’s areaId

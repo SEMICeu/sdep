@@ -133,6 +133,20 @@ class TestGetClient:
 
         assert client == Client(id="str01", name=None)
 
+    @pytest.mark.parametrize(
+        "client_id",
+        [
+            "sdep-test-str.01",
+            "381028359011.sdep.gov.local",
+            "client_with_underscore",
+        ],
+    )
+    async def test_get_client_accepts_keycloak_client_id_pattern(self, client_id: str):
+        """Accept client ids that match the Keycloak provisioning regex."""
+        client = await get_client(_parsed_token(client_id=client_id))
+
+        assert client.id == client_id
+
     async def test_get_client_raises_401_when_client_id_missing(self):
         """Reject tokens that do not include a client id claim."""
         with pytest.raises(HTTPException) as exc_info:
@@ -143,7 +157,7 @@ class TestGetClient:
         assert exc_info.value.headers == {"WWW-Authenticate": "Bearer"}
 
     async def test_get_client_raises_422_when_client_id_invalid(self):
-        """Reject tokens whose client id is not a valid functional ID."""
+        """Reject tokens whose client id does not match the client id pattern."""
         with pytest.raises(HTTPException) as exc_info:
             await get_client(_parsed_token(client_id="invalid id"))
 

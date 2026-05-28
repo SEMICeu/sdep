@@ -5,7 +5,6 @@ The [../tests](../tests) directory contains shell scripts for integration testin
 These tests verify API functionality, authentication, authorization, and security compliance.
 
 - [Running Tests](#running-tests)
-- [See ../Makefile.](#see-makefile)
 - [Configuration](#configuration)
   - [Credentials](#credentials)
   - [Bearer Tokens](#bearer-tokens)
@@ -37,12 +36,12 @@ See [../Makefile](../Makefile).
 Default test clients are configured in Keycloak. The Makefile retrieves secrets dynamically via `get_client_secret`:
 
 **Competent Authority (CA)**
-- **Client ID:** `sdep-test-ca01`
+- **Client ID:** `sdep-test-ca.01`
 - **Roles:** `sdep_ca`, `sdep_write`, `sdep_read`
 - **Can access:** CA endpoints
 
 **STR Platform**
-- **Client ID:** `sdep-test-str01`
+- **Client ID:** `sdep-test-str.01`
 - **Roles:** `sdep_str`, `sdep_write`, `sdep_read`
 - **Can access:** STR platform endpoints
 

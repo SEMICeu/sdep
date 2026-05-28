@@ -38,7 +38,7 @@ CA_CLIENT_SECRET = os.environ.get("CA_CLIENT_SECRET", "")
 # Configuration from environment
 BATCH_SIZE = int(os.environ.get("PERF_BATCH_SIZE", "500"))
 API_VERSION = os.environ.get("API_VERSION", "v1")
-STR_CLIENT_ID = os.environ.get("STR_CLIENT_ID", "sdep-test-str01")
+STR_CLIENT_ID = os.environ.get("STR_CLIENT_ID", "sdep-test-str.01")
 STR_CLIENT_SECRET = os.environ.get("STR_CLIENT_SECRET", "")
 PERF_AREA_IDS = [x for x in os.environ.get("PERF_AREA_IDS", "").split(",") if x]
 PERF_USERS = int(os.environ.get("PERF_USERS", "1"))

@@ -17,7 +17,7 @@ class TestCompetentAuthorityCRUD:
     async def test_create_competent_authority(self, async_session: AsyncSession):
         """Test creating a new competent authority."""
         # Arrange
-        client_id = "sdep-ca0363"
+        client_id = "sdep-ca.0363"
         competent_authority_name = "Gemeente Amsterdam"
 
         # Act

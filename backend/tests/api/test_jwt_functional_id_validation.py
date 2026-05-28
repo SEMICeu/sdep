@@ -1,8 +1,6 @@
 """Tests for JWT client_id functional ID validation.
 
-Validates that all endpoints reject invalid client_id claims (used as
-platform_id or competent_authority_id) that do not match the functional ID
-pattern: ^[A-Za-z0-9-]+$ (1-64 chars).
+Validates that all endpoints reject invalid client_id claims.
 """
 
 from typing import Any
@@ -24,9 +22,7 @@ from tests.api.zip_stub import ZIP
 
 INVALID_CLIENT_IDS = [
     pytest.param("has spaces", id="spaces"),
-    pytest.param("under_score", id="underscore"),
     pytest.param("special!char", id="special-char"),
-    pytest.param("dot.separated", id="dot"),
     pytest.param("slash/path", id="slash"),
     pytest.param("a" * 65, id="too-long-65-chars"),
 ]
@@ -293,9 +289,11 @@ class TestValidClientIdAccepted:
         "valid_id",
         [
             pytest.param("0363", id="numeric"),
-            pytest.param("sdep-ca0363", id="lowercase-with-hyphens"),
+            pytest.param("sdep-ca.0363", id="lowercase-with-dot"),
             pytest.param("SDEP-CA0363", id="uppercase-with-hyphens"),
             pytest.param("MixedCase-Id-123", id="mixed-case"),
+            pytest.param("client.with.dot", id="dot-separated"),
+            pytest.param("client_with_underscore", id="underscore-separated"),
             pytest.param("a", id="single-char"),
             pytest.param("a" * 64, id="max-length-64-chars"),
         ],

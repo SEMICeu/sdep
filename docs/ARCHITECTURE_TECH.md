@@ -111,6 +111,7 @@ sdep-app/
 │   │   │   │   │   └── str_areas.py            # STR area endpoints
 │   │   │   │   ├── auth_dependencies.py        # Shared auth/role dependencies
 │   │   │   │   ├── exception_handlers.py
+│   │   │   │   ├── filename.py                 # Filename sanitization utilities
 │   │   │   │   ├── openapi.py
 │   │   │   │   └── security.py
 │   │   │   ├── common_app.py                   # Version-independent sub-app (health, ping)
@@ -150,14 +151,15 @@ sdep-app/
 │   │   │   ├── address.py
 │   │   │   ├── area.py
 │   │   │   ├── auth.py
-│   │   │   ├── common.py                       # Shared types: FunctionalId, validate_functional_id()
+│   │   │   ├── common.py                       # Shared types: FunctionalId, validate_client_id()
 │   │   │   ├── error.py
 │   │   │   ├── health.py
 │   │   │   └── temporal.py
 │   │   ├── security/                           # Security utilities
 │   │   │   ├── audit.py                        # Audit logging middleware
 │   │   │   ├── audit_retention.py              # Background audit log cleanup
-│   │   │   └── headers.py                      # Security headers
+│   │   │   ├── headers.py                      # Security headers
+│   │   │   └── malware_scan.py                 # ClamAV malware scan
 │   │   ├── services/                           # Business logic layer
 │   │   │   ├── activity.py
 │   │   │   ├── activity_bulk.py
@@ -168,7 +170,10 @@ sdep-app/
 │   ├── alembic/                                # Database migrations
 │   │   ├── env.py                              # Alembic environment config
 │   │   └── versions/                           # Migration scripts
-│   │       └── 001_initial.py                  # Initial migration
+│   │       ├── 001_initial.py                  # Initial migration
+│   │       ├── 002_separate_client_ids.py      # Separate client IDs per entity
+│   │       ├── 003_owner_version_uniqueness_on_client_id.py  # Owner version uniqueness
+│   │       └── 004_align_owner_table_layout_with_datamodel.py  # Align table layout with data model
 │   ├── tests/                                  # Unit tests (mirrors app/ structure)
 │   │   ├── api/                                # API layer tests
 │   │   ├── crud/                               # CRUD layer tests
@@ -185,7 +190,9 @@ sdep-app/
 ├── tests/                                      # Integration tests + performance tests
 │   ├── lib/                                    # Test library utilities
 │   │   └── create_fixture_areas.sh             # Area fixture creation
-│   ├── perf/                                   # Performance tests (Locust)
+│   ├── malware/                                # Malware scan tests
+│   │   └── test_malware_scan.py                # ClamAV malware scan test
+│   ├── performance/                            # Performance tests (Locust)
 │   │   └── locustfile.py                       # Bulk activity load test
 │   ├── test_auth_client.sh                     # OAuth2 token acquisition utility
 │   ├── test_auth_credentials.sh                # Test client credentials flow
@@ -254,6 +261,7 @@ sdep-app/
 │       └── LISTINGFLOW.svg
 │
 ├── scripts/                                    # Utility scripts
+│   ├── generate-eicar-zip.sh                   # Generate EICAR test archive for malware scan testing
 │   ├── run-tests.sh                            # Integration test runner
 │   └── run-tests-perf.sh                       # Performance test runner (Locust)
 │

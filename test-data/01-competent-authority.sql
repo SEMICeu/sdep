@@ -6,7 +6,7 @@
 INSERT INTO competent_authority (competent_authority_id, client_id, competent_authority_name, created_at)
 VALUES (
   'c4ac8ccf-a281-5789-bad7-28dfac20ca7f',
-  'sdep-ca0363',
+  'sdep-ca.0363',
   'Amsterdam (inclusief Weesp)',
   '2025-01-01 00:00:00+00'::timestamptz
 ) ON CONFLICT (client_id, competent_authority_id, created_at) DO NOTHING;
@@ -15,7 +15,7 @@ VALUES (
 INSERT INTO competent_authority (competent_authority_id, client_id, competent_authority_name, created_at)
 VALUES (
   'a30df3a7-7e38-534c-b9c0-7666bad077d2',
-  'sdep-ca0599',
+  'sdep-ca.0599',
   'Rotterdam',
   '2025-01-01 00:00:00+00'::timestamptz
 ) ON CONFLICT (client_id, competent_authority_id, created_at) DO NOTHING;
@@ -24,7 +24,7 @@ VALUES (
 INSERT INTO competent_authority (competent_authority_id, client_id, competent_authority_name, created_at)
 VALUES (
   '363ce948-b057-54f3-a916-5dd127a93986',
-  'sdep-ca0518',
+  'sdep-ca.0518',
   'Den Haag',
   '2025-01-01 00:00:00+00'::timestamptz
 ) ON CONFLICT (client_id, competent_authority_id, created_at) DO NOTHING;

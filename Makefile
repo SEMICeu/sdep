@@ -298,9 +298,9 @@ dbgate-status: ## Show DBGate and Postgres status
 	@set -a && source .env && set +a && \
 	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
 	source ./keycloak/get-client-secret.sh && \
-	CA1_CLIENT_ID=sdep-test-ca01 && KC_APP_REALM_CLIENT_ID=$$CA1_CLIENT_ID && get_client_secret && CA1_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
-	CA2_CLIENT_ID=sdep-test-ca02 && KC_APP_REALM_CLIENT_ID=$$CA2_CLIENT_ID && get_client_secret && CA2_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
-	STR_CLIENT_ID=sdep-test-str01 && KC_APP_REALM_CLIENT_ID=$$STR_CLIENT_ID && get_client_secret && STR_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	CA1_CLIENT_ID=sdep-test-ca.01 && KC_APP_REALM_CLIENT_ID=$$CA1_CLIENT_ID && get_client_secret && CA1_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	CA2_CLIENT_ID=sdep-test-ca.02 && KC_APP_REALM_CLIENT_ID=$$CA2_CLIENT_ID && get_client_secret && CA2_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	STR_CLIENT_ID=sdep-test-str.01 && KC_APP_REALM_CLIENT_ID=$$STR_CLIENT_ID && get_client_secret && STR_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	echo "export CA1_CLIENT_ID=$$CA1_CLIENT_ID" > ./tmp/.credentials && \
 	echo "export CA1_CLIENT_SECRET=$$CA1_CLIENT_SECRET" >> ./tmp/.credentials && \
 	echo "export CA2_CLIENT_ID=$$CA2_CLIENT_ID" >> ./tmp/.credentials && \

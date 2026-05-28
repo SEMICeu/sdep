@@ -3,7 +3,7 @@
 # Usage: create_fixture_areas.sh [count] [prefix]
 # Outputs area IDs to stdout (one per line). Errors to stderr.
 # Requires env: BACKEND_BASE_URL, API_VERSION
-# Uses ephemeral test CA client (sdep-test-ca01) so all created rows match sdep-test-* for cleanup
+# Uses ephemeral test CA client (sdep-test-ca.01) so all created rows match sdep-test-* for cleanup
 
 set -e
 COUNT=${1:-3}

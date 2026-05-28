@@ -9,8 +9,8 @@ clients:
   # 1. Test clients whose test data is automatically removed after automated test runs
 
   # 1a. Short-term rental platforms (STR)
-  - id: "sdep-test-str01"
-    secret: "sdep-test-str01"
+  - id: "sdep-test-str.01"
+    secret: "sdep-test-str.01"
     name: "Test STR 01 (test automation, ephemeral data)"
     description: "STR client with read-write access"
     service_account_roles:
@@ -19,16 +19,16 @@ clients:
       - sdep_write
 
   # 1b. Competent authorities (CA)
-  - id: "sdep-test-ca01"
-    secret: "sdep-test-ca01"
+  - id: "sdep-test-ca.01"
+    secret: "sdep-test-ca.01"
     name: "Test CA 01 (test automation, ephemeral data)"
     description: "CA client with read-write access"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
-  - id: "sdep-test-ca02"
-    secret: "sdep-test-ca02"
+  - id: "sdep-test-ca.02"
+    secret: "sdep-test-ca.02"
     name: "Test CA 02 (test automation, ephemeral data)"
     description: "Second CA client used for cross-CA isolation tests"
     service_account_roles:
@@ -39,8 +39,8 @@ clients:
   # 2. Test clients whose test data remains unaffected after automated test runs
 
   # 2a. Short-term rental platforms (STR)
-  - id: "sdep-str01"
-    secret: "sdep-str01"
+  - id: "sdep-str.01"
+    secret: "sdep-str.01"
     name: "Test STR 01 (interactive usage, persistent data)"
     description: "STR client with read-write access"
     service_account_roles:
@@ -58,8 +58,8 @@ clients:
       - sdep_write
 
   # 2b. Competent authorities (CA)
-  - id: "sdep-ca01"
-    secret: "sdep-ca01"
+  - id: "sdep-ca.01"
+    secret: "sdep-ca.01"
     name: "Test CA 01 (interactive usage, persistent data)"
     description: "CA client with read-write access"
     service_account_roles:
@@ -79,24 +79,24 @@ clients:
   # 3. Test clients whose test data remains unaffected after automated test runs, deployed with predefined test data
 
   # 3a. Competent authorities (CA)
-  - id: "sdep-ca0363"
-    secret: "sdep-ca0363"
+  - id: "sdep-ca.0363"
+    secret: "sdep-ca.0363"
     name: "Gemeente Amsterdam"
     description: "CA client with read-write access"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
-  - id: "sdep-ca0599"
-    secret: "sdep-ca0599"
+  - id: "sdep-ca.0599"
+    secret: "sdep-ca.0599"
     name: "Gemeente Rotterdam"
     description: "CA client with read-write access"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
-  - id: "sdep-ca0518"
-    secret: "sdep-ca0518"
+  - id: "sdep-ca.0518"
+    secret: "sdep-ca.0518"
     name: "Gemeente Den Haag"
     description: "CA client with read-write access"
     service_account_roles:

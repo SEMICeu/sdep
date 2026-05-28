@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from app.api.common.security import Role, verify_bearer_token
-from app.schemas.common import validate_functional_id
+from app.schemas.common import validate_client_id
 
 
 class ParsedToken(BaseModel):
@@ -81,7 +81,7 @@ async def get_client(
             headers={"WWW-Authenticate": "Bearer"},
         )
     try:
-        validate_functional_id(parsed_token.client_id, "client_id")
+        validate_client_id(parsed_token.client_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
