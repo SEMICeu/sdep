@@ -93,7 +93,7 @@ echo "📄 Processing clients from ${KC_APP_REALM_MACHINE_CLIENT_YAML}..."
 
 CLIENT_COUNT=$(yq '.clients | length' "$KC_APP_REALM_MACHINE_CLIENT_YAML")
 IDEMPOTENCY_SUBSTR="${IDEMPOTENCY_KEY}"
-CLIENTID_REGEX=$(yq -r '.config.clientid_regex // "^[A-Za-z0-9._\-]+$"' "$KC_APP_REALM_CONFIG_YAML")
+CLIENTID_REGEX=$(yq -r '.config.clientid_regex // "^[A-Za-z0-9._-]+$"' "$KC_APP_REALM_CONFIG_YAML")
 
 # First pass: validate clients contain idempotency_key and match clientid_regex, collect valid indices
 VALID_INDICES=()
