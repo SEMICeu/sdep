@@ -1,8 +1,9 @@
 ## Prototype – Version 1
 
-This folder contains everything related to the **first version of the prototype**.  
-It includes the initial design ideas, early implementation files, and the foundational concepts on which the project was built.
+This folder contains all materials related to the first prototype developed by PwC.
+It includes the initial design concepts, early implementation files, and the foundational ideas on which the project was originally built.
 
-IMPORTANT: In the meantime, we have progressed to a **Version 2 reference model**, which reflects the updated architecture, improved logic, and refined structure.  
-You can find the V2 reference model in the **corresponding folder elsewhere in this GitHub repository**.
-``
+Over time, this prototype evolved into a Version 1 Reference Model, created in collaboration with the Netherlands (now the frozen reference model).
+That V1 reference model reflects a more mature and aligned architectural approach and can be found elsewhere in this repository.
+
+In the coming months, we will transition further toward a Version 2 Reference Model. 
