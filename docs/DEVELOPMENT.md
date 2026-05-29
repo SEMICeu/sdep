@@ -11,7 +11,7 @@ For database dialect compatibility, see [Database Dialects](./DATABASE_DIALECTS.
 - [Testing Strategy](#testing-strategy)
   - [Unit Tests](#unit-tests-backendtests)
   - [Integration Tests](#integration-tests-tests)
-  - [Performance Tests](#performance-tests-testsperformance)
+  - [Performance Tests](#performance-tests-testsperf)
 - [Key Configuration Files](#key-configuration-files)
 
 ---

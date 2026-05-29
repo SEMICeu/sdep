@@ -20,6 +20,7 @@ The following security considerations apply:
 - [Middleware Ordering](#middleware-ordering)
 - [Security Headers, DNS, TLS](#security-headers-dns-tls)
 - [Rate Limiting (Throttling)](#rate-limiting-throttling)
+- [Rate Limiting (Throttling)](#rate-limiting-throttling-1)
 - [Dependency Version Pinning](#dependency-version-pinning)
 - [Non-Root Containers](#non-root-containers)
 - [Container Image Scans](#container-image-scans)
@@ -222,7 +223,7 @@ Path traversal is mitigated by design through the application architecture:
 - **No filesystem operations on user-supplied input** — uploaded files are read into memory and stored as binary blobs (`LargeBinary`) in the database, not written to disk
 - The uploaded filename is stored as metadata in the database only; it is **never used to construct filesystem paths**
 - All functional IDs (used in URL path parameters and form fields) are validated against a strict alphanumeric pattern (`^[A-Za-z0-9\-]+$` in [`common.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/schemas/common.py)), which rejects path traversal characters (`/`, `\`, `.`, `..`)
-- JWT claims used as identifiers (`client_id`) are validated against the same pattern before use
+- JWT claims used as identifiers (`client_id`) are validated against a similarly strict pattern (`^[A-Za-z0-9._-]+$`), which additionally permits `.` and `_` for Keycloak client naming while still rejecting path separators (`/`, `\`)
 
 ## CSRF
 
@@ -375,6 +376,14 @@ Although CI/CD-related aspects are outside the scope of this repo, additional te
 Rate limiting (throttling) helps protect against brute-force attacks and abuse, particularly on unauthenticated endpoints such as `/token`, where an attacker could attempt credential stuffing at network speed.
 
 Rate limiting is typically applied per client IP address and is often enforced at the deployment or infrastructure layer (for example through a Kubernetes Ingress controller, HAProxy load balancer, or Keycloak authorization server).
+
+These deployment-specific concerns are outside the scope of this repository.
+
+## Rate Limiting (Throttling)
+
+Rate limiting (throttling) helps protect against brute-force attacks and abuse, particularly on unauthenticated endpoints such as /token, where an attacker could attempt credential stuffing at network speed.
+
+Rate limiting is typically applied per client IP address and is often enforced at the deployment or infrastructure layer (for example through a Kubernetes Ingress controller, or an HAProxy load balancer).
 
 These deployment-specific concerns are outside the scope of this repository.
 

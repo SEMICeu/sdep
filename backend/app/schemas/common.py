@@ -9,7 +9,7 @@ from pydantic import Field
 
 FUNCTIONAL_ID_PATTERN = r"^[A-Za-z0-9-]+$"
 _FUNCTIONAL_ID_RE = re.compile(FUNCTIONAL_ID_PATTERN)
-CLIENT_ID_PATTERN = r"^[A-Za-z0-9._\-]+$"
+CLIENT_ID_PATTERN = r"^[A-Za-z0-9._-]+$"
 _CLIENT_ID_RE = re.compile(CLIENT_ID_PATTERN)
 
 FunctionalId = Annotated[

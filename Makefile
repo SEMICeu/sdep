@@ -483,6 +483,9 @@ test-security: .is-up .get-client-credentials ## Test security (headers, unautho
 	echo "" && \
 	echo "Testing credentials..." && \
 	./tests/test_auth_credentials.sh 2>&1 | tee $$OUTPUT_FILE && \
+	echo "" && \
+	echo "Testing client-ID regex..." && \
+	./tests/test_client_id_regex.sh 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ Security tested"
 
 ##@ Test Integration

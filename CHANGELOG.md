@@ -2,6 +2,12 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.1.2
+
+- Fixed the OAuth client ID validation regex to reject backslashes 
+- Documentation updates
+- Added a script to generate EICAR files automatically, can be used to verify malware scanning
+
 # 1.1.1
 
 - Patch: periods and underscores were rejected erroneously, this is now fixed
@@ -27,7 +33,7 @@
 - Fixed API exposure to return functional identifiers instead of JWT-based client identifiers for Platform and Competent Authority
   - Ensures private authentication identifiers remain internal
   - Exposes only functional identifiers intended for external API usage
-  - Updated the examples in the Swagger docs accordingly
+  - Updated the examples in the Swagger docs accordingly. These changes are tracked in `./backend/tests/api/fixtures/openapi_*.json`.
 - Added support for periods and underscores in JWT client-ids
 - Added some Makefile improvements
 - Removed unused code (CRUD hard deletes)
