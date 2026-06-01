@@ -2,7 +2,7 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
-# 1.2.0
+# 1.1.3
 
 - Added a "make trivy" to run trivy on local machine
 - Improved the make test targets to ensure/start fullstack, and to avoid a needless backed recreate
