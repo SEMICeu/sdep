@@ -11,9 +11,8 @@ For database dialect compatibility, see [Database Dialects](./DATABASE_DIALECTS.
 - [Testing Strategy](#testing-strategy)
   - [Unit Tests](#unit-tests-backendtests)
   - [Integration Tests](#integration-tests-tests)
-  - [Performance Tests](#performance-tests-testsperf)
+  - [Performance Tests](#performance-tests-testsperformance)
 - [Key Configuration Files](#key-configuration-files)
-- [GitHub Publication](#github-publication)
 
 ---
 

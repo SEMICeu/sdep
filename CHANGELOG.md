@@ -7,6 +7,7 @@
 - Added a "make trivy" to run trivy on local machine
 - Improved the make test targets to ensure/start fullstack, and to avoid a needless backed recreate
 - Improved test portability
+- Updated transitive dependency to fix CVE
 - Updated documentation to reflect code changes
 
 # 1.1.2

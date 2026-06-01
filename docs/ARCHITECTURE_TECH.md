@@ -10,7 +10,7 @@ This document provides an overview of the SDEP (Single Digital Entry Point) tech
   - [Backend](#backend)
   - [Infrastructure](#infrastructure)
   - [Development Tools](#development-tools)
-- [Repository / Directory Structure](#repository-directory-structure)
+- [Repository / Directory Structure](#repository--directory-structure)
 - [Backend Architecture](#backend-architecture)
   - [API Layer (`app/api/`)](#api-layer-appapi)
   - [Schemas Layer (`app/schemas/`)](#schemas-layer-appschemas)

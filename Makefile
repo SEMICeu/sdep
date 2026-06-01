@@ -501,7 +501,12 @@ test-security: .ensure-up .get-client-credentials ## Test only security (headers
 	./tests/test_client_id_regex.sh 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ Security tested"
 
-test-malware: .ensure-up ## Test malware scanning (starts ClamAV via Docker Compose if not already running)
+# No .ensure-up here on purpose: the malware test talks directly to ClamAV (not the
+# backend API), so it only needs its own clamav container, started below (idempotent
+# if `make up` already started it). Bringing up the full stack would run a compose
+# build/up that fails where there is no compose stack — this keeps test-malware able
+# to run standalone in a CI/CD environment (which provides ClamAV as a service).
+test-malware: ## Test malware scanning (starts ClamAV via Docker Compose if not already running)
 	@echo "🧪 Running malware scanning tests..."
 	@if [ -z "$$CI" ]; then \
 		$(DOCKER_COMPOSE) up -d clamav; \
@@ -537,18 +542,18 @@ test-perf-verbose: .ensure-up .get-client-credentials ## Run bulk performance te
 
 ##@ Tests (All)
 
-test: ## Run all tests (fullstack + integration + performance)
+test: ## Run all tests (fullstack incl. malware + performance)
 	@echo "🧪 Running all tests..."
 	@echo ""
 	@echo "  1. Fullstack tests (test-full)"
-	@echo "  2. Integration tests (test-malware)"
+	@echo "  2. Fullstack malware scan (test-malware)"
 	@echo "  3. Performance tests (test-perf)"
 	@echo ""
 	@$(MAKE) --no-print-directory test-full
 	@$(MAKE) --no-print-directory test-malware
 	@$(MAKE) --no-print-directory test-perf PERF_YES=true
 	@echo ""
-	@echo "✅ All tests completed (fullstack + integration + performance)"
+	@echo "✅ All tests completed (fullstack incl. malware + performance)"
 
 ##@ Security Checks
 
@@ -557,7 +562,7 @@ trivy: export DOCKER_DEFAULT_PLATFORM := linux/amd64
 # The fresh --no-cache build below otherwise replaces local/sdep-backend:latest,
 # which would make the next `make up` needlessly recreate the backend container.
 trivy: export BACKEND_IMAGE_VERSION := trivy-scan
-trivy: ## Run all security checks (build and scan backend image with Trivy CVE allowlist checks)
+trivy: ## Run security checks (build and scan backend image with Trivy CVE allowlist checks)
 	@echo "🔒 Running all security checks..."
 	@echo ""
 	@# Always build fresh (--pull --no-cache) so apt-get upgrade fetches current

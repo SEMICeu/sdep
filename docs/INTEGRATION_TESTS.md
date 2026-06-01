@@ -5,7 +5,6 @@ The [../tests](../tests) directory contains shell scripts for integration testin
 These tests verify API functionality, authentication, authorization, and security compliance.
 
 - [Running Tests](#running-tests)
-- [See ../Makefile.](#see-makefile)
 - [Configuration](#configuration)
   - [Credentials](#credentials)
   - [Bearer Tokens](#bearer-tokens)

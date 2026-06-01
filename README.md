@@ -6,12 +6,15 @@ Overview:
 - [Specification](#specification)
 - [Reference Implementation](#reference-implementation)
 - [Production](#production)
-- [Test](#test)
+- [Pre-production Testing](#pre-production-testing)
 - [Development](#development)
-- [Unit Tests](#unit-tests)
-- [Integration Tests](#integration-tests)
-- [Performance Tests](#performance-tests)
-- [All Tests](#all-tests)
+  - [Fullstack](#fullstack)
+  - [Tests (Unit)](#tests-unit)
+  - [Tests (Fullstack)](#tests-fullstack)
+  - [Tests (Performance)](#tests-performance)
+  - [All Tests](#all-tests)
+  - [Security](#security)
+  - [All Tests + Security](#all-tests--security)
 - [Functional Design](#functional-design)
 - [Technical Design](#technical-design)
 - [Process](#process)
@@ -64,7 +67,7 @@ The PRD environment (https://sdep.gov.nl/api/docs):
 
 > **Disclaimer (PRD)**: For production use in your own country, always contact your **national SDEP representative** regarding national deployment and operational responsibilities.
 
-## Test
+## Pre-production Testing
 
 To facilitate end-to-end testing with integration partners, the reference implementation is also deployed in a dedicated pre-production environment (**PRE**) in the Netherlands within SDEP-NL.
 
@@ -84,9 +87,11 @@ In the PRE environment:
 
 ## Development
 
-The reference implementation can also be run **fullstack** on a local workstation.
+The reference implementation can be developed and tested **fullstack** on a local workstation.
 
 *Tested on Linux; for Windows, consider using WSL.*
+
+### Fullstack
 
 **Prerequisites**
 
@@ -95,11 +100,11 @@ Required:
 - Docker
 - "jq" and "yq"
 - "make"
+- "uv" (includes uvx)
 
 Optional:
 
 - DBGate (a PostgreSQL management tool)
-- "uvx" (a component used in performance testing)
 
 **Clone this repo**
 
@@ -111,7 +116,11 @@ Incl. local infra (postgres + keycloak + backend):
 ```
 make up
 ```
-Ports for the started services are defined in .env. To override any of these values, define them in .env.extra.
+
+Default ports for the started services are defined in `.env`
+
+- To override any of these values, define them in `.env.extra`
+- See example in `.env.extra.example`
 
 Explore API docs (Swagger UI):
 
@@ -131,7 +140,6 @@ Authorize in Swagger UI:
 
 Explore endpoints in your current role (ca, str).
 
-
 **Run SDEP (backend only)**
 
 Excl. local infra:
@@ -145,7 +153,7 @@ make up
 make
 ```
 
-## Unit Tests
+### Tests (Unit)
 
 Backend only:
 ```
@@ -153,42 +161,91 @@ cd backend
 make test
 ```
 
-## Integration Tests
+### Tests (Fullstack)
 
-Fullstack:
+Fullstack (invoke from top-level):
 ```
-make up
 make test-full
-make test-malware
 ```
 
 The tests cover the cases as described in the [integration test documentation](./docs/INTEGRATION_TESTS.md).
 
 - Tests are executed against the complete Dockerized stack
-- Test suites run sequentially: `test-security`, `test-str`, `test-ca`, and `test-malware` - each exercising the live API via curl
+- Test suites run sequentially: `test-smoke`, `test-security`, `test-str`, and `test-ca` - each exercising the live API over HTTP (curl, and httpx for the STR bulk endpoint)
 - Test data uses the `sdep-test-*` naming convention; this data is automatically detected and removed after each test run (`postgres/clean-testrun.sql`)
 - Test isolation is enforced by comparing table row counts before and after execution (PRE/POST); any discrepancy causes the build to fail
 - A consolidated summary report presents per-suite and overall totals (executed/passed/failed) and exits with a non-zero status if any test fails
 
-The tests can also be re-used/run against real deployments (TST, ACC, PRE, PRD; contact SDEP NL for more info).
+Malware scanning (ClamAV) is part of the fullstack tests and is run as a separate command (it is not included in `make test-full`):
+```
+make test-malware
+```
 
-## Performance Tests
+All fullstack tests can also be re-used/run against real deployments (TST, ACC, PRE, PRD; contact SDEP NL for more info).
+
+### Tests (Performance)
 
 Locust-based load testing for the bulk activity endpoint (`POST /str/activities/bulk`).
-
-Fullstack:
 ```
-make up
 make test-perf
 ```
 
 For full configuration options and usage examples, see [Performance Tests](./docs/PERFORMANCE_TESTS.md).
 
-## All Tests
+### All Tests
+
+All tests in one go (fullstack + performance):
+```
+make test
+```
+
+This runs the fullstack tests (`test-full` and the malware scan `test-malware`), followed by the performance test (`test-perf`).
+
+### Security
+
+Scan the backend image for known CVEs:
 
 ```
-make up
-make test
+make trivy
+```
+
+This check:
+
+- Builds the backend image from scratch with `--pull --no-cache`
+  - This ensures the latest Debian security updates are included.
+  - Cached layers can otherwise retain vulnerabilities that have already been fixed upstream.
+- Scans the resulting image with Trivy via the `run-trivy-scan` Compose service.
+- Compares findings against the allowlist in a `docs/CVE_EXPLAINS.md` and fails if:
+  - New CVEs are detected that are not allowlisted.
+  - Allowlisted CVEs are no longer present and should be removed from the file.
+
+The `docs/CVE_EXPLAINS.md` is not checked-in.
+
+- Each EU member state implementing an SDEP is responsible for monitoring and remediating CVEs within its own CI/CD
+
+The scan uses a temporary image tag and does not affect the image used by `make up`.
+
+OS security updates are applied by `apt-get upgrade` in the Dockerfile, but those updates are only incorporated when the layer is rebuilt.
+
+- For fast local development, `make up` reuses Docker's build cache
+  - Image is not guaranteed to include the latest security patches.
+- In CI/CD guarantee, a fully up-to-date image should be guaranteed by disable caching
+  - For example, `--cache=false`
+- In the Trivy security gate (`make trivy`), a fully up-to-date image is also guaranteed
+  - See the above `--pull --no-cache`.
+
+To refresh a local image on demand:
+
+```bash
+make trivy
+# or
+docker compose build --pull --no-cache backend
+```
+
+### All Tests + Security
+
+```
+make all
 ```
 
 ## Functional Design

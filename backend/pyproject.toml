@@ -81,6 +81,12 @@ dev = [
     "reportlab>=4.4.10",
 ]
 
+[tool.uv]
+# Pin idna to remediate DoS in idna.encode(idna < 3.15).
+# idna is a transitive dependency only; this constraint enforces the fixed
+# version without declaring it as a direct project dependency.
+constraint-dependencies = ["idna==3.17"]
+
 [tool.uv.sources]
 # Ensure we use the restructured backend source
 app = { workspace = true }
