@@ -177,7 +177,7 @@ Test CA (Competent Authority) endpoints.
 
 Test STR (Short-Term Rental) platform endpoints.
 
-**Scripts:** `test_str_areas.sh`, `test_str_activities_bulk.sh`
+**Scripts:** `test_str_areas.sh`, `test_str_activities_bulk.py`
 
 ---
 
@@ -207,9 +207,9 @@ Test STR (Short-Term Rental) platform endpoints.
 
 ---
 
-**`test_str_activities_bulk.sh`**
+**`test_str_activities_bulk.py`**
 
-**Setup:** Creates 3 fixture areas via `lib/create_fixture_areas.sh` before running tests.
+**Setup:** Creates 3 fixture areas via the CA API before running tests.
 
 **Tests:**
 - **Test 1:** POST bulk activities (all valid) → 201, succeeded=2, failed=0
@@ -356,4 +356,4 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 - Outputs created area IDs to stdout (one per line), errors to stderr
 - Does not modify `./tmp/.bearer_token` (uses a local token variable)
 
-**Used by:** `test_str_areas.sh`, `test_str_activities_bulk.sh`, `test-perf` (root Makefile)
+**Used by:** `test_str_areas.sh`, `test-perf` (root Makefile)

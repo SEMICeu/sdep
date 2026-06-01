@@ -13,6 +13,7 @@ For database dialect compatibility, see [Database Dialects](./DATABASE_DIALECTS.
   - [Integration Tests](#integration-tests-tests)
   - [Performance Tests](#performance-tests-testsperf)
 - [Key Configuration Files](#key-configuration-files)
+- [GitHub Publication](#github-publication)
 
 ---
 

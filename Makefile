@@ -2,26 +2,36 @@ SHELL := /bin/bash
 
 .PHONY: .build .clean-stale \
         .drop-database .migrate-database .load-test-data \
-        postgres-up postgres-down \
-        postgres-login postgres-status postgres-status-full postgres-auditlog \
+        postgres-up postgres-down postgres-login postgres-status postgres-status-full \
+        postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load postgres-auditlog \
         postgres-activity-count postgres-area-count postgres-platform-count postgres-competent-authority-count postgres-audit-log-count postgres-count-all \
-        postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load \
         generate-area-sql \
         dbgate-up dbgate-down dbgate-restart dbgate-status \
         .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles .keycloak-machine-clients .get-client-credentials \
         keycloak-up keycloak-down \
         backend-up backend-down backend-restart \
         up down restart status \
-        .is-up .clean-testrun \
-        test-full test-full-keep test-full-verbose test-smoke test-ca test-str test-security test-malware \
+        .is-up .ensure-up .clean-testrun test-full test-full-keep test-full-verbose test-ca test-str test-smoke test-security \
+        test-malware \
         test-perf test-perf-verbose \
         test \
+        trivy \
+        all \
         postgres-logs keycloak-logs backend-logs dbgate-logs fullstack-logs \
         help
 
 .DEFAULT_GOAL := help
 
+-include .env
+-include .env.extra
+
 DOCKER_COMPOSE := docker compose --env-file .env $(if $(wildcard .env.extra),--env-file .env.extra,)
+
+# Disable BuildKit provenance/SBOM attestations. With the containerd image store,
+# attestations wrap the image in a manifest list and embed build timestamps, so
+# every build — even a fully cached one — yields a new image digest. That makes
+# `docker compose up -d` needlessly recreate the backend container on each `make up`.
+export BUILDX_NO_DEFAULT_ATTESTATIONS := 1
 
 DBGATE_PID_FILE := /tmp/dbgate.pid
 DBGATE_PROCESS_PATTERN := /tmp/.mount_[d]bgate.*/dbgate|dbgate-7\.1\.2-linux_x86_64\.AppImage
@@ -357,7 +367,7 @@ up: .build .clean-stale ## Start
 	@$(MAKE) --no-print-directory status
 	@echo "✅ Status shown!"
 
-down: ## Stop and remove
+down: ## Stop and remove (including volumes)
 	@echo "🛑 Stopping full-stack..."
 	$(DOCKER_COMPOSE) down -v # Includes volume deletion
 	@echo "✅ Fullstack stopped!"
@@ -379,7 +389,7 @@ status: ## Show status
 	printf "  %-42s %s\n" "Keycloak:" "$$KC_BASE_URL/admin"
 	@echo ""
 
-##@ Test Fullstack
+##@ Tests (Fullstack)
 
 .is-up: ## Check if services are running
 	@echo "🔍 Checking if services are up..." && \
@@ -408,25 +418,28 @@ status: ## Show status
 		exit 1; \
 	fi
 
+.ensure-up: ## Start the stack only if it is not already running and healthy
+	@$(MAKE) --no-print-directory .is-up >/dev/null 2>&1 || $(MAKE) --no-print-directory up
+
 .clean-testrun: ## Clean sdep-test-* data from database
 	@set -a && source .env && set +a && \
 	docker exec -i sdep-postgres psql -U $$POSTGRES_SUPER_USER -d $$POSTGRES_DB_NAME \
 		-v ON_ERROR_STOP=1 < postgres/clean-testrun.sql
 
-test-full: .is-up ## Test fullstack (quiet)
+test-full: .ensure-up ## Test fullstack (quiet)
 	@set -a && source ./.env && set +a && \
 	set -o pipefail && \
 	$(MAKE) --no-print-directory test-full-verbose 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
 
-test-full-keep: .is-up .get-client-credentials ## Test fullstack (quiet, keep test data)
+test-full-keep: .ensure-up .get-client-credentials ## Test fullstack (quiet, keep test data)
 	@set -a && source ./.env && set +a && \
 	set -o pipefail && \
 	KEEP_TEST_DATA=true $(CURDIR)/scripts/run-tests.sh 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
 
-test-full-verbose: .is-up .get-client-credentials ## Test fullstack (verbose)
+test-full-verbose: .ensure-up .get-client-credentials ## Test fullstack (verbose)
 	@$(CURDIR)/scripts/run-tests.sh
 
-test-ca: .is-up .get-client-credentials ## Test CA endpoints
+test-ca: .ensure-up .get-client-credentials ## Test only CA endpoints
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
 	OUTPUT_FILE=$$(mktemp) && \
 	trap "rm -f $$OUTPUT_FILE" EXIT && \
@@ -444,7 +457,7 @@ test-ca: .is-up .get-client-credentials ## Test CA endpoints
 	./tests/test_ca_activities.sh 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ CA endpoints tested"
 
-test-str: .is-up .get-client-credentials ## Test STR endpoints
+test-str: .ensure-up .get-client-credentials ## Test only STR endpoints
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
 	OUTPUT_FILE=$$(mktemp) && \
 	trap "rm -f $$OUTPUT_FILE" EXIT && \
@@ -459,16 +472,16 @@ test-str: .is-up .get-client-credentials ## Test STR endpoints
 	fi && \
 	./tests/test_health_ping.sh 2>&1 | tee $$OUTPUT_FILE && \
 	./tests/test_str_areas.sh 2>&1 | tee $$OUTPUT_FILE && \
-	./tests/test_str_activities_bulk.sh 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_str_activities_bulk.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ STR endpoints tested"
 
-test-smoke: .is-up ## Test smoke test endpoints (audit-excluded, no auth needed)
+test-smoke: .ensure-up ## Test only smoke test endpoints (audit-excluded, no auth needed)
 	@set -a && source ./.env && set +a && \
 	echo "🔍 Testing smoke test endpoints..." && \
 	./tests/test_smoketest.sh && \
 	echo "✅ Smoke test endpoints tested"
 
-test-security: .is-up .get-client-credentials ## Test security (headers, unauthorized, credentials)
+test-security: .ensure-up .get-client-credentials ## Test only security (headers, unauthorized, credentials)
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
 	OUTPUT_FILE=$$(mktemp) && \
 	trap "rm -f $$OUTPUT_FILE" EXIT && \
@@ -488,9 +501,7 @@ test-security: .is-up .get-client-credentials ## Test security (headers, unautho
 	./tests/test_client_id_regex.sh 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ Security tested"
 
-##@ Test Integration
-
-test-malware: ## Test malware scanning (starts ClamAV via Docker Compose if not already running)
+test-malware: .ensure-up ## Test malware scanning (starts ClamAV via Docker Compose if not already running)
 	@echo "🧪 Running malware scanning tests..."
 	@if [ -z "$$CI" ]; then \
 		$(DOCKER_COMPOSE) up -d clamav; \
@@ -498,7 +509,7 @@ test-malware: ## Test malware scanning (starts ClamAV via Docker Compose if not 
 	uv run --script tests/malware/test_malware_scan.py
 	@echo "✅ Malware scanning tests completed!"
 
-##@ Test Performance
+##@ Tests (Performance)
 
 PERF_ACTIVITIES_TARGET ?= 5000
 PERF_MAX_DURATION_SECONDS ?= 300
@@ -518,13 +529,13 @@ PERF_ENV = PERF_ACTIVITIES_TARGET=$(PERF_ACTIVITIES_TARGET) \
            PERF_STOP_ON_TARGET=$(PERF_STOP_ON_TARGET) \
            PERF_YES=$(PERF_YES)
 
-test-perf: .is-up .get-client-credentials ## Run bulk performance test (PERF_YES=true to skip confirmation)
+test-perf: .ensure-up .get-client-credentials ## Run bulk performance test (PERF_YES=true to skip confirmation)
 	@$(PERF_ENV) $(CURDIR)/scripts/run-tests-perf.sh
 
-test-perf-verbose: .is-up .get-client-credentials ## Run bulk performance test with periodic Locust stats
+test-perf-verbose: .ensure-up .get-client-credentials ## Run bulk performance test with periodic Locust stats
 	@$(PERF_ENV) PERF_VERBOSE=true $(CURDIR)/scripts/run-tests-perf.sh
 
-##@ Test All
+##@ Tests (All)
 
 test: ## Run all tests (fullstack + integration + performance)
 	@echo "🧪 Running all tests..."
@@ -538,6 +549,35 @@ test: ## Run all tests (fullstack + integration + performance)
 	@$(MAKE) --no-print-directory test-perf PERF_YES=true
 	@echo ""
 	@echo "✅ All tests completed (fullstack + integration + performance)"
+
+##@ Security Checks
+
+trivy: export DOCKER_DEFAULT_PLATFORM := linux/amd64
+# Scan a throwaway tag (local/sdep-backend:trivy-scan) instead of the dev image.
+# The fresh --no-cache build below otherwise replaces local/sdep-backend:latest,
+# which would make the next `make up` needlessly recreate the backend container.
+trivy: export BACKEND_IMAGE_VERSION := trivy-scan
+trivy: ## Run all security checks (build and scan backend image with Trivy CVE allowlist checks)
+	@echo "🔒 Running all security checks..."
+	@echo ""
+	@# Always build fresh (--pull --no-cache) so apt-get upgrade fetches current
+	@# Debian security patches; a cached layer would mask already-fixed CVEs.
+	@$(DOCKER_COMPOSE) build --pull --no-cache backend
+	@mkdir -p tmp/trivy-scan
+	@docker save "$(BACKEND_IMAGE_NAME):$(if $(BACKEND_IMAGE_VERSION),$(BACKEND_IMAGE_VERSION),latest)" -o tmp/trivy-scan/backend-image.tar
+	@$(DOCKER_COMPOSE) run --rm -e TRIVY_INPUT=tmp/trivy-scan/backend-image.tar run-trivy-scan
+	@echo ""
+	@echo "✅ All security checks completed (trivy-scan)"
+
+##@ All
+
+all: ## Run all tests and security checks (ensures fullstack is started)
+	@echo "🧪 Running all tests and security checks..."
+	@echo ""
+	@$(MAKE) --no-print-directory test
+	@$(MAKE) --no-print-directory trivy
+	@echo ""
+	@echo "✅ All tests and security checks completed (test + security)"
 
 ##@ Logs
 

@@ -111,6 +111,7 @@ sdep-app/
 │   │   │   │   │   └── str_areas.py            # STR area endpoints
 │   │   │   │   ├── auth_dependencies.py        # Shared auth/role dependencies
 │   │   │   │   ├── exception_handlers.py
+│   │   │   │   ├── filename.py                 # Download filename sanitization
 │   │   │   │   ├── openapi.py
 │   │   │   │   └── security.py
 │   │   │   ├── common_app.py                   # Version-independent sub-app (health, ping)
@@ -157,7 +158,8 @@ sdep-app/
 │   │   ├── security/                           # Security utilities
 │   │   │   ├── audit.py                        # Audit logging middleware
 │   │   │   ├── audit_retention.py              # Background audit log cleanup
-│   │   │   └── headers.py                      # Security headers
+│   │   │   ├── headers.py                      # Security headers
+│   │   │   └── malware_scan.py                 # ClamAV malware scanning
 │   │   ├── services/                           # Business logic layer
 │   │   │   ├── activity.py
 │   │   │   ├── activity_bulk.py
@@ -185,7 +187,9 @@ sdep-app/
 ├── tests/                                      # Integration tests + performance tests
 │   ├── lib/                                    # Test library utilities
 │   │   └── create_fixture_areas.sh             # Area fixture creation
-│   ├── perf/                                   # Performance tests (Locust)
+│   ├── malware/                                # Malware scanning tests
+│   │   └── test_malware_scan.py                # ClamAV malware scan test
+│   ├── performance/                            # Performance tests (Locust)
 │   │   └── locustfile.py                       # Bulk activity load test
 │   ├── test_auth_client.sh                     # OAuth2 token acquisition utility
 │   ├── test_auth_credentials.sh                # Test client credentials flow
@@ -193,9 +197,10 @@ sdep-app/
 │   ├── test_auth_unauthorized.sh               # Test unauthorized access rejection
 │   ├── test_ca_activities.sh                   # Test CA activity endpoints
 │   ├── test_ca_areas.sh                        # Test CA area submission
+│   ├── test_client_id_regex.sh                 # Test client ID regex validation
 │   ├── test_health_ping.sh                     # Health check tests
 │   ├── test_smoketest.sh                       # Smoke test audit-excluded endpoints
-│   ├── test_str_activities_bulk.sh             # Test STR bulk activity submission
+│   ├── test_str_activities_bulk.py             # Test STR bulk activity submission
 │   └── test_str_areas.sh                       # Test STR area query endpoints
 │
 ├── keycloak/                                   # Keycloak config
@@ -254,8 +259,10 @@ sdep-app/
 │       └── LISTINGFLOW.svg
 │
 ├── scripts/                                    # Utility scripts
+│   ├── generate-eicar-zip.sh                   # Generate EICAR test archive (malware scan test)
 │   ├── run-tests.sh                            # Integration test runner
-│   └── run-tests-perf.sh                       # Performance test runner (Locust)
+│   ├── run-tests-perf.sh                       # Performance test runner (Locust)
+│   └── run-trivy-scan.sh                       # Trivy CVE scan vs CVE_EXPLAINS.md allowlist
 │
 ├── .env                                        # Environment variables
 ├── .gitignore                                  # Git ignore rules

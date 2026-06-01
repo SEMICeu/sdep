@@ -2,9 +2,16 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.2.0
+
+- Added a "make trivy" to run trivy on local machine
+- Improved the make test targets to ensure/start fullstack, and to avoid a needless backed recreate
+- Improved test portability
+- Updated documentation to reflect code changes
+
 # 1.1.2
 
-- Fixed the OAuth client ID validation regex to reject backslashes 
+- Fixed the OAuth client ID validation regex to reject backslashes
 - Documentation updates
 - Added a script to generate EICAR files automatically, can be used to verify malware scanning
 

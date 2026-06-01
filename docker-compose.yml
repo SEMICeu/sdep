@@ -5,6 +5,7 @@
 volumes:
   postgres_data:
   clamav_data:
+  trivy_cache:
 
 services:
 
@@ -99,3 +100,18 @@ services:
         condition: service_healthy
       clamav:
         condition: service_started
+
+  run-trivy-scan:
+    image: ${TRIVY_IMAGE:-aquasec/trivy:latest}
+    entrypoint: ["/bin/sh"]
+    command: ["./scripts/run-trivy-scan.sh"]
+    working_dir: /work
+    environment:
+      IMAGE: ${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_VERSION:-latest}
+      BUILD_IMAGE: "false"
+      OUTPUT_DIR: tmp/trivy-scan
+      SEVERITY: CRITICAL,HIGH,MEDIUM,LOW
+    volumes:
+      - ./:/work
+      - /var/run/docker.sock:/var/run/docker.sock
+      - trivy_cache:/root/.cache/trivy

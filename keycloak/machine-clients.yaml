@@ -8,17 +8,7 @@ clients:
 
   # 1. Test clients whose test data is automatically removed after automated test runs
 
-  # 1a. Short-term rental platforms (STR)
-  - id: "sdep-test-str.01"
-    secret: "sdep-test-str.01"
-    name: "Test STR 01 (test automation, ephemeral data)"
-    description: "STR client with read-write access"
-    service_account_roles:
-      - sdep_str
-      - sdep_read
-      - sdep_write
-
-  # 1b. Competent authorities (CA)
+  # 1a. Competent authorities (CA)
   - id: "sdep-test-ca.01"
     secret: "sdep-test-ca.01"
     name: "Test CA 01 (test automation, ephemeral data)"
@@ -36,28 +26,19 @@ clients:
       - sdep_read
       - sdep_write
 
+  # 1b. Short-term rental platforms (STR)
+  - id: "sdep-test-str.01"
+    secret: "sdep-test-str.01"
+    name: "Test STR 01 (test automation, ephemeral data)"
+    description: "STR client with read-write access"
+    service_account_roles:
+      - sdep_str
+      - sdep_read
+      - sdep_write
+
   # 2. Test clients whose test data remains unaffected after automated test runs
 
-  # 2a. Short-term rental platforms (STR)
-  - id: "sdep-str.01"
-    secret: "sdep-str.01"
-    name: "Test STR 01 (interactive usage, persistent data)"
-    description: "STR client with read-write access"
-    service_account_roles:
-      - sdep_str
-      - sdep_read
-      - sdep_write
-  # Best practice - https://www.oauth.com/oauth2-servers/client-registration/client-id-secret
-  - id: "381028359011.sdep.gov.local"
-    secret: "381028359011"
-    name: "Test STR 02 (interactive usage, persistent data)"
-    description: "STR client with read-write access"
-    service_account_roles:
-      - sdep_str
-      - sdep_read
-      - sdep_write
-
-  # 2b. Competent authorities (CA)
+  # 2a. Competent authorities (CA)
   - id: "sdep-ca.01"
     secret: "sdep-ca.01"
     name: "Test CA 01 (interactive usage, persistent data)"
@@ -73,6 +54,25 @@ clients:
     description: "CA client with read-write access"
     service_account_roles:
       - sdep_ca
+      - sdep_read
+      - sdep_write
+
+  # 2b. Short-term rental platforms (STR)
+  - id: "sdep-str.01"
+    secret: "sdep-str.01"
+    name: "Test STR 01 (interactive usage, persistent data)"
+    description: "STR client with read-write access"
+    service_account_roles:
+      - sdep_str
+      - sdep_read
+      - sdep_write
+  # Best practice - https://www.oauth.com/oauth2-servers/client-registration/client-id-secret
+  - id: "381028359011.sdep.gov.local"
+    secret: "381028359011"
+    name: "Test STR 02 (interactive usage, persistent data)"
+    description: "STR client with read-write access"
+    service_account_roles:
+      - sdep_str
       - sdep_read
       - sdep_write
 
