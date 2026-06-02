@@ -356,7 +356,7 @@ def _atexit_handler():
     print("  3. 300-500 ms        - Acceptable")
     print("  4. > 1 s             - Noticeable delay")
     print()
-    print("  - Google SRE Workbook, AWS Well-Architected Framework,")
+    print("  - Google SRE Workbook,")
     print("  - AWS Well-Architected Framework,")
     print("  - Nielsen Norman Group (https://www.nngroup.com/articles/response-times-3-important-limits/)")
     print()

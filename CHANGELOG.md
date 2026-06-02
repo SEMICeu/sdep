@@ -2,12 +2,16 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.1.4
+
+- Pinned the transitive Starlette dependency to fix CVE-2026-48710 (BadHost)
+
 # 1.1.3
 
 - Added a "make trivy" to run trivy on local machine
 - Improved the make test targets to ensure/start fullstack, and to avoid a needless backed recreate
 - Improved test portability
-- Updated transitive dependency to fix CVE
+- Updated transitive dependency (idna) to fix CVE-2026-45409
 - Updated documentation to reflect code changes
 
 # 1.1.2

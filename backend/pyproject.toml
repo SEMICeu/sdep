@@ -82,10 +82,13 @@ dev = [
 ]
 
 [tool.uv]
-# Pin idna to remediate DoS in idna.encode(idna < 3.15).
-# idna is a transitive dependency only; this constraint enforces the fixed
-# version without declaring it as a direct project dependency.
-constraint-dependencies = ["idna==3.17"]
+# Pin idna to remediate CVE-2026-45409 (GHSA-65pc-fj4g-8rjx), a DoS in
+# idna.encode(), fixed in idna 3.15.
+# Pin starlette to remediate CVE-2026-48710 (BadHost), an improper Host-header
+# validation flaw, fixed in starlette 1.0.1.
+# Both are transitive dependencies only; these constraints enforce the fixed
+# versions without declaring them as direct project dependencies.
+constraint-dependencies = ["idna==3.17", "starlette==1.2.1"]
 
 [tool.uv.sources]
 # Ensure we use the restructured backend source
