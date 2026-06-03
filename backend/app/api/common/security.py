@@ -21,6 +21,7 @@ from jwt import (
     InvalidAudienceError,
     InvalidTokenError,
     PyJWKClient,
+    PyJWKClientError,
 )
 
 from app.config import settings
@@ -83,7 +84,10 @@ def validate_jwt_token(token: str) -> dict[str, Any]:
         Decoded JWT payload containing user/client information
 
     Raises:
-        HTTPException: If token is invalid, expired, or has invalid claims
+        HTTPException: 401 if the token is invalid, expired, or has invalid claims.
+        AuthorizationServerOperationalError: If the authorization server (Keycloak)
+            is unreachable or misconfigured. The registered handler maps this to a
+            503 so clients back off instead of retrying as if their token were bad.
     """
     try:
         client = _get_jwks_client()
@@ -100,6 +104,10 @@ def validate_jwt_token(token: str) -> dict[str, Any]:
 
         return payload
 
+    except AuthorizationServerOperationalError:
+        # IdP unreachable/misconfigured (raised by _get_jwks_client). Let it propagate
+        # to the registered handler, which returns 503 rather than masking it as 401.
+        raise
     except ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -118,12 +126,19 @@ def validate_jwt_token(token: str) -> dict[str, Any]:
             detail=f"Invalid token: {e!s}",
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from None
+    except PyJWKClientError as e:
+        # To check that a token is genuine, we need Keycloak's public keys. Keycloak
+        # publishes them as a JWKS (JSON Web Key Set) — basically a list of keys at a
+        # public URL. This error means we couldn't get those keys (Keycloak is down,
+        # the network failed, or it returned something we can't read). The token itself
+        # might be perfectly fine — we just couldn't reach Keycloak to confirm it — so
+        # we report this as a server problem (503), not a bad login (401).
+        raise AuthorizationServerOperationalError(
+            f"Failed to fetch signing keys from Keycloak: {e!s}"
+        ) from e
+    # No catch-all: any genuinely unexpected error propagates to the registered
+    # general exception handler (HTTP 500) so it is logged with a full traceback
+    # instead of being masked as a 401.
 
 
 def create_verify_bearer_token(

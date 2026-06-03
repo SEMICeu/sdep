@@ -14,6 +14,39 @@ from app.schemas.error import ErrorResponse
 router = APIRouter(tags=["auth"])
 
 
+def _build_token_response(response: httpx.Response) -> TokenResponse:
+    """Validate Keycloak's HTTP 200 token response and build a ``TokenResponse``.
+
+    A malformed body from Keycloak is an upstream/operational failure (HTTP 503),
+    not an SDEP bug (HTTP 500), so each failure mode raises
+    ``AuthorizationServerOperationalError`` (mapped to 503 by its registered handler).
+    """
+    try:
+        token_response = response.json()
+    except ValueError as e:
+        raise AuthorizationServerOperationalError(
+            f"Authorization server returned a non-JSON token response: {e!s}"
+        ) from e
+
+    if not isinstance(token_response, dict):
+        raise AuthorizationServerOperationalError(
+            "Authorization server returned a malformed token response"
+        )
+
+    access_token = token_response.get("access_token")
+    if not isinstance(access_token, str) or not access_token:
+        raise AuthorizationServerOperationalError(
+            "Authorization server returned a token response without an access_token field"
+        )
+
+    # expires_in as defined by Keycloak > realm settings > tokens, fallback is 300 seconds
+    return TokenResponse(
+        access_token=access_token,
+        token_type=token_response.get("token_type", "bearer"),
+        expires_in=token_response.get("expires_in", 300),
+    )
+
+
 @router.post(
     "/token",
     response_model=TokenResponse,
@@ -113,13 +146,8 @@ async def post_auth_token(
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            # Parse and return the token response (expires_in as defined by Keycloak > realm settings > tokens, fallback is 300 seconds)
-            token_response = response.json()
-            return TokenResponse(
-                access_token=token_response["access_token"],
-                token_type=token_response.get("token_type", "bearer"),
-                expires_in=token_response.get("expires_in", 300),
-            )
+            # Parse and validate the token response (raises 503 on a malformed upstream body)
+            return _build_token_response(response)
 
     except httpx.RequestError as e:
         raise AuthorizationServerOperationalError(

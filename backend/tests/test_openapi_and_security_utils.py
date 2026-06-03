@@ -5,16 +5,19 @@ from unittest.mock import MagicMock, patch
 import pytest
 from app.api.common import openapi as openapi_utils
 from app.api.common import security as common_security
+from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common.security import OAuth2ClientCredentials
 from app.security.audit import _extract_jwt_roles
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.openapi.models import OAuthFlows
 from fastapi.security import OAuth2
+from httpx import ASGITransport, AsyncClient
 from jwt import (
     DecodeError,
     ExpiredSignatureError,
     InvalidAudienceError,
     InvalidTokenError,
+    PyJWKClientError,
 )
 from starlette.requests import Request
 
@@ -336,13 +339,111 @@ def test_validate_jwt_token_success_and_error_paths(monkeypatch):
     with pytest.raises(HTTPException, match="Invalid token: invalid"):
         common_security.validate_jwt_token("token")
 
+    # A JWKS fetch failure (network/HTTP error talking to Keycloak) is a dependency
+    # outage, not a bad token: it must surface as AuthorizationServerOperationalError
+    # (-> 503), never as a 401.
+    mock_client.get_signing_key_from_jwt.side_effect = PyJWKClientError("jwks down")
+    with pytest.raises(
+        common_security.AuthorizationServerOperationalError,
+        match="Failed to fetch signing keys from Keycloak",
+    ):
+        common_security.validate_jwt_token("token")
+    mock_client.get_signing_key_from_jwt.side_effect = None
+    mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
+
+    # An operational error from the JWKS client setup propagates unchanged so the
+    # registered handler can map it to 503.
+    monkeypatch.setattr(
+        common_security,
+        "_get_jwks_client",
+        lambda: (_ for _ in ()).throw(
+            common_security.AuthorizationServerOperationalError("kc unconfigured")
+        ),
+    )
+    with pytest.raises(
+        common_security.AuthorizationServerOperationalError, match="kc unconfigured"
+    ):
+        common_security.validate_jwt_token("token")
+    monkeypatch.setattr(common_security, "_get_jwks_client", lambda: mock_client)
+
+    # Genuinely unexpected errors are no longer masked as 401: they propagate so the
+    # registered general handler returns 500 with a full server-side traceback.
     monkeypatch.setattr(
         common_security.jwt,
         "decode",
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("oops")),
     )
-    with pytest.raises(HTTPException, match="Could not validate credentials"):
+    with pytest.raises(RuntimeError, match="oops"):
         common_security.validate_jwt_token("token")
+
+
+@pytest.mark.asyncio
+async def test_protected_endpoint_maps_jwt_errors_to_http_status_end_to_end(
+    monkeypatch,
+):
+    """End-to-end wiring guard for issue #165.
+
+    Drives a real request through an app wired with the standard exception
+    handlers and the real ``verify_bearer_token`` dependency, and asserts the
+    HTTP status a client actually receives when JWT validation fails:
+
+    - Authorization server unreachable/misconfigured -> 503 (the fix)
+    - JWKS fetch failure -> 503
+    - Genuinely invalid token -> 401
+    - Unexpected error -> 500 (never masked as 401, never mislabeled 503)
+    """
+    app = FastAPI()
+    register_exception_handlers(app)
+
+    @app.get("/protected")
+    async def _protected(_payload=Depends(common_security.verify_bearer_token)):
+        return {"ok": True}
+
+    async def _status() -> int:
+        # raise_app_exceptions=False so the 500 case returns a response instead of
+        # propagating (Starlette's ServerErrorMiddleware re-raises after responding).
+        async with AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://test",
+        ) as client:
+            response = await client.get(
+                "/protected", headers={"Authorization": "Bearer dummy-token"}
+            )
+        return response.status_code
+
+    # Authorization server unreachable/misconfigured -> 503 (core of #165).
+    monkeypatch.setattr(
+        common_security,
+        "_get_jwks_client",
+        lambda: (_ for _ in ()).throw(
+            common_security.AuthorizationServerOperationalError("kc down")
+        ),
+    )
+    assert await _status() == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    # JWKS fetch failure (network/HTTP error) -> 503.
+    mock_client = MagicMock()
+    mock_client.get_signing_key_from_jwt.side_effect = PyJWKClientError("jwks down")
+    monkeypatch.setattr(common_security, "_get_jwks_client", lambda: mock_client)
+    assert await _status() == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    # Genuinely invalid token -> 401.
+    mock_client.get_signing_key_from_jwt.side_effect = None
+    mock_client.get_signing_key_from_jwt.return_value = MagicMock(key="k")
+    monkeypatch.setattr(
+        common_security.jwt,
+        "decode",
+        lambda *args, **kwargs: (_ for _ in ()).throw(DecodeError("nope")),
+    )
+    assert await _status() == status.HTTP_401_UNAUTHORIZED
+
+    # Unexpected error -> 500, never masked as 401 nor mislabeled as 503.
+    monkeypatch.setattr(
+        common_security.jwt,
+        "decode",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    assert await _status() == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 @pytest.mark.asyncio

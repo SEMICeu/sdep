@@ -345,6 +345,7 @@ htmlcov/
 
 # Claude
 **/settings.local.json
+**/worktrees
 
 # Test
 .bearer_token

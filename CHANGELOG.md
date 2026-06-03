@@ -2,6 +2,11 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.1.5
+
+- Fixed Keycloak/JWKS infrastructure errors being misclassified as HTTP 401; they now return HTTP 503
+- Fixed /api/auth/v1/token returning HTTP 500 instead of HTTP 503 when Keycloak responds with a malformed body
+
 # 1.1.4
 
 - Pinned the transitive Starlette dependency to fix CVE-2026-48710 (BadHost)

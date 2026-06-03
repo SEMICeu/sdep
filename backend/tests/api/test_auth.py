@@ -202,3 +202,95 @@ class TestAuthRouter:
             "Authorization server is temporarily unavailable"
             in response.json()["detail"][0]["msg"]
         )
+
+    async def test_token_treats_non_json_200_body_as_service_unavailable(
+        self, monkeypatch
+    ):
+        fake_client = _MockAsyncClient(
+            response=_MockResponse(200, json_error=ValueError("not json"))
+        )
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={"client_id": "client-a", "client_secret": "secret-a"},
+            )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert (
+            "Authorization server is temporarily unavailable"
+            in response.json()["detail"][0]["msg"]
+        )
+
+    async def test_token_treats_non_object_200_body_as_service_unavailable(
+        self, monkeypatch
+    ):
+        fake_client = _MockAsyncClient(
+            response=_MockResponse(200, ["not", "an", "object"])
+        )
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={"client_id": "client-a", "client_secret": "secret-a"},
+            )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert (
+            "Authorization server is temporarily unavailable"
+            in response.json()["detail"][0]["msg"]
+        )
+
+    async def test_token_treats_missing_access_token_as_service_unavailable(
+        self, monkeypatch
+    ):
+        fake_client = _MockAsyncClient(
+            response=_MockResponse(200, {"token_type": "bearer", "expires_in": 300})
+        )
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={"client_id": "client-a", "client_secret": "secret-a"},
+            )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert (
+            "Authorization server is temporarily unavailable"
+            in response.json()["detail"][0]["msg"]
+        )
+
+    async def test_token_treats_empty_access_token_as_service_unavailable(
+        self, monkeypatch
+    ):
+        fake_client = _MockAsyncClient(
+            response=_MockResponse(200, {"access_token": ""})
+        )
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={"client_id": "client-a", "client_secret": "secret-a"},
+            )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert (
+            "Authorization server is temporarily unavailable"
+            in response.json()["detail"][0]["msg"]
+        )
