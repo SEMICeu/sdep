@@ -10,7 +10,10 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 # Environment config
+ifndef CI
 include ../.env
+-include ../.env.extra
+endif
 
 # Application config
 APP_NAME := sdep-backend

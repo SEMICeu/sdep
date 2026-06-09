@@ -2,6 +2,7 @@
 
 import pytest
 from app.api.common_app import app_common
+from app.api.domain_registry import API_DOMAINS
 from httpx import ASGITransport, AsyncClient
 
 
@@ -28,14 +29,24 @@ class TestDocsLandingPage:
             response = await client.get("/docs")
 
         body = response.text
-        assert "/api/auth/v1/docs" in body
-        assert "/api/ca/v1/docs" in body
-        assert "/api/ca/v2/docs" in body
-        assert "/api/str/v1/docs" in body
-        assert "/api/auth/v1/openapi.json" in body
-        assert "/api/ca/v1/openapi.json" in body
-        assert "/api/ca/v2/openapi.json" in body
-        assert "/api/str/v1/openapi.json" in body
+        for domain in API_DOMAINS:
+            assert domain.docs_path in body
+            assert domain.openapi_path in body
+
+    @pytest.mark.asyncio
+    async def test_docs_landing_contains_api_status_tags(self):
+        """Test landing page contains status tags for every API domain."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/docs")
+
+        body = response.text
+        for domain in API_DOMAINS:
+            assert (
+                f'<span class="status status-{domain.status}">{domain.status}</span>'
+                in body
+            )
 
     @pytest.mark.asyncio
     async def test_docs_landing_contains_health_link(self):

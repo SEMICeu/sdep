@@ -30,7 +30,7 @@ class CompetentAuthority(Base):
             "competent_authority_id",
             "client_id",
             "created_at",
-            name="uq_competent_authority_competent_authority_id_client_id_created_at",
+            name="uq_competent_authority_ca_id_client_id_created_at",
         ),
     )
 

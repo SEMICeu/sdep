@@ -52,53 +52,101 @@ Although for random checks only **listings** apply, this document covers both **
 
 *From a technical (implementation) perspective.*
 
+---
+
 ### Property Host (Host)
+
 An individual who offers a private property for short-term rental.
 
+---
+
 ### Short-Term Rental Platform (STR)
+
 An online platform that facilitates listings of private properties for short-term rental.
 
+---
+
 ### Listing
+
 A published rental offering on an **STR**.
 
+---
+
 ### Activity
+
 A completed or ongoing short-term rental transaction conducted via an **STR**.
 
+---
+
 ### Registration Registry (RR)
+
 An entity in which listing addresses are registered and assigned a unique registration number (**reg#**).
 
+---
+
 ### Address
+
 The physical location of a property, as used in the context of a listing or activity.
 
+---
+
 ### Area
+
 The geographical zone in which an address is located, within the context of a listing or activity.
 
+---
+
 ### Regulated Area
+
 An area subject to Regulation (EU) 2024/1028.
 https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng
 
+---
+
 ### Competent Authority (CA)
+
 An authority responsible for enforcing regulations in designated regulated areas for short-term rentals.
 
+---
+
 ### Listing Regulation
+
 The process of regulating listings in accordance with Regulation (EU) 2024/1028.
 
+---
+
 ### Listing Monitoring
+
 The process of overseeing compliance with listing regulations.
 
+---
+
 ### Listing Monitoring Authority (LMA)
+
 An authority responsible for monitoring compliance with listing regulations.
 
+---
+
 ### Activity Regulation
+
 The process of regulating rental activities in accordance with Regulation (EU) 2024/1028.
 
+---
+
 ### Activity Monitoring
+
 The process of overseeing compliance with activity regulations.
 
+---
+
 ### Activity Monitoring Authority (AMA)
+
 An authority responsible for monitoring compliance with activity regulations.
 
+---
+
 ### Online Travel Agency (OTA)
+
 Alias for an STR.
 
 ---
@@ -118,9 +166,13 @@ When a host has created a listing on the STR platform, and the listing’s addre
 | **CA**   | **Enforce** the host     | On regulation (is further outside scope of SDEP)                                                 |
 | **LMA**  | **Monitor** the process  | At least the #reported flagged listings (is further outside scope of SDEP)                       |
 
+---
+
 ### Flow
 
 ![](./diagrams/LISTINGFLOW.svg)
+
+---
 
 ### Dependencies
 
@@ -128,11 +180,15 @@ When a host has created a listing on the STR platform, and the listing’s addre
 
 The **register**, **self-declare**, **report**, **inform**, **enforce** and **monitor** stages are further described below.
 
+---
+
 ### Register
 
 If a listing address falls within a regulated area, the host must obtain a registration number (**reg#**) for the listing address in a registration registry (**RR**).
 
 This process is outside scope of **SDEP**.
+
+---
 
 ### Self-declare
 
@@ -142,6 +198,8 @@ If a listing address falls within a regulated area, the host must enter on the *
 - A self-declaration attesting to knowledge of the regulated area
 
 This process is outside scope of **SDEP**.
+
+---
 
 ### Report
 
@@ -164,17 +222,23 @@ This process is outside scope of **SDEP**.
 
 **European Commission**: Responsibility for this process lies primarily with **STR** (the STR-platforms), not with **SDEP**.
 
+---
+
 ### Inform
 
 An **STR** informs the host when any of the above **NOK** flags applies.
 
 This process is outside scope of **SDEP**.
 
+---
+
 ### Enforce
 
 A **CA** retrieves flagged listings from SDEP in order to enforce regulation on the host.
 
 This process is outside scope of SDEP.
+
+---
 
 ### Monitor
 
@@ -214,11 +278,15 @@ If an activity address falls within a regulated area, then following regulatory 
 
 The **report**, **enforce** and **monitor** stages are further described below.
 
+---
+
 ### Report
 
 | Is STR activity in area | Action                                 |
 | ----------------------- | -------------------------------------- |
 | Yes                     | **STR** POSTs the activity to **SDEP** |
+
+---
 
 ### Enforce
 
@@ -227,6 +295,8 @@ A **Competent Authority** (**CA**) retrieves activities from **SDEP** in order t
 This process is outside scope of **SDEP**.
 
 For example, CA may assess whether the number of activities is less than or equal to the maximum number of allowed lettings within a given period.
+
+---
 
 ### Monitor
 
@@ -246,6 +316,8 @@ In The Netherlands, the **AMA** is the Inspectie Leefomgeving en Transport (**IL
 
 ## Design Notes
 
+---
+
 ### Asynchronous
 
 The interaction between **STR**, **SDEP**, and **RR** will be asynchronous.
@@ -263,6 +335,8 @@ Motivation:
 - **SDEP** does not need to know whether a given **RR** exposes an API
 - Reducing these dependencies lowers implementation risk
 - This approach is agnostic to individual EU Member State implementations
+
+---
 
 ### Address
 
@@ -288,11 +362,15 @@ Discuss: need to know / personal data.
 - **Error-prone:** Minor formatting differences may result in different hashes (e.g., `"Example Street"` vs. `"Example St."`)
 - **Operational overhead:** It would introduce additional **key management and maintenance complexity**
 
+---
+
 ### Area - CA - RR
 
 In the internal datamodel, a mapping from **Area => CA => RR** will be defined.
 
 So, for a given **STR reg#** and STR-adress (located in/represented by `areaId`), it is known which **CA** and **RR** govern that **reg#**.
+
+---
 
 ### Unit
 

@@ -72,6 +72,22 @@ class Activity(Base):
             "number_of_guests = array_length(country_of_guests, 1)",
             name="ck_activity_guests_cardinality",
         ).ddl_if(dialect="postgresql"),
+        CheckConstraint(
+            "temporal_start_date_time < temporal_end_date_time",
+            name="ck_activity_temporal_start_before_end",
+        ),
+        CheckConstraint(
+            "EXTRACT(YEAR FROM temporal_start_date_time) >= 2025",
+            name="ck_activity_temporal_start_year_ge_2025",
+        ).ddl_if(dialect="postgresql"),
+        CheckConstraint(
+            "address_locator_designator_letter IS NULL OR address_locator_designator_letter ~ '^[A-Za-z]+$'",
+            name="ck_activity_address_locator_designator_letter_alpha",
+        ).ddl_if(dialect="postgresql"),
+        CheckConstraint(
+            "activity_id ~ '^[A-Za-z0-9-]+$'",
+            name="ck_activity_activity_id_format",
+        ).ddl_if(dialect="postgresql"),
     )
 
     # Primary key (technical ID, database-internal)

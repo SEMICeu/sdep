@@ -14,7 +14,8 @@ Overview:
   - [Tests (Performance)](#tests-performance)
   - [All Tests](#all-tests)
   - [Security](#security)
-  - [All Tests + Security](#all-tests--security)
+  - [All Tests + Security](#all-tests-security)
+  - [Documentation](#documentation)
 - [Functional Design](#functional-design)
 - [Technical Design](#technical-design)
 - [Process](#process)
@@ -91,6 +92,8 @@ The reference implementation can be developed and tested **fullstack** on a loca
 
 *Tested on Linux; for Windows, consider using WSL.*
 
+---
+
 ### Fullstack
 
 **Prerequisites**
@@ -113,6 +116,7 @@ To your local workstation.
 **Run SDEP (fullstack)**
 
 Incl. local infra (postgres + keycloak + backend):
+
 ```
 make up
 ```
@@ -143,27 +147,35 @@ Explore endpoints in your current role (ca, str).
 **Run SDEP (backend only)**
 
 Excl. local infra:
+
 ```
 cd backend
 make up
 ```
 
 **Explore all options**
+
 ```
 make
 ```
 
+---
+
 ### Tests (Unit)
 
 Backend only:
+
 ```
 cd backend
 make test
 ```
 
+---
+
 ### Tests (Fullstack)
 
 Fullstack (invoke from top-level):
+
 ```
 make test-full
 ```
@@ -177,29 +189,38 @@ The tests cover the cases as described in the [integration test documentation](.
 - A consolidated summary report presents per-suite and overall totals (executed/passed/failed) and exits with a non-zero status if any test fails
 
 Malware scanning (ClamAV) is part of the fullstack tests and is run as a separate command (it is not included in `make test-full`):
+
 ```
 make test-malware
 ```
 
 All fullstack tests can also be re-used/run against real deployments (TST, ACC, PRE, PRD; contact SDEP NL for more info).
 
+---
+
 ### Tests (Performance)
 
 Locust-based load testing for the bulk activity endpoint (`POST /str/activities/bulk`).
+
 ```
 make test-perf
 ```
 
 For full configuration options and usage examples, see [Performance Tests](./docs/PERFORMANCE_TESTS.md).
 
+---
+
 ### All Tests
 
 All tests in one go (fullstack + performance):
+
 ```
 make test
 ```
 
 This runs the fullstack tests (`test-full` and the malware scan `test-malware`), followed by the performance test (`test-perf`).
+
+---
 
 ### Security
 
@@ -242,10 +263,28 @@ make trivy
 docker compose build --pull --no-cache backend
 ```
 
+---
+
 ### All Tests + Security
 
 ```
 make all
+```
+
+---
+
+### Documentation
+
+Markdown lint:
+
+```
+make md-lint
+```
+
+Markdown format:
+
+```
+make md-format
 ```
 
 ## Functional Design

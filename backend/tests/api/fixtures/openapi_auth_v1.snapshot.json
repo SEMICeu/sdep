@@ -134,7 +134,7 @@
     }
   },
   "info": {
-    "description": "Authentication endpoints for machine-to-machine OAuth2 Client Credentials flow via Keycloak.",
+    "description": "Authentication endpoints for machine-to-machine OAuth2 Client Credentials flow via Keycloak. Status: stable.",
     "title": "SDEP - Auth API",
     "version": "<frozen-version>"
   },

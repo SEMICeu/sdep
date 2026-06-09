@@ -19,6 +19,7 @@ For database dialect compatibility, see [Database Dialects](./DATABASE_DIALECTS.
 ## Development Workflow
 
 See makefile help
+
 ```
 make
 ```
@@ -27,14 +28,20 @@ make
 
 ## Testing Strategy
 
+---
+
 ### Unit Tests (`backend/tests/`)
+
 - pytest with parallel execution (`-n auto`)
 - Async test support
 - Fixtures for database and authentication
 - Code coverage tracking
 - **Run:** `cd backend && make test`
 
+---
+
 ### Integration Tests (`tests/`)
+
 - Shell scripts using curl
 - Test OAuth2 flows
 - Test API endpoints with single-item and bulk POST payloads
@@ -43,7 +50,10 @@ make
 - **Run:** `make test`
 - See [Integration Tests](INTEGRATION_TESTS.md) for detailed test documentation
 
+---
+
 ### Performance Tests (`tests/performance/`)
+
 - Locust-based load testing for the bulk activity endpoint (`POST /api/str/v1/activities/bulk`)
 - Measures throughput (activities/sec), extrapolates capacity (activities/day), compares against configurable target
 - Uses isolated test data (`sdep-test-perf-*` prefix) by default; optionally keeps data in database (`PERF_KEEP_DATA=true`)

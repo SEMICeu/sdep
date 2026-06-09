@@ -23,6 +23,35 @@ from app.schemas.area import (
     empty_string_to_none as area_empty_string_to_none,
 )
 from app.schemas.temporal import CommonTemporalRequest, validate_year_ge_2025
+from sqlalchemy import CheckConstraint, Table
+
+
+def test_activity_and_area_models_include_documented_check_constraints():
+    activity_checks = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in cast("Table", Activity.__table__).constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    area_checks = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in cast("Table", Area.__table__).constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+
+    assert activity_checks["ck_activity_temporal_start_before_end"] == (
+        "temporal_start_date_time < temporal_end_date_time"
+    )
+    assert activity_checks["ck_activity_temporal_start_year_ge_2025"] == (
+        "EXTRACT(YEAR FROM temporal_start_date_time) >= 2025"
+    )
+    assert activity_checks["ck_activity_address_locator_designator_letter_alpha"] == (
+        "address_locator_designator_letter IS NULL OR "
+        "address_locator_designator_letter ~ '^[A-Za-z]+$'"
+    )
+    assert activity_checks["ck_activity_activity_id_format"] == (
+        "activity_id ~ '^[A-Za-z0-9-]+$'"
+    )
+    assert area_checks["ck_area_area_id_format"] == ("area_id ~ '^[A-Za-z0-9-]+$'")
 
 
 def test_address_and_temporal_model_helpers_cover_repr_eq_and_validation():

@@ -12,8 +12,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from app.api.domain_registry import AUTH_V1, CA_V1, CA_V2, STR_V1, ApiDomain
 from app.api.domains.auth.v1 import app_auth_v1
 from app.api.domains.ca.v1 import app_ca_v1
+from app.api.domains.ca.v2 import app_ca_v2
 from app.api.domains.str.v1 import app_str_v1
 
 if TYPE_CHECKING:
@@ -26,8 +28,16 @@ PLACEHOLDER_TOKEN_URL = "<token-url>"
 DOMAIN_APPS: dict[str, FastAPI] = {
     "auth_v1": app_auth_v1,
     "ca_v1": app_ca_v1,
+    "ca_v2": app_ca_v2,
     "str_v1": app_str_v1,
 }
+
+DOMAIN_STATUS_APPS: tuple[tuple[ApiDomain, FastAPI], ...] = (
+    (AUTH_V1, app_auth_v1),
+    (CA_V1, app_ca_v1),
+    (CA_V2, app_ca_v2),
+    (STR_V1, app_str_v1),
+)
 
 
 def _snapshot_path(domain: str) -> Path:
@@ -108,3 +118,17 @@ def test_openapi_schema_is_frozen(domain: str) -> None:
             "Run `make test-verbose` to see the diff, or `make openapi-snapshot-update` to refresh."
             f"\n\n{banner}\n  OpenAPI diff: {domain}\n{banner}\n\n{diff}\n\n{banner}"
         )
+
+
+@pytest.mark.parametrize(
+    "domain,app",
+    DOMAIN_STATUS_APPS,
+    ids=[domain.label for domain, _app in DOMAIN_STATUS_APPS],
+)
+def test_openapi_description_contains_api_status(
+    domain: ApiDomain, app: FastAPI
+) -> None:
+    """Detail docs expose each API domain status through the OpenAPI description."""
+    description = app.openapi()["info"]["description"]
+
+    assert f"Status: {domain.status}" in description

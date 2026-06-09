@@ -70,7 +70,10 @@ SDEP is a FastAPI-based REST API that enables:
 
 ## Technology Stack
 
+---
+
 ### Backend
+
 - **Python:** 3.13+
 - **Framework:** FastAPI 0.115+
 - **ORM:** SQLAlchemy 2.0+ (async)
@@ -79,13 +82,19 @@ SDEP is a FastAPI-based REST API that enables:
 - **Authentication:** OAuth2 Client Credentials via authorization server (e.g. Keycloak)
 - **Server:** Uvicorn
 
+---
+
 ### Infrastructure
+
 - **Container Platform:** Docker + Docker Compose
 - **Identity Provider:** e.g. Keycloak (OAuth2/OIDC)
 - **Database:** PostgreSQL 15+
 - **Package Manager:** uv (Python)
 
+---
+
 ### Development Tools
+
 - **Linting:** Ruff
 - **Type Checking:** Pyright
 - **Testing:** pytest (with pytest-asyncio, pytest-xdist for parallel execution)
@@ -112,8 +121,10 @@ sdep-app/
 │   │   │   │   ├── exception_handlers.py
 │   │   │   │   ├── filename.py                 # Download filename sanitization
 │   │   │   │   ├── openapi.py
+│   │   │   │   ├── pagination.py                # Shared pagination helpers
 │   │   │   │   └── security.py
 │   │   │   ├── common_app.py                   # Version-independent sub-app (health, ping)
+│   │   │   ├── domain_registry.py              # Centralized API domain metadata (label, paths, status)
 │   │   │   └── domains/                        # Per-domain versioned sub-apps
 │   │   │       ├── auth/
 │   │   │       │   └── v1.py                   # Auth domain sub-app
@@ -127,6 +138,7 @@ sdep-app/
 │   │   │       │       ├── activity_handlers.py  # Shared activity logic (v1 and v2)
 │   │   │       │       └── areas.py            # CA area endpoints
 │   │   │       └── str/
+│   │   │           ├── app_factory.py          # Sub-app factory (shared setup for STR)
 │   │   │           └── v1.py                   # STR domain sub-app
 │   │   ├── crud/                               # Database operations (CRUD)
 │   │   │   ├── activity.py
@@ -286,31 +298,46 @@ sdep-app/
 
 The backend follows a **layered architecture** pattern:
 
+---
+
 ### API Layer (`app/api/`)
+
 - HTTP request/response handling
 - Route definitions and parameter validation
 - Authentication/authorization enforcement
 - Transaction boundary via `get_async_db` dependency (auto-commit on success, rollback on exception)
 
+---
+
 ### Schemas Layer (`app/schemas/`)
+
 - Pydantic models for request/response validation
 - Data serialization/deserialization
 - camelCase aliases for JSON API (e.g. `activityId`, `areaId`, `postCode`)
 - Validation (Layer 1: type/format validation)
 
+---
+
 ### Service Layer (`app/services/`)
+
 - Business logic implementation
 - Validation (Layer 2: business rules, e.g. area exists, platform lookup/creation)
 - Raises `ApplicationValidationError` for domain-level errors (e.g. area not found)
 - Does not commit or roll back transactions directly (delegated to API layer)
 
+---
+
 ### CRUD Layer (`app/crud/`)
+
 - Database operations (Create, Read, Update, Delete)
 - Data access abstraction
 - SQLAlchemy query construction
 - Uses flush (not commit) - defers transaction control to upper layers
 
+---
+
 ### Models Layer (`app/models/`)
+
 - SQLAlchemy ORM models
 - Database table definitions
 - Relationships and constraints
@@ -322,8 +349,13 @@ For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.m
 
 ## API Surface
 
+---
+
 ### Authentication
+
 - `POST /api/auth/v1/token` - OAuth2 token endpoint
+
+---
 
 ### Competent Authority Endpoints
 
@@ -340,18 +372,24 @@ For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.m
 - `GET /api/ca/v1/activities` - Query rental activities (pagination: offset, limit)
 - `GET /api/ca/v1/activities/count` - Count activities
 
-**Activities (v2) — adds optional query filters**
+**Activities (v2) - adds optional query filters**
 
-- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId — AND semantics, scoped to authenticated CA; invalid functional IDs → 400)
+- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId - AND semantics, scoped to authenticated CA; invalid functional IDs → 400)
 - `GET /api/ca/v2/activities/count` - Count activities with optional filters (same filter set)
 
+---
+
 ### STR Platform Endpoints
+
 - `GET /api/str/v1/areas` - List regulated areas (pagination: offset, limit)
 - `GET /api/str/v1/areas/count` - Count areas
 - `GET /api/str/v1/areas/{areaId}` - Download shapefile for area
 - `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
 
+---
+
 ### Health Endpoints
+
 - `GET /api/health` - Health check (unauthenticated, infrastructure use)
 - `GET /api/ping` - Ping endpoint (authenticated, requires valid bearer token)
 
@@ -431,20 +469,20 @@ existing versions stay byte-compatible.
 Shared vs. version-specific code (CA domain as example):
 
 - Shared (one source of truth, used by every version):
-  - `app_factory.py` — `create_ca_app(version, router)` builds the sub-app (title,
+  - `app_factory.py` - `create_ca_app(version, router)` builds the sub-app (title,
     common 500/503 responses, OpenAPI, exception handlers, bearer-token override,
     `openapi.json` route)
-  - `routers/activity_handlers.py` — the endpoint business logic (list/count)
-  - `common/pagination.py` — the shared offset/limit query dependency
-  - `routers/areas.py` — the areas endpoints, mounted into every version
+  - `routers/activity_handlers.py` - the endpoint business logic (list/count)
+  - `common/pagination.py` - the shared offset/limit query dependency
+  - `routers/areas.py` - the areas endpoints, mounted into every version
   - Response examples and error-response constants (defined in `activities_v1.py`,
     imported by later versions)
-  - `schemas/activity.py`, `services/activity.py`, `crud/activity.py` — the data
+  - `schemas/activity.py`, `services/activity.py`, `crud/activity.py` - the data
     layers; newer behavior (e.g. filters) is added here and gated by the routers
 - Version-specific (one small file per version):
-  - `routers/activities_vN.py` — the route declarations and any version-only query
+  - `routers/activities_vN.py` - the route declarations and any version-only query
     parameters (e.g. v2 adds the `filter*` inputs via an `activity_filters()` dependency)
-  - `vN.py` — a one-line call to the factory wiring the version's router
+  - `vN.py` - a one-line call to the factory wiring the version's router
 
 Adding a version is therefore cheap: define a new `activities_vN.py`, a one-line
 `vN.py`, mount it in `main.py`, and register its `/docs` + `/openapi.json` paths in
@@ -453,6 +491,8 @@ the audit skip-list and CSP allowlist.
 ---
 
 ## Data and Lifecycle Design
+
+---
 
 ### ID Management
 
@@ -473,6 +513,8 @@ https://datatracker.ietf.org/doc/rfc9562/
 
 See later in this document for more info on IDs.
 
+---
+
 ### Versioning
 
 - Same functional ID can be resubmitted with new timestamp for versioning
@@ -482,6 +524,8 @@ See later in this document for more info on IDs.
   - Previous becomes ended (`endedAt`)
 - Enables historical tracking and updates without losing previous versions
 - Standard retrieve only yields the current
+
+---
 
 ### Deleting
 
@@ -514,12 +558,14 @@ All foreign keys use the PostgreSQL default (`NO ACTION`), which is **restricted
 
 | Parent             | Child         | FK column                     | Hard-delete behavior                     |
 | :----------------- | :------------ | :---------------------------- | :--------------------------------------- |
-| CompetentAuthority | Area          | `area.competent_authority_id` | Restricted — blocked if Areas exist      |
-| Area               | Activity      | `activity.area_id`            | Restricted — blocked if Activities exist |
-| Platform           | Activity      | `activity.platform_id`        | Restricted — blocked if Activities exist |
-| Activity           | *(leaf node)* | —                             | Unrestricted — deletes cleanly           |
+| CompetentAuthority | Area          | `area.competent_authority_id` | Restricted - blocked if Areas exist      |
+| Area               | Activity      | `activity.area_id`            | Restricted - blocked if Activities exist |
+| Platform           | Activity      | `activity.platform_id`        | Restricted - blocked if Activities exist |
+| Activity           | *(leaf node)* | -                             | Unrestricted - deletes cleanly           |
 
 In practice, the application uses **soft-delete** (`mark_as_ended`) for all operations. Hard-delete functions are not provided.
+
+---
 
 ### Locking
 
@@ -614,7 +660,7 @@ Lock characteristics:
 
 Typical transaction duration:
 
-- ~50–200 ms, depending on batch size
+- ~50-200 ms, depending on batch size
 
 Likelihood of contention - only occurs when:
 
@@ -640,15 +686,17 @@ Expected impact:
 - For the expected workload (periodic batch submissions, typically one platform at a time), the performance impact is effectively unnoticeable
 - The locking overhead remains lightweight compared to the database cost of the bulk insert itself
 
+---
+
 ### Tenant Isolation
 
-Each tenant — a Competent Authority (CA) for areas, or a Platform (STR) for activities — can only affect its own data. Isolation is enforced at multiple layers: JWT identity, service-layer scoping, CRUD-layer filtering, and database constraints.
+Each tenant - a Competent Authority (CA) for areas, or a Platform (STR) for activities - can only affect its own data. Isolation is enforced at multiple layers: JWT identity, service-layer scoping, CRUD-layer filtering, and database constraints.
 
 ---
 
 **Area operations (CA-scoped)**
 
-- **Create / update (versioning):** The `mark-as-ended` + `create-new-version` lookup is scoped to the authenticated CA via `get_by_area_id_and_competent_authority_id_str()` with `SELECT ... FOR UPDATE`. Another CA may hold an area with the same `areaId` — it is not affected.
+- **Create / update (versioning):** The `mark-as-ended` + `create-new-version` lookup is scoped to the authenticated CA via `get_by_area_id_and_competent_authority_id_str()` with `SELECT ... FOR UPDATE`. Another CA may hold an area with the same `areaId` - it is not affected.
 - **Delete (soft-delete):** Scoped lookup by `(areaId, competentAuthorityId)`. If the area belongs to a different CA, the operation returns 404.
 - **Deactivation guard:** `exists_any_by_area_id()` is CA-scoped. A deactivated `areaId` from one CA does not block another CA from using the same `areaId`.
 - **DB constraint:** `UNIQUE(area_id, competent_authority_id, created_at)` allows the same `areaId` to be used independently by different CAs.
@@ -660,7 +708,7 @@ Each tenant — a Competent Authority (CA) for areas, or a Platform (STR) for ac
 - **Create / update (bulk versioning):** `get_current_by_activity_ids()` and `bulk_mark_as_ended()` both filter by `platform_id`. Platform-A cannot version Platform-B's activities, even if they share the same `activityId`.
 - **Delete:** No delete endpoint exists for activities.
 - **DB constraint:** `UNIQUE(activity_id, platform_id, created_at)` allows the same `activityId` to be used independently by different platforms.
-- **Deactivation guard:** `get_deactivated_activity_ids()` operates globally (not platform-scoped) and is called on every bulk submission. However, no code path currently puts an activity into a deactivated state — there is no DELETE endpoint, and versioning always creates a new current version. The guard is defensive: if a DELETE endpoint is added in the future, it will prevent resurrection of deactivated activities. Compare with the equivalent Area guard (`exists_any_by_area_id`), which can trigger because areas can be soft-deleted via `DELETE /ca/areas/{areaId}`.
+- **Deactivation guard:** `get_deactivated_activity_ids()` operates globally (not platform-scoped) and is called on every bulk submission. However, no code path currently puts an activity into a deactivated state - there is no DELETE endpoint, and versioning always creates a new current version. The guard is defensive: if a DELETE endpoint is added in the future, it will prevent resurrection of deactivated activities. Compare with the equivalent Area guard (`exists_any_by_area_id`), which can trigger because areas can be soft-deleted via `DELETE /ca/areas/{areaId}`.
 
 ---
 
@@ -674,21 +722,31 @@ Each tenant — a Competent Authority (CA) for areas, or a Platform (STR) for ac
 | **CRUD**    | WHERE clauses include `competent_authority_id`                      | WHERE clauses include `platform_id`                                 |
 | **DB**      | `UNIQUE(area_id, competent_authority_id, created_at)` + FK          | `UNIQUE(activity_id, platform_id, created_at)` + FK                 |
 
+---
+
 ### Lazy Loading
 
 - **Default lazy loading**
+
   - Relationships have no explicit `lazy=` parameter (uses SQLAlchemy defaults)
+
 - **Custom eager loading** via `selectinload()` at query time
+
   - When relationships are needed, CRUD functions explicitly load them, e.g.:
+
     ```python
     stmt = select(Activity).options(
         selectinload(Activity.platform),
         selectinload(Activity.area).selectinload(Area.competent_authority),
     )
     ```
+
 - **Benefits**
+
   - Eager-when-needed (loads relationships in bulk via `selectinload`)
   - Idiomatic (reduced boilerplate, less-verbose than manual queries)
+
+---
 
 ### Data Flow
 
@@ -702,8 +760,8 @@ A. Inputs:
   - `clientId` ← `client_id` claim
   - `competentAuthorityName` ← `client_name` claim
 - From multipart payload:
-  - `areaId` (optional functional id, alphanumeric with hyphens, length <= 64)
-  - `areaName` (optional, length <= 64)
+  - `areaId` (optional functional id, alphanumeric with hyphens, length \<= 64)
+  - `areaName` (optional, length \<= 64)
   - `regulation` (optional enum, defaults to `all`)
   - `file` (.zip, max 1 MiB, ZIP-magic verified, malware-scanned)
 
@@ -729,6 +787,7 @@ B. Steps:
 2. Resolve or version the `Area` (row-locked `FOR UPDATE` on `(areaId, competentAuthorityId)` when `areaId` is supplied):
 
    - `areaId` is not supplied: create a brand-new Area
+
      - Technical id `id`: autogenerated (int)
      - Functional id `areaId`: auto-generated (UUIDv4)
      - Name `areaName`: ← payload
@@ -740,6 +799,7 @@ B. Steps:
      - End timestamp `endedAt`: `NULL`
 
    - `areaId` is supplied and no row exists for `(areaId, competentAuthorityId)`: create a new Area using the supplied functional id
+
      - Technical id `id`: autogenerated (int)
      - Functional id `areaId`: ← payload
      - Name `areaName`: ← payload
@@ -751,6 +811,7 @@ B. Steps:
      - End timestamp `endedAt`: `NULL`
 
    - `areaId` is supplied and an active row exists for `(areaId, competentAuthorityId)`: mark the current Area as ended (`endedAt = now()`) and insert a new version
+
      - Technical id `id`: autogenerated (int)
      - Functional id `areaId`: same as supplied
      - Name `areaName`: ← payload
@@ -781,16 +842,16 @@ A. Inputs:
   - `clientId` ← `client_id` claim
   - `platformName` ← `client_name` claim
 - From JSON payload:
-  - `activities`: array of 1–1000 activity items; each item carries:
-    - `activityId` (optional functional id, alphanumeric with hyphens, length <= 64)
-    - `activityName` (optional, length <= 64)
+  - `activities`: array of 1-1000 activity items; each item carries:
+    - `activityId` (optional functional id, alphanumeric with hyphens, length \<= 64)
+    - `activityName` (optional, length \<= 64)
     - `status` (optional enum, defaults to `finished`; may also be `cancelled`)
     - `areaId` (required functional id, must reference an existing area)
-    - `url` (length <= 128)
+    - `url` (length \<= 128)
     - `address` (composite: `thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)
-    - `registrationNumber` (length <= 32)
-    - `numberOfGuests` (1–1024)
-    - `countryOfGuests` (array, 1–1024 elements; each ISO 3166-1 alpha-3 or `N/A`, uppercase; length must equal `numberOfGuests`)
+    - `registrationNumber` (length \<= 32)
+    - `numberOfGuests` (1-1024)
+    - `countryOfGuests` (array, 1-1024 elements; each ISO 3166-1 alpha-3 or `N/A`, uppercase; length must equal `numberOfGuests`)
     - `temporal` (composite: `startDatetime`, `endDatetime`)
 
 B. Steps:
@@ -868,6 +929,8 @@ POST endpoints use `get_async_db` which wraps the entire request in a single tra
 
 Validation is distributed across three layers, each with a distinct responsibility.
 
+---
+
 ### Layers
 
 | Layer                             | Responsibility                                              | Mechanism                                           | Example                                                              |
@@ -875,6 +938,8 @@ Validation is distributed across three layers, each with a distinct responsibili
 | **Schemas (Pydantic)**            | Syntax: types, formats, lengths, patterns                   | Pydantic `Field()` constraints and type annotations | `activityId` must match `^[A-Za-z0-9-]+$`, max 64 chars              |
 | **Service**                       | Business rules: referential integrity, state checks         | Python logic, database lookups                      | Area must exist, deactivated entities cannot be resubmitted          |
 | **Model (SQLAlchemy/PostgreSQL)** | Data integrity: uniqueness, foreign keys, check constraints | Database constraints, model defaults                | Unique constraint on `(area_id, competent_authority_id, created_at)` |
+
+---
 
 ### Functional IDs (General)
 
@@ -891,6 +956,7 @@ This pattern is expressed as two reusable types:
 | `FunctionalId`         | `str`         | IDs that **must** be present (references to existing entities, response fields, path parameters) |
 | `OptionalFunctionalId` | `str \| None` | IDs that **may** be omitted (create inputs where the system generates a UUID if not provided)    |
 
+---
 
 ### Functional IDs (User-Supplied)
 
@@ -909,6 +975,8 @@ These IDs are submitted by the caller in the request body or form fields and val
   - The `Annotated[OptionalFunctionalId, Form()]` type annotation ensures Pydantic still validates the form field declaratively, just like JSON body fields
 - `POST /api/str/v1/activities/bulk` accepts a JSON body; per-item validation is done via `TypeAdapter(ActivityRequest)` in the service layer
 
+---
+
 ### Owner IDs and JWT Client IDs
 
 **Platform and Competent Authority public functional IDs** are generated UUID strings stored in `platform.platform_id` and `competent_authority.competent_authority_id`.
@@ -917,18 +985,18 @@ These public owner IDs are returned as `platformId` and `competentAuthorityId` i
 
 The JWT token's `client_id` claim is stored separately in the private `client_id` column on `Platform` and `CompetentAuthority`. Service and CRUD code use this private value for lookup, ownership scoping, versioning, and deactivation checks.
 
-| Endpoint                            | Router                   | JWT claim used for scoping | Public owner ID exposed in responses |
-| ----------------------------------- | ------------------------ | -------------------------- | ------------------------------------ |
-| `POST /api/ca/v1/areas`             | `areas.py`               | `client_id`                | `competentAuthorityId`               |
-| `GET /api/ca/v1/areas`              | `areas.py`               | `client_id`                | `competentAuthorityId`               |
-| `GET /api/ca/v1/areas/count`        | `areas.py`               | `client_id`                | n/a                                  |
-| `GET /api/ca/v1/areas/{areaId}`     | `areas.py`               | `client_id`                | n/a                                  |
-| `DELETE /api/ca/v1/areas/{areaId}`  | `areas.py`               | `client_id`                | n/a                                  |
-| `GET /api/ca/v1/activities`         | `activities_v1.py`       | `client_id`                | `competentAuthorityId`, `platformId` |
-| `GET /api/ca/v1/activities/count`   | `activities_v1.py`       | `client_id`                | n/a                                  |
-| `GET /api/ca/v2/activities`         | `activities_v2.py`       | `client_id`                | `competentAuthorityId`, `platformId` |
-| `GET /api/ca/v2/activities/count`   | `activities_v2.py`       | `client_id`                | n/a                                  |
-| `POST /api/str/v1/activities/bulk`  | `str_activities_bulk.py` | `client_id`                | `competentAuthorityId`, `platformId` |
+| Endpoint                           | Router                   | JWT claim used for scoping | Public owner ID exposed in responses |
+| ---------------------------------- | ------------------------ | -------------------------- | ------------------------------------ |
+| `POST /api/ca/v1/areas`            | `areas.py`               | `client_id`                | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas`             | `areas.py`               | `client_id`                | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas/count`       | `areas.py`               | `client_id`                | n/a                                  |
+| `GET /api/ca/v1/areas/{areaId}`    | `areas.py`               | `client_id`                | n/a                                  |
+| `DELETE /api/ca/v1/areas/{areaId}` | `areas.py`               | `client_id`                | n/a                                  |
+| `GET /api/ca/v1/activities`        | `activities_v1.py`       | `client_id`                | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v1/activities/count`  | `activities_v1.py`       | `client_id`                | n/a                                  |
+| `GET /api/ca/v2/activities`        | `activities_v2.py`       | `client_id`                | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v2/activities/count`  | `activities_v2.py`       | `client_id`                | n/a                                  |
+| `POST /api/str/v1/activities/bulk` | `str_activities_bulk.py` | `client_id`                | `competentAuthorityId`, `platformId` |
 
 The private `client_id` is never serialized in public API responses, OpenAPI examples, or public documentation as an owner ID.
 
@@ -942,20 +1010,20 @@ All exceptions are handled by global exception handlers defined in `app/exceptio
 
 The table below shows how application exceptions map to HTTP status codes:
 
-| HTTP Status                 | Exception                             | Description                                                                                                   |
-| --------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 400                         | `RequestValidationError`              | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`)                                   |
+| HTTP Status                       | Exception                             | Description                                                                                                                                                                     |
+| --------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400                               | `RequestValidationError`              | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`)                                                                                                     |
 | 400 / 401 / 403 / 404 / 413 / 422 | `HTTPException`                       | Missing/invalid token claims, missing roles, missing credentials, inline input validation, resource not found, oversized upload (`Content-Length` exceeds the per-endpoint cap) |
-| 401                         | `InvalidTokenError`                   | Invalid token (subtype of AuthenticationError)                                                                |
-| 401                         | `AuthenticationError`                 | Invalid or expired token                                                                                      |
-| 403                         | `AuthorizationError`                  | Insufficient permissions                                                                                      |
-| 404                         | `ResourceNotFoundError`               | Resource not found                                                                                            |
-| 409                         | `DuplicateResourceError`              | Duplicate resource conflict                                                                                   |
-| 422                         | `RequestValidationError`              | Invalid request body on a POST request (e.g. missing required field or wrong value type)                      |
-| 422                         | `ApplicationValidationError`          | Business rule violations (e.g. start time later than end time is NOK )                                        |
-| 500                         | `Exception`                           | Catch-all (unexpected code failure)                                                                           |
-| 503                         | `DatabaseOperationalError`            | Database temporarily unavailable                                                                              |
-| 503                         | `AuthorizationServerOperationalError` | Authorization server temporarily unavailable                                                                  |
+| 401                               | `InvalidTokenError`                   | Invalid token (subtype of AuthenticationError)                                                                                                                                  |
+| 401                               | `AuthenticationError`                 | Invalid or expired token                                                                                                                                                        |
+| 403                               | `AuthorizationError`                  | Insufficient permissions                                                                                                                                                        |
+| 404                               | `ResourceNotFoundError`               | Resource not found                                                                                                                                                              |
+| 409                               | `DuplicateResourceError`              | Duplicate resource conflict                                                                                                                                                     |
+| 422                               | `RequestValidationError`              | Invalid request body on a POST request (e.g. missing required field or wrong value type)                                                                                        |
+| 422                               | `ApplicationValidationError`          | Business rule violations (e.g. start time later than end time is NOK )                                                                                                          |
+| 500                               | `Exception`                           | Catch-all (unexpected code failure)                                                                                                                                             |
+| 503                               | `DatabaseOperationalError`            | Database temporarily unavailable                                                                                                                                                |
+| 503                               | `AuthorizationServerOperationalError` | Authorization server temporarily unavailable                                                                                                                                    |
 
 ---
 
@@ -963,11 +1031,13 @@ The table below shows how application exceptions map to HTTP status codes:
 
 The bulk endpoint `POST /api/str/v1/activities/bulk` is the single entry point for all STR activity submissions.
 
+---
+
 ### Approach
 
-At high volumes (500K–4M records/day, ~6–46 records/second average), PostgreSQL is not the bottleneck - a standard Postgres instance can process thousands of transactions per second. The actual bottlenecks are:
+At high volumes (500K-4M records/day, ~6-46 records/second average), PostgreSQL is not the bottleneck - a standard Postgres instance can process thousands of transactions per second. The actual bottlenecks are:
 
-1. **Network latency** - solved by batching 500–1000 items per API call
+1. **Network latency** - solved by batching 500-1000 items per API call
 2. **Disk I/O (WAL pressure)** - solved by multi-row `INSERT ... VALUES` instead of individual inserts
 
 Five implementation strategies were evaluated:
@@ -987,6 +1057,8 @@ Five implementation strategies were evaluated:
 
 Synchronous bulk gives the client **immediate, per-item feedback** (OK/NOK with error reasons) in the same HTTP response, requires **no extra infrastructure** beyond the API and database, and keeps the architecture simple - validation and insert happen in one transaction with no background workers or message brokers.
 
+---
+
 ### Validation Flow
 
 Instead of having the database check each record via savepoints, errors are caught in the application layer:
@@ -999,8 +1071,8 @@ Instead of having the database check each record via savepoints, errors are caug
 
 The wire contract (OpenAPI) and the runtime validation behavior are deliberately decoupled:
 
-- **Contract (OpenAPI)** — `ActivityBulkRequest.activities` is typed concretely as `list[ActivityRequest]`, so the spec documents the full item shape instead of an untyped object.
-- **Runtime** — items are *not* validated at request-parse time. If Pydantic validated the whole list eagerly, one bad item would return HTTP 422 for the entire batch and the per-item OK/NOK flow would be unreachable.
+- **Contract (OpenAPI)** - `ActivityBulkRequest.activities` is typed concretely as `list[ActivityRequest]`, so the spec documents the full item shape instead of an untyped object.
+- **Runtime** - items are *not* validated at request-parse time. If Pydantic validated the whole list eagerly, one bad item would return HTTP 422 for the entire batch and the per-item OK/NOK flow would be unreachable.
 
 Implementation:
 
@@ -1028,6 +1100,8 @@ Result:
 **Motivation for step 2 after step 1:** \
 Prevents unvalidated (untrusted) data from being used in database operations.
 
+---
+
 ### Status Codes
 
 | HTTP Status                   | When                                                                |
@@ -1036,12 +1110,14 @@ Prevents unvalidated (untrusted) data from being used in database operations.
 | **200 OK**                    | Partial success: some OK, some NOK (`succeeded > 0 AND failed > 0`) |
 | **422 Unprocessable Content** | All items failed validation (`succeeded == 0`)                      |
 
+---
+
 ### Design Decisions
 
 | #      | Decision                                                                                                                                                                                                          | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **D1** | **Per-item Pydantic validation** - the request accepts raw dicts, each validated individually in the service layer                                                                                                | One invalid item should not block the other (999) items in the batch. If one item has a missing field, the rest are still processed.                                                                                                                                                                                                                                                                                                    |
-| **D2** | **Intra-batch duplicates: last-wins** - when the same `activityId` appears multiple times in a single batch, only the last occurrence is processed; earlier occurrences receive NOK                               | Deterministic and predictable for clients. Avoids ambiguity about which version "wins". Combined with pessimistic locking ([Locking](#locking)), this extends across requests: if two concurrent batches contain the same `activityId`, `SELECT ... FOR UPDATE` serializes them so the second batch waits for the first to commit, then overwrites it — consistent last-wins semantics at both the intra-batch and cross-request level. |
+| **D2** | **Intra-batch duplicates: last-wins** - when the same `activityId` appears multiple times in a single batch, only the last occurrence is processed; earlier occurrences receive NOK                               | Deterministic and predictable for clients. Avoids ambiguity about which version "wins". Combined with pessimistic locking ([Locking](#locking)), this extends across requests: if two concurrent batches contain the same `activityId`, `SELECT ... FOR UPDATE` serializes them so the second batch waits for the first to commit, then overwrites it - consistent last-wins semantics at both the intra-batch and cross-request level. |
 | **D3** | **Versioning: batch UPDATE before INSERT** - existing current versions in the database are marked as ended via a single batch `UPDATE ... WHERE activity_id IN (...)` before the bulk INSERT creates new versions | Consistent with single-endpoint versioning semantics, but uses batch operations (1 UPDATE + 1 INSERT) instead of per-item queries.                                                                                                                                                                                                                                                                                                      |
 | **D4** | **Platform resolution: version only on name change** - platform is resolved once per batch; a new version is only created if the JWT claim (`client_name`) has changed                                            | Avoids unnecessary versioning churn when the same platform submits many batches with unchanged credentials.                                                                                                                                                                                                                                                                                                                             |
 | **D5** | **Deactivated entities rejected** - if an `activityId` has been deactivated (all versions have `endedAt` set), submitting it again is rejected (NOK)                                                              | Prevents "resurrecting" soft-deleted entities. Consistent with single endpoint behavior.                                                                                                                                                                                                                                                                                                                                                |

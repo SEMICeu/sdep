@@ -21,6 +21,8 @@ Some maximum length constraints have been widened to accommodate EU-wide address
 
 ## JSON Payload: Before and After
 
+---
+
 ### Before
 
 ```json
@@ -35,6 +37,8 @@ Some maximum length constraints have been widened to accommodate EU-wide address
   }
 }
 ```
+
+---
 
 ### After
 
@@ -54,6 +58,7 @@ Some maximum length constraints have been widened to accommodate EU-wide address
 ## Required Client Changes
 
 1. **Update all request payloads** (`POST /str/activities/bulk`):
+
    - Replace `"street"` with `"thoroughfare"`
    - Replace `"number"` with `"locatorDesignatorNumber"`
    - Replace `"letter"` with `"locatorDesignatorLetter"`
@@ -62,9 +67,11 @@ Some maximum length constraints have been widened to accommodate EU-wide address
    - Replace `"city"` with `"postName"`
 
 2. **Update response parsing** (`GET /ca/activities`):
+
    - The `address` object in responses uses the same new field names
 
 3. **Review length constraints** if your system validates locally:
+
    - `thoroughfare` now allows up to 80 characters (was 64)
    - `locatorDesignatorLetter` now allows up to 10 characters (was 1) -- supports multi-character designators like French "bis", "ter"
    - `locatorDesignatorAddition` now allows up to 128 characters (was 10)
@@ -85,6 +92,7 @@ The SEMIC STR-AP (Short-Term Rental Application Profile) builds on INSPIRE addre
 to define a standard data model for short-term rental regulation across the EU.
 
 This migration aligns SDEP with these standards, enabling:
+
 - Interoperability with other EU member state rental registration systems
 - Compliance with the EU Single Digital Gateway regulation
 - Support for address formats beyond the Dutch BAG (e.g., French "bis"/"ter" locator designators)

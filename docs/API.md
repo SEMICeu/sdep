@@ -40,63 +40,80 @@ This document describes principles and patterns for the SDEP API.
 
 ## Patterns
 
-| #               | Decision                                           | Motivation/example                                                                                                     |
-| :-------------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
-| **API&nbsp;01** | Support OpenAPI 3.1.0                              | Swagger 2.0 is legacy - https://swagger.io/specification/                                                              |
-| **API&nbsp;02** | All endpoints are self-explanatory/well-documented |                                                                                                                        |
-| **API&nbsp;03** | Use nouns instead of verbs                         | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
-| **API&nbsp;04** | Use plurals for resources that affect collections  | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
-| **API&nbsp;05** | Consistent datamodel                               | Avoid code duplication, e.g. have unified `Activity`, `Area` and error responses                                       |
-| **API&nbsp;06** | Consistent endpoints                               | Collection endpoints, explicit "bulk" qualification where needed: `POST /ca/areas` vs. `POST /str/activities/bulk`     |
-| **API&nbsp;07** | Consistent pagination                              | Have `offset` and `limit` for all endpoints with (potential) many records                                              |
-| **API&nbsp;08** | Syntax validation                                  | Example: `postal code`                                                                                                 |
-| **API&nbsp;09** | Semantical validation                              | Example: `begin timestamp < end timestamp`                                                                             |
-| **API&nbsp;10** | Integrity validation                               | Example: can only submit activities for existing areas                                                                 |
-| **API&nbsp;11** | Bulk POST                                          | All STR activity submissions use `POST /str/activities/bulk` (up to 1000 items/batch)                                  |
-| **API&nbsp;12** | Logical ordering => readability                    | For POST, request and response follow the same ordering, extra data in response (e.g. `createdAt`) is moved to the end |
-| **API&nbsp;13** | Essentiality                                       | Example: in `/str/activities/bulk`, only `areaId`, but no `competentAuthorityId`                                       |
-| **API&nbsp;14** | Essentiality/security                              | Example: in POST activities, no need to include `platformId`                                                           |
-| **API&nbsp;15** | Consistent HTTP response codes                     | See [HTTP Status Codes](#http-status-codes) below                                                                      |
-| **API&nbsp;16** | STR and CA: manage area change                     | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                         |
-| **API&nbsp;17** | Unified response format                            | Example: `ActivityResponse` (for STR and CA, both contain `competentAuthorityName`')                                   |
+| #          | Decision                                           | Motivation/example                                                                                                     |
+| :--------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| **API 01** | Support OpenAPI 3.1.0                              | Swagger 2.0 is legacy - https://swagger.io/specification/                                                              |
+| **API 02** | All endpoints are self-explanatory/well-documented |                                                                                                                        |
+| **API 03** | Use nouns instead of verbs                         | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
+| **API 04** | Use plurals for resources that affect collections  | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
+| **API 05** | Consistent datamodel                               | Avoid code duplication, e.g. have unified `Activity`, `Area` and error responses                                       |
+| **API 06** | Consistent endpoints                               | Collection endpoints, explicit "bulk" qualification where needed: `POST /ca/areas` vs. `POST /str/activities/bulk`     |
+| **API 07** | Consistent pagination                              | Have `offset` and `limit` for all endpoints with (potential) many records                                              |
+| **API 08** | Syntax validation                                  | Example: `postal code`                                                                                                 |
+| **API 09** | Semantical validation                              | Example: `begin timestamp < end timestamp`                                                                             |
+| **API 10** | Integrity validation                               | Example: can only submit activities for existing areas                                                                 |
+| **API 11** | Bulk POST                                          | All STR activity submissions use `POST /str/activities/bulk` (up to 1000 items/batch)                                  |
+| **API 12** | Logical ordering => readability                    | For POST, request and response follow the same ordering, extra data in response (e.g. `createdAt`) is moved to the end |
+| **API 13** | Essentiality                                       | Example: in `/str/activities/bulk`, only `areaId`, but no `competentAuthorityId`                                       |
+| **API 14** | Essentiality/security                              | Example: in POST activities, no need to include `platformId`                                                           |
+| **API 15** | Consistent HTTP response codes                     | See [HTTP Status Codes](#http-status-codes) below                                                                      |
+| **API 16** | STR and CA: manage area change                     | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                         |
+| **API 17** | Unified response format                            | Example: `ActivityResponse` (for STR and CA, both contain `competentAuthorityName`')                                   |
 
 ---
 
 ## Versioning
 
+---
+
 ### API Versioning
 
 The API version (contract) is embedded in the URL path (`/api/{domain}/v1/...`).
 
-A new version (e.g. v2) is introduced only when a **breaking change** to the contract is unavoidable — a removed or renamed field, a changed type, or altered semantics.
+A new version (e.g. v2) is introduced only when a **breaking change** to the contract is unavoidable - a removed or renamed field, a changed type, or altered semantics.
 
 Additive changes (new optional fields, new endpoints) do **not** require a new version.
 
+---
+
+### API Status
+
+Each API version has a status:
+
+- **stable** - supported for production integrations. Backward compatibility is guaranteed within the same API version.
+- **beta** - available for early integration and feedback, the contract may still change before it is promoted to stable.
+
+A beta API can be available in production. Clients may integrate with it, but the contract may change.
+
 **Current versions in production:**
 
-| Domain | Version | Notes                                         |
-| ------ | ------- | --------------------------------------------- |
-| auth   | v1      |                                               |
-| ca     | v1      | Areas + activities (no filters)               |
-| ca     | v2      | Activities with optional query filters (new)  |
-| str    | v1      |                                               |
+| Domain | Version | Status | Notes                                        |
+| ------ | ------- | ------ | -------------------------------------------- |
+| auth   | v1      | stable |                                              |
+| ca     | v1      | stable | Areas + activities (no filters)              |
+| ca     | v2      | beta   | Activities with optional query filters (new) |
+| str    | v1      | stable |                                              |
+
+---
 
 ### CA Activity Filters (v2)
 
 `GET /api/ca/v2/activities` and `GET /api/ca/v2/activities/count` accept optional query parameters to narrow results within the authenticated CA's scope:
 
-| Parameter            | Type       | Description                                              |
-| -------------------- | ---------- | -------------------------------------------------------- |
-| `filterCreatedAtFrom`| datetime   | Inclusive lower bound on `createdAt` (ISO 8601)          |
-| `filterCreatedAtTo`  | datetime   | Inclusive upper bound on `createdAt` (ISO 8601)          |
-| `filterPlatformId`   | FunctionalId | Exact-match filter on `platformId`                     |
-| `filterAreaId`       | FunctionalId | Exact-match filter on `areaId`                         |
+| Parameter             | Type         | Description                                     |
+| --------------------- | ------------ | ----------------------------------------------- |
+| `filterCreatedAtFrom` | datetime     | Inclusive lower bound on `createdAt` (ISO 8601) |
+| `filterCreatedAtTo`   | datetime     | Inclusive upper bound on `createdAt` (ISO 8601) |
+| `filterPlatformId`    | FunctionalId | Exact-match filter on `platformId`              |
+| `filterAreaId`        | FunctionalId | Exact-match filter on `areaId`                  |
 
 All provided filters are combined with AND semantics. Omitting a filter means no constraint on that dimension. An invalid `FunctionalId` format returns HTTP 400.
 
 If OR semantics are required, clients should implement them client-side by calling this endpoint multiple times and combining the results.
 
 When a new API version is released, the previous version (N-1) remains available for a deprecation period to give clients time to migrate. Only the current (N) and previous (N-1) versions are supported simultaneously.
+
+---
 
 ### Backward and Forward Compatibility
 
@@ -110,13 +127,15 @@ Forward compatibility:
 - An older server gracefully handling newer client payloads (e.g. by ignoring unknown fields)
 - Is a best-effort courtesy, not a guarantee across API versions
 
+---
+
 ### Application Versioning
 
 The deployed application (serving the contract) follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`):
 
-- **MAJOR** — incompatible changes (e.g. architectural overhaul, removed internal behavior)
-- **MINOR** — backward-compatible new functionality
-- **PATCH** — backward-compatible bug fixes
+- **MAJOR** - incompatible changes (e.g. architectural overhaul, removed internal behavior)
+- **MINOR** - backward-compatible new functionality
+- **PATCH** - backward-compatible bug fixes
 
 The application version is **independent** of the API version.
 
@@ -128,6 +147,8 @@ Internal refactors, dependency upgrades, or infrastructure changes may warrant a
 
 ## HTTP Status Codes
 
+---
+
 ### Success
 
 | HTTP Status | Meaning    | When                                                                                                |
@@ -135,6 +156,8 @@ Internal refactors, dependency upgrades, or infrastructure changes may warrant a
 | 200         | OK         | GET request completed successfully; bulk POST with partial success (created multiple new resources) |
 | 201         | Created    | POST request created a single new resource                                                          |
 | 204         | No Content | DELETE request completed successfully (e.g. deactivate area)                                        |
+
+---
 
 ### Client Errors
 
@@ -148,6 +171,8 @@ Internal refactors, dependency upgrades, or infrastructure changes may warrant a
 | 413         | Payload Too Large     | Upload exceeds the per-endpoint size limit (e.g. `POST /api/ca/v1/areas` rejects requests whose `Content-Length` exceeds the 1 MiB file-size cap plus a small multipart envelope) |
 | 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field), or business rule violation (e.g. start time > end time)                                                     |
 
+---
+
 ### Server Errors
 
 | HTTP Status | Meaning               | When                                                                     |
@@ -160,6 +185,8 @@ For the mapping between application exceptions and HTTP status codes, see [Statu
 ---
 
 ## OpenAPI vs Swagger UI
+
+---
 
 ### OpenAPI
 
@@ -184,9 +211,11 @@ It is the **authoritative, machine-readable contract** of the API.
 
 Key properties:
 
-- **Versioned, machine-readable** — diffable in git, consumable by tooling.
-- **Single source of truth** — endpoints, schemas, and examples live in one document.
-- **Reusable components** — named schemas (`#/components/schemas/...`) are referenced via `$ref` so the same type can appear in many places without duplication.
+- **Versioned, machine-readable** - diffable in git, consumable by tooling.
+- **Single source of truth** - endpoints, schemas, and examples live in one document.
+- **Reusable components** - named schemas (`#/components/schemas/...`) are referenced via `$ref` so the same type can appear in many places without duplication.
+
+---
 
 ### Swagger UI
 
@@ -208,7 +237,9 @@ A landing page at `GET /api/docs` links to all domain docs.
 
 Swagger UI's audience is humans: developers exploring the API, integrators drafting their first request, reviewers sanity-checking a change.
 
-To keep that audience oriented, Swagger UI **summarizes where the raw spec would overwhelm** — e.g. it may label a field as `array<object>` even when the spec contains a named `$ref` to a typed component. The typed detail is still reachable (one click deeper), but the top-level label is deliberately compact.
+To keep that audience oriented, Swagger UI **summarizes where the raw spec would overwhelm** - e.g. it may label a field as `array<object>` even when the spec contains a named `$ref` to a typed component. The typed detail is still reachable (one click deeper), but the top-level label is deliberately compact.
+
+---
 
 ### Interchangeable?
 
@@ -216,6 +247,8 @@ The two are not interchangeable:
 
 - When a schema is non-trivial (arrays of typed objects, composed `$ref`s, polymorphism), Swagger UI summarizes while the raw JSON retains the full detail
 - Always treat `openapi.json` as the source of truth
+
+---
 
 ### Example
 
@@ -231,9 +264,9 @@ Swagger UI shows the request body as `ActivityBulkRequest (object)`. The `activi
 activities*   array<object>   [1, 1000] items
 ```
 
-— i.e. Swagger UI's item-type label is the generic word `object`, not `ActivityRequest`. The typed structure is still there, just one level deeper: expanding `Items` reveals a nested `object` block with every `ActivityRequest` property (`activityId`, `activityName`, `areaId`, `address`, `registrationNumber`, `numberOfGuests`, `countryOfGuests`, `temporal`, …) including their constraints, examples, and descriptions. So Swagger UI does render the full schema; it just does not surface the referenced **type name** at the array level.
+- i.e. Swagger UI's item-type label is the generic word `object`, not `ActivityRequest`. The typed structure is still there, just one level deeper: expanding `Items` reveals a nested `object` block with every `ActivityRequest` property (`activityId`, `activityName`, `areaId`, `address`, `registrationNumber`, `numberOfGuests`, `countryOfGuests`, `temporal`, …) including their constraints, examples, and descriptions. So Swagger UI does render the full schema; it just does not surface the referenced **type name** at the array level.
 
-**2. openapi.json — request body reference**
+**2. openapi.json - request body reference**
 
 In the raw document, the endpoint body points at a named component:
 
@@ -251,7 +284,7 @@ In the raw document, the endpoint body points at a named component:
 }
 ```
 
-**3. openapi.json — `ActivityBulkRequest` definition**
+**3. openapi.json - `ActivityBulkRequest` definition**
 
 The wrapper references another named component for the item type:
 
@@ -271,7 +304,7 @@ The wrapper references another named component for the item type:
 }
 ```
 
-**4. openapi.json — `ActivityRequest` definition**
+**4. openapi.json - `ActivityRequest` definition**
 
 `ActivityRequest` is a top-level, reusable component with every property and its constraints spelled out:
 
@@ -297,12 +330,14 @@ The wrapper references another named component for the item type:
 }
 ```
 
+---
+
 ### Takeaways
 
 - **Typing is explicit in `openapi.json`**, via chained `$ref`s: the endpoint → `ActivityBulkRequest` → `ActivityRequest`. Client code generators, contract-test tools, and spec-diff tools will pick this up and produce typed models.
 - **Swagger UI's `array<object>` label is cosmetic**, not a loss of schema detail. The underlying typed item schema is still available one click deeper under *Items*.
 - **Consume `openapi.json` for machine workflows** (code generation, conformance tests, contract diffs). **Use Swagger UI for exploratory human reading** and manual request submission.
-- **When a spec question arises, check `openapi.json` first.** If a type appears to be "just an object" in Swagger UI, it almost always has a named component behind it — follow the `$ref`.
+- **When a spec question arises, check `openapi.json` first.** If a type appears to be "just an object" in Swagger UI, it almost always has a named component behind it - follow the `$ref`.
 
 ---
 
@@ -311,6 +346,8 @@ The wrapper references another named component for the item type:
 For production use in your own country, the utilization of a separate API gateway can be considered (on top of the SDEP API).
 
 Within **SDEP NL**, a dedicated API gateway is currently **not** used. This is a deliberate choice based on how the platform is designed and operated. Only when specific edge-control requirements arise that cannot be handled by the existing ingress/reverse proxy setup, an additional gateway could be introduced.
+
+---
 
 ### Motivation
 
@@ -327,6 +364,7 @@ In context of SDEP NL:
 
 - **Operational simplicity is a key design principle** \
   Avoiding an extra gateway reduces:
+
   - Latency in the request path
   - Duplication of security and routing policies
   - Risk of configuration drift
@@ -334,6 +372,8 @@ In context of SDEP NL:
 
 - **Authorization is intentionally handled at the right layers** \
   Identity and access control are enforced via the identity provider and the application itself, aligning with SDEP’s architecture rather than shifting logic to an external gateway.
+
+---
 
 ### When
 
@@ -343,6 +383,8 @@ Introducing a gateway could become relevant when concrete needs arise, such as:
 2. **Centralized security/policy enforcement** across multiple backend services (JWT claim rules, IP allowlists, mTLS, schema checks)
 3. Need for **API product capabilities** (developer portal, client onboarding, usage analytics)
 4. **Multi-service backend exposure** with a single stable external contract
+
+---
 
 ### Conclusion
 

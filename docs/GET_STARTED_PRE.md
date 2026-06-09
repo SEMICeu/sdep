@@ -27,8 +27,8 @@ SDEP is an API-first application designed for machine-to-machine (M2M) integrati
 
 To request test credentials, please email us using the contact details listed at <https://pre-sdep.minvro.nl/api/docs> and include the following details in your request:
 
-- **Technical email address** — used to share the **machine client ID**
-- **Technical phone number** — used to share the **machine client secret**
+- **Technical email address** - used to share the **machine client ID**
+- **Technical phone number** - used to share the **machine client secret**
 
 If you have any questions, please feel free to reach out.
 

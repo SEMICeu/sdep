@@ -176,9 +176,9 @@ Measures taken based on:
 
 A **Cross-Site Scripting attack (XSS)** has three phases:
 
-1. **Input** — the attacker injects malicious content (e.g. `<script>`)
-2. **Storage / Reflection** — the application returns that content to a user
-3. **Output / Execution** — the browser executes the script
+1. **Input** - the attacker injects malicious content (e.g. `<script>`)
+2. **Storage / Reflection** - the application returns that content to a user
+3. **Output / Execution** - the browser executes the script
 
 SDEP mitigates these phases as follows.
 
@@ -208,7 +208,7 @@ A **SQL injection** attack manipulates database queries by inserting malicious S
 SQL injection is mitigated by design through the technology stack:
 
 - All database access uses **SQLAlchemy ORM** with its query builder API (`select()`, `insert()`, `update()`, `delete()`)
-- All user-supplied values are passed as **bound parameters** — SQLAlchemy never interpolates values into SQL strings
+- All user-supplied values are passed as **bound parameters** - SQLAlchemy never interpolates values into SQL strings
 - There are **no raw SQL strings** anywhere in the codebase (including audit log retention, which also uses the SQLAlchemy query builder)
 - Pydantic validates and constrains all input **before** it reaches the database layer (type checks, max lengths, regex patterns)
 
@@ -220,7 +220,7 @@ A **path traversal** attack manipulates file paths by inserting directory traver
 
 Path traversal is mitigated by design through the application architecture:
 
-- **No filesystem operations on user-supplied input** — uploaded files are read into memory and stored as binary blobs (`LargeBinary`) in the database, not written to disk
+- **No filesystem operations on user-supplied input** - uploaded files are read into memory and stored as binary blobs (`LargeBinary`) in the database, not written to disk
 - The uploaded filename is stored as metadata in the database only; it is **never used to construct filesystem paths**
 - All functional IDs (used in URL path parameters and form fields) are validated against a strict alphanumeric pattern (`^[A-Za-z0-9\-]+$` in [`common.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/schemas/common.py)), which rejects path traversal characters (`/`, `\`, `.`, `..`)
 - JWT claims used as identifiers (`client_id`) are validated against a similarly strict pattern (`^[A-Za-z0-9._-]+$`), which additionally permits `.` and `_` for Keycloak client naming while still rejecting path separators (`/`, `\`)
@@ -231,8 +231,8 @@ Cross-Site Request Forgery (CSRF) allows an attacker to trick a logged-in user i
 
 Cross-Site Request Forgery (CSRF) is not applicable for SDEP:
 
-- SDEP uses stateless JWT bearer tokens in the `Authorization` header, not cookies — a browser cannot automatically attach credentials to a forged request, so CSRF is not possible
-- Swagger UI authenticates via the same bearer token mechanism — no cookies are used, so CSRF-tokens and cookie attributes (`SameSite=Strict; Secure; HttpOnly`) do not apply
+- SDEP uses stateless JWT bearer tokens in the `Authorization` header, not cookies - a browser cannot automatically attach credentials to a forged request, so CSRF is not possible
+- Swagger UI authenticates via the same bearer token mechanism - no cookies are used, so CSRF-tokens and cookie attributes (`SameSite=Strict; Secure; HttpOnly`) do not apply
 
 See also [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/security.py) (`OAuth2ClientCredentials`).
 
@@ -256,7 +256,7 @@ File uploads are protected by:
 - **Malware scanning:** uploads are scanned with ClamAV before being accepted; infected files return `400`
 - **Filename sanitization at upload time:** the uploaded filename is sanitized before it is stored in the database, using the shared [`filename.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/filename.py) utility (`sanitize_upload_filename`). This prevents malicious filenames from being persisted, eliminating stored denial-of-service risks. Sanitization includes:
   - Path separators are stripped (extracts basename from Unix `/` and Windows `\` paths)
-  - Control characters (C0 range `\x00`–`\x1f`, CR, LF), double quotes, and backslashes are removed
+  - Control characters (C0 range `\x00`-`\x1f`, CR, LF), double quotes, and backslashes are removed
   - Leading/trailing dots and whitespace are stripped; consecutive dots are collapsed
   - If the resulting base name (before `.zip`) is empty, the upload is rejected with `422`
   - Filenames exceeding 64 characters after sanitization are rejected with `422`
@@ -271,7 +271,7 @@ Area file downloads construct the `Content-Disposition` header using the shared 
 
 **Defense-in-depth re-sanitization (`sanitize_download_filename`)**
 
-As a second line of defense, the download path re-sanitizes the stored filename before constructing the header. If re-sanitization strips all characters (e.g. a filename consisting entirely of control characters), the result would be an empty string. Rather than emitting an empty `Content-Disposition` filename, the function returns the literal string `"download"` as a safe fallback so the client always receives a usable filename. In practice this cannot occur because upload-time sanitization (see [File Upload](#file-upload)) already rejects such filenames — the fallback is a defensive guard only.
+As a second line of defense, the download path re-sanitizes the stored filename before constructing the header. If re-sanitization strips all characters (e.g. a filename consisting entirely of control characters), the result would be an empty string. Rather than emitting an empty `Content-Disposition` filename, the function returns the literal string `"download"` as a safe fallback so the client always receives a usable filename. In practice this cannot occur because upload-time sanitization (see [File Upload](#file-upload)) already rejects such filenames - the fallback is a defensive guard only.
 
 ---
 
@@ -330,19 +330,19 @@ To avoid data leaks, secrets are externalized in [`config.py`](https://github.co
 
 To avoid misuse on various layers, HTTP-headers are hardened in [`main.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/main.py) and [`headers.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/security/headers.py):
 
-| Layer                           | HTTP-header                                                                                                                       | Avoids                                                                                                             |
-| :------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Cache control (sensitive paths) | `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0` on `/api/auth/**`, `/api/ca/**`, `/api/str/**`  | Cached responses leaking authentication tokens or personal data                                                    |
-| Content security                | `Content-Security-Policy: default-src 'self'; script-src 'self'; ...` (CSP)                                                       | Cross-site scripting (XSS), code injection, and data exfiltration                                                  |
-| Cross-origin                    | `Cross-Origin-Embedder-Policy: require-corp` (COEP)                                                                               | Cross-origin resource leaks via embedded content (consider `unsafe-none` if encountering 504 issues in deployment) |
-| Cross-origin                    | `Cross-Origin-Opener-Policy: same-origin` (COOP)                                                                                  | Browsing context from cross-origin openers                                                                         |
-| Cross-origin                    | `Cross-Origin-Resource-Policy: same-origin` (CORP)                                                                                | Other origins loading SDEP responses                                                                               |
-| Encryption                      | `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` (HSTS)                                                  | Plain (unencrypted) HTTP-sniffing                                                                                  |
-| Frame protection                | `frame-ancestors 'none'`                                                                                                          | Clickjacking                                                                                                       |
-| Frame protection                | `X-Frame-Options: DENY`                                                                                                           | Clickjacking                                                                                                       |
-| MIME protection                 | `X-Content-Type-Options: nosniff`                                                                                                 | MIME-sniffing                                                                                                      |
-| Permissions                     | `Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()` | Unauthorized access to device features (geolocation, microphone, ...)                                              |
-| Referrer policy                 | `Referrer-Policy: no-referrer`                                                                                                    | Information leakage via Referer                                                                                    |
+| Layer                           | HTTP-header                                                                                                                      | Avoids                                                                                                             |
+| :------------------------------ | :------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Cache control (sensitive paths) | `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0` on `/api/auth/**`, `/api/ca/**`, `/api/str/**` | Cached responses leaking authentication tokens or personal data                                                    |
+| Content security                | `Content-Security-Policy: default-src 'self'; script-src 'self'; ...` (CSP)                                                      | Cross-site scripting (XSS), code injection, and data exfiltration                                                  |
+| Cross-origin                    | `Cross-Origin-Embedder-Policy: require-corp` (COEP)                                                                              | Cross-origin resource leaks via embedded content (consider `unsafe-none` if encountering 504 issues in deployment) |
+| Cross-origin                    | `Cross-Origin-Opener-Policy: same-origin` (COOP)                                                                                 | Browsing context from cross-origin openers                                                                         |
+| Cross-origin                    | `Cross-Origin-Resource-Policy: same-origin` (CORP)                                                                               | Other origins loading SDEP responses                                                                               |
+| Encryption                      | `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` (HSTS)                                                 | Plain (unencrypted) HTTP-sniffing                                                                                  |
+| Frame protection                | `frame-ancestors 'none'`                                                                                                         | Clickjacking                                                                                                       |
+| Frame protection                | `X-Frame-Options: DENY`                                                                                                          | Clickjacking                                                                                                       |
+| MIME protection                 | `X-Content-Type-Options: nosniff`                                                                                                | MIME-sniffing                                                                                                      |
+| Permissions                     | `Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()`                | Unauthorized access to device features (geolocation, microphone, ...)                                              |
+| Referrer policy                 | `Referrer-Policy: no-referrer`                                                                                                   | Information leakage via Referer                                                                                    |
 
 Although CI/CD-related aspects are outside the scope of this repo, test results for SDEP-NL are as follows.
 
@@ -395,7 +395,7 @@ Dependencies are declared with flexible lower bounds (`>=`) in `pyproject.toml` 
 
 - `pyproject.toml` declares the minimum acceptable version of each dependency (the *intent*)
 - `uv.lock` records the exact resolved version of every package, including transitive dependencies (the *pin*)
-- The Dockerfile installs with `uv sync --frozen`, which enforces the lock file exactly — no version can drift at build time
+- The Dockerfile installs with `uv sync --frozen`, which enforces the lock file exactly - no version can drift at build time
 - Using `==` in `pyproject.toml` would duplicate what the lock file already does, while making legitimate upgrades harder and not covering transitive dependencies
 
 **Docker base images**
@@ -432,7 +432,7 @@ SDEP interacts with IAM (e.g. Keycloak) in two distinct ways: **token issuance**
 
 **Token issuance (proxy to Keycloak)**
 
-When an external client needs a JWT, it calls SDEP's `/api/auth/v1/token` endpoint. SDEP acts as a proxy: it takes the client's `client_id` + `client_secret` (from HTTP Basic Auth or form body), forwards them to Keycloak's token endpoint at `/realms/sdep/protocol/openid-connect/token`, and returns the resulting JWT. This is a synchronous request-response — every token request hits Keycloak directly.
+When an external client needs a JWT, it calls SDEP's `/api/auth/v1/token` endpoint. SDEP acts as a proxy: it takes the client's `client_id` + `client_secret` (from HTTP Basic Auth or form body), forwards them to Keycloak's token endpoint at `/realms/sdep/protocol/openid-connect/token`, and returns the resulting JWT. This is a synchronous request-response - every token request hits Keycloak directly.
 
 See [`auth.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/routers/auth.py).
 
@@ -440,12 +440,12 @@ See [`auth.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common
 
 **Token validation (JWKS public key verification)**
 
-On every subsequent API call, the client sends the JWT as a `Bearer` token. SDEP verifies the token signature locally — without calling Keycloak on every request — using the JSON Web Key Set (JWKS) protocol:
+On every subsequent API call, the client sends the JWT as a `Bearer` token. SDEP verifies the token signature locally - without calling Keycloak on every request - using the JSON Web Key Set (JWKS) protocol:
 
 1. Keycloak signs JWTs with its private RSA key and publishes the corresponding public keys at the JWKS endpoint: `/realms/sdep/protocol/openid-connect/certs`
 2. `PyJWKClient` fetches that key set and caches it in-memory
 3. For each incoming request, `get_signing_key_from_jwt(token)` reads the JWT's `kid` (key ID) header, finds the matching public key from the cached set, and verifies the RS256 signature
-4. The decoded payload is returned — no HTTP call to Keycloak needed
+4. The decoded payload is returned - no HTTP call to Keycloak needed
 
 See [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/security.py).
 
@@ -453,7 +453,7 @@ See [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/co
 
 **Audience validation**
 
-A JWT can contain an `aud` (audience) claim that says *which application* the token was issued for. When an application checks `aud`, it rejects tokens that were meant for a different service — even if the signature is valid. This prevents a token issued for Service A from being reused against Service B.
+A JWT can contain an `aud` (audience) claim that says *which application* the token was issued for. When an application checks `aud`, it rejects tokens that were meant for a different service - even if the signature is valid. This prevents a token issued for Service A from being reused against Service B.
 
 SDEP currently does **not** check `aud`. The reason is practical: Keycloak does not include an `aud` claim in the client-credentials tokens it issues to SDEP clients by default. If SDEP started requiring `aud`, every existing client would be rejected until the Keycloak configuration is updated to include it.
 
@@ -469,11 +469,11 @@ The current validation guarantees are therefore:
 
 **JWKS key rotation (5-minute TTL)**
 
-`PyJWKClient` is configured with `cache_jwk_set=True` and `lifespan=300` (5 minutes). This ensures that when Keycloak rotates or revokes signing keys, SDEP picks up the changes within at most 5 minutes — without requiring a restart. The alternative (`@lru_cache`) would cache keys indefinitely, meaning rotated or revoked keys would never be refreshed until the process was restarted.
+`PyJWKClient` is configured with `cache_jwk_set=True` and `lifespan=300` (5 minutes). This ensures that when Keycloak rotates or revokes signing keys, SDEP picks up the changes within at most 5 minutes - without requiring a restart. The alternative (`@lru_cache`) would cache keys indefinitely, meaning rotated or revoked keys would never be refreshed until the process was restarted.
 
 | Concern        | How it's addressed                                                                                                      |
 | :------------- | :---------------------------------------------------------------------------------------------------------------------- |
-| Performance    | 99.9% of requests use cached keys — no network call to Keycloak                                                         |
+| Performance    | 99.9% of requests use cached keys - no network call to Keycloak                                                         |
 | Key rotation   | New keys are picked up within 5 minutes                                                                                 |
 | Key revocation | Revoked keys stop being trusted within 5 minutes                                                                        |
 | Thread safety  | `_get_jwks_client()` uses double-checked locking to ensure exactly one `PyJWKClient` instance is created across threads |
@@ -502,33 +502,33 @@ See [`auth_dependencies.py`](https://github.com/SEMICeu/sdep/blob/main/backend/a
 
 For each request that matters, capture:
 
-| Field              | Source                      | Description                                                                   | Answers |
-| :----------------- | :-------------------------- | :---------------------------------------------------------------------------- | :------ |
-| **timestamp**      | Server clock                | UTC, server default `now()`                                                   | When    |
-| **requestId**      | Generated                   | UUID4 correlation ID                                                          | -       |
+| Field              | Source                      | Description                                                                                   | Answers |
+| :----------------- | :-------------------------- | :-------------------------------------------------------------------------------------------- | :------ |
+| **timestamp**      | Server clock                | UTC, server default `now()`                                                                   | When    |
+| **requestId**      | Generated                   | UUID4 correlation ID                                                                          | -       |
 | **roles**          | JWT `realm_access.roles`    | Verified roles, or `null` when no token was authenticated (401, or unauthenticated endpoints) | Who     |
-| **resourceType**   | Derived from path           | Entity type, e.g. `area`, `activity`                                          | Where   |
-| **action**         | Derived from method + path  | Semantic action verb, e.g. `create`                                           | What    |
-| **httpMethod**     | Request                     | HTTP method (`GET`, `POST`, `DELETE`)                                         | What    |
-| **path**           | Request                     | Request path, e.g. `/api/ca/v1/areas`                                         | Where   |
-| **httpStatusCode** | Response                    | HTTP status code                                                              | Result  |
-| **statusCode**     | Derived from httpStatusCode | `OK` if httpStatusCode < 400, else `NOK`                                      | Result  |
-| **durationMs**     | Calculated                  | Request processing time in milliseconds                                       | -       |
+| **resourceType**   | Derived from path           | Entity type, e.g. `area`, `activity`                                                          | Where   |
+| **action**         | Derived from method + path  | Semantic action verb, e.g. `create`                                                           | What    |
+| **httpMethod**     | Request                     | HTTP method (`GET`, `POST`, `DELETE`)                                                         | What    |
+| **path**           | Request                     | Request path, e.g. `/api/ca/v1/areas`                                                         | Where   |
+| **httpStatusCode** | Response                    | HTTP status code                                                                              | Result  |
+| **statusCode**     | Derived from httpStatusCode | `OK` if httpStatusCode < 400, else `NOK`                                                      | Result  |
+| **durationMs**     | Calculated                  | Request processing time in milliseconds                                                       | -       |
 
 ---
 
-**Role extraction — only from verified tokens**
+**Role extraction - only from verified tokens**
 
 The audit middleware reads `roles` from the JWT payload that the auth dependency (`verify_bearer_token`) stashes on `request.state.jwt_payload` after signature and expiry verification. Tokens that fail verification never reach `request.state`, so forged tokens cannot pollute the audit trail. The middleware does not re-decode the token, avoiding a duplicate signature check per audited request.
 
 The 401 vs 403 distinction is encoded in the `httpStatusCode` column; the `roles` column carries the verified role set when one is available and `null` otherwise. Audience validation remains disabled today as described above: `aud` is not enforced until Keycloak token configuration supports it.
 
-| Scenario                               | What happens                                                                                | `roles` in audit log      |
-| :------------------------------------- | :------------------------------------------------------------------------------------------ | :------------------------ |
-| Valid JWT, authorized (2xx)            | Auth dependency verifies the token and stashes the payload on `request.state`               | Verified roles from token |
-| Valid JWT, missing required role (403) | Token verified by `verify_bearer_token`; `RequireRoles` then rejects on insufficient role   | Verified roles from token |
-| Forged, tampered, or expired JWT (401) | Auth dependency rejected the token before the handler ran; no payload on `request.state`    | `null`                    |
-| No JWT (e.g. `/token` endpoint)        | No bearer credentials presented                                                             | `null`                    |
+| Scenario                               | What happens                                                                              | `roles` in audit log      |
+| :------------------------------------- | :---------------------------------------------------------------------------------------- | :------------------------ |
+| Valid JWT, authorized (2xx)            | Auth dependency verifies the token and stashes the payload on `request.state`             | Verified roles from token |
+| Valid JWT, missing required role (403) | Token verified by `verify_bearer_token`; `RequireRoles` then rejects on insufficient role | Verified roles from token |
+| Forged, tampered, or expired JWT (401) | Auth dependency rejected the token before the handler ran; no payload on `request.state`  | `null`                    |
+| No JWT (e.g. `/token` endpoint)        | No bearer credentials presented                                                           | `null`                    |
 
 ---
 

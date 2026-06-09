@@ -113,7 +113,7 @@ def upgrade() -> None:
             "uq_competent_authority_client_id_competent_authority_id_created_at"
         ),
         new_unique_name=op.f(
-            "uq_competent_authority_competent_authority_id_client_id_created_at"
+            "uq_competent_authority_ca_id_client_id_created_at"
         ),
         client_id_index_name=op.f("ix_competent_authority_client_id"),
     )
@@ -138,7 +138,7 @@ def downgrade() -> None:
         table_name="competent_authority",
         functional_id_column="competent_authority_id",
         new_unique_name=op.f(
-            "uq_competent_authority_competent_authority_id_client_id_created_at"
+            "uq_competent_authority_ca_id_client_id_created_at"
         ),
         old_unique_name=op.f(
             "uq_competent_authority_client_id_competent_authority_id_created_at"

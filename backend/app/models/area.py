@@ -52,6 +52,10 @@ class Area(Base):
             "length(filedata) <= 1048576",
             name="ck_area_filedata_max_size",
         ),
+        CheckConstraint(
+            "area_id ~ '^[A-Za-z0-9-]+$'",
+            name="ck_area_area_id_format",
+        ).ddl_if(dialect="postgresql"),
     )
 
     # Primary key (technical ID, database-internal)

@@ -5,6 +5,8 @@
 # 1.2.0
 
 - Added filtering support to the CA activities endpoint in `v2` API (date range, platform, and area) ([#71](https://github.com/SEMICeu/sdep/issues/71)). Impact on API contract: new CA `/v2` endpoints; CA `/v1` unchanged.
+- Added database-level constraints backing the existing application-level constraints (defense in depth)
+- Added markdown linting and formatting
 
 # 1.1.5
 

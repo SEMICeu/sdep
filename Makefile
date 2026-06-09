@@ -11,19 +11,25 @@ SHELL := /bin/bash
         keycloak-up keycloak-down \
         backend-up backend-down backend-restart \
         up down restart status \
-        .is-up .ensure-up .clean-testrun test-full test-full-keep test-full-verbose test-ca test-str test-smoke test-security \
+        .is-up .ensure-up .clean-testrun .postgres-up-unless-ci test-full test-full-keep test-full-verbose test-ca test-str test-smoke test-security test-integration test-migrations \
         test-malware \
         test-perf test-perf-verbose \
         test \
         trivy \
         all \
         postgres-logs keycloak-logs backend-logs dbgate-logs fullstack-logs \
+        md-format md-lint \
         help
 
 .DEFAULT_GOAL := help
 
+ifndef CI
 -include .env
 -include .env.extra
+endif
+
+POSTGRES_HOST ?= localhost
+export POSTGRES_HOST POSTGRES_PORT POSTGRES_DB_NAME POSTGRES_DB_USER POSTGRES_DB_PASSWORD
 
 DOCKER_COMPOSE := docker compose --env-file .env $(if $(wildcard .env.extra),--env-file .env.extra,)
 
@@ -525,6 +531,21 @@ test-malware: ## Test malware scanning (starts ClamAV via Docker Compose if not 
 	uv run --script tests/malware/test_malware_scan.py
 	@echo "✅ Malware scanning tests completed!"
 
+test-migrations: .postgres-up-unless-ci ## Test Alembic migrations against PostgreSQL
+	@echo "🧪 Running migration integration checks..."
+	@cd backend && uv run python scripts/wait_for_postgres.py
+	@$(MAKE) -C backend --no-print-directory upgrade
+	@echo "✅ Migration integration checks completed!"
+
+.postgres-up-unless-ci:
+	@if [ -z "$$CI" ]; then \
+		$(MAKE) --no-print-directory postgres-up; \
+	fi
+
+test-integration: ## Run integration tests
+	@$(MAKE) --no-print-directory test-migrations
+	@$(MAKE) --no-print-directory test-malware
+
 ##@ Tests (Performance)
 
 PERF_ACTIVITIES_TARGET ?= 5000
@@ -557,11 +578,11 @@ test: ## Run all tests (fullstack incl. malware + performance)
 	@echo "🧪 Running all tests..."
 	@echo ""
 	@echo "  1. Fullstack tests (test-full)"
-	@echo "  2. Fullstack malware scan (test-malware)"
+	@echo "  2. Fullstack malware scan (test-integration)"
 	@echo "  3. Performance tests (test-perf)"
 	@echo ""
 	@$(MAKE) --no-print-directory test-full
-	@$(MAKE) --no-print-directory test-malware
+	@$(MAKE) --no-print-directory test-integration
 	@$(MAKE) --no-print-directory test-perf PERF_YES=true
 	@echo ""
 	@echo "✅ All tests completed (fullstack incl. malware + performance)"
@@ -585,15 +606,40 @@ trivy: ## Run security checks (build and scan backend image with Trivy CVE allow
 	@echo ""
 	@echo "✅ All security checks completed (trivy-scan)"
 
+##@ Markdown
+
+# markdownlint-cli2 runs via npx (the npm package) — needs only Node/npm on PATH
+# This works both locally and in CI: the GitLab toolbox image has npm but no
+# Docker mountpoint. mdformat runs via uv/uvx (Python): mdformat-gfm aligns tables and
+# the local .mdformat-sdep plugin renders thematic breaks as "---" (house rule).
+MARKDOWNLINT_VERSION := 0.18.1
+MARKDOWNLINT := npx --yes markdownlint-cli2@$(MARKDOWNLINT_VERSION)
+MARKDOWNLINT_FIX := $(MARKDOWNLINT) --fix
+MDFORMAT := uvx --from mdformat==1.0.0 --with mdformat-gfm==1.0.0 --with ./.mdformat-sdep mdformat --number
+MDFORMAT_FILES := README.md CLAUDE.md docs
+
+md-lint: ## Lint Markdown (markdownlint + mdformat --check); CI gate
+	@echo "🔍 Linting Markdown..."
+	@$(MARKDOWNLINT)
+	@$(MDFORMAT) --check $(MDFORMAT_FILES)
+	@echo "✅ Markdown lint passed!"
+
+md-format: ## Format Markdown (auto-fix: house rules + table alignment)
+	@echo "📝 Formatting Markdown..."
+	@$(MARKDOWNLINT_FIX) || true
+	@$(MDFORMAT) $(MDFORMAT_FILES)
+	@echo "✅ Markdown formatted!"
+
 ##@ All
 
-all: ## Run all tests and security checks (ensures fullstack is started)
-	@echo "🧪 Running all tests and security checks..."
+all: ## Run all tests, markdown lint and security checks (ensures fullstack is started)
+	@echo "🧪 Running all tests, markdown lint and security checks..."
 	@echo ""
+	@$(MAKE) --no-print-directory md-lint
 	@$(MAKE) --no-print-directory test
 	@$(MAKE) --no-print-directory trivy
 	@echo ""
-	@echo "✅ All tests and security checks completed (test + security)"
+	@echo "✅ All tests, markdown lint and security checks completed (md-lint + test + security)"
 
 ##@ Logs
 

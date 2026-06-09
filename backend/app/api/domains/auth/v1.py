@@ -9,13 +9,14 @@ from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common.openapi import create_custom_openapi
 from app.api.common.routers import auth
 from app.api.common.security import create_verify_bearer_token, get_oauth_schema
+from app.api.domain_registry import AUTH_V1
 from app.config import settings
 
 app_auth_v1 = FastAPI(
-    title="SDEP - Auth API",
-    description="Authentication endpoints for machine-to-machine OAuth2 Client Credentials flow via Keycloak.",
+    title=AUTH_V1.title,
+    description=AUTH_V1.description_with_status,
     version=f"{settings.DTAP}-{settings.IMAGE_TAG}",
-    root_path="/api/auth/v1",
+    root_path=AUTH_V1.root_path,
     redoc_url=None,
     responses={
         500: {
