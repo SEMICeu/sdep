@@ -484,7 +484,9 @@ else
         '[.[] | select(.clientId | contains($idempotencySubstr)) | select(.serviceAccountsEnabled == true and .standardFlowEnabled == false) | select([.clientId] | inside($desired) | not) | {id: .id, clientId: .clientId}] | .[]')
 
     if [ -n "$CLIENTS_TO_REMOVE" ]; then
-        echo "$CLIENTS_TO_REMOVE" | jq -c '.' | while IFS= read -r CLIENT_OBJ; do
+        # Feed the loop via process substitution (not a pipe) so DELETED_COUNT/
+        # DELETED_ITEMS are updated in the current shell, not a subshell.
+        while IFS= read -r CLIENT_OBJ; do
             CLIENT_UUID=$(echo "$CLIENT_OBJ" | jq -r '.id')
             CLIENT_ID=$(echo "$CLIENT_OBJ" | jq -r '.clientId')
 
@@ -506,7 +508,7 @@ else
                 echo "Response: $DELETE_RESPONSE" >&2
                 exit 1
             fi
-        done
+        done < <(echo "$CLIENTS_TO_REMOVE" | jq -c '.')
     else
         echo "✅ No clients to remove"
     fi
@@ -528,9 +530,9 @@ else
     echo "  Updated: 0 client(s)"
 fi
 if [ $DELETED_COUNT -gt 0 ]; then
-    echo "  Deleted: $DELETED_COUNT client(s) - $DELETED_ITEMS"
+    echo "  Removed: $DELETED_COUNT client(s) - $DELETED_ITEMS"
 else
-    echo "  Deleted: 0 client(s)"
+    echo "  Removed: 0 client(s)"
 fi
 if [ $UNMODIFIED_COUNT -gt 0 ]; then
     echo "  Unmodified: $UNMODIFIED_COUNT client(s) - $UNMODIFIED_ITEMS"

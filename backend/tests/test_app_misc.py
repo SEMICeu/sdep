@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import json
+from typing import Any, cast
 
 import pytest
 from app.api.common.routers import health as health_router
 from app.api.common.routers import ping as ping_router
 from app.api.domains.auth.v1 import get_openapi_json
+from app.api.domains.ca.app_factory import create_ca_app
 from app.api.domains.ca.v1 import get_openapi_json as get_ca_openapi_json
+from app.api.domains.str.app_factory import create_str_app
 from app.api.domains.str.v1 import get_openapi_json as get_str_openapi_json
 from app.main import lifespan, root
 from app.security.audit_retention import audit_log_cleanup_loop
 from app.security.headers import ApiSecurityHeadersMiddleware, SecurityHeadersMiddleware
-from fastapi import FastAPI, Response
+from fastapi import APIRouter, FastAPI, Response
 from httpx import ASGITransport, AsyncClient
 
 
@@ -32,6 +35,16 @@ async def test_root_and_openapi_json_endpoint():
     str_response = await get_str_openapi_json()
     assert ca_response.media_type == "application/json"
     assert str_response.media_type == "application/json"
+
+
+def test_domain_app_factories_reject_invalid_status():
+    invalid_status = cast("Any", "draft")
+
+    with pytest.raises(ValueError, match="status must be either 'beta' or 'stable'"):
+        create_ca_app(1, APIRouter(), status=invalid_status)
+
+    with pytest.raises(ValueError, match="status must be either 'beta' or 'stable'"):
+        create_str_app(1, [APIRouter()], status=invalid_status)
 
 
 @pytest.mark.asyncio

@@ -117,7 +117,7 @@ down: ## Stop backend
 
 ##@ Unit testing
 
-test: check ## Test all (quiet)
+test-quiet: check ## Test all (quiet)
 	@echo "🧪 Running tests... (please wait)"
 	@uv run python -m pytest -n auto -q --tb=line --no-header 2>&1 | tail -20
 	@echo "✅ All tests completed!"
@@ -159,7 +159,7 @@ test-security: check ## Test security only
 
 ##@ Test all
 
-test: check ## Test all (check, coverage, quiet)
+test: check ## Test all (check, coverage, quiet - synonym to test-coverage)
 	@echo "🧪 Running tests with check and coverage..."
 	@set -o pipefail; uv run python -m pytest -n auto -q --tb=line --no-header --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=100 2>&1 | tail -40
 	@echo "✅ Coverage tests completed! Coverage report in htmlcov/"

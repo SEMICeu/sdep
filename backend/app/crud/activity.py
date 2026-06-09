@@ -5,12 +5,14 @@ from datetime import datetime
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.sql import Select
 
 from app.enums import ActivityStatus
 from app.models.activity import Activity
 from app.models.area import Area
 from app.models.competent_authority import CompetentAuthority
-from app.schemas.activity import ActivityBulkCreate
+from app.models.platform import Platform
+from app.schemas.activity import ActivityBulkCreate, ActivityFilters
 
 
 async def create(
@@ -277,11 +279,28 @@ async def get_by_area_id(
     return list(result.scalars().all())
 
 
+def _apply_competent_authority_activity_filters(
+    stmt: Select[tuple[Activity]] | Select[tuple[int]], filters: ActivityFilters
+) -> Select[tuple[Activity]] | Select[tuple[int]]:
+    if filters.created_at_from is not None:
+        stmt = stmt.where(Activity.created_at >= filters.created_at_from)
+    if filters.created_at_to is not None:
+        stmt = stmt.where(Activity.created_at <= filters.created_at_to)
+    if filters.platform_id is not None:
+        stmt = stmt.join(Platform, Activity.platform_id == Platform.id).where(
+            Platform.platform_id == filters.platform_id
+        )
+    if filters.area_id is not None:
+        stmt = stmt.where(Area.area_id == filters.area_id)
+    return stmt
+
+
 async def get_by_competent_authority_client_id(
     session: AsyncSession,
     client_id: str,
     offset: int = 0,
     limit: int | None = None,
+    filters: ActivityFilters | None = None,
 ) -> list[Activity]:
     """
     Get current activities by competent authority private client_id.
@@ -291,6 +310,7 @@ async def get_by_competent_authority_client_id(
         client_id: Private authentication client identifier
         offset: Number of records to skip (default: 0)
         limit: Maximum number of records to return (default: no limit)
+        filters: Optional activity query filters
 
     Returns:
         List of current Activity instances for the authenticated competent authority
@@ -310,6 +330,8 @@ async def get_by_competent_authority_client_id(
         .order_by(Activity.created_at.desc(), Activity.id.desc())
         .offset(offset)
     )
+    if filters is not None:
+        stmt = _apply_competent_authority_activity_filters(stmt, filters)
     if limit is not None:
         stmt = stmt.limit(limit)
 
@@ -320,6 +342,7 @@ async def get_by_competent_authority_client_id(
 async def count_by_competent_authority_client_id(
     session: AsyncSession,
     client_id: str,
+    filters: ActivityFilters | None = None,
 ) -> int:
     """
     Count current activities by competent authority private client_id.
@@ -327,6 +350,7 @@ async def count_by_competent_authority_client_id(
     Args:
         session: Async database session
         client_id: Private authentication client identifier
+        filters: Optional activity query filters
 
     Returns:
         Total number of current activities for the authenticated competent authority
@@ -341,6 +365,8 @@ async def count_by_competent_authority_client_id(
             Activity.ended_at.is_(None),
         )
     )
+    if filters is not None:
+        stmt = _apply_competent_authority_activity_filters(stmt, filters)
     result = await session.execute(stmt)
     return result.scalar_one()
 

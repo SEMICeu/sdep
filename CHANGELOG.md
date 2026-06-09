@@ -2,6 +2,10 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.2.0
+
+- Added filtering support to the CA activities endpoint in `v2` API (date range, platform, and area) ([#71](https://github.com/SEMICeu/sdep/issues/71)). Impact on API contract: new CA `/v2` endpoints; CA `/v1` unchanged.
+
 # 1.1.5
 
 - Fixed Keycloak/JWKS infrastructure errors being misclassified as HTTP 401; they now return HTTP 503

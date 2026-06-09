@@ -69,6 +69,11 @@ async def docs_landing_page():
       <a href="/api/ca/v1/openapi.json">OpenAPI JSON</a>
     </div>
     <div class="version">
+      <a href="/api/ca/v2/docs">CA v2</a>
+      &nbsp;|&nbsp;
+      <a href="/api/ca/v2/openapi.json">OpenAPI JSON</a>
+    </div>
+    <div class="version">
       <a href="/api/str/v1/docs">STR v1</a>
       &nbsp;|&nbsp;
       <a href="/api/str/v1/openapi.json">OpenAPI JSON</a>

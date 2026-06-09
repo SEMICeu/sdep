@@ -4,8 +4,8 @@ from typing import Any
 from uuid import UUID
 
 import pytest
-from app.api.common.routers import ca_areas
 from app.api.common.security import verify_bearer_token
+from app.api.domains.ca.routers import areas as ca_areas
 from app.api.domains.ca.v1 import app_ca_v1
 from app.db.config import get_async_db, get_async_db_read_only
 from app.security.malware_scan import ScanResult

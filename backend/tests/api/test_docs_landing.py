@@ -30,9 +30,11 @@ class TestDocsLandingPage:
         body = response.text
         assert "/api/auth/v1/docs" in body
         assert "/api/ca/v1/docs" in body
+        assert "/api/ca/v2/docs" in body
         assert "/api/str/v1/docs" in body
         assert "/api/auth/v1/openapi.json" in body
         assert "/api/ca/v1/openapi.json" in body
+        assert "/api/ca/v2/openapi.json" in body
         assert "/api/str/v1/openapi.json" in body
 
     @pytest.mark.asyncio

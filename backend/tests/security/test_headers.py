@@ -318,7 +318,12 @@ class TestRouteSpecificCSP:
         """Swagger UI docs pages have relaxed CSP with CDN and 'unsafe-inline'."""
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            for path in ["/api/auth/v1/docs", "/api/ca/v1/docs", "/api/str/v1/docs"]:
+            for path in [
+                "/api/auth/v1/docs",
+                "/api/ca/v1/docs",
+                "/api/ca/v2/docs",
+                "/api/str/v1/docs",
+            ]:
                 response = await client.get(path)
 
                 csp = response.headers["Content-Security-Policy"]

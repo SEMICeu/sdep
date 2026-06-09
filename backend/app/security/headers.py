@@ -115,6 +115,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         swagger_docs_paths = [
             "/api/auth/v1/docs",
             "/api/ca/v1/docs",
+            "/api/ca/v2/docs",
             "/api/str/v1/docs",
         ]
         return path in swagger_docs_paths

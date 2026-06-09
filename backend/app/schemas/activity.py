@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
@@ -57,6 +58,7 @@ CountryAlpha3OrNA = Annotated[str, AfterValidator(_validate_country_code_or_na)]
 __all__ = [
     "ActivityBulkCreate",
     "ActivityCountResponse",
+    "ActivityFilters",
     "ActivityListResponse",
     "ActivityRequest",
     "ActivityResponse",
@@ -203,6 +205,16 @@ class ActivityBulkCreate(ActivityRequest):
     platform_technical_id: int
     area_technical_id: int
     created_at: datetime
+
+
+@dataclass(frozen=True)
+class ActivityFilters:
+    """Optional filters for competent-authority activity reads."""
+
+    created_at_from: datetime | None = None
+    created_at_to: datetime | None = None
+    platform_id: str | None = None
+    area_id: str | None = None
 
 
 class ActivityResponse(BaseModel):

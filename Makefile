@@ -510,6 +510,17 @@ test-malware: ## Test malware scanning (starts ClamAV via Docker Compose if not 
 	@echo "🧪 Running malware scanning tests..."
 	@if [ -z "$$CI" ]; then \
 		$(DOCKER_COMPOSE) up -d clamav; \
+		CLAMAV_CONTAINER_ID="$$($(DOCKER_COMPOSE) ps -q clamav)"; \
+		CLAMAV_HEALTH="$$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$$CLAMAV_CONTAINER_ID")"; \
+		if [ "$$CLAMAV_HEALTH" = "unhealthy" ]; then \
+			echo "❌ ClamAV container is unhealthy; malware scan tests cannot run."; \
+			echo ""; \
+			echo "Docker healthcheck output:"; \
+			docker inspect --format '{{range .State.Health.Log}}{{println .Output}}{{end}}' "$$CLAMAV_CONTAINER_ID"; \
+			echo "Recent ClamAV logs:"; \
+			$(DOCKER_COMPOSE) logs --tail=40 clamav; \
+			exit 1; \
+		fi; \
 	fi
 	uv run --script tests/malware/test_malware_scan.py
 	@echo "✅ Malware scanning tests completed!"

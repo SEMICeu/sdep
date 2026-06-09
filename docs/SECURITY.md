@@ -247,7 +247,7 @@ Unauthorized usage of API endpoints is mitigated through the OAuth2 client-crede
 
 ## File Upload
 
-File upload is implemented in [`ca_areas.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/routers/ca_areas.py) (`post_area`).
+File upload is implemented in [`areas.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/domains/ca/routers/areas.py) (`post_area`).
 
 File uploads are protected by:
 
@@ -577,8 +577,8 @@ The following paths are **not** audited (high-frequency, low-value):
 - `/favicon.ico` (browsers request this automatically; the application does not serve a favicon)
 - `/api/docs` (landing page)
 - `/api/health`
-- `/api/auth/v1/openapi.json`, `/api/ca/v1/openapi.json`, `/api/str/v1/openapi.json`
-- `/api/auth/v1/docs`, `/api/ca/v1/docs`, `/api/str/v1/docs`
+- `/api/auth/v1/openapi.json`, `/api/ca/v1/openapi.json`, `/api/ca/v2/openapi.json`, `/api/str/v1/openapi.json`
+- `/api/auth/v1/docs`, `/api/ca/v1/docs`, `/api/ca/v2/docs`, `/api/str/v1/docs`
 
 ---
 

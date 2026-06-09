@@ -249,9 +249,9 @@ else
     echo "  Updated: 0 role(s)"
 fi
 if [ $DELETED_COUNT -gt 0 ]; then
-    echo "  Deleted: $DELETED_COUNT role(s) - $DELETED_ITEMS"
+    echo "  Removed: $DELETED_COUNT role(s) - $DELETED_ITEMS"
 else
-    echo "  Deleted: 0 role(s)"
+    echo "  Removed: 0 role(s)"
 fi
 if [ $UNMODIFIED_COUNT -gt 0 ]; then
     echo "  Unmodified: $UNMODIFIED_COUNT role(s) - $UNMODIFIED_ITEMS"

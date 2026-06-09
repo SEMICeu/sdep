@@ -3,6 +3,7 @@
 Each domain is independently versioned as a FastAPI sub-application:
 - Auth: mounted at /api/auth/v1 (see app.api.domains.auth.v1)
 - CA:   mounted at /api/ca/v1   (see app.api.domains.ca.v1)
+- CA:   mounted at /api/ca/v2   (see app.api.domains.ca.v2)
 - STR:  mounted at /api/str/v1  (see app.api.domains.str.v1)
 
 Common (unversioned):

@@ -556,7 +556,7 @@
     }
   },
   "info": {
-    "description": "Endpoints for competent authorities to manage areas and to view activities.",
+    "description": "Endpoints for competent authorities to manage areas and to view activities. Status: stable.",
     "title": "SDEP - Competent Authority (CA) API",
     "version": "<frozen-version>"
   },

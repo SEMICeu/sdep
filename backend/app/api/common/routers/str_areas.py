@@ -1,8 +1,6 @@
 """Areas endpoint."""
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.common.auth_dependencies import RequireRoles
@@ -10,6 +8,7 @@ from app.api.common.filename import (
     content_disposition_header,
     sanitize_download_filename,
 )
+from app.api.common.pagination import PaginationDependency
 from app.api.common.security import Role
 from app.db.config import get_async_db_read_only
 from app.schemas.area import (
@@ -84,17 +83,7 @@ router = APIRouter(tags=["str"])
     dependencies=[Depends(RequireRoles(Role.STR, Role.READ))],
 )
 async def get_areas(
-    offset: Annotated[
-        int, Query(ge=0, description="Number of records to skip (default: 0)")
-    ] = 0,
-    limit: Annotated[
-        int | None,
-        Query(
-            ge=1,
-            le=1000,
-            description="Maximum number of records to return (default: unlimited, max: 1000 when specified)",
-        ),
-    ] = None,
+    pagination: PaginationDependency,
     session: AsyncSession = Depends(get_async_db_read_only),
 ) -> AreaListResponse:
     """
@@ -108,7 +97,11 @@ async def get_areas(
     - limit: Maximum number of records to return (default: no limit, max: 1000)
     """
     # Call business service
-    area_objects = await area.get_areas(session, offset=offset, limit=limit)
+    area_objects = await area.get_areas(
+        session,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
 
     area_responses = [
         AreaResponse.model_validate(area_obj) for area_obj in area_objects

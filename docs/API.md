@@ -72,6 +72,30 @@ A new version (e.g. v2) is introduced only when a **breaking change** to the con
 
 Additive changes (new optional fields, new endpoints) do **not** require a new version.
 
+**Current versions in production:**
+
+| Domain | Version | Notes                                         |
+| ------ | ------- | --------------------------------------------- |
+| auth   | v1      |                                               |
+| ca     | v1      | Areas + activities (no filters)               |
+| ca     | v2      | Activities with optional query filters (new)  |
+| str    | v1      |                                               |
+
+### CA Activity Filters (v2)
+
+`GET /api/ca/v2/activities` and `GET /api/ca/v2/activities/count` accept optional query parameters to narrow results within the authenticated CA's scope:
+
+| Parameter            | Type       | Description                                              |
+| -------------------- | ---------- | -------------------------------------------------------- |
+| `filterCreatedAtFrom`| datetime   | Inclusive lower bound on `createdAt` (ISO 8601)          |
+| `filterCreatedAtTo`  | datetime   | Inclusive upper bound on `createdAt` (ISO 8601)          |
+| `filterPlatformId`   | FunctionalId | Exact-match filter on `platformId`                     |
+| `filterAreaId`       | FunctionalId | Exact-match filter on `areaId`                         |
+
+All provided filters are combined with AND semantics. Omitting a filter means no constraint on that dimension. An invalid `FunctionalId` format returns HTTP 400.
+
+If OR semantics are required, clients should implement them client-side by calling this endpoint multiple times and combining the results.
+
 When a new API version is released, the previous version (N-1) remains available for a deprecation period to give clients time to migrate. Only the current (N) and previous (N-1) versions are supported simultaneously.
 
 ### Backward and Forward Compatibility
@@ -149,6 +173,7 @@ SDEP exposes this document per domain at:
 ```
 GET /api/auth/v1/openapi.json
 GET /api/ca/v1/openapi.json
+GET /api/ca/v2/openapi.json
 GET /api/str/v1/openapi.json
 ```
 
@@ -175,6 +200,7 @@ SDEP serves it per domain at:
 ```
 GET /api/auth/v1/docs
 GET /api/ca/v1/docs
+GET /api/ca/v2/docs
 GET /api/str/v1/docs
 ```
 

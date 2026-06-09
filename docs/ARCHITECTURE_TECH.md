@@ -10,7 +10,7 @@ This document provides an overview of the SDEP (Single Digital Entry Point) tech
   - [Backend](#backend)
   - [Infrastructure](#infrastructure)
   - [Development Tools](#development-tools)
-- [Repository / Directory Structure](#repository--directory-structure)
+- [Repository / Directory Structure](#repository-directory-structure)
 - [Backend Architecture](#backend-architecture)
   - [API Layer (`app/api/`)](#api-layer-appapi)
   - [Schemas Layer (`app/schemas/`)](#schemas-layer-appschemas)
@@ -23,6 +23,7 @@ This document provides an overview of the SDEP (Single Digital Entry Point) tech
   - [STR Platform Endpoints](#str-platform-endpoints)
   - [Health Endpoints](#health-endpoints)
   - [Request Flow](#request-flow)
+  - [Versioning (CA)](#versioning-ca)
 - [Data and Lifecycle Design](#data-and-lifecycle-design)
   - [ID Management](#id-management)
   - [Versioning](#versioning)
@@ -103,8 +104,6 @@ sdep-app/
 │   │   │   ├── common/                         # Shared API components (routers, openapi, security)
 │   │   │   │   ├── routers/                    # API routers
 │   │   │   │   │   ├── auth.py                 # Authentication router
-│   │   │   │   │   ├── ca_activities.py        # CA activity endpoints
-│   │   │   │   │   ├── ca_areas.py             # CA area endpoints
 │   │   │   │   │   ├── health.py               # Health check router
 │   │   │   │   │   ├── ping.py                 # Ping endpoint
 │   │   │   │   │   ├── str_activities_bulk.py  # STR bulk activity endpoints
@@ -119,7 +118,14 @@ sdep-app/
 │   │   │       ├── auth/
 │   │   │       │   └── v1.py                   # Auth domain sub-app
 │   │   │       ├── ca/
-│   │   │       │   └── v1.py                   # CA domain sub-app
+│   │   │       │   ├── app_factory.py          # Sub-app factory (shared setup for v1/v2)
+│   │   │       │   ├── v1.py                   # CA domain sub-app v1
+│   │   │       │   ├── v2.py                   # CA domain sub-app v2
+│   │   │       │   └── routers/
+│   │   │       │       ├── activities_v1.py    # CA activity endpoints v1
+│   │   │       │       ├── activities_v2.py    # CA activity endpoints v2 (with filters)
+│   │   │       │       ├── activity_handlers.py  # Shared activity logic (v1 and v2)
+│   │   │       │       └── areas.py            # CA area endpoints
 │   │   │       └── str/
 │   │   │           └── v1.py                   # STR domain sub-app
 │   │   ├── crud/                               # Database operations (CRUD)
@@ -320,13 +326,24 @@ For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.m
 - `POST /api/auth/v1/token` - OAuth2 token endpoint
 
 ### Competent Authority Endpoints
+
+**Areas (v1)**
+
 - `POST /api/ca/v1/areas` - Submit a single area (multipart/form-data: file + optional areaId, areaName)
 - `GET /api/ca/v1/areas` - List own areas (pagination: offset, limit)
 - `GET /api/ca/v1/areas/count` - Count own areas
 - `GET /api/ca/v1/areas/{areaId}` - Download shapefile for own area
 - `DELETE /api/ca/v1/areas/{areaId}` - Delete (deactivate) an own area
+
+**Activities (v1)**
+
 - `GET /api/ca/v1/activities` - Query rental activities (pagination: offset, limit)
 - `GET /api/ca/v1/activities/count` - Count activities
+
+**Activities (v2) — adds optional query filters**
+
+- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId — AND semantics, scoped to authenticated CA; invalid functional IDs → 400)
+- `GET /api/ca/v2/activities/count` - Count activities with optional filters (same filter set)
 
 ### STR Platform Endpoints
 - `GET /api/str/v1/areas` - List regulated areas (pagination: offset, limit)
@@ -367,7 +384,7 @@ POST /api/str/v1/activities/bulk (JSON body with activities array)
 
 POST /api/ca/v1/areas (multipart/form-data: file + optional areaId, areaName)
   │
-  ├── API Layer (ca_areas.py)
+  ├── API Layer (areas.py)
   │   ├── verify_bearer_token() → auth checks (roles, claims)
   │   ├── File validation (max 1 MiB)
   │   ├── areaId/areaName validation (pattern, length)
@@ -382,7 +399,56 @@ POST /api/ca/v1/areas (multipart/form-data: file + optional areaId, areaName)
   │   └── flush (not commit)
   │
   └── Response: 201 + AreaResponse (camelCase JSON)
+
+GET /api/ca/v2/activities (bearer token, optional filter query params)
+  │
+  ├── API Layer (activities_v2.py)
+  │   ├── verify_bearer_token() → auth checks (roles, claims)
+  │   ├── activity_filters() → parse filterCreatedAtFrom/To, filterPlatformId, filterAreaId
+  │   │     └── invalid functional ID format → 400
+  │   └── get_async_db_read_only → read-only session
+  │
+  ├── Handler (activity_handlers.py)
+  │   └── list_activities(client, session, offset, limit, filters)
+  │
+  ├── Service Layer (activity.py)
+  │   └── relay filters to CRUD
+  │
+  ├── CRUD Layer (activity.py)
+  │   └── apply WHERE clauses for each provided filter (AND semantics)
+  │
+  └── Response: 200 + ActivityListResponse (camelCase JSON)
 ```
+
+---
+
+### Versioning (CA)
+
+Each domain is exposed as one or more independently-versioned FastAPI sub-applications,
+mounted side by side (e.g. `/api/ca/v1`, `/api/ca/v2`). A new version is additive:
+existing versions stay byte-compatible.
+
+Shared vs. version-specific code (CA domain as example):
+
+- Shared (one source of truth, used by every version):
+  - `app_factory.py` — `create_ca_app(version, router)` builds the sub-app (title,
+    common 500/503 responses, OpenAPI, exception handlers, bearer-token override,
+    `openapi.json` route)
+  - `routers/activity_handlers.py` — the endpoint business logic (list/count)
+  - `common/pagination.py` — the shared offset/limit query dependency
+  - `routers/areas.py` — the areas endpoints, mounted into every version
+  - Response examples and error-response constants (defined in `activities_v1.py`,
+    imported by later versions)
+  - `schemas/activity.py`, `services/activity.py`, `crud/activity.py` — the data
+    layers; newer behavior (e.g. filters) is added here and gated by the routers
+- Version-specific (one small file per version):
+  - `routers/activities_vN.py` — the route declarations and any version-only query
+    parameters (e.g. v2 adds the `filter*` inputs via an `activity_filters()` dependency)
+  - `vN.py` — a one-line call to the factory wiring the version's router
+
+Adding a version is therefore cheap: define a new `activities_vN.py`, a one-line
+`vN.py`, mount it in `main.py`, and register its `/docs` + `/openapi.json` paths in
+the audit skip-list and CSP allowlist.
 
 ---
 
@@ -851,16 +917,18 @@ These public owner IDs are returned as `platformId` and `competentAuthorityId` i
 
 The JWT token's `client_id` claim is stored separately in the private `client_id` column on `Platform` and `CompetentAuthority`. Service and CRUD code use this private value for lookup, ownership scoping, versioning, and deactivation checks.
 
-| Endpoint                           | Router                   | JWT claim used for scoping | Public owner ID exposed in responses |
-| ---------------------------------- | ------------------------ | -------------------------- | ------------------------------------ |
-| `POST /api/ca/v1/areas`            | `ca_areas.py`            | `client_id`                | `competentAuthorityId`               |
-| `GET /api/ca/v1/areas`             | `ca_areas.py`            | `client_id`                | `competentAuthorityId`               |
-| `GET /api/ca/v1/areas/count`       | `ca_areas.py`            | `client_id`                | n/a                                  |
-| `GET /api/ca/v1/areas/{areaId}`    | `ca_areas.py`            | `client_id`                | n/a                                  |
-| `DELETE /api/ca/v1/areas/{areaId}` | `ca_areas.py`            | `client_id`                | n/a                                  |
-| `GET /api/ca/v1/activities`        | `ca_activities.py`       | `client_id`                | `competentAuthorityId`, `platformId` |
-| `GET /api/ca/v1/activities/count`  | `ca_activities.py`       | `client_id`                | n/a                                  |
-| `POST /api/str/v1/activities/bulk` | `str_activities_bulk.py` | `client_id`                | `competentAuthorityId`, `platformId` |
+| Endpoint                            | Router                   | JWT claim used for scoping | Public owner ID exposed in responses |
+| ----------------------------------- | ------------------------ | -------------------------- | ------------------------------------ |
+| `POST /api/ca/v1/areas`             | `areas.py`               | `client_id`                | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas`              | `areas.py`               | `client_id`                | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas/count`        | `areas.py`               | `client_id`                | n/a                                  |
+| `GET /api/ca/v1/areas/{areaId}`     | `areas.py`               | `client_id`                | n/a                                  |
+| `DELETE /api/ca/v1/areas/{areaId}`  | `areas.py`               | `client_id`                | n/a                                  |
+| `GET /api/ca/v1/activities`         | `activities_v1.py`       | `client_id`                | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v1/activities/count`   | `activities_v1.py`       | `client_id`                | n/a                                  |
+| `GET /api/ca/v2/activities`         | `activities_v2.py`       | `client_id`                | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v2/activities/count`   | `activities_v2.py`       | `client_id`                | n/a                                  |
+| `POST /api/str/v1/activities/bulk`  | `str_activities_bulk.py` | `client_id`                | `competentAuthorityId`, `platformId` |
 
 The private `client_id` is never serialized in public API responses, OpenAPI examples, or public documentation as an owner ID.
 

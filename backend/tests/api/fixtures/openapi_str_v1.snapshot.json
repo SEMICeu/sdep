@@ -928,7 +928,7 @@
     }
   },
   "info": {
-    "description": "Endpoints for short-term rental platforms to view areas and to submit activities.",
+    "description": "Endpoints for short-term rental platforms to view areas and to submit activities. Status: stable.",
     "title": "SDEP - Short-Term Rental Platform (STR) API",
     "version": "<frozen-version>"
   },

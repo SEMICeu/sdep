@@ -138,6 +138,7 @@ ignore = [
 "app/schemas/*.py" = ["TCH002", "N815"]  # Allow runtime imports and camelCase for API contracts
 "**/tests/**" = ["S101"]  # Allow assert statements in tests
 "app/api/common/routers/*.py" = ["N803"]  # Path parameters must match URL (e.g., areaId)
+"app/api/domains/ca/routers/*.py" = ["N803"]  # Path/form parameters must match the CA API contract
 
 [tool.ruff.format]
 quote-style = "double"

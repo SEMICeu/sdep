@@ -9,12 +9,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 from app.api.common.auth_dependencies import Client, NamedClient
-from app.api.common.routers import (
-    ca_activities,
-    ca_areas,
-    str_activities_bulk,
-    str_areas,
-)
+from app.api.common.pagination import PaginationParams
+from app.api.common.routers import str_activities_bulk, str_areas
+from app.api.domains.ca.routers import activities_v1 as ca_activities
+from app.api.domains.ca.routers import activity_handlers
+from app.api.domains.ca.routers import areas as ca_areas
 from app.models.address import Address
 from app.models.temporal import Temporal
 from app.schemas.activity_bulk import (
@@ -41,7 +40,7 @@ def _stub_request(headers: dict[str, str] | None = None) -> Request:
 async def test_ca_activities_direct_branches(monkeypatch):
     session = cast("AsyncSession", object())
     monkeypatch.setattr(
-        ca_activities.activity,
+        activity_handlers.activity,
         "get_activity_list",
         AsyncMock(
             return_value=[
@@ -78,14 +77,13 @@ async def test_ca_activities_direct_branches(monkeypatch):
     )
     result = await ca_activities.get_activities(
         client=Client(id="ca-1", name="CA"),
+        pagination=PaginationParams(offset=0, limit=None),
         session=session,
-        offset=0,
-        limit=None,
     )
     assert result.activities[0].activity_id == "activity-1"
 
     monkeypatch.setattr(
-        ca_activities.activity,
+        activity_handlers.activity,
         "count_activity_by_competent_authority",
         AsyncMock(return_value=5),
     )
@@ -229,7 +227,9 @@ async def test_ca_areas_direct_branches(monkeypatch):
         ),
     )
     own_areas = await ca_areas.get_own_areas(
-        client=Client(id="ca-1", name="CA"), session=session, offset=0, limit=None
+        client=Client(id="ca-1", name="CA"),
+        pagination=PaginationParams(offset=0, limit=None),
+        session=session,
     )
     assert json.loads(bytes(own_areas.body))["areas"][0]["areaId"] == "area-1"
 
@@ -354,7 +354,10 @@ async def test_str_areas_direct_branches(monkeypatch):
             ]
         ),
     )
-    areas = await str_areas.get_areas(session=session, offset=0, limit=None)
+    areas = await str_areas.get_areas(
+        pagination=PaginationParams(offset=0, limit=None),
+        session=session,
+    )
     assert areas.areas[0].area_id == "area-1"
 
     monkeypatch.setattr(str_areas.area, "count_areas", AsyncMock(return_value=7))

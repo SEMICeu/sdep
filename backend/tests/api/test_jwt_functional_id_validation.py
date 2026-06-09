@@ -6,8 +6,8 @@ Validates that all endpoints reject invalid client_id claims.
 from typing import Any
 
 import pytest
-from app.api.common.routers import ca_areas
 from app.api.common.security import verify_bearer_token
+from app.api.domains.ca.routers import areas as ca_areas
 from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.str.v1 import app_str_v1
 from app.db.config import get_async_db, get_async_db_read_only

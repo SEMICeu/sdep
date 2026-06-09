@@ -93,8 +93,10 @@ Smoke test for audit-excluded endpoints (SKIP_PATHS).
 - `/api/health` — Health check
 - `/api/auth/v1/openapi.json` — Auth OpenAPI spec
 - `/api/auth/v1/docs` — Auth Swagger UI
-- `/api/ca/v1/openapi.json` — CA OpenAPI spec
-- `/api/ca/v1/docs` — CA Swagger UI
+- `/api/ca/v1/openapi.json` — CA OpenAPI spec (v1)
+- `/api/ca/v1/docs` — CA Swagger UI (v1)
+- `/api/ca/v2/openapi.json` — CA OpenAPI spec (v2, with activity filters)
+- `/api/ca/v2/docs` — CA Swagger UI (v2)
 - `/api/str/v1/openapi.json` — STR OpenAPI spec
 - `/api/str/v1/docs` — STR Swagger UI
 
@@ -153,22 +155,27 @@ Test CA (Competent Authority) endpoints.
 
 **`test_ca_activities.sh`**
 
-**Tests:**
-- **Test 1:** Count activities (`GET /ca/activities/count`)
+**Tests (v1 — `GET /api/ca/v1/activities`):**
+- **Test 1:** Count activities (`GET /ca/v1/activities/count`)
 - **Test 2:** Get all activities
 - **Test 3:** Pagination (offset=0, limit=1)
 - **Test 4:** Verify response structure (activityId, activityName, status, platformId, platformName, url, registrationNumber, address, temporal, areaId)
-- **Test 5:** GET specific activity by URL filter
-- **Test 6:** GET activities filtered by areaId
-- **Test 7:** GET with non-existent areaId (should return empty list or 404)
-- **Test 8:** Verify pagination consistency (offset and limit produce different results)
+- **Test 5:** Verify pagination consistency (offset and limit produce different results)
+
+**Tests (v2 — `GET /api/ca/v2/activities`, with filters):**
+- **Test 6:** Filter by `filterAreaId`
+- **Test 7:** Filter by `filterPlatformId`
+- **Test 8:** Filter by `filterCreatedAtFrom` / `filterCreatedAtTo` date range
+- **Test 9:** GET with non-matching filter (should return empty list)
 
 **Endpoints:**
-- `GET /ca/activities/count`
-- `GET /ca/activities`
-- `GET /ca/activities?url={url}`
-- `GET /ca/activities?areaId={areaId}`
-- `GET /ca/activities?offset={offset}&limit={limit}`
+- `GET /ca/v1/activities/count`
+- `GET /ca/v1/activities`
+- `GET /ca/v1/activities?offset={offset}&limit={limit}`
+- `GET /ca/v2/activities?filterAreaId={areaId}`
+- `GET /ca/v2/activities?filterPlatformId={platformId}`
+- `GET /ca/v2/activities?filterCreatedAtFrom={datetime}&filterCreatedAtTo={datetime}`
+- `GET /ca/v2/activities/count?filterAreaId={areaId}`
 
 ---
 
@@ -255,7 +262,7 @@ Test security (headers, unauthorized, credentials).
 - `/` - Root endpoint
 - `/api/health` - Health check
 - `/api/ping` - Ping endpoint
-- `/api/ca/{API_VERSION}/openapi.json` - OpenAPI specification
+- `/api/ca/v1/openapi.json`, `/api/ca/v2/openapi.json` - OpenAPI specifications
 
 ---
 

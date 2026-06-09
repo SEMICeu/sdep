@@ -12,6 +12,7 @@ from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common_app import app_common
 from app.api.domains.auth.v1 import app_auth_v1
 from app.api.domains.ca.v1 import app_ca_v1
+from app.api.domains.ca.v2 import app_ca_v2
 from app.api.domains.str.v1 import app_str_v1
 from app.config import settings
 from app.db.config import async_engine
@@ -128,6 +129,7 @@ app.add_middleware(
 # Mount domain sub-applications (most specific paths first)
 app.mount("/api/auth/v1", app_auth_v1)
 app.mount("/api/ca/v1", app_ca_v1)
+app.mount("/api/ca/v2", app_ca_v2)
 app.mount("/api/str/v1", app_str_v1)
 
 # Mount version-independent sub-application last (broader path)
