@@ -36,6 +36,15 @@ clients:
       - sdep_read
       - sdep_write
 
+  # 1c. Reporting / statistics office (REP)
+  - id: "sdep-test-rep.01"
+    secret: "sdep-test-rep.01"
+    name: "Test REP 01 (test automation, ephemeral data)"
+    description: "REP client with read-only access"
+    service_account_roles:
+      - sdep_rep
+      - sdep_read
+
   # 2. Test clients whose test data remains unaffected after automated test runs
 
   # 2a. Competent authorities (CA)
@@ -75,6 +84,15 @@ clients:
       - sdep_str
       - sdep_read
       - sdep_write
+
+  # 2c. Reporting / statistics office (REP)
+  - id: "sdep-rep.01"
+    secret: "sdep-rep.01"
+    name: "Test REP 01 (interactive usage, persistent data)"
+    description: "REP client with read-only access"
+    service_account_roles:
+      - sdep_rep
+      - sdep_read
 
   # 3. Test clients whose test data remains unaffected after automated test runs, deployed with predefined test data
 

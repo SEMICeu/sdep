@@ -338,6 +338,31 @@ class TestCAActivitiesAPI:
 
         assert "filterCompetentAuthorityId" not in parameters
 
+    async def test_get_activities_v2_ignores_competent_authority_filter_param(
+        self, async_session: AsyncSession, setup_overrides, test_data
+    ):
+        """v2 silently drops the REP-only filterCompetentAuthorityId query param.
+
+        The authenticated CA is 0363; if the param were honored, filtering by
+        0518 would intersect to an empty result. Ignoring it returns the full
+        CA-scoped result set.
+        """
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v2), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/activities?filterCompetentAuthorityId=0518",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert len(data["activities"]) == 5
+        assert all(
+            activity["competentAuthorityId"] == "0363"
+            for activity in data["activities"]
+        )
+
     def test_get_activities_v1_ignores_filter_params(self):
         """v1 does not declare filter* params; FastAPI silently drops unknown query params."""
         parameters = {

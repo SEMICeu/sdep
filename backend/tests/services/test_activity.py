@@ -37,18 +37,18 @@ class TestActivityService:
         result = await activity_service.count_activity(async_session)
         assert result == 3
 
-    # Tests for count_activity_by_competent_authority
+    # Tests for count_current_activities scoped to a competent authority
 
-    async def test_count_activity_by_competent_authority_empty(
+    async def test_count_current_activities_scoped_empty(
         self, async_session: AsyncSession
     ):
         """Test counting activities by competent authority when database is empty"""
-        result = await activity_service.count_activity_by_competent_authority(
-            async_session, "0363"
+        result = await activity_service.count_current_activities(
+            async_session, client_id="0363"
         )
         assert result == 0
 
-    async def test_count_activity_by_competent_authority_no_match(
+    async def test_count_current_activities_scoped_no_match(
         self, async_session: AsyncSession
     ):
         """Test counting activities by competent authority with no matching records"""
@@ -58,12 +58,12 @@ class TestActivityService:
             competent_authority_name="Gemeente Amsterdam",
         )
         await ActivityFactory.create_async(async_session, area_id=area.id)
-        result = await activity_service.count_activity_by_competent_authority(
-            async_session, "0599"
+        result = await activity_service.count_current_activities(
+            async_session, client_id="0599"
         )
         assert result == 0
 
-    async def test_count_activity_by_competent_authority_single_match(
+    async def test_count_current_activities_scoped_single_match(
         self, async_session: AsyncSession
     ):
         """Test counting activities by competent authority with single match"""
@@ -73,12 +73,12 @@ class TestActivityService:
             competent_authority_name="Gemeente Amsterdam",
         )
         await ActivityFactory.create_async(async_session, area_id=area.id)
-        result = await activity_service.count_activity_by_competent_authority(
-            async_session, "0363"
+        result = await activity_service.count_current_activities(
+            async_session, client_id="0363"
         )
         assert result == 1
 
-    async def test_count_activity_by_competent_authority_multiple_matches(
+    async def test_count_current_activities_scoped_multiple_matches(
         self, async_session: AsyncSession
     ):
         """Test counting activities by competent authority with multiple matches"""
@@ -95,12 +95,12 @@ class TestActivityService:
         await ActivityFactory.create_async(async_session, area_id=area1.id)
         await ActivityFactory.create_async(async_session, area_id=area1.id)
         await ActivityFactory.create_async(async_session, area_id=area2.id)
-        result = await activity_service.count_activity_by_competent_authority(
-            async_session, "0363"
+        result = await activity_service.count_current_activities(
+            async_session, client_id="0363"
         )
         assert result == 3
 
-    async def test_count_activity_by_competent_authority_filters_correctly(
+    async def test_count_current_activities_scoped_filters_correctly(
         self, async_session: AsyncSession
     ):
         """Test that counting filters by competent authority correctly"""
@@ -117,20 +117,22 @@ class TestActivityService:
         await ActivityFactory.create_async(async_session, area_id=area1.id)
         await ActivityFactory.create_async(async_session, area_id=area1.id)
         await ActivityFactory.create_async(async_session, area_id=area2.id)
-        result1 = await activity_service.count_activity_by_competent_authority(
-            async_session, "0363"
+        result1 = await activity_service.count_current_activities(
+            async_session, client_id="0363"
         )
-        result2 = await activity_service.count_activity_by_competent_authority(
-            async_session, "0599"
+        result2 = await activity_service.count_current_activities(
+            async_session, client_id="0599"
         )
         assert result1 == 2
         assert result2 == 1
 
-    # Tests for get_activity_list
+    # Tests for get_activity_list scoped to a competent authority
 
     async def test_get_activity_list_empty(self, async_session: AsyncSession):
         """Test getting activities list when database is empty"""
-        result = await activity_service.get_activity_list(async_session, "0363")
+        result = await activity_service.get_activity_list(
+            async_session, client_id="0363"
+        )
         assert result == []
 
     async def test_get_activity_list_no_match(self, async_session: AsyncSession):
@@ -141,7 +143,9 @@ class TestActivityService:
             competent_authority_name="Gemeente Amsterdam",
         )
         await ActivityFactory.create_async(async_session, area_id=area.id)
-        result = await activity_service.get_activity_list(async_session, "0599")
+        result = await activity_service.get_activity_list(
+            async_session, client_id="0599"
+        )
         assert result == []
 
     async def test_get_activity_list_single_record(self, async_session: AsyncSession):
@@ -162,7 +166,9 @@ class TestActivityService:
             area_id=area.id,
             platform_id=platform.id,
         )
-        result = await activity_service.get_activity_list(async_session, "0363")
+        result = await activity_service.get_activity_list(
+            async_session, client_id="0363"
+        )
         assert len(result) == 1
         assert result[0].url == "http://example.com/listing-1"
         assert result[0].status == ActivityStatus.finished
@@ -182,7 +188,9 @@ class TestActivityService:
         await ActivityFactory.create_async(
             async_session, area_id=area.id, platform_id=platform.id
         )
-        result = await activity_service.get_activity_list(async_session, "0363")
+        result = await activity_service.get_activity_list(
+            async_session, client_id="0363"
+        )
         assert len(result) == 1
         activity_obj = result[0]
 
@@ -221,7 +229,9 @@ class TestActivityService:
         await ActivityFactory.create_async(
             async_session, area_id=area.id, platform_id=platform.id
         )
-        result = await activity_service.get_activity_list(async_session, "0363")
+        result = await activity_service.get_activity_list(
+            async_session, client_id="0363"
+        )
         assert len(result) == 3
 
     async def test_get_activity_list_filters_by_competent_authority(
@@ -248,8 +258,12 @@ class TestActivityService:
         await ActivityFactory.create_async(
             async_session, area_id=area2.id, platform_id=platform.id
         )
-        result1 = await activity_service.get_activity_list(async_session, "0363")
-        result2 = await activity_service.get_activity_list(async_session, "0599")
+        result1 = await activity_service.get_activity_list(
+            async_session, client_id="0363"
+        )
+        result2 = await activity_service.get_activity_list(
+            async_session, client_id="0599"
+        )
         assert len(result1) == 2
         assert len(result2) == 1
 
@@ -268,7 +282,7 @@ class TestActivityService:
                 async_session, area_id=area.id, platform_id=platform.id
             )
         result = await activity_service.get_activity_list(
-            async_session, "0363", offset=2
+            async_session, client_id="0363", offset=2
         )
         assert len(result) == 2
 
@@ -287,7 +301,7 @@ class TestActivityService:
                 async_session, area_id=area.id, platform_id=platform.id
             )
         result = await activity_service.get_activity_list(
-            async_session, "0363", limit=2
+            async_session, client_id="0363", limit=2
         )
         assert len(result) == 2
 
@@ -306,7 +320,7 @@ class TestActivityService:
                 async_session, area_id=area.id, platform_id=platform.id
             )
         result = await activity_service.get_activity_list(
-            async_session, "0363", offset=1, limit=2
+            async_session, client_id="0363", offset=1, limit=2
         )
         assert len(result) == 2
 
@@ -327,7 +341,7 @@ class TestActivityService:
             async_session, area_id=area.id, platform_id=platform.id
         )
         result = await activity_service.get_activity_list(
-            async_session, "0363", offset=10
+            async_session, client_id="0363", offset=10
         )
         assert len(result) == 0
 
@@ -351,7 +365,9 @@ class TestActivityService:
             area_id=area.id,
             platform_id=platform.id,
         )
-        result = await activity_service.get_activity_list(async_session, "0363")
+        result = await activity_service.get_activity_list(
+            async_session, client_id="0363"
+        )
         assert len(result) == 1
         assert result[0].platform_id_functional == "platform99"
         assert result[0].platform_name == "Super Platform"
@@ -373,7 +389,72 @@ class TestActivityService:
             status=ActivityStatus.cancelled,
         )
 
-        result = await activity_service.get_activity_list(async_session, "0363")
+        result = await activity_service.get_activity_list(
+            async_session, client_id="0363"
+        )
 
         assert len(result) == 1
         assert result[0].status == ActivityStatus.cancelled
+
+    # Tests for the unscoped read (client_id=None), used by the reporting/REP API
+
+    async def test_count_current_activities_unscoped_empty(
+        self, async_session: AsyncSession
+    ):
+        """Test counting all activities when database is empty"""
+        result = await activity_service.count_current_activities(
+            async_session, client_id=None
+        )
+        assert result == 0
+
+    async def test_count_current_activities_unscoped_across_competent_authorities(
+        self, async_session: AsyncSession
+    ):
+        """Test that the unscoped count is not scoped to one competent authority"""
+        area1 = await AreaFactory.create_async(
+            async_session,
+            competent_authority_id="0363",
+            competent_authority_name="Gemeente Amsterdam",
+        )
+        area2 = await AreaFactory.create_async(
+            async_session,
+            competent_authority_id="0599",
+            competent_authority_name="Gemeente Rotterdam",
+        )
+        await ActivityFactory.create_async(async_session, area_id=area1.id)
+        await ActivityFactory.create_async(async_session, area_id=area1.id)
+        await ActivityFactory.create_async(async_session, area_id=area2.id)
+        result = await activity_service.count_current_activities(
+            async_session, client_id=None
+        )
+        assert result == 3
+
+    async def test_get_activity_list_unscoped_across_competent_authorities(
+        self, async_session: AsyncSession
+    ):
+        """Test that the unscoped list is not scoped to one competent authority"""
+        area1 = await AreaFactory.create_async(
+            async_session,
+            competent_authority_id="0363",
+            competent_authority_name="Gemeente Amsterdam",
+        )
+        area2 = await AreaFactory.create_async(
+            async_session,
+            competent_authority_id="0599",
+            competent_authority_name="Gemeente Rotterdam",
+        )
+        await ActivityFactory.create_async(async_session, area_id=area1.id)
+        await ActivityFactory.create_async(async_session, area_id=area1.id)
+        await ActivityFactory.create_async(async_session, area_id=area2.id)
+
+        result = await activity_service.get_activity_list(async_session, client_id=None)
+        assert len(result) == 3
+        competent_authority_ids = {
+            activity.competent_authority_id_functional for activity in result
+        }
+        assert competent_authority_ids == {"0363", "0599"}
+
+        result_limited = await activity_service.get_activity_list(
+            async_session, client_id=None, offset=0, limit=2
+        )
+        assert len(result_limited) == 2

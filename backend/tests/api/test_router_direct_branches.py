@@ -8,14 +8,16 @@ from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock
 
 import pytest
+from app.api.common import activity_handlers
 from app.api.common.auth_dependencies import Client, NamedClient
 from app.api.common.pagination import PaginationParams
 from app.api.common.routers import str_activities_bulk, str_areas
 from app.api.domains.ca.routers import activities_v1 as ca_activities
-from app.api.domains.ca.routers import activity_handlers
 from app.api.domains.ca.routers import areas as ca_areas
+from app.api.domains.rep.routers import activities_v1 as rep_activities
 from app.models.address import Address
 from app.models.temporal import Temporal
+from app.schemas.activity import ActivityFilters
 from app.schemas.activity_bulk import (
     ActivityBulkRequest,
     ActivityBulkResponse,
@@ -84,11 +86,68 @@ async def test_ca_activities_direct_branches(monkeypatch):
 
     monkeypatch.setattr(
         activity_handlers.activity,
-        "count_activity_by_competent_authority",
+        "count_current_activities",
         AsyncMock(return_value=5),
     )
     count = await ca_activities.count_activities(
         client=Client(id="ca-1", name="CA"), session=session
+    )
+    assert count.count == 5
+
+
+@pytest.mark.asyncio
+async def test_rep_activities_direct_branches(monkeypatch):
+    session = cast("AsyncSession", object())
+    monkeypatch.setattr(
+        activity_handlers.activity,
+        "get_activity_list",
+        AsyncMock(
+            return_value=[
+                SimpleNamespace(
+                    activity_id="activity-1",
+                    activity_name="Activity",
+                    status="finished",
+                    area_id_functional="area-1",
+                    competent_authority_id_functional="ca-1",
+                    competent_authority_name="CA",
+                    url="http://example.com",
+                    address=Address(
+                        "Street",
+                        1,
+                        None,
+                        None,
+                        "1234AB",
+                        "City",
+                        "Street 1, 1234AB City",
+                    ),
+                    registration_number="REG-1",
+                    number_of_guests=2,
+                    country_of_guests=["NLD", "DEU"],
+                    temporal=Temporal(
+                        datetime(2025, 1, 1, tzinfo=UTC),
+                        datetime(2025, 1, 2, tzinfo=UTC),
+                    ),
+                    platform_id_functional="str-1",
+                    platform_name="STR",
+                    created_at=datetime(2025, 1, 1, tzinfo=UTC),
+                )
+            ]
+        ),
+    )
+    result = await rep_activities.get_activities(
+        pagination=PaginationParams(offset=0, limit=None),
+        filters=ActivityFilters(),
+        session=session,
+    )
+    assert result.activities[0].activity_id == "activity-1"
+
+    monkeypatch.setattr(
+        activity_handlers.activity,
+        "count_current_activities",
+        AsyncMock(return_value=5),
+    )
+    count = await rep_activities.count_activities(
+        filters=ActivityFilters(), session=session
     )
     assert count.count == 5
 

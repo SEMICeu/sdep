@@ -8,6 +8,7 @@ from app.api.common.routers import health as health_router
 from app.api.common.routers import ping as ping_router
 from app.api.domains.auth.v1 import get_openapi_json
 from app.api.domains.ca.v1 import get_openapi_json as get_ca_openapi_json
+from app.api.domains.rep.v1 import get_openapi_json as get_rep_openapi_json
 from app.api.domains.str.v1 import get_openapi_json as get_str_openapi_json
 from app.main import lifespan, root
 from app.security.audit_retention import audit_log_cleanup_loop
@@ -30,8 +31,10 @@ async def test_root_and_openapi_json_endpoint():
 
     ca_response = await get_ca_openapi_json()
     str_response = await get_str_openapi_json()
+    rep_response = await get_rep_openapi_json()
     assert ca_response.media_type == "application/json"
     assert str_response.media_type == "application/json"
+    assert rep_response.media_type == "application/json"
 
 
 @pytest.mark.asyncio

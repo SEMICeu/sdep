@@ -12,10 +12,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from app.api.domain_registry import AUTH_V1, CA_V1, CA_V2, STR_V1, ApiDomain
+from app.api.domain_registry import AUTH_V1, CA_V1, CA_V2, REP_V1, STR_V1, ApiDomain
 from app.api.domains.auth.v1 import app_auth_v1
 from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.ca.v2 import app_ca_v2
+from app.api.domains.rep.v1 import app_rep_v1
 from app.api.domains.str.v1 import app_str_v1
 
 if TYPE_CHECKING:
@@ -30,6 +31,7 @@ DOMAIN_APPS: dict[str, FastAPI] = {
     "ca_v1": app_ca_v1,
     "ca_v2": app_ca_v2,
     "str_v1": app_str_v1,
+    "rep_v1": app_rep_v1,
 }
 
 DOMAIN_STATUS_APPS: tuple[tuple[ApiDomain, FastAPI], ...] = (
@@ -37,6 +39,7 @@ DOMAIN_STATUS_APPS: tuple[tuple[ApiDomain, FastAPI], ...] = (
     (CA_V1, app_ca_v1),
     (CA_V2, app_ca_v2),
     (STR_V1, app_str_v1),
+    (REP_V1, app_rep_v1),
 )
 
 

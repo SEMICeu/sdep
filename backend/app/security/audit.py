@@ -32,6 +32,8 @@ SKIP_PATHS = frozenset(
         "/api/ca/v2/docs",
         "/api/str/v1/openapi.json",
         "/api/str/v1/docs",
+        "/api/rep/v1/openapi.json",
+        "/api/rep/v1/docs",
     }
 )
 
@@ -49,6 +51,8 @@ _ACTION_RULES: list[tuple[str, re.Pattern, str, str]] = [
     ("POST", re.compile(r"^/api/str/v\d+/activities/bulk$"), "create_bulk", "activity"),
     ("GET", re.compile(r"^/api/ca/v\d+/activities/count$"), "count", "activity"),
     ("GET", re.compile(r"^/api/ca/v\d+/activities$"), "list", "activity"),
+    ("GET", re.compile(r"^/api/rep/v\d+/activities/count$"), "count", "activity"),
+    ("GET", re.compile(r"^/api/rep/v\d+/activities$"), "list", "activity"),
     ("POST", re.compile(r"^/api/auth/v\d+/token$"), "token", "auth"),
     ("GET", re.compile(r"^/api/ping$"), "ping", "system"),
 ]

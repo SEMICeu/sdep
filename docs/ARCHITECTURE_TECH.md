@@ -21,6 +21,7 @@ This document provides an overview of the SDEP (Single Digital Entry Point) tech
   - [Authentication](#authentication)
   - [Competent Authority Endpoints](#competent-authority-endpoints)
   - [STR Platform Endpoints](#str-platform-endpoints)
+  - [Reporting Endpoints](#reporting-endpoints)
   - [Health Endpoints](#health-endpoints)
   - [Request Flow](#request-flow)
   - [Versioning (CA)](#versioning-ca)
@@ -56,6 +57,7 @@ SDEP is a FastAPI-based REST API that enables:
 - Competent Authorities (CA) to register regulated areas with geospatial data
 - Short-Term Rental platforms (STR) to query regulated areas and submit rental activities
 - Competent Authorities (CA) to query rental activities
+- The statistics office (REP) to query all registered rental activities for statistical analysis
 - Compliance with EU Regulation 2024/1028
 
 ---
@@ -117,6 +119,7 @@ sdep-app/
 │   │   │   │   │   ├── ping.py                 # Ping endpoint
 │   │   │   │   │   ├── str_activities_bulk.py  # STR bulk activity endpoints
 │   │   │   │   │   └── str_areas.py            # STR area endpoints
+│   │   │   │   ├── activity_examples.py        # Shared OpenAPI activity response examples
 │   │   │   │   ├── auth_dependencies.py        # Shared auth/role dependencies
 │   │   │   │   ├── exception_handlers.py
 │   │   │   │   ├── filename.py                 # Download filename sanitization
@@ -137,6 +140,11 @@ sdep-app/
 │   │   │       │       ├── activities_v2.py    # CA activity endpoints v2 (with filters)
 │   │   │       │       ├── activity_handlers.py  # Shared activity logic (v1 and v2)
 │   │   │       │       └── areas.py            # CA area endpoints
+│   │   │       ├── rep/
+│   │   │       │   ├── app_factory.py          # Sub-app factory (shared setup for REP)
+│   │   │       │   ├── v1.py                   # REP domain sub-app
+│   │   │       │   └── routers/
+│   │   │       │       └── activities_v1.py    # REP activity endpoints (read-only)
 │   │   │       └── str/
 │   │   │           ├── app_factory.py          # Sub-app factory (shared setup for STR)
 │   │   │           └── v1.py                   # STR domain sub-app
@@ -385,6 +393,15 @@ For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.m
 - `GET /api/str/v1/areas/count` - Count areas
 - `GET /api/str/v1/areas/{areaId}` - Download shapefile for area
 - `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
+
+---
+
+### Reporting Endpoints
+
+Read-only endpoints for the national statistics office (no write endpoints registered; POST/PUT/PATCH/DELETE return 405):
+
+- `GET /api/rep/v1/activities` - Query rental activities across all competent authorities and platforms (pagination: offset, limit - limit defaults to 1000, the maximum; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId, filterCompetentAuthorityId - AND semantics; invalid functional IDs → 400)
+- `GET /api/rep/v1/activities/count` - Count activities with optional filters (same filter set)
 
 ---
 
@@ -985,18 +1002,20 @@ These public owner IDs are returned as `platformId` and `competentAuthorityId` i
 
 The JWT token's `client_id` claim is stored separately in the private `client_id` column on `Platform` and `CompetentAuthority`. Service and CRUD code use this private value for lookup, ownership scoping, versioning, and deactivation checks.
 
-| Endpoint                           | Router                   | JWT claim used for scoping | Public owner ID exposed in responses |
-| ---------------------------------- | ------------------------ | -------------------------- | ------------------------------------ |
-| `POST /api/ca/v1/areas`            | `areas.py`               | `client_id`                | `competentAuthorityId`               |
-| `GET /api/ca/v1/areas`             | `areas.py`               | `client_id`                | `competentAuthorityId`               |
-| `GET /api/ca/v1/areas/count`       | `areas.py`               | `client_id`                | n/a                                  |
-| `GET /api/ca/v1/areas/{areaId}`    | `areas.py`               | `client_id`                | n/a                                  |
-| `DELETE /api/ca/v1/areas/{areaId}` | `areas.py`               | `client_id`                | n/a                                  |
-| `GET /api/ca/v1/activities`        | `activities_v1.py`       | `client_id`                | `competentAuthorityId`, `platformId` |
-| `GET /api/ca/v1/activities/count`  | `activities_v1.py`       | `client_id`                | n/a                                  |
-| `GET /api/ca/v2/activities`        | `activities_v2.py`       | `client_id`                | `competentAuthorityId`, `platformId` |
-| `GET /api/ca/v2/activities/count`  | `activities_v2.py`       | `client_id`                | n/a                                  |
-| `POST /api/str/v1/activities/bulk` | `str_activities_bulk.py` | `client_id`                | `competentAuthorityId`, `platformId` |
+| Endpoint                           | Router                   | JWT claim used for scoping  | Public owner ID exposed in responses |
+| ---------------------------------- | ------------------------ | --------------------------- | ------------------------------------ |
+| `POST /api/ca/v1/areas`            | `areas.py`               | `client_id`                 | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas`             | `areas.py`               | `client_id`                 | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas/count`       | `areas.py`               | `client_id`                 | n/a                                  |
+| `GET /api/ca/v1/areas/{areaId}`    | `areas.py`               | `client_id`                 | n/a                                  |
+| `DELETE /api/ca/v1/areas/{areaId}` | `areas.py`               | `client_id`                 | n/a                                  |
+| `GET /api/ca/v1/activities`        | `activities_v1.py`       | `client_id`                 | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v1/activities/count`  | `activities_v1.py`       | `client_id`                 | n/a                                  |
+| `GET /api/ca/v2/activities`        | `activities_v2.py`       | `client_id`                 | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v2/activities/count`  | `activities_v2.py`       | `client_id`                 | n/a                                  |
+| `POST /api/str/v1/activities/bulk` | `str_activities_bulk.py` | `client_id`                 | `competentAuthorityId`, `platformId` |
+| `GET /api/rep/v1/activities`       | `rep/activities_v1.py`   | none (roles only, unscoped) | `competentAuthorityId`, `platformId` |
+| `GET /api/rep/v1/activities/count` | `rep/activities_v1.py`   | none (roles only, unscoped) | n/a                                  |
 
 The private `client_id` is never serialized in public API responses, OpenAPI examples, or public documentation as an owner ID.
 

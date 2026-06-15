@@ -56,12 +56,13 @@ SDEP-NL adopts client_id and client_secret, motivated by:
 
 **Roles:**
 
-| Role         | Purpose                    |
-| :----------- | :------------------------- |
-| `sdep_ca`    | Competent Authority access |
-| `sdep_str`   | STR Platform access        |
-| `sdep_read`  | Read operations            |
-| `sdep_write` | Write operations           |
+| Role         | Purpose                              |
+| :----------- | :----------------------------------- |
+| `sdep_ca`    | Competent Authority access           |
+| `sdep_str`   | STR Platform access                  |
+| `sdep_rep`   | Reporting / statistics office access |
+| `sdep_read`  | Read operations                      |
+| `sdep_write` | Write operations                     |
 
 **JWT Claims used by the application:**
 
@@ -397,6 +398,7 @@ Dependencies are declared with flexible lower bounds (`>=`) in `pyproject.toml` 
 - `uv.lock` records the exact resolved version of every package, including transitive dependencies (the *pin*)
 - The Dockerfile installs with `uv sync --frozen`, which enforces the lock file exactly - no version can drift at build time
 - Using `==` in `pyproject.toml` would duplicate what the lock file already does, while making legitimate upgrades harder and not covering transitive dependencies
+- Security remediations follow the same rule: the `>=` floor is raised to the version that fixes the CVE (for transitive packages via `[tool.uv]` `constraint-dependencies`), while `uv.lock` keeps pinning the exact shipped version
 
 **Docker base images**
 
@@ -577,8 +579,8 @@ The following paths are **not** audited (high-frequency, low-value):
 - `/favicon.ico` (browsers request this automatically; the application does not serve a favicon)
 - `/api/docs` (landing page)
 - `/api/health`
-- `/api/auth/v1/openapi.json`, `/api/ca/v1/openapi.json`, `/api/ca/v2/openapi.json`, `/api/str/v1/openapi.json`
-- `/api/auth/v1/docs`, `/api/ca/v1/docs`, `/api/ca/v2/docs`, `/api/str/v1/docs`
+- `/api/auth/v1/openapi.json`, `/api/ca/v1/openapi.json`, `/api/ca/v2/openapi.json`, `/api/str/v1/openapi.json`, `/api/rep/v1/openapi.json`
+- `/api/auth/v1/docs`, `/api/ca/v1/docs`, `/api/ca/v2/docs`, `/api/str/v1/docs`, `/api/rep/v1/docs`
 
 ---
 

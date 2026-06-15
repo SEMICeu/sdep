@@ -279,9 +279,11 @@ async def get_by_area_id(
     return list(result.scalars().all())
 
 
-def _apply_competent_authority_activity_filters(
+def _apply_activity_filters(
     stmt: Select[tuple[Activity]] | Select[tuple[int]], filters: ActivityFilters
 ) -> Select[tuple[Activity]] | Select[tuple[int]]:
+    # The area_id and competent_authority_id branches rely on the caller having
+    # joined Area and CompetentAuthority.
     if filters.created_at_from is not None:
         stmt = stmt.where(Activity.created_at >= filters.created_at_from)
     if filters.created_at_to is not None:
@@ -292,28 +294,36 @@ def _apply_competent_authority_activity_filters(
         )
     if filters.area_id is not None:
         stmt = stmt.where(Area.area_id == filters.area_id)
+    if filters.competent_authority_id is not None:
+        stmt = stmt.where(
+            CompetentAuthority.competent_authority_id == filters.competent_authority_id
+        )
     return stmt
 
 
-async def get_by_competent_authority_client_id(
+async def get_current_activities(
     session: AsyncSession,
-    client_id: str,
+    *,
+    client_id: str | None,
     offset: int = 0,
     limit: int | None = None,
     filters: ActivityFilters | None = None,
 ) -> list[Activity]:
     """
-    Get current activities by competent authority private client_id.
+    Get current activities (ended_at IS NULL), optionally scoped to one competent authority.
 
     Args:
         session: Async database session
-        client_id: Private authentication client identifier
+        client_id: Competent-authority private client identifier to scope to, or None to
+            return current activities across all competent authorities (the unscoped read
+            used by the reporting/REP API). Keyword-only with no default so callers must
+            pass it explicitly - an unscoped read is never reached by accident.
         offset: Number of records to skip (default: 0)
         limit: Maximum number of records to return (default: no limit)
         filters: Optional activity query filters
 
     Returns:
-        List of current Activity instances for the authenticated competent authority
+        List of current Activity instances, restricted to the client when client_id is given.
     """
     stmt = (
         select(Activity)
@@ -323,15 +333,14 @@ async def get_by_competent_authority_client_id(
         )
         .join(Area, Activity.area_id == Area.id)
         .join(CompetentAuthority, Area.competent_authority_id == CompetentAuthority.id)
-        .where(
-            CompetentAuthority.client_id == client_id,
-            Activity.ended_at.is_(None),
-        )
+        .where(Activity.ended_at.is_(None))
         .order_by(Activity.created_at.desc(), Activity.id.desc())
         .offset(offset)
     )
+    if client_id is not None:
+        stmt = stmt.where(CompetentAuthority.client_id == client_id)
     if filters is not None:
-        stmt = _apply_competent_authority_activity_filters(stmt, filters)
+        stmt = _apply_activity_filters(stmt, filters)
     if limit is not None:
         stmt = stmt.limit(limit)
 
@@ -339,34 +348,39 @@ async def get_by_competent_authority_client_id(
     return list(result.scalars().all())
 
 
-async def count_by_competent_authority_client_id(
+async def count_current_activities(
     session: AsyncSession,
-    client_id: str,
+    *,
+    client_id: str | None,
     filters: ActivityFilters | None = None,
 ) -> int:
     """
-    Count current activities by competent authority private client_id.
+    Count current activities (ended_at IS NULL), optionally scoped to one competent authority.
+
+    Counts only current versions, unlike count() which includes ended versions.
 
     Args:
         session: Async database session
-        client_id: Private authentication client identifier
+        client_id: Competent-authority private client identifier to scope to, or None to
+            count current activities across all competent authorities (the unscoped count
+            used by the reporting/REP API). Keyword-only with no default so callers must
+            pass it explicitly.
         filters: Optional activity query filters
 
     Returns:
-        Total number of current activities for the authenticated competent authority
+        Total number of current activities, restricted to the client when client_id is given.
     """
     stmt = (
         select(func.count())
         .select_from(Activity)
         .join(Area, Activity.area_id == Area.id)
         .join(CompetentAuthority, Area.competent_authority_id == CompetentAuthority.id)
-        .where(
-            CompetentAuthority.client_id == client_id,
-            Activity.ended_at.is_(None),
-        )
+        .where(Activity.ended_at.is_(None))
     )
+    if client_id is not None:
+        stmt = stmt.where(CompetentAuthority.client_id == client_id)
     if filters is not None:
-        stmt = _apply_competent_authority_activity_filters(stmt, filters)
+        stmt = _apply_activity_filters(stmt, filters)
     result = await session.execute(stmt)
     return result.scalar_one()
 

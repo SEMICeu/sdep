@@ -14,6 +14,7 @@ This document describes principles and patterns for the SDEP API.
   - [Success](#success)
   - [Client Errors](#client-errors)
   - [Server Errors](#server-errors)
+  - [Error Response Body](#error-response-body)
 - [OpenAPI vs Swagger UI](#openapi-vs-swagger-ui)
   - [OpenAPI](#openapi)
   - [Swagger UI](#swagger-ui)
@@ -36,16 +37,16 @@ This document describes principles and patterns for the SDEP API.
 
 ---
 
-*https://stackoverflow.blog/2020/03/02/best-practices-for-rest-api-design/*
+*<https://stackoverflow.blog/2020/03/02/best-practices-for-rest-api-design/>*
 
 ## Patterns
 
 | #          | Decision                                           | Motivation/example                                                                                                     |
 | :--------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
-| **API 01** | Support OpenAPI 3.1.0                              | Swagger 2.0 is legacy - https://swagger.io/specification/                                                              |
+| **API 01** | Support OpenAPI 3.1.0                              | Swagger 2.0 is legacy - <https://swagger.io/specification/>                                                            |
 | **API 02** | All endpoints are self-explanatory/well-documented |                                                                                                                        |
-| **API 03** | Use nouns instead of verbs                         | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
-| **API 04** | Use plurals for resources that affect collections  | Best practice - https://logius-standaarden.github.io/API-Design-Rules/                                                 |
+| **API 03** | Use nouns instead of verbs                         | Best practice - <https://logius-standaarden.github.io/API-Design-Rules/>                                               |
+| **API 04** | Use plurals for resources that affect collections  | Best practice - <https://logius-standaarden.github.io/API-Design-Rules/>                                               |
 | **API 05** | Consistent datamodel                               | Avoid code duplication, e.g. have unified `Activity`, `Area` and error responses                                       |
 | **API 06** | Consistent endpoints                               | Collection endpoints, explicit "bulk" qualification where needed: `POST /ca/areas` vs. `POST /str/activities/bulk`     |
 | **API 07** | Consistent pagination                              | Have `offset` and `limit` for all endpoints with (potential) many records                                              |
@@ -87,12 +88,13 @@ A beta API can be available in production. Clients may integrate with it, but th
 
 **Current versions in production:**
 
-| Domain | Version | Status | Notes                                        |
-| ------ | ------- | ------ | -------------------------------------------- |
-| auth   | v1      | stable |                                              |
-| ca     | v1      | stable | Areas + activities (no filters)              |
-| ca     | v2      | beta   | Activities with optional query filters (new) |
-| str    | v1      | stable |                                              |
+| Domain | Version | Status | Notes                                               |
+| ------ | ------- | ------ | --------------------------------------------------- |
+| auth   | v1      | stable |                                                     |
+| ca     | v1      | stable | Areas + activities (no filters)                     |
+| ca     | v2      | beta   | Activities with optional query filters (new)        |
+| str    | v1      | stable |                                                     |
+| rep    | v1      | beta   | Read-only reporting API for reporting offices (new) |
 
 ---
 
@@ -110,6 +112,24 @@ A beta API can be available in production. Clients may integrate with it, but th
 All provided filters are combined with AND semantics. Omitting a filter means no constraint on that dimension. An invalid `FunctionalId` format returns HTTP 400.
 
 If OR semantics are required, clients should implement them client-side by calling this endpoint multiple times and combining the results.
+
+---
+
+### REP Activity Filters (v1)
+
+`GET /api/rep/v1/activities` and `GET /api/rep/v1/activities/count` are read-only endpoints for reporting offices, such as a statistics office (in SDEP-NL, this is the Centraal Bureau voor de Statistiek). They return all current activities across all competent authorities and platforms, and accept the same optional query parameters as CA v2 plus one extra:
+
+| Parameter                    | Type         | Description                                     |
+| ---------------------------- | ------------ | ----------------------------------------------- |
+| `filterCreatedAtFrom`        | datetime     | Inclusive lower bound on `createdAt` (ISO 8601) |
+| `filterCreatedAtTo`          | datetime     | Inclusive upper bound on `createdAt` (ISO 8601) |
+| `filterPlatformId`           | FunctionalId | Exact-match filter on `platformId`              |
+| `filterAreaId`               | FunctionalId | Exact-match filter on `areaId`                  |
+| `filterCompetentAuthorityId` | FunctionalId | Exact-match filter on `competentAuthorityId`    |
+
+All provided filters are combined with AND semantics. The REP API requires the `sdep_rep` and `sdep_read` roles and registers no write endpoints: POST, PUT, PATCH, and DELETE return HTTP 405.
+
+`GET /api/rep/v1/activities` returns at most 1000 records per request: the `limit` parameter defaults to 1000 (also the maximum). Use `offset` together with `GET /api/rep/v1/activities/count` to page through larger result sets.
 
 When a new API version is released, the previous version (N-1) remains available for a deprecation period to give clients time to migrate. Only the current (N) and previous (N-1) versions are supported simultaneously.
 
@@ -165,8 +185,9 @@ Internal refactors, dependency upgrades, or infrastructure changes may warrant a
 | ----------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 400         | Bad Request           | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`), or missing client credentials                                                                        |
 | 401         | Unauthorized          | Missing, invalid, or expired authentication token; missing required token claims (`client_id`, `client_name`)                                                                     |
-| 403         | Forbidden             | Authenticated but missing a required role (`sdep_ca`, `sdep_str`, `sdep_read`, `sdep_write`)                                                                                      |
+| 403         | Forbidden             | Authenticated but missing a required role (`sdep_ca`, `sdep_str`, `sdep_rep`, `sdep_read`, `sdep_write`)                                                                          |
 | 404         | Not Found             | Requested resource does not exist, is unavailable, or has been deleted                                                                                                            |
+| 405         | Method Not Allowed    | HTTP method not registered for the path (e.g. POST, PUT, PATCH, or DELETE on the read-only REP API, or any unsupported method on an existing path)                                |
 | 409         | Conflict              | Duplicate resource (unique constraint violation)                                                                                                                                  |
 | 413         | Payload Too Large     | Upload exceeds the per-endpoint size limit (e.g. `POST /api/ca/v1/areas` rejects requests whose `Content-Length` exceeds the 1 MiB file-size cap plus a small multipart envelope) |
 | 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field), or business rule violation (e.g. start time > end time)                                                     |
@@ -181,6 +202,19 @@ Internal refactors, dependency upgrades, or infrastructure changes may warrant a
 | 503         | Service Unavailable   | Database or authorization server (e.g. Keycloak) temporarily unavailable |
 
 For the mapping between application exceptions and HTTP status codes, see [Status Codes and Exception Handling](ARCHITECTURE_TECH.md#status-codes-and-exception-handling) in the Architecture document.
+
+---
+
+### Error Response Body
+
+Application errors (validation, authorization, business rules, and similar) use the standardized `Error.Response` schema (`ErrorResponse` in code, see `backend/app/schemas/error.py`): a JSON object whose `detail` is a list of error objects, each with `msg`, `type`, and an optional `loc`.
+
+A few framework-level responses are produced by FastAPI's router before a request reaches application code, and these use FastAPI's default body shape instead, where `detail` is a plain string rather than the standardized list:
+
+- 405 Method Not Allowed (e.g. a write method on the read-only REP API)
+- Routing-level 404 Not Found (a path that matches no registered route)
+
+This is intentional and behaves identically across the CA, STR, and REP APIs.
 
 ---
 
@@ -202,6 +236,7 @@ GET /api/auth/v1/openapi.json
 GET /api/ca/v1/openapi.json
 GET /api/ca/v2/openapi.json
 GET /api/str/v1/openapi.json
+GET /api/rep/v1/openapi.json
 ```
 
 It is the **authoritative, machine-readable contract** of the API.
@@ -231,6 +266,7 @@ GET /api/auth/v1/docs
 GET /api/ca/v1/docs
 GET /api/ca/v2/docs
 GET /api/str/v1/docs
+GET /api/rep/v1/docs
 ```
 
 A landing page at `GET /api/docs` links to all domain docs.

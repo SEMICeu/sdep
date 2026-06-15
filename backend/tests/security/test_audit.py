@@ -67,6 +67,8 @@ class TestActionMapping:
             ("GET", "/api/str/v1/areas/xyz-456", "read", "area"),
             ("GET", "/api/ca/v1/activities", "list", "activity"),
             ("GET", "/api/ca/v1/activities/count", "count", "activity"),
+            ("GET", "/api/rep/v1/activities", "list", "activity"),
+            ("GET", "/api/rep/v1/activities/count", "count", "activity"),
             ("POST", "/api/auth/v1/token", "token", "auth"),
             ("GET", "/api/ping", "ping", "system"),
         ],
@@ -308,5 +310,7 @@ class TestAuditMiddleware:
             "/api/ca/v2/docs",
             "/api/str/v1/openapi.json",
             "/api/str/v1/docs",
+            "/api/rep/v1/openapi.json",
+            "/api/rep/v1/docs",
         }
         assert expected == SKIP_PATHS

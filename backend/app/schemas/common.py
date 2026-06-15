@@ -31,11 +31,11 @@ OptionalFunctionalId = Annotated[
 ]
 
 
-def validate_client_id(value: str, field_name: str = "client_id") -> None:
+def validate_client_id(value: str) -> None:
     """Validate a private OAuth client identifier from a JWT claim."""
     if not value or len(value) > 64 or not _CLIENT_ID_RE.match(value):
         raise ValueError(
-            f"{field_name} must be 1-64 characters matching {CLIENT_ID_PATTERN}, got: '{value}'"
+            f"client_id must be 1-64 characters matching {CLIENT_ID_PATTERN}, got: '{value}'"
         )
 
 

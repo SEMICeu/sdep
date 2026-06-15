@@ -10,10 +10,11 @@ from fastapi import FastAPI
 
 from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common_app import app_common
-from app.api.domain_registry import AUTH_V1, CA_V1, CA_V2, STR_V1
+from app.api.domain_registry import AUTH_V1, CA_V1, CA_V2, REP_V1, STR_V1
 from app.api.domains.auth.v1 import app_auth_v1
 from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.ca.v2 import app_ca_v2
+from app.api.domains.rep.v1 import app_rep_v1
 from app.api.domains.str.v1 import app_str_v1
 from app.config import settings
 from app.db.config import async_engine
@@ -132,6 +133,7 @@ app.mount(AUTH_V1.root_path, app_auth_v1)
 app.mount(CA_V1.root_path, app_ca_v1)
 app.mount(CA_V2.root_path, app_ca_v2)
 app.mount(STR_V1.root_path, app_str_v1)
+app.mount(REP_V1.root_path, app_rep_v1)
 
 # Mount version-independent sub-application last (broader path)
 app.mount("/api", app_common)

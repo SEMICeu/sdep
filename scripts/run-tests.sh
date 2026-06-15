@@ -77,6 +77,7 @@ run_suite test-smoke
 run_suite test-security
 run_suite test-str
 run_suite test-ca
+run_suite test-rep
 
 # --- Clean test data (unless KEEP_TEST_DATA=true) ---
 if [ "${KEEP_TEST_DATA:-false}" = "true" ]; then

@@ -63,6 +63,8 @@ test_endpoint "GET" "/api/ca/v1/areas/some-area-id" "CA area retrieval by ID"
 test_endpoint "DELETE" "/api/ca/v1/areas/some-area-id" "CA area deletion"
 test_endpoint "GET" "/api/ca/v1/activities" "CA activity retrieval"
 test_endpoint "GET" "/api/ca/v1/activities/count" "CA activity count"
+test_endpoint "GET" "/api/rep/v1/activities" "REP activity retrieval"
+test_endpoint "GET" "/api/rep/v1/activities/count" "REP activity count"
 
 # Summary
 echo

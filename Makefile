@@ -11,7 +11,7 @@ SHELL := /bin/bash
         keycloak-up keycloak-down \
         backend-up backend-down backend-restart \
         up down restart status \
-        .is-up .ensure-up .clean-testrun .postgres-up-unless-ci test-full test-full-keep test-full-verbose test-ca test-str test-smoke test-security test-integration test-migrations \
+        .is-up .ensure-up .clean-testrun .postgres-up-unless-ci test-full test-full-keep test-full-verbose test-ca test-str test-rep test-smoke test-security test-integration test-migrations \
         test-malware \
         test-perf test-perf-verbose \
         test \
@@ -317,12 +317,15 @@ dbgate-status: ## Show DBGate and Postgres status
 	CA1_CLIENT_ID=sdep-test-ca.01 && KC_APP_REALM_CLIENT_ID=$$CA1_CLIENT_ID && get_client_secret && CA1_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	CA2_CLIENT_ID=sdep-test-ca.02 && KC_APP_REALM_CLIENT_ID=$$CA2_CLIENT_ID && get_client_secret && CA2_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	STR_CLIENT_ID=sdep-test-str.01 && KC_APP_REALM_CLIENT_ID=$$STR_CLIENT_ID && get_client_secret && STR_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	REP_CLIENT_ID=sdep-test-rep.01 && KC_APP_REALM_CLIENT_ID=$$REP_CLIENT_ID && get_client_secret && REP_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	echo "export CA1_CLIENT_ID=$$CA1_CLIENT_ID" > ./tmp/.credentials && \
 	echo "export CA1_CLIENT_SECRET=$$CA1_CLIENT_SECRET" >> ./tmp/.credentials && \
 	echo "export CA2_CLIENT_ID=$$CA2_CLIENT_ID" >> ./tmp/.credentials && \
 	echo "export CA2_CLIENT_SECRET=$$CA2_CLIENT_SECRET" >> ./tmp/.credentials && \
 	echo "export STR_CLIENT_ID=$$STR_CLIENT_ID" >> ./tmp/.credentials && \
-	echo "export STR_CLIENT_SECRET=$$STR_CLIENT_SECRET" >> ./tmp/.credentials
+	echo "export STR_CLIENT_SECRET=$$STR_CLIENT_SECRET" >> ./tmp/.credentials && \
+	echo "export REP_CLIENT_ID=$$REP_CLIENT_ID" >> ./tmp/.credentials && \
+	echo "export REP_CLIENT_SECRET=$$REP_CLIENT_SECRET" >> ./tmp/.credentials
 
 keycloak-up: postgres-up ## Start and configure keycloak (realm, roles, machine-clients)
 	@echo "🚀 Starting Keycloak..."
@@ -480,6 +483,23 @@ test-str: .ensure-up .get-client-credentials ## Test only STR endpoints
 	./tests/test_str_areas.sh 2>&1 | tee $$OUTPUT_FILE && \
 	uv run --script tests/test_str_activities_bulk.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ STR endpoints tested"
+
+test-rep: .ensure-up .get-client-credentials ## Test only REP endpoints
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
+	OUTPUT_FILE=$$(mktemp) && \
+	trap "rm -f $$OUTPUT_FILE" EXIT && \
+	echo "📊 Testing REP endpoints..." && \
+	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
+	echo "" && \
+	if CLIENT_ID=$$REP_CLIENT_ID CLIENT_SECRET=$$REP_CLIENT_SECRET ./tests/test_auth_client.sh; then \
+		echo "✅ REP client authorized"; \
+	else \
+		echo "❌ REP client authorization failed"; \
+		exit 1; \
+	fi && \
+	./tests/test_health_ping.sh 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_rep_activities.py 2>&1 | tee $$OUTPUT_FILE && \
+	echo "✅ REP endpoints tested"
 
 test-smoke: .ensure-up ## Test only smoke test endpoints (audit-excluded, no auth needed)
 	@set -a && source ./.env && set +a && \

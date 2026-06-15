@@ -1,0 +1,4 @@
+# Normalise Markdown to LF so markdownlint/mdformat behave identically on
+# macOS, Windows and Linux and autofix does not flip line endings.
+*.md text eol=lf
+*.markdown text eol=lf

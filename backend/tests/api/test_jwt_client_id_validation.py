@@ -1,4 +1,4 @@
-"""Tests for JWT client_id functional ID validation.
+"""Tests for JWT client_id validation.
 
 Validates that all endpoints reject invalid client_id claims.
 """

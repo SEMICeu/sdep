@@ -209,12 +209,13 @@ class ActivityBulkCreate(ActivityRequest):
 
 @dataclass(frozen=True)
 class ActivityFilters:
-    """Optional filters for competent-authority activity reads."""
+    """Optional filters for activity reads."""
 
     created_at_from: datetime | None = None
     created_at_to: datetime | None = None
     platform_id: str | None = None
     area_id: str | None = None
+    competent_authority_id: str | None = None
 
 
 class ActivityResponse(BaseModel):

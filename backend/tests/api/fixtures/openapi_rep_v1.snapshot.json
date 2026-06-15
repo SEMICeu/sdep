@@ -1,0 +1,777 @@
+{
+  "components": {
+    "schemas": {
+      "ActivityCountResponse": {
+        "description": "Count of activities response schema.",
+        "properties": {
+          "count": {
+            "description": "Total number of activity records",
+            "examples": [
+              42
+            ],
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "Activity.CountResponse",
+        "type": "object"
+      },
+      "ActivityListResponse": {
+        "description": "List of activities for GET responses.",
+        "properties": {
+          "activities": {
+            "description": "List of activities",
+            "items": {
+              "$ref": "#/components/schemas/ActivityResponse"
+            },
+            "title": "Activities",
+            "type": "array"
+          }
+        },
+        "required": [
+          "activities"
+        ],
+        "title": "Activity.ListResponse",
+        "type": "object"
+      },
+      "ActivityResponse": {
+        "description": "Activity response schema.",
+        "properties": {
+          "activityId": {
+            "description": "Functional ID identifying this activity",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000",
+              "550E8400-E29B-41D4-A716-446655440000"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Activityid",
+            "type": "string"
+          },
+          "activityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the activity",
+            "title": "Activityname"
+          },
+          "address": {
+            "$ref": "#/components/schemas/CommonAddressResponse",
+            "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
+          },
+          "areaId": {
+            "description": "Functional ID referencing the area where this activity took place",
+            "examples": [
+              "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
+              "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Areaid",
+            "type": "string"
+          },
+          "competentAuthorityId": {
+            "description": "Functional ID referencing the competent authority that owns the area",
+            "examples": [
+              "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+              "a30df3a7-7e38-534c-b9c0-7666bad077d2"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Competentauthorityid",
+            "type": "string"
+          },
+          "competentAuthorityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the competent authority",
+            "title": "Competentauthorityname"
+          },
+          "countryOfGuests": {
+            "description": "Array of country codes of guests (each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Countryofguests",
+            "type": "array"
+          },
+          "createdAt": {
+            "description": "Timestamp when this activity version was created (UTC)",
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "numberOfGuests": {
+            "description": "Number of guests (1-1024)",
+            "title": "Numberofguests",
+            "type": "integer"
+          },
+          "platformId": {
+            "description": "Functional ID referencing the platform that owns the activity",
+            "examples": [
+              "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+              "227e07d4-37c4-4ceb-aa16-80346d258f6b"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Platformid",
+            "type": "string"
+          },
+          "platformName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the platform",
+            "title": "Platformname"
+          },
+          "registrationNumber": {
+            "description": "Registration number of the address",
+            "title": "Registrationnumber",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ActivityStatus",
+            "description": "Lifecycle status of the activity: `finished` or `cancelled`.",
+            "examples": [
+              "finished",
+              "cancelled"
+            ]
+          },
+          "temporal": {
+            "$ref": "#/components/schemas/CommonTemporalResponse",
+            "description": "Temporal composite (`startDatetime`, `endDatetime`)"
+          },
+          "url": {
+            "description": "URL of the originating listing/advertisement",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activityId",
+          "status",
+          "areaId",
+          "competentAuthorityId",
+          "url",
+          "address",
+          "registrationNumber",
+          "numberOfGuests",
+          "countryOfGuests",
+          "temporal",
+          "platformId",
+          "createdAt"
+        ],
+        "title": "Activity.Response",
+        "type": "object"
+      },
+      "ActivityStatus": {
+        "description": "Lifecycle status for an activity record.",
+        "enum": [
+          "finished",
+          "cancelled"
+        ],
+        "title": "Activity.Status",
+        "type": "string"
+      },
+      "CommonAddressResponse": {
+        "description": "Address composite schema for activity responses (INSPIRE/STR-AP field names).",
+        "properties": {
+          "fullAddress": {
+            "description": "Full address as a single string",
+            "title": "Fulladdress",
+            "type": "string"
+          },
+          "locatorDesignatorAddition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Additional qualifier (optional)",
+            "title": "Locatordesignatoraddition"
+          },
+          "locatorDesignatorLetter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Letter/character suffix (optional)",
+            "title": "Locatordesignatorletter"
+          },
+          "locatorDesignatorNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Numeric house number component (optional)",
+            "title": "Locatordesignatornumber"
+          },
+          "postCode": {
+            "description": "Postal code",
+            "title": "Postcode",
+            "type": "string"
+          },
+          "postName": {
+            "description": "City / town / village",
+            "title": "Postname",
+            "type": "string"
+          },
+          "thoroughfare": {
+            "description": "Street / public space name",
+            "title": "Thoroughfare",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thoroughfare",
+          "postCode",
+          "postName",
+          "fullAddress"
+        ],
+        "title": "Common.AddressResponse",
+        "type": "object"
+      },
+      "CommonTemporalResponse": {
+        "description": "Temporal composite schema for activity responses.",
+        "properties": {
+          "endDatetime": {
+            "description": "End date and time of the rental activity",
+            "format": "date-time",
+            "title": "Enddatetime",
+            "type": "string"
+          },
+          "startDatetime": {
+            "description": "Start date and time of the rental activity",
+            "format": "date-time",
+            "title": "Startdatetime",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startDatetime",
+          "endDatetime"
+        ],
+        "title": "Common.TemporalResponse",
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "description": "Detail of a single error.",
+        "properties": {
+          "loc": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Location of the error (e.g. ['body', 'fieldName'])",
+            "title": "Loc"
+          },
+          "msg": {
+            "description": "Human-readable error message",
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "description": "Error type identifier",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "msg",
+          "type"
+        ],
+        "title": "Error.Detail",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "Standardized error response format.",
+        "properties": {
+          "detail": {
+            "description": "List of error details",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "Error.Response",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2ClientCredentials": {
+        "flows": {
+          "clientCredentials": {
+            "scopes": {},
+            "tokenUrl": "<token-url>"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "description": "Read-only endpoints for the national statistics office to view all registered activity data. Status: beta.",
+    "title": "SDEP - Reporting (REP) API",
+    "version": "<frozen-version>"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/activities": {
+      "get": {
+        "description": "Get all current activities across all competent authorities and platforms, for statistical analysis. Returns at most 1000 activities per request (the default and maximum `limit`), including current records whose lifecycle `status` is `cancelled`. Use the `offset` and `limit` pagination parameters to page through results. Optional filters use AND semantics: every provided filter narrows the result set. `filterCreatedAtFrom` and `filterCreatedAtTo` form an inclusive `createdAt` range; `filterPlatformId`, `filterAreaId` and `filterCompetentAuthorityId` are exact-match filters.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
+        "operationId": "getAllActivities",
+        "parameters": [
+          {
+            "description": "Number of records to skip (default: 0)",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of records to skip (default: 0)",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Filter activities whose createdAt timestamp is greater than or equal to this value",
+            "in": "query",
+            "name": "filterCreatedAtFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is greater than or equal to this value",
+              "examples": [
+                "2025-06-01T00:00:00Z"
+              ],
+              "title": "Filtercreatedatfrom"
+            }
+          },
+          {
+            "description": "Filter activities whose createdAt timestamp is less than or equal to this value",
+            "in": "query",
+            "name": "filterCreatedAtTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is less than or equal to this value",
+              "examples": [
+                "2025-06-30T23:59:59Z"
+              ],
+              "title": "Filtercreatedatto"
+            }
+          },
+          {
+            "description": "Filter by platform functional ID",
+            "in": "query",
+            "name": "filterPlatformId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by platform functional ID",
+              "examples": [
+                "sdep-str01"
+              ],
+              "title": "Filterplatformid"
+            }
+          },
+          {
+            "description": "Filter by area functional ID",
+            "in": "query",
+            "name": "filterAreaId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area functional ID",
+              "examples": [
+                "959a7439-7cad-4009-96ec-353b44723db9"
+              ],
+              "title": "Filterareaid"
+            }
+          },
+          {
+            "description": "Filter by competent authority functional ID",
+            "in": "query",
+            "name": "filterCompetentAuthorityId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by competent authority functional ID",
+              "examples": [
+                "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+              ],
+              "title": "Filtercompetentauthorityid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "activities": [
+                    {
+                      "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                      "activityName": "Amsterdam Summer Rental",
+                      "address": {
+                        "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                        "locatorDesignatorNumber": 263,
+                        "postCode": "1016GV",
+                        "postName": "Amsterdam",
+                        "thoroughfare": "Prinsengracht"
+                      },
+                      "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                      "competentAuthorityName": "Gemeente Amsterdam",
+                      "countryOfGuests": [
+                        "NLD",
+                        "DEU",
+                        "BEL",
+                        "N/A"
+                      ],
+                      "createdAt": "2025-06-01T12:00:00Z",
+                      "numberOfGuests": 4,
+                      "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                      "platformName": "Test STR 01 (interactive usage, persistent)",
+                      "registrationNumber": "REG0001",
+                      "status": "finished",
+                      "temporal": {
+                        "endDatetime": "2025-06-07T11:00:00Z",
+                        "startDatetime": "2025-06-01T14:00:00Z"
+                      },
+                      "url": "http://example.com/amsterdam-myhouse-1"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request - invalid query parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get all activities across all competent authorities and platforms",
+        "tags": [
+          "rep"
+        ]
+      }
+    },
+    "/activities/count": {
+      "get": {
+        "description": "Get the count of all current activities across all competent authorities and platforms (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count. `filterCreatedAtFrom` and `filterCreatedAtTo` form an inclusive `createdAt` range; `filterPlatformId`, `filterAreaId` and `filterCompetentAuthorityId` are exact-match filters.",
+        "operationId": "countAllActivities",
+        "parameters": [
+          {
+            "description": "Filter activities whose createdAt timestamp is greater than or equal to this value",
+            "in": "query",
+            "name": "filterCreatedAtFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is greater than or equal to this value",
+              "examples": [
+                "2025-06-01T00:00:00Z"
+              ],
+              "title": "Filtercreatedatfrom"
+            }
+          },
+          {
+            "description": "Filter activities whose createdAt timestamp is less than or equal to this value",
+            "in": "query",
+            "name": "filterCreatedAtTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is less than or equal to this value",
+              "examples": [
+                "2025-06-30T23:59:59Z"
+              ],
+              "title": "Filtercreatedatto"
+            }
+          },
+          {
+            "description": "Filter by platform functional ID",
+            "in": "query",
+            "name": "filterPlatformId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by platform functional ID",
+              "examples": [
+                "sdep-str01"
+              ],
+              "title": "Filterplatformid"
+            }
+          },
+          {
+            "description": "Filter by area functional ID",
+            "in": "query",
+            "name": "filterAreaId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area functional ID",
+              "examples": [
+                "959a7439-7cad-4009-96ec-353b44723db9"
+              ],
+              "title": "Filterareaid"
+            }
+          },
+          {
+            "description": "Filter by competent authority functional ID",
+            "in": "query",
+            "name": "filterCompetentAuthorityId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by competent authority functional ID",
+              "examples": [
+                "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+              ],
+              "title": "Filtercompetentauthorityid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get the count of all activities across all competent authorities and platforms (optional, to support pagination)",
+        "tags": [
+          "rep"
+        ]
+      }
+    }
+  }
+}

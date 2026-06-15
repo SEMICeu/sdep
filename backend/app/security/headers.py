@@ -108,6 +108,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "/api/auth/",
             "/api/ca/",
             "/api/str/",
+            "/api/rep/",
         ]
         return any(path.startswith(pattern) for pattern in sensitive_patterns)
 
@@ -117,6 +118,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "/api/ca/v1/docs",
             "/api/ca/v2/docs",
             "/api/str/v1/docs",
+            "/api/rep/v1/docs",
         ]
         return path in swagger_docs_paths
 

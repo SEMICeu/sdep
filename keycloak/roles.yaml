@@ -10,3 +10,5 @@ roles:
     description: "Competent authority (CA)"
   - name: "sdep_str"
     description: "Short-term rental platform (STR)"
+  - name: "sdep_rep"
+    description: "Reporting / statistics office (REP)"

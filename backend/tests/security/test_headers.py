@@ -323,6 +323,7 @@ class TestRouteSpecificCSP:
                 "/api/ca/v1/docs",
                 "/api/ca/v2/docs",
                 "/api/str/v1/docs",
+                "/api/rep/v1/docs",
             ]:
                 response = await client.get(path)
 

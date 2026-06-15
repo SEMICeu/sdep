@@ -16,6 +16,7 @@ These tests verify API functionality, authentication, authorization, and securit
   - [`test-smoke`](#test-smoke) - Test smoke test endpoints
   - [`test-ca`](#test-ca) - Test CA endpoints
   - [`test-str`](#test-str) - Test STR endpoints
+  - [`test-rep`](#test-rep) - Test REP endpoints
   - [`test-security`](#test-security) - Test security (headers, unauthorized, credentials)
   - [`test-malware`](#test-malware) - Test malware scanning
 - [Helper Scripts](#helper-scripts)
@@ -46,6 +47,12 @@ Default test clients are configured in Keycloak. The Makefile retrieves secrets 
 - **Client ID:** `sdep-test-str.01`
 - **Roles:** `sdep_str`, `sdep_write`, `sdep_read`
 - **Can access:** STR platform endpoints
+
+**Reporting / Statistics Office (REP)**
+
+- **Client ID:** `sdep-test-rep.01`
+- **Roles:** `sdep_rep`, `sdep_read` (read-only, no write role)
+- **Can access:** REP endpoints
 
 ---
 
@@ -263,6 +270,42 @@ Test STR (Short-Term Rental) platform endpoints.
 
 **Response format:** `{ totalReceived, succeeded, failed, results: [{ activityIndex, activityId, status, activity?, errorMessages? }] }`
 Where `results[].status` is the batch processing status (`OK`/`NOK`) and `results[].activity.status` is the activity lifecycle status (`finished`/`cancelled`).
+
+---
+
+### `test-rep`
+
+Test REP (reporting / statistics office) endpoints.
+
+**Scripts:** `test_rep_activities.py`
+
+---
+
+**`test_rep_activities.py`**
+
+**Tests:**
+
+- **Test 1:** Count activities (`GET /rep/v1/activities/count`)
+- **Test 2:** Get all activities across all competent authorities
+- **Test 3:** Pagination (offset=0, limit=1)
+- **Test 4:** Verify response structure contains the acceptance-criteria fields of issue #99 (temporal, numberOfGuests, countryOfGuests, registrationNumber, competentAuthorityId)
+- **Test 5:** POST is rejected with `405 Method Not Allowed` (read-only API)
+- **Test 6:** Role isolation - a CA token gets `403 Forbidden` on the REP API. Requires `CA1_CLIENT_ID`/`CA1_CLIENT_SECRET`; skipped otherwise.
+
+**Endpoints:**
+
+- `GET /rep/v1/activities/count`
+- `GET /rep/v1/activities`
+- `GET /rep/v1/activities?offset={offset}&limit={limit}`
+
+**Authentication:** Requires REP client credentials (token loaded from `./tmp/.bearer_token`)
+
+**HTTP Status Codes:**
+
+- `200 OK` - Activities returned
+- `401 Unauthorized` - No/invalid authentication
+- `403 Forbidden` - Token lacks the `sdep_rep` or `sdep_read` role
+- `405 Method Not Allowed` - Write method on the read-only API
 
 ---
 
