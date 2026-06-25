@@ -89,8 +89,8 @@ def remove_inapplicable_422_responses(
     """Remove auto-generated 422 responses from endpoints that never emit them.
 
     FastAPI automatically adds a 422 response to any endpoint with parameters or
-    request bodies. This function removes 422 from:
-    - All GET endpoints: validation errors on GET requests return 400, not 422
+    request bodies. This function removes default 422 responses from:
+    - GET endpoints whose validation errors return 400, not 422
     - Specific POST endpoints where 422 is never emitted (e.g. /auth/token)
 
     Args:
@@ -105,8 +105,9 @@ def remove_inapplicable_422_responses(
     ]
 
     for path, path_item in openapi_schema.get("paths", {}).items():
-        # Remove 422 from all GET operations (GET validation errors return 400)
-        path_item.get("get", {}).get("responses", {}).pop("422", None)
+        get_responses = path_item.get("get", {}).get("responses", {})
+        if get_responses.get("422", {}).get("description") == "Validation Error":
+            get_responses.pop("422", None)
 
         # Remove 422 from specific non-GET endpoints
         for method, specific_path in inapplicable:

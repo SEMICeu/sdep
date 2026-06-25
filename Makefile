@@ -4,7 +4,7 @@ SHELL := /bin/bash
         .drop-database .migrate-database .load-test-data \
         postgres-up postgres-down postgres-login postgres-status postgres-status-full \
         postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load postgres-auditlog \
-        postgres-activity-count postgres-area-count postgres-platform-count postgres-competent-authority-count postgres-audit-log-count postgres-count-all \
+        postgres-count \
         generate-area-sql \
         dbgate-up dbgate-down dbgate-restart dbgate-status \
         .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles .keycloak-machine-clients .get-client-credentials \
@@ -13,9 +13,10 @@ SHELL := /bin/bash
         up down restart status \
         .is-up .ensure-up .clean-testrun .postgres-up-unless-ci test-full test-full-keep test-full-verbose test-ca test-str test-rep test-smoke test-security test-integration test-migrations \
         test-malware \
-        test-perf test-perf-verbose \
-        test \
+        test-perf test-perf-keep test-perf-verbose \
+        test test-keep \
         trivy \
+        ci \
         all \
         postgres-logs keycloak-logs backend-logs dbgate-logs fullstack-logs \
         md-format md-lint \
@@ -140,7 +141,7 @@ postgres-migrate: ## Migrate postgres (create/update tables)
 	@$(MAKE) --no-print-directory .migrate-database
 	@echo "✅ SDEP database migrated!"
 
-postgres-load: .clean-stale ## Load test data
+postgres-load: .clean-stale ## Load test data (01-competent-authority.sql + 02-area-generated.sql)
 	@echo "🚀 Loading test data into sdep-database..."
 	@$(MAKE) --no-print-directory .load-test-data
 	@echo "✅ SDEP test data loaded!"
@@ -160,29 +161,7 @@ postgres-auditlog: ## Show audit log
 	echo "Showing audit log for database $$POSTGRES_DB_NAME..." && \
 	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT * FROM audit_log"
 
-##@ Postgres Count
-
-postgres-activity-count: ## Count activities in database
-	@set -a && source .env && set +a && \
-	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM activity;"
-
-postgres-area-count: ## Count areas in database
-	@set -a && source .env && set +a && \
-	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM area;"
-
-postgres-platform-count: ## Count platforms in database
-	@set -a && source .env && set +a && \
-	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM platform;"
-
-postgres-competent-authority-count: ## Count competent authorities in database
-	@set -a && source .env && set +a && \
-	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM competent_authority;"
-
-postgres-audit-log-count: ## Count audit log entries in database
-	@set -a && source .env && set +a && \
-	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT COUNT(*) AS total FROM audit_log;"
-
-postgres-count-all: ## Count all tables in database
+postgres-count: ## Count all tables in database
 	@set -a && source .env && set +a && \
 	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c " \
 	  SELECT \
@@ -191,8 +170,6 @@ postgres-count-all: ## Count all tables in database
 	    (SELECT COUNT(*) FROM platform) AS platform, \
 	    (SELECT COUNT(*) FROM competent_authority) AS competent_authority, \
 	    (SELECT COUNT(*) FROM audit_log) AS audit_log;"
-
-##@ Postgres Testdata
 
 generate-area-sql: ## Generate test-data/02-area-generated.sql (when shapefiles changed)
 	@echo "🔄 Generating area SQL file with embedded shapefile data..."
@@ -440,7 +417,7 @@ test-full: .ensure-up ## Test fullstack (quiet)
 	set -o pipefail && \
 	$(MAKE) --no-print-directory test-full-verbose 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
 
-test-full-keep: .ensure-up .get-client-credentials ## Test fullstack (quiet, keep test data)
+test-full-keep: .ensure-up .get-client-credentials ## Test fullstack (quiet, keep generated data until either test without "keep")
 	@set -a && source ./.env && set +a && \
 	set -o pipefail && \
 	KEEP_TEST_DATA=true $(CURDIR)/scripts/run-tests.sh 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
@@ -448,66 +425,66 @@ test-full-keep: .ensure-up .get-client-credentials ## Test fullstack (quiet, kee
 test-full-verbose: .ensure-up .get-client-credentials ## Test fullstack (verbose)
 	@$(CURDIR)/scripts/run-tests.sh
 
-test-ca: .ensure-up .get-client-credentials ## Test only CA endpoints
+test-ca: .ensure-up .get-client-credentials # Helper - Test only CA endpoints
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
 	OUTPUT_FILE=$$(mktemp) && \
 	trap "rm -f $$OUTPUT_FILE" EXIT && \
 	echo "🏛️  Testing CA endpoints..." && \
 	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
 	echo "" && \
-	if CLIENT_ID=$$CA1_CLIENT_ID CLIENT_SECRET=$$CA1_CLIENT_SECRET ./tests/test_auth_client.sh; then \
+	if CLIENT_ID=$$CA1_CLIENT_ID CLIENT_SECRET=$$CA1_CLIENT_SECRET uv run --script tests/test_auth_client.py; then \
 		echo "✅ CA client authorized"; \
 	else \
 		echo "❌ CA client authorization failed"; \
 		exit 1; \
 	fi && \
-	./tests/test_health_ping.sh 2>&1 | tee $$OUTPUT_FILE && \
-	./tests/test_ca_areas.sh 2>&1 | tee $$OUTPUT_FILE && \
-	./tests/test_ca_activities.sh 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_ca_areas.py 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_ca_activities.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ CA endpoints tested"
 
-test-str: .ensure-up .get-client-credentials ## Test only STR endpoints
+test-str: .ensure-up .get-client-credentials # Helper - Test only STR endpoints
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
 	OUTPUT_FILE=$$(mktemp) && \
 	trap "rm -f $$OUTPUT_FILE" EXIT && \
 	echo "🏘️  Testing STR endpoints..." && \
 	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
 	echo "" && \
-	if CLIENT_ID=$$STR_CLIENT_ID CLIENT_SECRET=$$STR_CLIENT_SECRET ./tests/test_auth_client.sh; then \
+	if CLIENT_ID=$$STR_CLIENT_ID CLIENT_SECRET=$$STR_CLIENT_SECRET uv run --script tests/test_auth_client.py; then \
 		echo "✅ STR client authorized"; \
 	else \
 		echo "❌ STR client authorization failed"; \
 		exit 1; \
 	fi && \
-	./tests/test_health_ping.sh 2>&1 | tee $$OUTPUT_FILE && \
-	./tests/test_str_areas.sh 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_str_areas.py 2>&1 | tee $$OUTPUT_FILE && \
 	uv run --script tests/test_str_activities_bulk.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ STR endpoints tested"
 
-test-rep: .ensure-up .get-client-credentials ## Test only REP endpoints
+test-rep: .ensure-up .get-client-credentials # Helper - Test only REP endpoints
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
 	OUTPUT_FILE=$$(mktemp) && \
 	trap "rm -f $$OUTPUT_FILE" EXIT && \
 	echo "📊 Testing REP endpoints..." && \
 	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
 	echo "" && \
-	if CLIENT_ID=$$REP_CLIENT_ID CLIENT_SECRET=$$REP_CLIENT_SECRET ./tests/test_auth_client.sh; then \
+	if CLIENT_ID=$$REP_CLIENT_ID CLIENT_SECRET=$$REP_CLIENT_SECRET uv run --script tests/test_auth_client.py; then \
 		echo "✅ REP client authorized"; \
 	else \
 		echo "❌ REP client authorization failed"; \
 		exit 1; \
 	fi && \
-	./tests/test_health_ping.sh 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
 	uv run --script tests/test_rep_activities.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ REP endpoints tested"
 
-test-smoke: .ensure-up ## Test only smoke test endpoints (audit-excluded, no auth needed)
+test-smoke: .ensure-up ## Test smoke test (audit-excluded, no auth needed)
 	@set -a && source ./.env && set +a && \
 	echo "🔍 Testing smoke test endpoints..." && \
-	./tests/test_smoketest.sh && \
+	uv run --script tests/test_smoketest.py && \
 	echo "✅ Smoke test endpoints tested"
 
-test-security: .ensure-up .get-client-credentials ## Test only security (headers, unauthorized, credentials)
+test-security: .ensure-up .get-client-credentials # Helper - Test only security (headers, unauthorized, credentials)
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
 	OUTPUT_FILE=$$(mktemp) && \
 	trap "rm -f $$OUTPUT_FILE" EXIT && \
@@ -515,16 +492,16 @@ test-security: .ensure-up .get-client-credentials ## Test only security (headers
 	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
 	echo "" && \
 	echo "Testing security headers..." && \
-	./tests/test_auth_headers.sh 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_auth_headers.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "" && \
 	echo "Testing unauthorized access..." && \
-	./tests/test_auth_unauthorized.sh 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_auth_unauthorized.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "" && \
 	echo "Testing credentials..." && \
-	./tests/test_auth_credentials.sh 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_auth_credentials.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "" && \
 	echo "Testing client-ID regex..." && \
-	./tests/test_client_id_regex.sh 2>&1 | tee $$OUTPUT_FILE && \
+	uv run --script tests/test_client_id_regex.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ Security tested"
 
 # No .ensure-up here on purpose: the malware test talks directly to ClamAV (not the
@@ -532,7 +509,7 @@ test-security: .ensure-up .get-client-credentials ## Test only security (headers
 # if `make up` already started it). Bringing up the full stack would run a compose
 # build/up that fails where there is no compose stack — this keeps test-malware able
 # to run standalone in a CI/CD environment (which provides ClamAV as a service).
-test-malware: ## Test malware scanning (starts ClamAV via Docker Compose if not already running)
+test-malware: # Helper - Test malware scanning (starts ClamAV via Docker Compose if not already running)
 	@echo "🧪 Running malware scanning tests..."
 	@if [ -z "$$CI" ]; then \
 		$(DOCKER_COMPOSE) up -d clamav; \
@@ -551,10 +528,11 @@ test-malware: ## Test malware scanning (starts ClamAV via Docker Compose if not 
 	uv run --script tests/malware/test_malware_scan.py
 	@echo "✅ Malware scanning tests completed!"
 
-test-migrations: .postgres-up-unless-ci ## Test Alembic migrations against PostgreSQL
+test-migrations: .postgres-up-unless-ci # Helper - Test Alembic migrations against PostgreSQL
 	@echo "🧪 Running migration integration checks..."
 	@cd backend && uv run python scripts/wait_for_postgres.py
 	@$(MAKE) -C backend --no-print-directory upgrade
+	@uv run --script tests/test_postgres_check_constraints.py
 	@echo "✅ Migration integration checks completed!"
 
 .postgres-up-unless-ci:
@@ -562,7 +540,7 @@ test-migrations: .postgres-up-unless-ci ## Test Alembic migrations against Postg
 		$(MAKE) --no-print-directory postgres-up; \
 	fi
 
-test-integration: ## Run integration tests
+test-integration: ## Test integration tests (migration and malware)
 	@$(MAKE) --no-print-directory test-migrations
 	@$(MAKE) --no-print-directory test-malware
 
@@ -575,7 +553,7 @@ PERF_USERS ?= 10
 PERF_RAMP_UP ?= 1
 PERF_KEEP_DATA ?= false
 PERF_STOP_ON_TARGET ?= true
-PERF_YES ?= false
+PERF_AUTO_CONFIRM ?= false
 
 PERF_ENV = PERF_ACTIVITIES_TARGET=$(PERF_ACTIVITIES_TARGET) \
            PERF_USERS=$(PERF_USERS) \
@@ -584,28 +562,48 @@ PERF_ENV = PERF_ACTIVITIES_TARGET=$(PERF_ACTIVITIES_TARGET) \
            PERF_BATCH_SIZE=$(PERF_BATCH_SIZE) \
            PERF_KEEP_DATA=$(PERF_KEEP_DATA) \
            PERF_STOP_ON_TARGET=$(PERF_STOP_ON_TARGET) \
-           PERF_YES=$(PERF_YES)
+           PERF_AUTO_CONFIRM=$(PERF_AUTO_CONFIRM)
 
-test-perf: .ensure-up .get-client-credentials ## Run bulk performance test (PERF_YES=true to skip confirmation)
+test-perf: .ensure-up .get-client-credentials ## Test bulk performance (PERF_AUTO_CONFIRM=true to skip confirmation)
 	@$(PERF_ENV) $(CURDIR)/scripts/run-tests-perf.sh
 
-test-perf-verbose: .ensure-up .get-client-credentials ## Run bulk performance test with periodic Locust stats
+test-perf-keep: .ensure-up .get-client-credentials ## Test bulk performance (keep generated data until either test without "keep")
+	@$(PERF_ENV) PERF_KEEP_DATA=true $(CURDIR)/scripts/run-tests-perf.sh
+
+test-perf-verbose: .ensure-up .get-client-credentials ## Test bulk performance with periodic Locust stats
 	@$(PERF_ENV) PERF_VERBOSE=true $(CURDIR)/scripts/run-tests-perf.sh
 
 ##@ Tests (All)
 
-test: ## Run all tests (fullstack incl. malware + performance)
+test: ## Run all tests (fullstack + malware + migrations + performance)
 	@echo "🧪 Running all tests..."
 	@echo ""
 	@echo "  1. Fullstack tests (test-full)"
-	@echo "  2. Fullstack malware scan (test-integration)"
+	@echo "  2. Integration tests: migrations + malware (test-integration)"
 	@echo "  3. Performance tests (test-perf)"
 	@echo ""
 	@$(MAKE) --no-print-directory test-full
 	@$(MAKE) --no-print-directory test-integration
-	@$(MAKE) --no-print-directory test-perf PERF_YES=true
+	@$(MAKE) --no-print-directory test-perf PERF_AUTO_CONFIRM=true
 	@echo ""
-	@echo "✅ All tests completed (fullstack incl. malware + performance)"
+	@echo "✅ All tests completed (fullstack + malware + migrations + performance)"
+	@echo ""
+	@$(MAKE) --no-print-directory postgres-count
+
+test-keep: ## Run all tests, keeping generated data (fullstack + malware + migrations + performance)
+	@echo "🧪 Running all tests (keep generated data)..."
+	@echo ""
+	@echo "  1. Fullstack tests (test-full-keep)"
+	@echo "  2. Integration tests: migrations + malware (test-integration)"
+	@echo "  3. Performance tests (test-perf-keep)"
+	@echo ""
+	@$(MAKE) --no-print-directory test-full-keep
+	@$(MAKE) --no-print-directory test-integration
+	@$(MAKE) --no-print-directory test-perf-keep PERF_AUTO_CONFIRM=true
+	@echo ""
+	@echo "✅ All tests completed (fullstack + malware + migrations + performance, data kept)"
+	@echo ""
+	@$(MAKE) --no-print-directory postgres-count
 
 ##@ Security Checks
 
@@ -652,6 +650,25 @@ md-format: ## Format Markdown (auto-fix: house rules + table alignment)
 
 ##@ All
 
+# Mirrors the REQUIRED checks the GitLab pipeline runs on push (.gitlab-ci.yml + backend/.gitlab-ci.yml):
+#   markdown:lint            -> md-lint
+#   test:backend             -> make -C backend test (pytest + coverage)
+#   test:database-migrations -> test-migrations
+#   test:malware             -> test-malware
+# Trivy (trivy:backend) is intentionally excluded: it is set to warning, not failure, so it is
+# not a required gate. Run `make trivy` separately for the image CVE scan.
+# Note: CI does NOT run the fullstack (test-full) or performance (test-perf) suites on push;
+# those live in `make all`/`make test`. Keep this target in sync with the pipeline jobs.
+ci: ## Run the required GitLab pipeline checks (md-lint + backend test + migrations + malware)
+	@echo "🧪 Running CI checks (mirrors required GitLab pipeline gates)..."
+	@echo ""
+	@$(MAKE) --no-print-directory md-lint
+	@$(MAKE) -C backend --no-print-directory test
+	@$(MAKE) --no-print-directory test-migrations
+	@$(MAKE) --no-print-directory test-malware
+	@echo ""
+	@echo "✅ CI checks completed (md-lint + backend test + migrations + malware)"
+
 all: ## Run all tests, markdown lint and security checks (ensures fullstack is started)
 	@echo "🧪 Running all tests, markdown lint and security checks..."
 	@echo ""
@@ -677,7 +694,7 @@ dbgate-logs: ## Show dbgate logs (optional)
 	@echo "📜 Tailing /tmp/dbgate.log (Ctrl+C to stop)"
 	@tail -f /tmp/dbgate.log
 
-fullstack-logs: ## Show fullstack logs
+fullstack-logs: ## Show fullstack logs (postgres + keycloak + backend + dbgate/optional)
 	$(DOCKER_COMPOSE) logs -f
 
 ##@ Help

@@ -24,7 +24,7 @@ P_DURATION_SECONDS="${PERF_MAX_DURATION_SECONDS:-300}"
 P_BATCH_SIZE="${PERF_BATCH_SIZE:-1000}"
 P_KEEP_DATA="${PERF_KEEP_DATA:-false}"
 P_STOP_ON_TARGET="${PERF_STOP_ON_TARGET:-true}"
-P_YES="${PERF_YES:-false}"
+P_AUTO_CONFIRM="${PERF_AUTO_CONFIRM:-false}"
 
 # --- Show configuration ---
 echo "🚀 Bulk performance test"
@@ -37,7 +37,7 @@ printf "   %-27s = %-10s (%s)\n" "PERF_BATCH_SIZE" "$P_BATCH_SIZE" "activities p
 printf "   %-27s = %-10s (%s)\n" "PERF_KEEP_DATA" "$P_KEEP_DATA" "keep data in database"
 printf "   %-27s = %-10s (%s)\n" "PERF_STOP_ON_TARGET" "$P_STOP_ON_TARGET" "stop early when target reached"
 echo ""
-echo "   Override: make test-perf PERF_ACTIVITIES_TARGET=4000000 PERF_USERS=10 PERF_RAMP_UP=2 PERF_MAX_DURATION_SECONDS=600 PERF_BATCH_SIZE=1000 PERF_STOP_ON_TARGET=true PERF_YES=true"
+echo "   Override: make test-perf PERF_ACTIVITIES_TARGET=4000000 PERF_USERS=10 PERF_RAMP_UP=2 PERF_MAX_DURATION_SECONDS=600 PERF_BATCH_SIZE=1000 PERF_STOP_ON_TARGET=true PERF_AUTO_CONFIRM=true"
 echo ""
 
 # Normalize a boolean input: accept true/false/yes/no (case-insensitive).
@@ -62,7 +62,7 @@ read_bool() {
 }
 
 # --- Interactive confirmation ---
-if [ "$P_YES" != "true" ]; then
+if [ "$P_AUTO_CONFIRM" != "true" ]; then
   read -p "   Continue with these settings? [Y/n] " answer
   case "$answer" in
     [nN]*)
@@ -83,14 +83,14 @@ echo ""
 
 # --- Create fixture areas ---
 echo "📦 Creating fixture areas for performance test..."
-PERF_AREA_IDS=$(./tests/lib/create_fixture_areas.sh 5 "sdep-test-perf-areas" 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+PERF_AREA_IDS=$(uv run --script tests/lib/create_fixture_areas.py 5 "sdep-test-perf" 2>/dev/null | tr '\n' ',' | sed 's/,$//')
 echo "✅ Areas created"
 echo ""
 
 # --- Verify STR client authorization ---
 echo "   Concurrent users: $P_USERS"
 echo ""
-if CLIENT_ID=$STR_CLIENT_ID CLIENT_SECRET=$STR_CLIENT_SECRET ./tests/test_auth_client.sh > /dev/null 2>&1; then
+if CLIENT_ID=$STR_CLIENT_ID CLIENT_SECRET=$STR_CLIENT_SECRET uv run --script tests/test_auth_client.py > /dev/null 2>&1; then
   echo "✅ STR client authorized"
 else
   echo "❌ STR client authorization failed"
@@ -128,11 +128,20 @@ uvx --from 'locust>=2.20' locust -f tests/performance/locustfile.py \
   </dev/null || EXIT_CODE=$?
 
 # --- Cleanup ---
+# Show psql errors instead of suppressing them: a cleanup failure must report its real
+# cause (e.g. a foreign-key violation) rather than a bare make "Error 3". -q keeps a
+# successful run quiet. Perf data uses the sdep-test-perf-* prefix so the shared
+# clean-testrun.sql removes it together with the integration data.
 if [ "$P_KEEP_DATA" != "true" ]; then
   echo "🧹 Cleaning up test data (PERF_KEEP_DATA=false)..."
-  docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
-    -v ON_ERROR_STOP=1 < postgres/clean-testrun.sql > /dev/null 2>&1
-  echo "✅ Test data cleaned"
+  if docker exec -e PGOPTIONS='-c client_min_messages=warning' -i sdep-postgres \
+      psql -q -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
+      -v ON_ERROR_STOP=1 < postgres/clean-testrun.sql; then
+    echo "✅ Test data cleaned"
+  else
+    echo "❌ Test data cleanup failed (see psql error above); re-run 'make test-perf' to retry"
+    EXIT_CODE=1
+  fi
 fi
 
 exit $EXIT_CODE

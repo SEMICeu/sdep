@@ -212,22 +212,22 @@ sdep-app/
 │
 ├── tests/                                      # Integration tests + performance tests
 │   ├── lib/                                    # Test library utilities
-│   │   └── create_fixture_areas.sh             # Area fixture creation
+│   │   └── create_fixture_areas.py             # Area fixture creation
 │   ├── malware/                                # Malware scanning tests
 │   │   └── test_malware_scan.py                # ClamAV malware scan test
 │   ├── performance/                            # Performance tests (Locust)
 │   │   └── locustfile.py                       # Bulk activity load test
-│   ├── test_auth_client.sh                     # OAuth2 token acquisition utility
-│   ├── test_auth_credentials.sh                # Test client credentials flow
-│   ├── test_auth_headers.sh                    # Security headers compliance
-│   ├── test_auth_unauthorized.sh               # Test unauthorized access rejection
-│   ├── test_ca_activities.sh                   # Test CA activity endpoints
-│   ├── test_ca_areas.sh                        # Test CA area submission
-│   ├── test_client_id_regex.sh                 # Test client ID regex validation
-│   ├── test_health_ping.sh                     # Health check tests
-│   ├── test_smoketest.sh                       # Smoke test audit-excluded endpoints
+│   ├── test_auth_client.py                     # OAuth2 token acquisition utility
+│   ├── test_auth_credentials.py                # Test client credentials flow
+│   ├── test_auth_headers.py                    # Security headers compliance
+│   ├── test_auth_unauthorized.py               # Test unauthorized access rejection
+│   ├── test_ca_activities.py                   # Test CA activity endpoints
+│   ├── test_ca_areas.py                        # Test CA area submission
+│   ├── test_client_id_regex.py                 # Test client ID regex validation
+│   ├── test_health_ping.py                     # Health check tests
+│   ├── test_smoketest.py                       # Smoke test audit-excluded endpoints
 │   ├── test_str_activities_bulk.py             # Test STR bulk activity submission
-│   └── test_str_areas.sh                       # Test STR area query endpoints
+│   └── test_str_areas.py                       # Test STR area query endpoints
 │
 ├── keycloak/                                   # Keycloak config
 │   ├── add-realm-admin.sh                      # Create realm admin user
@@ -382,7 +382,7 @@ For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.m
 
 **Activities (v2) - adds optional query filters**
 
-- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId - AND semantics, scoped to authenticated CA; invalid functional IDs → 400)
+- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId; filters use AND semantics and are scoped to the authenticated CA; createdAt filters must be UTC)
 - `GET /api/ca/v2/activities/count` - Count activities with optional filters (same filter set)
 
 ---
@@ -400,7 +400,7 @@ For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.m
 
 Read-only endpoints for the national statistics office (no write endpoints registered; POST/PUT/PATCH/DELETE return 405):
 
-- `GET /api/rep/v1/activities` - Query rental activities across all competent authorities and platforms (pagination: offset, limit - limit defaults to 1000, the maximum; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId, filterCompetentAuthorityId - AND semantics; invalid functional IDs → 400)
+- `GET /api/rep/v1/activities` - Query rental activities across all competent authorities and platforms (pagination: offset, limit - limit defaults to 1000, the maximum; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId, filterCompetentAuthorityId - AND semantics; createdAt filters must be UTC; invalid functional IDs or non-UTC datetimes → 400)
 - `GET /api/rep/v1/activities/count` - Count activities with optional filters (same filter set)
 
 ---

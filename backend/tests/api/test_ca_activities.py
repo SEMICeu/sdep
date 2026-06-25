@@ -310,8 +310,8 @@ class TestCAActivitiesAPI:
 
         query = (
             "/activities"
-            "?filterCreatedAtFrom=2026-05-21T00:00:00"
-            "&filterCreatedAtTo=2026-05-22T00:00:00"
+            "?filterCreatedAtFrom=2026-05-21T00:00:00Z"
+            "&filterCreatedAtTo=2026-05-22T00:00:00Z"
             "&filterPlatformId=str01"
             "&filterAreaId=550e8400-e29b-41d4-a716-446655440011"
         )
@@ -654,11 +654,11 @@ class TestCAActivitiesAPI:
             transport=ASGITransport(app=app_ca_v2), base_url="http://test"
         ) as client:
             response = await client.get(
-                f"/activities/count?filterCreatedAtFrom=2000-01-01T00:00:00&filterPlatformId=str01&filterAreaId={area_id}",
+                f"/activities/count?filterCreatedAtFrom=2000-01-01T00:00:00Z&filterPlatformId=str01&filterAreaId={area_id}",
                 headers={"Authorization": "Bearer test_token"},
             )
             empty_response = await client.get(
-                f"/activities/count?filterCreatedAtTo=2000-01-01T00:00:00&filterPlatformId=str01&filterAreaId={area_id}",
+                f"/activities/count?filterCreatedAtTo=2000-01-01T00:00:00Z&filterPlatformId=str01&filterAreaId={area_id}",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -666,6 +666,34 @@ class TestCAActivitiesAPI:
         assert empty_response.status_code == status.HTTP_200_OK
         assert response.json()["count"] == 5
         assert empty_response.json()["count"] == 0
+
+    @pytest.mark.parametrize(
+        ("query_param", "value"),
+        [
+            ("filterCreatedAtFrom", "2026-05-21T00:00:00"),
+            ("filterCreatedAtFrom", "2026-05-21T00:00:00%2B02:00"),
+            ("filterCreatedAtTo", "2026-05-21T00:00:00"),
+            ("filterCreatedAtTo", "2026-05-21T00:00:00%2B02:00"),
+        ],
+    )
+    async def test_count_activities_rejects_non_utc_created_at_filters(
+        self,
+        async_session: AsyncSession,
+        setup_overrides,
+        test_data,
+        query_param: str,
+        value: str,
+    ):
+        """Test GET /ca/activities/count only accepts UTC createdAt filters."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v2), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                f"/activities/count?{query_param}={value}",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     @pytest.mark.parametrize(
         ("query_param", "value"),

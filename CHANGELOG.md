@@ -2,6 +2,15 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.3.1
+
+- Improved the performance-test tooling and Makefile test targets
+  - Renamed `PERF_YES` to `PERF_AUTO_CONFIRM`, hardened perf-test cleanup to surface real errors and fail on cleanup failure
+  - Consolidated the per-table count targets into a single `postgres-count` and added a `test-keep` target
+- Include `UNKNOWN` severity CVE's in trivy scan
+- Activity filters now use UTC dates
+- Rewrote integration tests in python for better portability
+
 # 1.3.0
 
 - Added a read-only Reporting (REP) `v1` API for statistics and reporting offices
@@ -9,7 +18,7 @@
   - Featuring endpoints for `GET /api/rep/v1/activities` and `GET /api/rep/v1/activities/count`
   - Returns all current activities across every competent authority and platform
   - Returns at most 1000 records per request (`limit` defaults to 1000, the maximum); use `offset` together with the count endpoint to page through larger result sets.
-  -  Impact on API contract: new REP `/v1` endpoints; existing APIs unchanged.
+  - Impact on API contract: new REP `/v1` endpoints; existing APIs unchanged.
 - Remediated additional discovered CVEs by raising transitive-dependency security floors
   - Including `cryptography>=48.0.1` (CVE-2026-45447, an OpenSSL heap use-after-free in `PKCS7_verify`, unreachable in SDEP and pinned as defense in depth)
   - Reworked the `constraint-dependencies` from exact `==` pins to `>=` floors, conform dependency pinning policy

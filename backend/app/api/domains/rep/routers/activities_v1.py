@@ -1,6 +1,5 @@
 """Reporting (statistics office) activity endpoints for API v1."""
 
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
@@ -20,7 +19,7 @@ from app.schemas.activity import (
     ActivityFilters,
     ActivityListResponse,
 )
-from app.schemas.common import OptionalFunctionalId
+from app.schemas.common import OptionalFunctionalId, UtcDateTime
 
 router = APIRouter(tags=["rep"])
 
@@ -49,18 +48,18 @@ COUNT_ACTIVITIES_DESCRIPTION = "Get the count of all current activities across a
 
 async def activity_filters(
     created_at_from: Annotated[
-        datetime | None,
+        UtcDateTime | None,
         Query(
             alias="filterCreatedAtFrom",
-            description="Filter activities whose createdAt timestamp is greater than or equal to this value",
+            description="Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
             examples=["2025-06-01T00:00:00Z"],
         ),
     ] = None,
     created_at_to: Annotated[
-        datetime | None,
+        UtcDateTime | None,
         Query(
             alias="filterCreatedAtTo",
-            description="Filter activities whose createdAt timestamp is less than or equal to this value",
+            description="Filter activities whose createdAt timestamp is less than or equal to this UTC value",
             examples=["2025-06-30T23:59:59Z"],
         ),
     ] = None,

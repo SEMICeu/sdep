@@ -298,8 +298,8 @@ class TestREPActivitiesAPI:
 
         query = (
             "/activities"
-            "?filterCreatedAtFrom=2026-05-21T00:00:00"
-            "&filterCreatedAtTo=2026-05-22T00:00:00"
+            "?filterCreatedAtFrom=2026-05-21T00:00:00Z"
+            "&filterCreatedAtTo=2026-05-22T00:00:00Z"
             "&filterPlatformId=str01"
             "&filterAreaId=550e8400-e29b-41d4-a716-446655440001"
         )
@@ -361,6 +361,34 @@ class TestREPActivitiesAPI:
             )
 
         assert response.status_code == 400
+
+    @pytest.mark.parametrize(
+        ("query_param", "value"),
+        [
+            ("filterCreatedAtFrom", "2026-05-21T00:00:00"),
+            ("filterCreatedAtFrom", "2026-05-21T00:00:00%2B02:00"),
+            ("filterCreatedAtTo", "2026-05-21T00:00:00"),
+            ("filterCreatedAtTo", "2026-05-21T00:00:00%2B02:00"),
+        ],
+    )
+    async def test_get_activities_rejects_non_utc_created_at_filters(
+        self,
+        async_session: AsyncSession,
+        setup_overrides,
+        test_data,
+        query_param: str,
+        value: str,
+    ):
+        """Test GET /rep/activities only accepts UTC createdAt filters."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_rep_v1), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                f"/activities?{query_param}={value}",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     async def test_get_activities_empty_result(
         self, async_session: AsyncSession, setup_overrides

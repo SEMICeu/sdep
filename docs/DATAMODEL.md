@@ -209,6 +209,10 @@ Standard attribute pattern:
 | **postName**                  | string | required, length \<= 80, e.g. Den Haag                              |
 | **fullAddress**               | string | required, length \<= 318, e.g. "Turfmarkt 147a-5h, 2500EA Den Haag" |
 
+**Class Constraints:**
+
+- CHECK (`locatorDesignatorLetter` is null or alphabetic)
+
 **Clarifications:**
 
 - For `fullAddress`, max length is 318 (= 80 + 10 (unsigned int 32 bit) + 10 + 128 + 10 + 80)
@@ -227,6 +231,7 @@ Standard attribute pattern:
 **Class Constraints:**
 
 - CHECK (startDatetime < endDatetime)
+- CHECK (startDatetime year >= 2025)
 
 ## AuditLog
 

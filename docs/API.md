@@ -102,14 +102,14 @@ A beta API can be available in production. Clients may integrate with it, but th
 
 `GET /api/ca/v2/activities` and `GET /api/ca/v2/activities/count` accept optional query parameters to narrow results within the authenticated CA's scope:
 
-| Parameter             | Type         | Description                                     |
-| --------------------- | ------------ | ----------------------------------------------- |
-| `filterCreatedAtFrom` | datetime     | Inclusive lower bound on `createdAt` (ISO 8601) |
-| `filterCreatedAtTo`   | datetime     | Inclusive upper bound on `createdAt` (ISO 8601) |
-| `filterPlatformId`    | FunctionalId | Exact-match filter on `platformId`              |
-| `filterAreaId`        | FunctionalId | Exact-match filter on `areaId`                  |
+| Parameter             | Type         | Description                                          |
+| --------------------- | ------------ | ---------------------------------------------------- |
+| `filterCreatedAtFrom` | datetime     | Inclusive lower bound on `createdAt` (ISO 8601, UTC) |
+| `filterCreatedAtTo`   | datetime     | Inclusive upper bound on `createdAt` (ISO 8601, UTC) |
+| `filterPlatformId`    | FunctionalId | Exact-match filter on `platformId`                   |
+| `filterAreaId`        | FunctionalId | Exact-match filter on `areaId`                       |
 
-All provided filters are combined with AND semantics. Omitting a filter means no constraint on that dimension. An invalid `FunctionalId` format returns HTTP 400.
+All provided filters are combined with AND semantics. Omitting a filter means no constraint on that dimension. The `filterCreatedAtFrom` and `filterCreatedAtTo` values must be expressed in UTC (offset `Z` or `+00:00`); naive datetimes or other offsets return HTTP 400, following the API convention for invalid GET query parameters. An invalid `FunctionalId` format also returns HTTP 400.
 
 If OR semantics are required, clients should implement them client-side by calling this endpoint multiple times and combining the results.
 
@@ -119,15 +119,15 @@ If OR semantics are required, clients should implement them client-side by calli
 
 `GET /api/rep/v1/activities` and `GET /api/rep/v1/activities/count` are read-only endpoints for reporting offices, such as a statistics office (in SDEP-NL, this is the Centraal Bureau voor de Statistiek). They return all current activities across all competent authorities and platforms, and accept the same optional query parameters as CA v2 plus one extra:
 
-| Parameter                    | Type         | Description                                     |
-| ---------------------------- | ------------ | ----------------------------------------------- |
-| `filterCreatedAtFrom`        | datetime     | Inclusive lower bound on `createdAt` (ISO 8601) |
-| `filterCreatedAtTo`          | datetime     | Inclusive upper bound on `createdAt` (ISO 8601) |
-| `filterPlatformId`           | FunctionalId | Exact-match filter on `platformId`              |
-| `filterAreaId`               | FunctionalId | Exact-match filter on `areaId`                  |
-| `filterCompetentAuthorityId` | FunctionalId | Exact-match filter on `competentAuthorityId`    |
+| Parameter                    | Type         | Description                                          |
+| ---------------------------- | ------------ | ---------------------------------------------------- |
+| `filterCreatedAtFrom`        | datetime     | Inclusive lower bound on `createdAt` (ISO 8601, UTC) |
+| `filterCreatedAtTo`          | datetime     | Inclusive upper bound on `createdAt` (ISO 8601, UTC) |
+| `filterPlatformId`           | FunctionalId | Exact-match filter on `platformId`                   |
+| `filterAreaId`               | FunctionalId | Exact-match filter on `areaId`                       |
+| `filterCompetentAuthorityId` | FunctionalId | Exact-match filter on `competentAuthorityId`         |
 
-All provided filters are combined with AND semantics. The REP API requires the `sdep_rep` and `sdep_read` roles and registers no write endpoints: POST, PUT, PATCH, and DELETE return HTTP 405.
+All provided filters are combined with AND semantics. The `filterCreatedAtFrom` and `filterCreatedAtTo` values must be expressed in UTC (offset `Z` or `+00:00`); naive datetimes or other offsets return HTTP 400, following the API convention for invalid GET query parameters. An invalid `FunctionalId` format also returns HTTP 400. The REP API requires the `sdep_rep` and `sdep_read` roles and registers no write endpoints: POST, PUT, PATCH, and DELETE return HTTP 405.
 
 `GET /api/rep/v1/activities` returns at most 1000 records per request: the `limit` parameter defaults to 1000 (also the maximum). Use `offset` together with `GET /api/rep/v1/activities/count` to page through larger result sets.
 
@@ -185,12 +185,11 @@ Internal refactors, dependency upgrades, or infrastructure changes may warrant a
 | ----------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 400         | Bad Request           | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`), or missing client credentials                                                                        |
 | 401         | Unauthorized          | Missing, invalid, or expired authentication token; missing required token claims (`client_id`, `client_name`)                                                                     |
-| 403         | Forbidden             | Authenticated but missing a required role (`sdep_ca`, `sdep_str`, `sdep_rep`, `sdep_read`, `sdep_write`)                                                                          |
+| 403         | Forbidden             | Authenticated but missing a required role (`sdep_ca`, `sdep_str`, `sdep_read`, `sdep_write`)                                                                                      |
 | 404         | Not Found             | Requested resource does not exist, is unavailable, or has been deleted                                                                                                            |
-| 405         | Method Not Allowed    | HTTP method not registered for the path (e.g. POST, PUT, PATCH, or DELETE on the read-only REP API, or any unsupported method on an existing path)                                |
 | 409         | Conflict              | Duplicate resource (unique constraint violation)                                                                                                                                  |
 | 413         | Payload Too Large     | Upload exceeds the per-endpoint size limit (e.g. `POST /api/ca/v1/areas` rejects requests whose `Content-Length` exceeds the 1 MiB file-size cap plus a small multipart envelope) |
-| 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field), or business rule violation (e.g. start time > end time)                                                     |
+| 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field) or business rule violation (e.g. start time > end time)                                                      |
 
 ---
 

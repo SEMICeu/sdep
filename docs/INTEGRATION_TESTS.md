@@ -1,6 +1,6 @@
 <h1>Integration Test Scripts</h1>
 
-The [../tests](../tests) directory contains shell scripts for integration testing the SDEP (Single Digital Entry Point) API endpoints.
+The [../tests](../tests) directory contains standalone Python scripts for integration testing the SDEP (Single Digital Entry Point) API endpoints.
 
 These tests verify API functionality, authentication, authorization, and security compliance.
 
@@ -10,9 +10,9 @@ These tests verify API functionality, authentication, authorization, and securit
   - [Bearer Tokens](#bearer-tokens)
   - [Exit Codes](#exit-codes)
 - [Coverage](#coverage)
-  - [`test`](#test) - Test all (quiet)
-  - [`test-keep`](#test-keep) - Test all (quiet, keep test data)
-  - [`test-verbose`](#test-verbose) - Test all (verbose)
+  - [`test-full`](#test-full) - Test fullstack (quiet)
+  - [`test-full-keep`](#test-full-keep) - Test fullstack (quiet, keep test data)
+  - [`test-full-verbose`](#test-full-verbose) - Test fullstack (verbose)
   - [`test-smoke`](#test-smoke) - Test smoke test endpoints
   - [`test-ca`](#test-ca) - Test CA endpoints
   - [`test-str`](#test-str) - Test STR endpoints
@@ -20,9 +20,9 @@ These tests verify API functionality, authentication, authorization, and securit
   - [`test-security`](#test-security) - Test security (headers, unauthorized, credentials)
   - [`test-malware`](#test-malware) - Test malware scanning
 - [Helper Scripts](#helper-scripts)
-  - [`test_auth_client.sh`](#test_auth_clientsh)
-  - [`test_health_ping.sh`](#test_health_pingsh)
-  - [`lib/create_fixture_areas.sh`](#libcreate_fixture_areassh)
+  - [`test_auth_client.py`](#test_auth_clientpy)
+  - [`test_health_ping.py`](#test_health_pingpy)
+  - [`lib/create_fixture_areas.py`](#libcreate_fixture_areaspy)
 
 ## Running Tests
 
@@ -58,7 +58,7 @@ Default test clients are configured in Keycloak. The Makefile retrieves secrets 
 
 ### Bearer Tokens
 
-- Tokens are saved to `./tmp/.bearer_token` by `test_auth_client.sh`
+- Tokens are saved to `./tmp/.bearer_token` by `test_auth_client.py`
 - Other scripts automatically load tokens from this file
 - Token location is configurable via `TOKEN_FILE` environment variable
 
@@ -75,21 +75,21 @@ All test scripts follow standard Unix exit codes:
 
 ---
 
-### `test`
+### `test-full`
 
-Test all (quiet). Runs `test-verbose` and filters output to the results summary.
-
----
-
-### `test-keep`
-
-Test all (quiet, keep test data). Same as `test` but skips cleanup of `sdep-test-*` rows after the run.
+Test fullstack (quiet). Runs `test-full-verbose` and filters output to the results summary.
 
 ---
 
-### `test-verbose`
+### `test-full-keep`
 
-Test all (verbose). Runs all suites below via `scripts/run-tests.sh` with full output and PRE/POST row count isolation checks.
+Test fullstack (quiet, keep test data). Same as `test-full` but skips cleanup of `sdep-test-*` rows after the run.
+
+---
+
+### `test-full-verbose`
+
+Test fullstack (verbose). Runs all suites below via `scripts/run-tests.sh` with full output and PRE/POST row count isolation checks.
 
 ---
 
@@ -97,7 +97,7 @@ Test all (verbose). Runs all suites below via `scripts/run-tests.sh` with full o
 
 Smoke test for audit-excluded endpoints (SKIP_PATHS).
 
-**Script:** `test_smoketest.sh`
+**Script:** `test_smoketest.py`
 
 **What it tests:**
 
@@ -128,11 +128,11 @@ Smoke test for audit-excluded endpoints (SKIP_PATHS).
 
 Test CA (Competent Authority) endpoints.
 
-**Scripts:** `test_ca_areas.sh`, `test_ca_activities.sh`
+**Scripts:** `test_ca_areas.py`, `test_ca_activities.py`
 
 ---
 
-**`test_ca_areas.sh`**
+**`test_ca_areas.py`**
 
 **Tests:**
 
@@ -175,7 +175,7 @@ Test CA (Competent Authority) endpoints.
 
 ---
 
-**`test_ca_activities.sh`**
+**`test_ca_activities.py`**
 
 **Tests (v1 - `GET /api/ca/v1/activities`):**
 
@@ -208,13 +208,13 @@ Test CA (Competent Authority) endpoints.
 
 Test STR (Short-Term Rental) platform endpoints.
 
-**Scripts:** `test_str_areas.sh`, `test_str_activities_bulk.py`
+**Scripts:** `test_str_areas.py`, `test_str_activities_bulk.py`
 
 ---
 
-**`test_str_areas.sh`**
+**`test_str_areas.py`**
 
-**Setup:** Creates 5 fixture areas via `lib/create_fixture_areas.sh` before running tests.
+**Setup:** Creates 5 fixture areas via the CA API before running tests.
 
 **Tests:**
 
@@ -313,11 +313,11 @@ Test REP (reporting / statistics office) endpoints.
 
 Test security (headers, unauthorized, credentials).
 
-**Scripts:** `test_auth_headers.sh`, `test_auth_unauthorized.sh`, `test_auth_credentials.sh`
+**Scripts:** `test_auth_headers.py`, `test_auth_unauthorized.py`, `test_auth_credentials.py`
 
 ---
 
-**`test_auth_headers.sh`**
+**`test_auth_headers.py`**
 
 **What it tests:**
 
@@ -335,7 +335,7 @@ Test security (headers, unauthorized, credentials).
 
 ---
 
-**`test_auth_unauthorized.sh`**
+**`test_auth_unauthorized.py`**
 
 **What it tests:**
 
@@ -359,7 +359,7 @@ Test security (headers, unauthorized, credentials).
 
 ---
 
-**`test_auth_credentials.sh`**
+**`test_auth_credentials.py`**
 
 **What it tests:**
 
@@ -402,7 +402,7 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 
 ---
 
-### `test_auth_client.sh`
+### `test_auth_client.py`
 
 **Purpose:** Utility script to authenticate and save bearer token
 
@@ -422,7 +422,7 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 
 ---
 
-### `test_health_ping.sh`
+### `test_health_ping.py`
 
 **Purpose:** Basic API availability test
 
@@ -434,11 +434,11 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 
 ---
 
-### `lib/create_fixture_areas.sh`
+### `lib/create_fixture_areas.py`
 
 **Purpose:** Create fixture areas for test isolation
 
-**Usage:** `create_fixture_areas.sh [count] [prefix]`
+**Usage:** `create_fixture_areas.py [count] [prefix]`
 
 **What it does:**
 
@@ -448,4 +448,4 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 - Outputs created area IDs to stdout (one per line), errors to stderr
 - Does not modify `./tmp/.bearer_token` (uses a local token variable)
 
-**Used by:** `test_str_areas.sh`, `test-perf` (root Makefile)
+**Used by:** `test_str_areas.py`, `test-perf` (root Makefile)

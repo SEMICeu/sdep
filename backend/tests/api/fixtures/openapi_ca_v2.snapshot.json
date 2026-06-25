@@ -601,7 +601,7 @@
             }
           },
           {
-            "description": "Filter activities whose createdAt timestamp is greater than or equal to this value",
+            "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
             "in": "query",
             "name": "filterCreatedAtFrom",
             "required": false,
@@ -615,7 +615,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter activities whose createdAt timestamp is greater than or equal to this value",
+              "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
               "examples": [
                 "2025-06-01T00:00:00Z"
               ],
@@ -623,7 +623,7 @@
             }
           },
           {
-            "description": "Filter activities whose createdAt timestamp is less than or equal to this value",
+            "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
             "in": "query",
             "name": "filterCreatedAtTo",
             "required": false,
@@ -637,7 +637,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter activities whose createdAt timestamp is less than or equal to this value",
+              "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
               "examples": [
                 "2025-06-30T23:59:59Z"
               ],
@@ -786,7 +786,7 @@
         "operationId": "countActivitiesV2",
         "parameters": [
           {
-            "description": "Filter activities whose createdAt timestamp is greater than or equal to this value",
+            "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
             "in": "query",
             "name": "filterCreatedAtFrom",
             "required": false,
@@ -800,7 +800,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter activities whose createdAt timestamp is greater than or equal to this value",
+              "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
               "examples": [
                 "2025-06-01T00:00:00Z"
               ],
@@ -808,7 +808,7 @@
             }
           },
           {
-            "description": "Filter activities whose createdAt timestamp is less than or equal to this value",
+            "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
             "in": "query",
             "name": "filterCreatedAtTo",
             "required": false,
@@ -822,7 +822,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter activities whose createdAt timestamp is less than or equal to this value",
+              "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
               "examples": [
                 "2025-06-30T23:59:59Z"
               ],

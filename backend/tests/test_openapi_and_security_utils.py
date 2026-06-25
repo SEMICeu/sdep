@@ -169,7 +169,19 @@ def test_remove_fastapi_validation_schemas_and_422_responses():
         },
         "paths": {
             "/auth/token": {"post": {"responses": {"422": {}, "200": {}}}},
-            "/areas": {"get": {"responses": {"422": {}, "200": {}}}},
+            "/areas": {
+                "get": {
+                    "responses": {"422": {"description": "Validation Error"}, "200": {}}
+                }
+            },
+            "/activities": {
+                "get": {
+                    "responses": {
+                        "422": {"description": "Business rule violation"},
+                        "200": {},
+                    }
+                }
+            },
         },
     }
 
@@ -181,6 +193,7 @@ def test_remove_fastapi_validation_schemas_and_422_responses():
     assert "KeepMe" in schema["components"]["schemas"]
     assert "422" in schema["paths"]["/auth/token"]["post"]["responses"]
     assert "422" not in schema["paths"]["/areas"]["get"]["responses"]
+    assert "422" in schema["paths"]["/activities"]["get"]["responses"]
 
 
 def test_sort_schemas_by_namespace_and_handle_missing_components():

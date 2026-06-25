@@ -110,7 +110,7 @@ services:
       IMAGE: ${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_VERSION:-latest}
       BUILD_IMAGE: "false"
       OUTPUT_DIR: tmp/trivy-scan
-      SEVERITY: CRITICAL,HIGH,MEDIUM,LOW
+      SEVERITY: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
     volumes:
       - ./:/work
       - /var/run/docker.sock:/var/run/docker.sock

@@ -30,9 +30,11 @@ See [../Makefile](../Makefile). The Makefile delegates to [../scripts/run-tests-
 
 Quick reference:
 
-| Target           | Description                                                  |
-| ---------------- | ------------------------------------------------------------ |
-| `make test-perf` | Run bulk performance test with various configuration options |
+| Target                   | Description                                                                            |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| `make test-perf`         | Run bulk performance test with various configuration options                           |
+| `make test-perf-keep`    | Same as `test-perf`, but keep test data in the database (also runs correctness checks) |
+| `make test-perf-verbose` | Same as `test-perf`, with periodic Locust statistics printed during the run            |
 
 ## Implementation
 
@@ -63,7 +65,7 @@ Both are invoked via `make test-perf`.
 
 **How it works:**
 
-1. Makefile creates fixture areas via `lib/create_fixture_areas.sh` (5 areas with `sdep-test-perf-*` IDs)
+1. Makefile creates fixture areas via `lib/create_fixture_areas.py` (5 areas with `sdep-test-perf-*` IDs)
 2. Spawns `PERF_USERS` concurrent Locust users (default: 10), ramping up at `PERF_RAMP_UP` users/second
 3. Each Locust user authenticates at start and re-authenticates automatically when the bearer token expires (HTTP 401), then repeatedly submits bulk requests (0.1-0.5s pause between requests)
 4. After the configured duration, Locust prints per-endpoint statistics and the custom summary block
@@ -86,7 +88,7 @@ Each activity contains the following fields:
 | `registrationNumber` | `REGPERF` + 8 uppercase hex characters                                                                                                    |
 | `address`            | Random Dutch street name (`Prinsengracht`, `Keizersgracht`, etc.), house number (1-999), postcode, and city from hardcoded lists          |
 | `temporal`           | `startDatetime` = current UTC timestamp; `endDatetime` = fixed (`2027-12-31T23:59:59Z`)                                                   |
-| `areaId`             | Randomly picked from `PERF_AREA_IDS` (created by the Makefile via `lib/create_fixture_areas.sh`)                                          |
+| `areaId`             | Randomly picked from `PERF_AREA_IDS` (created by the Makefile via `lib/create_fixture_areas.py`)                                          |
 | `numberOfGuests`     | Random integer 1-10                                                                                                                       |
 | `countryOfGuests`    | List of length `numberOfGuests`, each element sampled with replacement from `NLD`, `DEU`, `BEL`, `FRA`, `GBR`, `ESP`, `ITA`, `USA`, `N/A` |
 
