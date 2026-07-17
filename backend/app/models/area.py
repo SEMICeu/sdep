@@ -10,10 +10,12 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     LargeBinary,
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy import (
     Enum as SAEnum,
@@ -56,6 +58,18 @@ class Area(Base):
             "area_id ~ '^[A-Za-z0-9-]+$'",
             name="ck_area_area_id_format",
         ).ddl_if(dialect="postgresql"),
+        # At most one current area (ended_at IS NULL) per (area_id,
+        # competent_authority) pair, so the current-row lookup
+        # (scalar_one_or_none) can never find duplicates. The same
+        # area_id under different CAs stays allowed.
+        Index(
+            "uq_area_current_area_id_ca",
+            "area_id",
+            "competent_authority_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL"),
+            sqlite_where=text("ended_at IS NULL"),
+        ),
     )
 
     # Primary key (technical ID, database-internal)

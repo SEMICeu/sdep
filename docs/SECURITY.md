@@ -35,26 +35,54 @@ Upfront identification of machine-clients is handled process-wise (outside the s
 
 ## Authentication and Authorization
 
-For authentication and authorization, SDEP adopts OAuth 2.0 with JWT-based authentication, which is the industry standard for trusted machine-to-machine (M2M) communication using the OAuth 2.0 Client Credentials Flow (RFC 6749, section 4.4).
+**Framework**
 
-<https://datatracker.ietf.org/doc/html/rfc6749#section-4.4>
+For authentication and authorization, SDEP adopts OAuth 2.0 with JWT-based authentication, the standard framework for trusted machine-to-machine (M2M) communication.
 
-**Authentication** proves who the client is.
+**Implementation**
 
-- For machine-to-machine (M2M) communication, the client uses the Client Credentials Flow to identify itself to the authorization server (the OAuth 2.0 component that authenticates clients and issues access tokens; in SDEP-NL this role is fulfilled by Keycloak) in exchange for an access token.
-- Authentication typically takes place via client_id and client_secret, or a signed JWT assertion.
+Two implementations are common:
 
-SDEP-NL adopts client_id and client_secret, motivated by:
+- **Client-signed JWT** (RFC 7523) - <https://datatracker.ietf.org/doc/html/rfc7523>
+- **Client credentials flow** (RFC 6749, section 4.4) - <https://datatracker.ietf.org/doc/html/rfc6749#section-4.4>
 
-- Compatibility: better support across legacy libraries and third-party tools
-- Reduced complexity: avoids the operational burden of managing keystores and certificates
+The client-signed JWT flow is regarded as most secure:
+
+- The OAuth 2.0 Security Best Current Practice (RFC 9700, section 2.5) recommends asymmetric client authentication (private-key JWT per RFC 7523) over shared secrets, because the authorization server stores no symmetric key and there is no shared credential to leak - <https://datatracker.ietf.org/doc/html/rfc9700#section-2.5>.
+- Client-signed JWTs avoid distributing long-lived shared secrets to API clients.
+- The client proves possession of its private key by signing a short-lived JWT for each token request, while SDEP and Keycloak only need the corresponding public key to verify it.
+- This also makes key rotation explicit and keeps private key material outside SDEP configuration.
+- Interactive testing in the Swagger UI is supported, though it requires interaction with the /token endpoint first to acquire a bearer token
+
+The client credentials flow facilitates easier testing in the Swagger UI
+
+- Interactive testing in the Swagger UI can directly be done, using client-id and secret.
+
+SDEP-NL supports both flows (via the same `/token` endpoint):
+
+- The Client-signed JWT is the only supported solution in Production environment
+- The Client credentials flow is additionally supported in the Test and Pre-Production environments
+
+**Authentication**
+
+Authentication (obtaining a bearer token) proves who the client is, and can take place at the same `/token` endpoint, via:
+
+- Client-signed JWT (`client_signed_jwt`)
+- Client credentials flow (`client_id` and `client_secret`)
+
+The Swagger UI **Authorize** button follows the application configuration `CLIENT_CREDENTIALS_FLOW_ENABLED`.
+
+- When `CLIENT_CREDENTIALS_FLOW_ENABLED` is `true`:
+  - The Swagger UI uses the OAuth2 client credentials flow (client id and secret).
+- When `CLIENT_CREDENTIALS_FLOW_ENABLED` is `false`:
+  - The Swagger UI accepts a Bearer token that the operator obtained out of band via the client-signed JWT flow, because Swagger cannot sign a client JWT itself.
 
 **Authorization** determines what the client is allowed to do.
 
-- Based on the client's identity and pre-configured permissions, the server issues an access token containing specific scopes.
+- Based on the client's identity and pre-configured permissions, the server issues an access token containing specific **scopes**.
 - The client then presents this as a Bearer token during API calls to access protected resources.
 
-**Roles:**
+**Supported Scopes**
 
 | Role         | Purpose                              |
 | :----------- | :----------------------------------- |
@@ -244,7 +272,7 @@ The Swagger UI is intentionally served publicly by FastAPI without authenticatio
 - As such, exposing the API documentation is considered an accepted and safe design decision rather than a security risk
 - Potential risks related to public Swagger UI exposure and unauthorized access to API documentation are therefore not applicable in this context
 
-Unauthorized usage of API endpoints is mitigated through the OAuth2 client-credentials flow using JWT bearer tokens.
+Unauthorized usage of API endpoints is mitigated through the OAuth2 client credentials flow using JWT bearer tokens.
 
 ## File Upload
 
@@ -434,13 +462,21 @@ SDEP interacts with IAM (e.g. Keycloak) in two distinct ways: **token issuance**
 
 **Token issuance (proxy to Keycloak)**
 
-When an external client needs a JWT, it calls SDEP's `/api/auth/v1/token` endpoint. SDEP acts as a proxy: it takes the client's `client_id` + `client_secret` (from HTTP Basic Auth or form body), forwards them to Keycloak's token endpoint at `/realms/sdep/protocol/openid-connect/token`, and returns the resulting JWT. This is a synchronous request-response - every token request hits Keycloak directly.
+When an external client needs a JWT, it calls SDEP's `/api/auth/v1/token` endpoint.
+
+SDEP acts as a proxy:
+
+1. It takes either the client's `client_id` + `client_secret` (from HTTP Basic Auth or form body) or its `client_id` + `client_signed_jwt`
+2. It maps it to Keycloak's OAuth `private_key_jwt` request fields
+3. It forwards the token request to Keycloak's token endpoint at `/realms/sdep/protocol/openid-connect/token`
+4. It returns the resulting JWT.
+5. This is a synchronous request-response - every token request hits Keycloak directly.
 
 See [`auth.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/routers/auth.py).
 
 ---
 
-**Token validation (JWKS public key verification)**
+**Token validation (Client-signed JWT)**
 
 On every subsequent API call, the client sends the JWT as a `Bearer` token. SDEP verifies the token signature locally - without calling Keycloak on every request - using the JSON Web Key Set (JWKS) protocol:
 
@@ -457,7 +493,7 @@ See [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/co
 
 A JWT can contain an `aud` (audience) claim that says *which application* the token was issued for. When an application checks `aud`, it rejects tokens that were meant for a different service - even if the signature is valid. This prevents a token issued for Service A from being reused against Service B.
 
-SDEP currently does **not** check `aud`. The reason is practical: Keycloak does not include an `aud` claim in the client-credentials tokens it issues to SDEP clients by default. If SDEP started requiring `aud`, every existing client would be rejected until the Keycloak configuration is updated to include it.
+SDEP currently does **not** check `aud`. The reason is practical: Keycloak does not include an `aud` claim in the client credentials tokens it issues to SDEP clients by default. If SDEP started requiring `aud`, every existing client would be rejected until the Keycloak configuration is updated to include it.
 
 As SDEP is the only application in the Keycloak realm, the aud claim will always originate from SDEP itself. Therefore this has no security impact.
 

@@ -65,7 +65,12 @@ class TestCompetentAuthorityCRUD:
     async def test_create_competent_authority_with_duplicate_client_id_created_at(
         self, async_session: AsyncSession
     ):
-        """Test same client can create different public IDs at the same created_at."""
+        """Same client can hold versions with different public IDs at one created_at.
+
+        The composite UNIQUE constraint permits this as long as only one row is
+        current; the first version must be ended first so the partial unique
+        index on the current row is not violated.
+        """
         # Arrange
         created_at = datetime(2026, 1, 1)
 
@@ -77,6 +82,11 @@ class TestCompetentAuthorityCRUD:
         )
         first.created_at = created_at
         await async_session.flush()
+
+        # End the first version so a new current version can be created.
+        await competent_authority.mark_as_ended_by_client_id(
+            async_session, "duplicate-ca-client"
+        )
 
         # Act
         second = await competent_authority.create(

@@ -27,6 +27,18 @@
             "description": "Client secret for M2M authentication",
             "title": "Client Secret"
           },
+          "client_signed_jwt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Client-signed JWT for M2M authentication",
+            "title": "Client Signed Jwt"
+          },
           "grant_type": {
             "anyOf": [
               {
@@ -142,7 +154,7 @@
   "paths": {
     "/token": {
       "post": {
-        "description": "Token endpoint for machine-to-machine authentication using OAuth 2.0 Client Credentials Grant. Supports both HTTP Basic Authentication and form parameters.",
+        "description": "Token endpoint for machine-to-machine authentication using OAuth 2.0 Client Credentials Grant. Supports HTTP Basic Authentication or form parameters (client_id/client_secret), and client-signed JWT (client_id/client_signed_jwt).",
         "operationId": "post_auth_token",
         "requestBody": {
           "content": {

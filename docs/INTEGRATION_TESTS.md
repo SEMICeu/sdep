@@ -5,20 +5,21 @@ The [../tests](../tests) directory contains standalone Python scripts for integr
 These tests verify API functionality, authentication, authorization, and security compliance.
 
 - [Running Tests](#running-tests)
+- [See ../Makefile.](#see-makefile)
 - [Configuration](#configuration)
   - [Credentials](#credentials)
   - [Bearer Tokens](#bearer-tokens)
   - [Exit Codes](#exit-codes)
 - [Coverage](#coverage)
-  - [`test-full`](#test-full) - Test fullstack (quiet)
-  - [`test-full-keep`](#test-full-keep) - Test fullstack (quiet, keep test data)
-  - [`test-full-verbose`](#test-full-verbose) - Test fullstack (verbose)
-  - [`test-smoke`](#test-smoke) - Test smoke test endpoints
-  - [`test-ca`](#test-ca) - Test CA endpoints
-  - [`test-str`](#test-str) - Test STR endpoints
-  - [`test-rep`](#test-rep) - Test REP endpoints
-  - [`test-security`](#test-security) - Test security (headers, unauthorized, credentials)
-  - [`test-malware`](#test-malware) - Test malware scanning
+  - [`test-full`](#test-full)
+  - [`test-full-keep`](#test-full-keep)
+  - [`test-full-verbose`](#test-full-verbose)
+  - [`test-smoke`](#test-smoke)
+  - [`test-ca`](#test-ca)
+  - [`test-str`](#test-str)
+  - [`test-rep`](#test-rep)
+  - [`test-security`](#test-security)
+  - [`test-malware`](#test-malware)
 - [Helper Scripts](#helper-scripts)
   - [`test_auth_client.py`](#test_auth_clientpy)
   - [`test_health_ping.py`](#test_health_pingpy)
@@ -34,7 +35,11 @@ These tests verify API functionality, authentication, authorization, and securit
 
 ### Credentials
 
-Default test clients are configured in Keycloak. The Makefile retrieves secrets dynamically via `get_client_secret`:
+Default test clients are configured in Keycloak. The current integration test
+scripts authenticate with the `client_id`/`client_secret` token path, so the
+backend must run with `CLIENT_CREDENTIALS_FLOW_ENABLED=true` for these tests.
+Client-secret is one of the two supported auth methods and is disabled in PRD.
+The Makefile retrieves secrets dynamically via `get_client_secret`:
 
 **Competent Authority (CA)**
 
@@ -313,7 +318,7 @@ Test REP (reporting / statistics office) endpoints.
 
 Test security (headers, unauthorized, credentials).
 
-**Scripts:** `test_auth_headers.py`, `test_auth_unauthorized.py`, `test_auth_credentials.py`
+**Scripts:** `test_auth_headers.py`, `test_auth_unauthorized.py`, `test_auth_credentials.py`, `test_auth_client_jwt.py`
 
 ---
 
@@ -371,8 +376,25 @@ Test security (headers, unauthorized, credentials).
 **Required environment variables:**
 
 - `BACKEND_BASE_URL`
+- `CLIENT_CREDENTIALS_FLOW_ENABLED=true` on the backend under test
 - `STR_CLIENT_ID`, `STR_CLIENT_SECRET`
 - `CA1_CLIENT_ID`, `CA1_CLIENT_SECRET`
+
+---
+
+**`test_auth_client_jwt.py`**
+
+**What it tests:**
+
+- Client-signed-JWT (private-key-JWT) token acquisition end to end
+- Signs a short-lived assertion with the generated local private key in `tmp/keycloak/sdep-test-str.jwt.private.pem` and exchanges it for a bearer token via `/api/auth/v1/token`
+- Exercises the `sdep-test-str.jwt` client provisioned from the effective machine-client YAML with the matching public key
+
+**Required environment variables:**
+
+- `BACKEND_BASE_URL`
+- `BACKEND_KC_BASE_URL` (the Keycloak URL the backend forwards to; falls back to `KC_BASE_URL`) - the assertion audience must match it
+- Optional: `JWT_CLIENT_ID`, `JWT_CLIENT_KID`, `JWT_PRIVATE_KEY_FILE`, `KC_REALM`
 
 ---
 
@@ -408,7 +430,7 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 
 **What it does:**
 
-- Performs OAuth2 client credentials flow
+- Performs the OAuth2 client-secret credentials flow
 - Requests access token from `/api/auth/{API_VERSION}/token`
 - Saves token to `./tmp/.bearer_token` for use by other scripts
 - Used as a prerequisite for authenticated endpoint tests
@@ -417,7 +439,8 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 
 - `BACKEND_BASE_URL` - API base URL
 - `CLIENT_ID` - OAuth2 client ID
-- `CLIENT_SECRET` - OAuth2 client secret
+- `CLIENT_SECRET` - OAuth2 client secret; requires
+  `CLIENT_CREDENTIALS_FLOW_ENABLED=true` on the backend under test
 - `API_VERSION` (optional, defaults to `v1`)
 
 ---
@@ -442,7 +465,9 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 
 **What it does:**
 
-- Authenticates using CA client credentials (`CA1_CLIENT_ID`, `CA1_CLIENT_SECRET`)
+- Authenticates using CA client-secret flow with credentials (`CA1_CLIENT_ID`,
+  `CA1_CLIENT_SECRET`); requires `CLIENT_CREDENTIALS_FLOW_ENABLED=true` on the
+  backend under test
 - Creates `count` areas (default: 3) with `prefix`-prefixed IDs via individual `POST /ca/areas` requests
 - Uploads `test-data/shapefiles/Amsterdam.zip` as multipart/form-data for each area
 - Outputs created area IDs to stdout (one per line), errors to stderr

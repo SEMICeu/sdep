@@ -51,7 +51,7 @@ def _build_token_response(response: httpx.Response) -> TokenResponse:
     "/token",
     response_model=TokenResponse,
     summary="Get access token (JWT bearer)",
-    description="Token endpoint for machine-to-machine authentication using OAuth 2.0 Client Credentials Grant. Supports both HTTP Basic Authentication and form parameters.",
+    description="Token endpoint for machine-to-machine authentication using OAuth 2.0 Client Credentials Grant. Supports HTTP Basic Authentication or form parameters (client_id/client_secret), and client-signed JWT (client_id/client_signed_jwt).",
     operation_id="post_auth_token",
     responses={
         "400": {
@@ -70,15 +70,19 @@ async def post_auth_token(
     client_secret: str | None = Form(
         None, description="Client secret for M2M authentication"
     ),
+    client_signed_jwt: str | None = Form(
+        None, description="Client-signed JWT for M2M authentication"
+    ),
     grant_type: str | None = Form(
         None, description="OAuth2 grant type (client_credentials)"
     ),
 ) -> TokenResponse:
     """Issue a JWT bearer token for M2M authentication by forwarding the request to Keycloak
 
-    Supports two authentication methods per RFC 6749:
-    1. HTTP Basic Authentication (Authorization header)
-    2. Form parameters (client_id and client_secret in request body)
+    Supports three authentication methods:
+    1. HTTP Basic Authentication - client_id/client_secret in the Authorization header (RFC 6749)
+    2. Form parameters - client_id/client_secret in the request body (RFC 6749)
+    3. Client-signed JWT - client_id + client_signed_jwt form parameters (RFC 7523)
     """
 
     # Try to extract credentials from Basic Auth header first
@@ -100,22 +104,58 @@ async def post_auth_token(
             # ValueError covers a missing ":" separator in the decoded payload.
             pass
 
-    # Validate that we have credentials from either source
-    if not client_id or not client_secret:
+    has_secret_credentials = bool(client_id and client_secret)
+    has_partial_secret_credentials = bool(client_id) != bool(client_secret)
+    has_client_signed_jwt_credentials = bool(client_signed_jwt)
+
+    if has_secret_credentials and has_client_signed_jwt_credentials:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Use either client secret credentials or client-signed JWT credentials, not both",
+        )
+
+    if has_client_signed_jwt_credentials and not client_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="client_id is required for client-signed JWT authentication",
+        )
+
+    if has_partial_secret_credentials and not has_client_signed_jwt_credentials:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Client credentials must be provided via HTTP Basic Auth or form parameters",
         )
+
+    if not has_secret_credentials and not has_client_signed_jwt_credentials:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Client credentials must be provided via HTTP Basic Auth, form parameters, or client-signed JWT",
+        )
+
+    if has_secret_credentials and not settings.CLIENT_CREDENTIALS_FLOW_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Client secret token authentication is disabled; use client-signed JWT authentication",
+        )
+
     # Check if Keycloak URL is configured
     if not settings.KC_BASE_URL:
         raise AuthorizationServerOperationalError("Keycloak URL is not configured")
 
-    # Prepare the token request payload with client_credentials grant type
+    # Prepare the token request payload with client_credentials grant type.
     token_data = {
         "grant_type": "client_credentials",
         "client_id": client_id,
-        "client_secret": client_secret,
     }
+    if has_client_signed_jwt_credentials:
+        token_data.update(
+            {
+                "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                "client_assertion": client_signed_jwt,
+            }
+        )
+    else:
+        token_data["client_secret"] = client_secret
 
     # Construct the full token endpoint URL with realm path
     token_endpoint = (

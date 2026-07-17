@@ -2,6 +2,14 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.3.2
+
+- Fixed bulk activity POST returning HTTP 500 (`MultipleResultsFound`) when duplicate current owner rows existed
+- Implemented OAuth 2.0 JWT Client Authentication (RFC 7523), alongside the already implemented OAuth 2.0 Client Credentials Grant (RFC 6749).
+  - **OAuth 2.0 JWT Client Authentication** (a.k.a. **client-signed JWT**): is most secure and is the only option supported in SDEP-NL Production (PRD). Supports interactive testing in Swagger UI by first obtaining a bearer token at the `/token` endpoint
+  - **OAuth 2.0 Client Credentials Grant** (a.k.a. **client credentials flow)**: is less secure and remains to be supported in SDEP-NL Pre-Production (PRE). Supports interactive testing in Swagger UI by directly authorizing via client id & secret (under the hood, Swagger obtains the bearer token via the `/token` endpoint)
+  - Updated the getting started guides (PRE, PRD) accordingly
+
 # 1.3.1
 
 - Improved the performance-test tooling and Makefile test targets

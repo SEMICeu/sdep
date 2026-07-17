@@ -499,7 +499,12 @@ class TestAreaCRUD:
     async def test_unique_constraint_area_id_competent_authority_id_created_at(
         self, async_session: AsyncSession
     ):
-        """Test unique constraint on (area_id, competent_authority_id, created_at)."""
+        """Test unique constraint on (area_id, competent_authority_id, created_at).
+
+        A new version reuses the same (area_id, competent_authority_id) with a
+        different created_at; the previous version must be ended first so the
+        partial unique index on the current row is not violated.
+        """
         import asyncio
         import uuid
 
@@ -522,7 +527,10 @@ class TestAreaCRUD:
         # Wait to ensure different timestamp (1 second to guarantee SQLite timestamp difference)
         await asyncio.sleep(1.0)
 
-        # Act - Create second area with same area_id (should work due to different created_at)
+        # End the first version so a new current version can be created.
+        await area.mark_as_ended(async_session, area_id, ca.id)
+
+        # Act - Create second area with same area_id (works: previous version ended)
         a2 = await area.create(
             async_session,
             area_id=area_id,

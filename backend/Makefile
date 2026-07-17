@@ -3,7 +3,7 @@ SHELL := /bin/bash
 .PHONY: init install \
         upgrade upgrade-sql downgrade revision show-history show-current \
         clean-stale up dev down \
-        test test-verbose test-coverage test-coverage-verbose test-crud test-services test-api test-security openapi-snapshot-update \
+        test all test-verbose test-coverage test-coverage-verbose test-crud test-services test-api test-security openapi-snapshot-update \
         format lint typecheck check \
         clean help
 
@@ -166,6 +166,8 @@ test: check ## Test all (check, coverage, quiet - synonym to test-coverage)
 	@echo "🧪 Running tests with check and coverage..."
 	@set -o pipefail; uv run python -m pytest -n auto -q --tb=line --no-header --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=100 2>&1 | tail -40
 	@echo "✅ Coverage tests completed! Coverage report in htmlcov/"
+
+all: test ## Synonym to test (Test All)
 
 ##@ Housekeeping
 

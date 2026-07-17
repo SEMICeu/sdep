@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from app.api.common import openapi as openapi_module
 from app.api.domain_registry import AUTH_V1, CA_V1, CA_V2, REP_V1, STR_V1, ApiDomain
 from app.api.domains.auth.v1 import app_auth_v1
 from app.api.domains.ca.v1 import app_ca_v1
@@ -48,9 +49,22 @@ def _snapshot_path(domain: str) -> Path:
 
 
 def _normalized_openapi(app: FastAPI) -> dict[str, Any]:
-    """Return the schema with environment-derived values normalized."""
+    """Return the schema with environment-derived values normalized.
+
+    Snapshots capture the full, client-credentials-enabled contract (the OAuth2
+    Authorize flow that non-production environments serve). The Bearer-only variant
+    served when ``CLIENT_CREDENTIALS_FLOW_ENABLED`` is false is covered separately in
+    ``tests/test_openapi_and_security_utils.py``, so the flag is forced on here to keep
+    the frozen contract independent of the ambient setting.
+    """
+    original_flag = openapi_module.settings.CLIENT_CREDENTIALS_FLOW_ENABLED
+    openapi_module.settings.CLIENT_CREDENTIALS_FLOW_ENABLED = True
     app.openapi_schema = None
-    schema = app.openapi()
+    try:
+        schema = app.openapi()
+    finally:
+        openapi_module.settings.CLIENT_CREDENTIALS_FLOW_ENABLED = original_flag
+        app.openapi_schema = None
 
     schema["info"]["version"] = PLACEHOLDER_VERSION
 

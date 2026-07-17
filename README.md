@@ -12,12 +12,13 @@ Overview:
   - [Tests (Unit)](#tests-unit)
   - [Tests (Fullstack)](#tests-fullstack)
   - [Tests (Performance)](#tests-performance)
-  - [All Tests](#all-tests)
+  - [Tests (All)](#tests-all)
   - [Security](#security)
-  - [All Tests + Security](#all-tests-security)
+  - [Tests (All) + Security](#tests-all-security)
   - [Documentation](#documentation)
 - [Functional Design](#functional-design)
 - [Technical Design](#technical-design)
+- [Getting started](#getting-started)
 - [Process](#process)
 - [Foundation](#foundation)
 
@@ -29,22 +30,30 @@ https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng
 
 In accordance with EU legislation, SDEP enables the following:
 
-- **Ingestion of regulated areas** from competent authorities (CA)
-- **Provision of regulated areas** to short-term rental platforms (STR)
-- **Ingestion of rental-activity data** from short-term rental platforms (STR)
-- **Provision of rental-activity data** to competent authorities (CA) and other stakeholders
-- **Ingestion of flagged listings** from short-term rental platforms (STR)
-- **Provision of flagged listings** to relevant stakeholders
+In accordance with EU legislation, SDEP supports the following capabilities:
+
+- **Ingesting regulated area data** from competent authorities (CAs)
+- **Providing regulated area data** to short-term rental platforms (STRs)
+- **Ingesting rental activity data** from short-term rental platforms (STRs)
+- **Providing rental activity data** to competent authorities (CAs) and other relevant stakeholders
+- **Ingesting flagged listing data** from short-term rental platforms (STRs)
+- **Providing flagged listing data** to relevant stakeholders
+- **Supporting statistical reporting** for relevant stakeholders
 
 > **Note**: Support for flagged listings is currently under development.
 
 ## Specification
 
-This repository contains the **API specification** for SDEP implementations across EU Member States.
+This repository contains the **API specifications** for SDEP implementations across EU Member States.
 
-The short-term rental component (**STR**) is **EU-harmonized** across SDEP implementations in EU Member States.
+**Harmonized components**
 
-The competent authority component (**CA**) is provided as **guidance and recommendation only** and may differ between EU Member States.
+- The **short-term rental (STR)** component is **harmonized at EU level** and is common to all SDEP implementations in EU Member States.
+
+**National components**
+
+- The **competent authority (CA)** and **reporting/statistics (REP)** components are provided as **guidance only**.
+- Their implementation may vary between EU Member States to accommodate national legislation and administrative requirements.
 
 ## Reference Implementation
 
@@ -56,33 +65,33 @@ The implementation may differ between EU Member States.
 
 ## Production
 
-The reference implementation is deployed in production (**PRD**) in the Netherlands as **SDEP-NL**.
+The reference implementation is deployed in production (**PRD**) in the Netherlands as **SDEP-NL** - https://sdep.gov.nl/api/docs.
 
-To get started, see: [PRD](./docs/GET_STARTED_PRD.md).
-
-The PRD environment (https://sdep.gov.nl/api/docs):
+The PRD environment:
 
 - Enables competent authorities (CA) and short-term rental platforms (STR) in the Netherlands to exchange regulated-area and rental-activity data in accordance with EU legislation
-- Includes the **EU-harmonized short-term rental (STR) component**
-- Includes the **SDEP-NL-specific competent authority (CA) component**
+- Includes the **EU-harmonized** short-term rental (STR) component
+- Includes the **SDEP-NL-specific** competent authority (CA) and reporting/statistics (REP) components
 
 > **Disclaimer (PRD)**: For production use in your own country, always contact your **national SDEP representative** regarding national deployment and operational responsibilities.
 
+For onboarding, see [Getting Started in PRD](./docs/GET_STARTED_PRD.md).
+
 ## Pre-production Testing
 
-To facilitate end-to-end testing with integration partners, the reference implementation is also deployed in a dedicated pre-production environment (**PRE**) in the Netherlands within SDEP-NL.
+To facilitate end-to-end testing with integration partners, the reference implementation is also deployed in a dedicated pre-production environment (**PRE**) in the Netherlands within SDEP-NL - https://pre-sdep.minvro.nl/api/docs.
 
-To get started, see: [PRE](./docs/GET_STARTED_PRE.md).
+The PRE environment:
 
-The PRE environment (https://pre-sdep.minvro.nl/api/docs):
-
-- Enables integration partners to test integrations with the **EU-harmonized short-term rental (STR) component** before connecting to production systems
-- Also provides testing access to the **SDEP-NL-specific competent authority (CA) component**
+- Enables integration partners to test integrations with the **EU-harmonized** short-term rental (STR) component before connecting to production systems
+- Also provides testing access to the **SDEP-NL-specific** competent authority (CA) and reporting/statistics (REP) components
 
 In the PRE environment:
 
 - Only anonymized data should be used
 - A daily cleanup takes place to remove any residual test or production-like data
+
+For **onboarding**, see: [Getting Started in PRE](./docs/GET_STARTED_PRE.md).
 
 > **Disclaimer (PRE)**: For end-to-end testing in your own country, always contact your **national SDEP representative** for guidance on deployment, integrations, and operations.
 
@@ -107,7 +116,7 @@ Required:
 
 Optional:
 
-- DBGate (a PostgreSQL management tool)
+- DBGate (PostgreSQL management)
 
 **Clone this repo**
 
@@ -130,19 +139,20 @@ Explore API docs (Swagger UI):
 
 - http://localhost:8000/api/docs
 
-Select client credentials (by roles):
-
-- Choose `id`, `secret` from [machine-clients.yaml](./keycloak/machine-clients.yaml)
-
 Authorize in Swagger UI:
 
-- Select Authorize
-- Enter client credentials
-- Select Authorize again
-- Swagger will obtain a JWT bearer token "under the hood" (acting on the `token/` endpoint)
-- You are authorized by roles
+- **Default**, use **client credentials flow** (client-id, client-secret)
+  - To faciliate easy testing
+  - See [machine-clients.yaml](./keycloak/machine-clients.yaml) for credentials & roles
+  - All roles are present, so you can replay all end-to-end scenarios (CA, STR, REP)
+- **Optionally**, use **client-signed JWT authentication**
+  - To simulate Production
+  - In your `.env.extra`, configure `CLIENT_CREDENTIALS_FLOW_ENABLED=false`
+  - See [Client-Signed JWT Authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md) for obtaining the required bearer token
+  - See [machine-clients.yaml](./keycloak/machine-clients.yaml) for credentials & roles
+  - Only one role/credential is present, just to illustrate how client-signed JWT authentication will work in production
 
-Explore endpoints in your current role (ca, str).
+Explore the API endpoints in your current role (CA, STR, REP).
 
 **Run SDEP (backend only)**
 
@@ -183,7 +193,7 @@ make test-full
 The tests cover the cases as described in the [integration test documentation](./docs/INTEGRATION_TESTS.md).
 
 - Tests are executed against the complete Dockerized stack
-- Test suites run sequentially: `test-smoke`, `test-security`, `test-str`, and `test-ca` - each exercising the live API over HTTP (curl, and httpx for the STR bulk endpoint)
+- Test suites run sequentially: `test-smoke`, `test-security`, `test-str`, `test-ca`, and `test-rep` - each exercising the live API over HTTP (Python `httpx`)
 - Test data uses the `sdep-test-*` naming convention; this data is automatically detected and removed after each test run (`postgres/clean-testrun.sql`)
 - Test isolation is enforced by comparing table row counts before and after execution (PRE/POST); any discrepancy causes the build to fail
 - A consolidated summary report presents per-suite and overall totals (executed/passed/failed) and exits with a non-zero status if any test fails
@@ -194,7 +204,7 @@ Malware scanning (ClamAV) is part of the fullstack tests and is run as a separat
 make test-malware
 ```
 
-All fullstack tests can also be re-used/run against real deployments (TST, ACC, PRE, PRD; contact SDEP NL for more info).
+All fullstack tests can also be re-used/run against real deployments (TST, ACC, PRE, PRD; contact SDEP-NL for more info).
 
 ---
 
@@ -210,7 +220,7 @@ For full configuration options and usage examples, see [Performance Tests](./doc
 
 ---
 
-### All Tests
+### Tests (All)
 
 All tests in one go (fullstack + performance):
 
@@ -265,7 +275,7 @@ docker compose build --pull --no-cache backend
 
 ---
 
-### All Tests + Security
+### Tests (All) + Security
 
 ```
 make all
@@ -300,6 +310,12 @@ make md-format
 - [Security](./docs/SECURITY.md)
 - [Database Dialects](./docs/DATABASE_DIALECTS.md)
 - [Development](./docs/DEVELOPMENT.md)
+
+## Getting started
+
+- [Client-signed JWT authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md)
+- [Pre-production](./docs/GET_STARTED_PRE.md)
+- [Production](./docs/GET_STARTED_PRD.md)
 
 ## Process
 

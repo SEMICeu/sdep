@@ -67,7 +67,13 @@ class TestPlatformCRUD:
     async def test_create_platform_with_duplicate_client_id_created_at(
         self, async_session: AsyncSession
     ):
-        """Test same client can create different public IDs at the same created_at."""
+        """Same client can hold versions with different public IDs at one created_at.
+
+        The composite UNIQUE constraint (platform_id, client_id, created_at)
+        permits this as long as only one row is current; the first version must
+        be ended first so the partial unique index on the current row is not
+        violated.
+        """
         # Arrange
         created_at = datetime(2026, 1, 1)
 
@@ -84,6 +90,9 @@ class TestPlatformCRUD:
         assert first is not None
         first.created_at = created_at
         await async_session.flush()
+
+        # End the first version so a new current version can be created.
+        await platform.mark_as_ended(async_session, first.platform_id)
 
         # Act
         second = await platform.create(
@@ -130,6 +139,52 @@ class TestPlatformCRUD:
             )
             second.created_at = created_at
             await async_session.flush()
+
+    async def test_second_current_platform_same_client_violates_unique_index(
+        self, async_session: AsyncSession
+    ):
+        """Two current rows (ended_at IS NULL) for one client_id are rejected.
+
+        The public platform_id differs per row, so only the partial unique index
+        on the current row can catch this - not the existing UNIQUE constraint.
+        """
+        await platform.create(
+            async_session,
+            client_id="one-current-only",
+            platform_name="First Platform",
+        )
+        await async_session.flush()
+
+        with pytest.raises(IntegrityError):
+            await platform.create(
+                async_session,
+                client_id="one-current-only",
+                platform_name="Second Platform",
+            )
+            await async_session.flush()
+
+    async def test_new_current_platform_allowed_after_previous_ended(
+        self, async_session: AsyncSession
+    ):
+        """A fresh current row is allowed once the previous one is ended."""
+        first = await platform.create(
+            async_session,
+            client_id="versioned-client",
+            platform_name="First Platform",
+        )
+        await platform.mark_as_ended(async_session, first.platform_id)
+
+        second = await platform.create(
+            async_session,
+            client_id="versioned-client",
+            platform_name="Second Platform",
+        )
+        await async_session.flush()
+
+        assert second.id != first.id
+        current = await platform.get_by_client_id(async_session, "versioned-client")
+        assert current is not None
+        assert current.id == second.id
 
     async def test_get_by_id(self, async_session: AsyncSession):
         """Test getting a platform by id."""

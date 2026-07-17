@@ -7,7 +7,7 @@ SHELL := /bin/bash
         postgres-count \
         generate-area-sql \
         dbgate-up dbgate-down dbgate-restart dbgate-status \
-        .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles .keycloak-machine-clients .get-client-credentials \
+        .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles .keycloak-jwt-test-client keycloak-jwt-test-client .keycloak-machine-clients keycloak-machine-clients .get-client-credentials keycloak-jwt-client-public-key \
         keycloak-up keycloak-down \
         backend-up backend-down backend-restart \
         up down restart status \
@@ -33,6 +33,10 @@ POSTGRES_HOST ?= localhost
 export POSTGRES_HOST POSTGRES_PORT POSTGRES_DB_NAME POSTGRES_DB_USER POSTGRES_DB_PASSWORD
 
 DOCKER_COMPOSE := docker compose --env-file .env $(if $(wildcard .env.extra),--env-file .env.extra,)
+JWT_CLIENT_ID ?= sdep-test-str.jwt
+JWT_PRIVATE_KEY_FILE ?= tmp/keycloak/sdep-test-str.jwt.private.pem
+KEYCLOAK_LOCAL_JWT_MACHINE_CLIENT_YAML ?= tmp/keycloak/machine-clients-local-jwt.yaml
+KEYCLOAK_EFFECTIVE_MACHINE_CLIENT_YAML ?= tmp/keycloak/machine-clients-effective.yaml
 
 # Disable BuildKit provenance/SBOM attestations. With the containerd image store,
 # attestations wrap the image in a manifest list and embed build timestamps, so
@@ -282,10 +286,29 @@ dbgate-status: ## Show DBGate and Postgres status
 	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
 	./keycloak/add-realm-roles.sh
 
-.keycloak-machine-clients: .keycloak-roles ## Create machine clients in realm (keycloak/machine-clients.yaml)
+.keycloak-jwt-test-client: ## Generate local client-signed JWT keypair and machine-client YAML
+	@uv run --script scripts/setup-keycloak-jwt-test-client.py \
+		--client-id "$(JWT_CLIENT_ID)" \
+		--private-key-file "$(JWT_PRIVATE_KEY_FILE)" \
+		--static-clients-file keycloak/machine-clients.yaml \
+		--local-jwt-clients-file "$(KEYCLOAK_LOCAL_JWT_MACHINE_CLIENT_YAML)" \
+		--effective-clients-file "$(KEYCLOAK_EFFECTIVE_MACHINE_CLIENT_YAML)"
+
+keycloak-jwt-test-client: .keycloak-jwt-test-client ## Generate local client-signed JWT keypair and machine-client YAML
+
+.keycloak-machine-clients: .keycloak-roles .keycloak-jwt-test-client ## Create machine clients in realm (tmp/keycloak/machine-clients-effective.yaml)
 	@set -a && source .env && set +a && \
 	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
+	export KC_APP_REALM_MACHINE_CLIENT_YAML="$(KEYCLOAK_EFFECTIVE_MACHINE_CLIENT_YAML)" && \
+	echo "Machine client configuration: $$KC_APP_REALM_MACHINE_CLIENT_YAML" && \
 	./keycloak/add-realm-machine-clients.sh
+
+keycloak-machine-clients: .keycloak-machine-clients ## Create machine clients in realm and show the YAML file used
+
+keycloak-jwt-client-public-key: ## Show Keycloak JWKS for a JWT client (KEYCLOAK_ENV=local JWT_CLIENT_ID=...)
+	@set -a && source .env && set +a && \
+	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
+	uv run scripts/show-keycloak-client-jwks.py --client-id "$(JWT_CLIENT_ID)"
 
 .get-client-credentials: ## Retrieve client credentials from Keycloak
 	@set -a && source .env && set +a && \
@@ -500,6 +523,9 @@ test-security: .ensure-up .get-client-credentials # Helper - Test only security 
 	echo "Testing credentials..." && \
 	uv run --script tests/test_auth_credentials.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "" && \
+	echo "Testing client-signed-JWT credentials..." && \
+	uv run --script tests/test_auth_client_jwt.py 2>&1 | tee $$OUTPUT_FILE && \
+	echo "" && \
 	echo "Testing client-ID regex..." && \
 	uv run --script tests/test_client_id_regex.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ Security tested"
@@ -620,20 +646,30 @@ trivy: ## Run security checks (build and scan backend image with Trivy CVE allow
 	@$(DOCKER_COMPOSE) build --pull --no-cache backend
 	@mkdir -p tmp/trivy-scan
 	@docker save "$(BACKEND_IMAGE_NAME):$(if $(BACKEND_IMAGE_VERSION),$(BACKEND_IMAGE_VERSION),latest)" -o tmp/trivy-scan/backend-image.tar
-	@$(DOCKER_COMPOSE) run --rm -e TRIVY_INPUT=tmp/trivy-scan/backend-image.tar run-trivy-scan
+	@# Pass host UID/GID so the (root) container hands tmp/trivy-scan ownership
+	@# back to us; otherwise root-owned output breaks later `make up` writes to tmp/.
+	@$(DOCKER_COMPOSE) run --rm \
+		-e TRIVY_INPUT=tmp/trivy-scan/backend-image.tar \
+		-e HOST_UID=$$(id -u) -e HOST_GID=$$(id -g) \
+		run-trivy-scan
 	@echo ""
 	@echo "✅ All security checks completed (trivy-scan)"
 
 ##@ Markdown
 
-# markdownlint-cli2 runs via npx (the npm package) — needs only Node/npm on PATH
+# All Markdown tooling config lives under docs/markdown-tooling/:
+#   - .markdownlint-cli2.jsonc : markdownlint config (loaded via --config)
+#   - markdownlint-rules/      : custom .cjs house rules
+#   - mdformat-sdep/           : local mdformat plugin (thematic breaks as "---")
+# markdownlint-cli2 runs via npx (the npm package) — needs only Node/npm on PATH.
 # This works both locally and in CI: the GitLab toolbox image has npm but no
 # Docker mountpoint. mdformat runs via uv/uvx (Python): mdformat-gfm aligns tables and
-# the local .mdformat-sdep plugin renders thematic breaks as "---" (house rule).
+# the local mdformat-sdep plugin renders thematic breaks as "---" (house rule).
+MARKDOWN_TOOLING := docs/markdown-tooling
 MARKDOWNLINT_VERSION := 0.18.1
-MARKDOWNLINT := npx --yes markdownlint-cli2@$(MARKDOWNLINT_VERSION)
+MARKDOWNLINT := npx --yes markdownlint-cli2@$(MARKDOWNLINT_VERSION) --config $(MARKDOWN_TOOLING)/.markdownlint-cli2.jsonc
 MARKDOWNLINT_FIX := $(MARKDOWNLINT) --fix
-MDFORMAT := uvx --from mdformat==1.0.0 --with mdformat-gfm==1.0.0 --with ./.mdformat-sdep mdformat --number
+MDFORMAT := uvx --from mdformat==1.0.0 --with mdformat-gfm==1.0.0 --with ./$(MARKDOWN_TOOLING)/mdformat-sdep mdformat --number
 MDFORMAT_FILES := README.md CLAUDE.md docs
 
 md-lint: ## Lint Markdown (markdownlint + mdformat --check); CI gate

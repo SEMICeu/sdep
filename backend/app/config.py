@@ -51,6 +51,15 @@ class Settings(BaseSettings):
         default="",
         description="Keycloak server URL for token endpoint",
     )
+    # Client credentials flow (client_id/client_secret authentication) is considered as less-secure.
+    # Default false, only recommended in local- and test environments and test environments.
+    CLIENT_CREDENTIALS_FLOW_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Allow client credentials flow. "
+            "Disabled by default; only allow in local- and test environments "
+        ),
+    )
 
     # Malware scan settings
     MALWARE_SCAN_ENABLED: bool = Field(

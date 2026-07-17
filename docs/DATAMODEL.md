@@ -67,6 +67,7 @@ Standard attribute pattern:
 **Class Constraints:**
 
 - UNIQUE (`competentAuthorityId`, `clientId`, `createdAt`) = functional id, owner, version timestamp
+- UNIQUE current (`clientId`) where `endedAt` is `null` = one active competent authority per auth client
 
 **Clarifications:**
 
@@ -99,6 +100,7 @@ Standard attribute pattern:
 **Class Constraints:**
 
 - UNIQUE (`platformId`, `clientId`, `createdAt`) = functional id, owner, version timestamp
+- UNIQUE current (`clientId`) where `endedAt` is `null` = one active platform per auth client
 
 **Clarifications:**
 
@@ -133,6 +135,7 @@ Standard attribute pattern:
 **Class Constraints:**
 
 - UNIQUE (`areaId`, `competentAuthority`, `createdAt`) = functional id, owner, version timestamp
+- UNIQUE current (`areaId`, `competentAuthority`) where `endedAt` is `null` = one active area version per competent authority
 - CHECK (`areaId` matches `^[A-Za-z0-9-]+$`)
 
 **Clarifications:**

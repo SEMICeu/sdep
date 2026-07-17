@@ -43,6 +43,10 @@ class _MockAsyncClient:
         return self.response
 
 
+def _enable_client_credentials_flow(monkeypatch):
+    monkeypatch.setattr(auth_router.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", True)
+
+
 @pytest.mark.asyncio
 class TestAuthRouter:
     async def test_token_uses_basic_auth_credentials(self, monkeypatch):
@@ -57,6 +61,7 @@ class TestAuthRouter:
             )
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        _enable_client_credentials_flow(monkeypatch)
         monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         credentials = base64.b64encode(b"client-a:secret-a").decode()
@@ -89,6 +94,7 @@ class TestAuthRouter:
             response=_MockResponse(200, {"access_token": "abc"})
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example/")
+        _enable_client_credentials_flow(monkeypatch)
         monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         credentials = base64.b64encode(b"basic-client:basic-secret").decode()
@@ -106,6 +112,168 @@ class TestAuthRouter:
         assert response.json()["expires_in"] == 300
         assert fake_client.calls[0]["data"]["client_id"] == "form-client"
         assert fake_client.calls[0]["data"]["client_secret"] == "form-secret"
+
+    async def test_token_accepts_client_signed_jwt_credentials(self, monkeypatch):
+        fake_client = _MockAsyncClient(
+            response=_MockResponse(200, {"access_token": "assertion-token"})
+        )
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example/")
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={
+                    "client_id": "client-a",
+                    "client_signed_jwt": "signed.jwt.assertion",
+                },
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["access_token"] == "assertion-token"
+        assert fake_client.calls[0]["data"] == {
+            "grant_type": "client_credentials",
+            "client_id": "client-a",
+            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            "client_assertion": "signed.jwt.assertion",
+        }
+
+    async def test_token_rejects_form_secret_credentials_when_disabled(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        monkeypatch.setattr(
+            auth_router.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", False
+        )
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={"client_id": "client-a", "client_secret": "secret-a"},
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert (
+            "use client-signed JWT authentication"
+            in response.json()["detail"][0]["msg"]
+        )
+
+    async def test_token_rejects_basic_secret_credentials_when_disabled(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        monkeypatch.setattr(
+            auth_router.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", False
+        )
+
+        credentials = base64.b64encode(b"client-a:secret-a").decode()
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                headers={"Authorization": f"Basic {credentials}"},
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert (
+            "use client-signed JWT authentication"
+            in response.json()["detail"][0]["msg"]
+        )
+
+    async def test_token_accepts_client_signed_jwt_when_secret_auth_disabled(
+        self, monkeypatch
+    ):
+        fake_client = _MockAsyncClient(
+            response=_MockResponse(200, {"access_token": "assertion-token"})
+        )
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example/")
+        monkeypatch.setattr(
+            auth_router.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", False
+        )
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={
+                    "client_id": "client-a",
+                    "client_signed_jwt": "signed.jwt.assertion",
+                },
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["access_token"] == "assertion-token"
+        assert fake_client.calls[0]["data"] == {
+            "grant_type": "client_credentials",
+            "client_id": "client-a",
+            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            "client_assertion": "signed.jwt.assertion",
+        }
+
+    async def test_token_rejects_mixed_secret_and_client_signed_jwt_credentials(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={
+                    "client_id": "client-a",
+                    "client_secret": "secret-a",
+                    "client_signed_jwt": "signed.jwt.assertion",
+                },
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert (
+            "Use either client secret credentials"
+            in response.json()["detail"][0]["msg"]
+        )
+        assert "client-signed JWT credentials" in response.json()["detail"][0]["msg"]
+
+    async def test_token_rejects_client_signed_jwt_without_client_id(self, monkeypatch):
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={
+                    "client_signed_jwt": "signed.jwt.assertion",
+                },
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "client_id is required" in response.json()["detail"][0]["msg"]
+        assert "client-signed JWT authentication" in response.json()["detail"][0]["msg"]
+
+    async def test_token_rejects_partial_secret_credentials(self, monkeypatch):
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={"client_id": "client-a"},
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert (
+            "Client credentials must be provided via HTTP Basic Auth or form parameters"
+            in response.json()["detail"][0]["msg"]
+        )
 
     async def test_token_rejects_missing_credentials_after_bad_basic_auth(
         self, monkeypatch
@@ -127,6 +295,7 @@ class TestAuthRouter:
 
     async def test_token_rejects_missing_keycloak_configuration(self, monkeypatch):
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "")
+        _enable_client_credentials_flow(monkeypatch)
 
         async with AsyncClient(
             transport=ASGITransport(app=app_auth_v1), base_url="http://test"
@@ -147,6 +316,7 @@ class TestAuthRouter:
             response=_MockResponse(401, {"error_description": "bad credentials"})
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        _enable_client_credentials_flow(monkeypatch)
         monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(
@@ -168,6 +338,7 @@ class TestAuthRouter:
             response=_MockResponse(401, json_error=ValueError("not json"))
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        _enable_client_credentials_flow(monkeypatch)
         monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(
@@ -187,6 +358,7 @@ class TestAuthRouter:
             error=httpx.RequestError("network down", request=request)
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        _enable_client_credentials_flow(monkeypatch)
         monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(
@@ -210,6 +382,7 @@ class TestAuthRouter:
             response=_MockResponse(200, json_error=ValueError("not json"))
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        _enable_client_credentials_flow(monkeypatch)
         monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(
@@ -233,6 +406,7 @@ class TestAuthRouter:
             response=_MockResponse(200, ["not", "an", "object"])
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        _enable_client_credentials_flow(monkeypatch)
         monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(
@@ -256,6 +430,7 @@ class TestAuthRouter:
             response=_MockResponse(200, {"token_type": "bearer", "expires_in": 300})
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        _enable_client_credentials_flow(monkeypatch)
         monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(
@@ -279,6 +454,7 @@ class TestAuthRouter:
             response=_MockResponse(200, {"access_token": ""})
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        _enable_client_credentials_flow(monkeypatch)
         monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(

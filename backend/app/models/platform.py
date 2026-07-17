@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, String, UniqueConstraint, func
+from sqlalchemy import DateTime, Index, String, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.config import Base
@@ -31,6 +31,15 @@ class Platform(Base):
             "client_id",
             "created_at",
             name="uq_platform_platform_id_client_id_created_at",
+        ),
+        # At most one current platform (ended_at IS NULL) per client_id, so the
+        # current-row lookup (scalar_one_or_none) can never find duplicates.
+        Index(
+            "uq_platform_current_client_id",
+            "client_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL"),
+            sqlite_where=text("ended_at IS NULL"),
         ),
     )
 

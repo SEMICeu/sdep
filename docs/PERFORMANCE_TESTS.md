@@ -57,7 +57,8 @@ Both are invoked via `make test-perf`.
 
 **Design:**
 
-- Authenticates via OAuth2 client credentials (same flow as integration tests)
+- Authenticates through the current integration-test path, which uses client credentials flow with `client_id`/`client_secret` credentials
+- Requires `CLIENT_CREDENTIALS_FLOW_ENABLED=true` on the backend under test
 - Generates realistic activity payloads with randomized addresses, guest counts, and country codes
 - Submits batches via `POST /api/str/v1/activities/bulk` at maximum throughput
 - Collects per-request success/failure counts from the bulk response body

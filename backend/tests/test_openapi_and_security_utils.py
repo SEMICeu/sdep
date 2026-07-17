@@ -7,6 +7,7 @@ from app.api.common import openapi as openapi_utils
 from app.api.common import security as common_security
 from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common.security import OAuth2ClientCredentials
+from app.api.domains.ca.v1 import app_ca_v1
 from app.security.audit import _extract_jwt_roles
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.openapi.models import OAuthFlows
@@ -482,6 +483,82 @@ async def test_create_verify_bearer_token_dependency_and_oauth2_client_credentia
     soft = OAuth2ClientCredentials(flows=OAuthFlows(), auto_error=False)
     assert await soft(_request()) is None
     assert await strict(_request(auth="Bearer hello")) == "hello"
+
+
+def _generate_ca_v1_openapi(*, flow_enabled: bool, monkeypatch) -> dict:
+    """Regenerate the CA v1 OpenAPI with the client-credentials flag toggled.
+
+    The domain app caches its schema, so reset the cache before and after to keep
+    this from leaking into other tests that read the default contract.
+    """
+    monkeypatch.setattr(
+        openapi_utils.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", flow_enabled
+    )
+    app_ca_v1.openapi_schema = None
+    try:
+        return app_ca_v1.openapi()
+    finally:
+        app_ca_v1.openapi_schema = None
+
+
+def _security_requirements(schema: dict) -> list[dict]:
+    return [
+        requirement
+        for path_item in schema.get("paths", {}).values()
+        for operation in path_item.values()
+        if isinstance(operation, dict)
+        for requirement in (operation.get("security") or [])
+    ]
+
+
+def test_docs_keep_oauth2_scheme_when_client_credentials_enabled(monkeypatch):
+    """With the flow enabled, the docs expose the OAuth2 (client credentials) Authorize button."""
+    schema = _generate_ca_v1_openapi(flow_enabled=True, monkeypatch=monkeypatch)
+
+    schemes = schema["components"]["securitySchemes"]
+    assert schemes["OAuth2ClientCredentials"]["type"] == "oauth2"
+    assert "BearerAuth" not in schemes
+
+    requirements = _security_requirements(schema)
+    assert requirements
+    assert all("OAuth2ClientCredentials" in req for req in requirements)
+
+
+def test_docs_expose_bearer_scheme_when_client_credentials_disabled(monkeypatch):
+    """With the flow disabled, the non-functional OAuth2 button becomes a Bearer paste field."""
+    schema = _generate_ca_v1_openapi(flow_enabled=False, monkeypatch=monkeypatch)
+
+    schemes = schema["components"]["securitySchemes"]
+    assert "OAuth2ClientCredentials" not in schemes
+    assert schemes["BearerAuth"] == {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+    }
+
+    requirements = _security_requirements(schema)
+    assert requirements
+    assert all("BearerAuth" in req for req in requirements)
+
+
+def test_docs_untouched_when_no_oauth2_scheme_and_client_credentials_disabled(
+    monkeypatch,
+):
+    """A schema without an OAuth2 client-credentials scheme is returned unchanged.
+
+    The bearer swap only applies where an OAuth2 client-credentials scheme exists;
+    a schema that lacks one has nothing to rewrite and is passed through even when
+    the flow is disabled.
+    """
+    monkeypatch.setattr(
+        openapi_utils.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", False
+    )
+    schema = {"components": {"securitySchemes": {}}, "paths": {}}
+
+    result = openapi_utils.use_bearer_scheme_when_client_credentials_disabled(schema)
+
+    assert result is schema
+    assert result["components"]["securitySchemes"] == {}
 
 
 def test_extract_jwt_roles_reads_from_request_state():

@@ -380,15 +380,15 @@ The wrapper references another named component for the item type:
 
 For production use in your own country, the utilization of a separate API gateway can be considered (on top of the SDEP API).
 
-Within **SDEP NL**, a dedicated API gateway is currently **not** used. This is a deliberate choice based on how the platform is designed and operated. Only when specific edge-control requirements arise that cannot be handled by the existing ingress/reverse proxy setup, an additional gateway could be introduced.
+Within **SDEP-NL**, a dedicated API gateway is currently **not** used. This is a deliberate choice based on how the platform is designed and operated. Only when specific edge-control requirements arise that cannot be handled by the existing ingress/reverse proxy setup, an additional gateway could be introduced.
 
 ---
 
 ### Motivation
 
-In context of SDEP NL:
+In context of SDEP-NL:
 
-- **SDEP NL already provides clear API boundaries** \
+- **SDEP-NL already provides clear API boundaries** \
   The SDEP API itself acts as a functional gateway for data exchange, with well-defined domains (`str` vs `ca`), OAuth2 client credential flows, and strict role separation.
 
 - **Workload is primarily transactional, not cache-driven** \
@@ -423,4 +423,4 @@ Introducing a gateway could become relevant when concrete needs arise, such as:
 
 ### Conclusion
 
-SDEP NL prioritizes a **simple, robust edge architecture**. A dedicated API gateway should only be introduced when clear non-functional requirements outweigh the added complexity.
+SDEP-NL prioritizes a **simple, robust edge architecture**. A dedicated API gateway should only be introduced when clear non-functional requirements outweigh the added complexity.

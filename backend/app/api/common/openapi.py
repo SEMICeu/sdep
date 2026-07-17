@@ -5,6 +5,8 @@ from typing import Any
 
 from fastapi import FastAPI
 
+from app.config import settings
+
 
 def replace_auto_generated_body_schemas(
     openapi_schema: dict[str, Any],
@@ -192,6 +194,65 @@ def sort_schemas_by_namespace(openapi_schema: dict[str, Any]) -> dict[str, Any]:
     return openapi_schema
 
 
+def use_bearer_scheme_when_client_credentials_disabled(
+    openapi_schema: dict[str, Any],
+) -> dict[str, Any]:
+    """Swap the OAuth2 client-credentials scheme for an HTTP Bearer scheme when the
+    client-credentials (client_secret) token flow is disabled.
+
+    Swagger UI's "Authorize" button for the OAuth2 client-credentials flow performs a
+    client_id/client_secret exchange against ``/token``. When
+    ``CLIENT_CREDENTIALS_FLOW_ENABLED`` is false that exchange is rejected, so the
+    button cannot obtain a token. Swagger cannot sign a client JWT itself, so rather
+    than drop authentication from the docs entirely we expose a plain Bearer scheme:
+    the operator obtains a token out of band (client-signed JWT) and pastes it into
+    Authorize to exercise protected endpoints.
+
+    This only rewrites the OpenAPI document the docs are rendered from; runtime
+    bearer-token verification is unchanged. When the flow is enabled the schema is
+    returned untouched.
+    """
+    if settings.CLIENT_CREDENTIALS_FLOW_ENABLED:
+        return openapi_schema
+
+    components = openapi_schema.get("components", {})
+    security_schemes = components.get("securitySchemes", {})
+
+    oauth2_names = {
+        name
+        for name, scheme in security_schemes.items()
+        if scheme.get("type") == "oauth2"
+        and "clientCredentials" in scheme.get("flows", {})
+    }
+    if not oauth2_names:
+        return openapi_schema
+
+    bearer_name = "BearerAuth"
+    for name in oauth2_names:
+        del security_schemes[name]
+    security_schemes[bearer_name] = {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+    }
+    components["securitySchemes"] = security_schemes
+    openapi_schema["components"] = components
+
+    # Repoint every operation's security requirement at the Bearer scheme.
+    for path_item in openapi_schema.get("paths", {}).values():
+        for operation in path_item.values():
+            security = operation.get("security")
+            if security:
+                operation["security"] = [
+                    {bearer_name: []}
+                    if any(scheme_name in oauth2_names for scheme_name in requirement)
+                    else requirement
+                    for requirement in security
+                ]
+
+    return openapi_schema
+
+
 def create_custom_openapi(app: FastAPI) -> Callable:
     """Factory function to create a custom OpenAPI schema generator.
 
@@ -230,6 +291,12 @@ def create_custom_openapi(app: FastAPI) -> Callable:
 
         # Sort schemas by namespace first, then alphabetically
         openapi_schema = sort_schemas_by_namespace(openapi_schema)
+
+        # When the client-credentials flow is disabled, present a Bearer scheme in
+        # the docs instead of the (non-functional) OAuth2 Authorize flow.
+        openapi_schema = use_bearer_scheme_when_client_credentials_disabled(
+            openapi_schema
+        )
 
         # Cache the schema
         app.openapi_schema = openapi_schema

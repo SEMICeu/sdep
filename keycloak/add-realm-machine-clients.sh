@@ -13,6 +13,44 @@ UNMODIFIED_ITEMS=""
 DELETED_ITEMS=""
 REJECTED_ITEMS=""
 
+# Convert the declarative PEM public key from machine-clients.yaml to the JWKS
+# string format Keycloak stores in the client attribute "jwks.string".
+#
+# The helper accepts the PEM body and the Keycloak key id. It rejects non-RSA
+# keys and RSA keys smaller than 2048 bits, then emits a single-key JWKS object
+# containing only the public RSA parameters (kty, n, e) plus use=sig, alg=RS256,
+# and the configured kid. Private key material is never read or stored here.
+build_jwks_from_public_key_pem() {
+    local public_key_pem="$1"
+    local kid="$2"
+
+    PUBLIC_KEY_PEM="$public_key_pem" JWK_KID="$kid" uv run --project backend python - <<'PY'
+import json
+import os
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from jwt.algorithms import RSAAlgorithm
+
+public_key = serialization.load_pem_public_key(os.environ["PUBLIC_KEY_PEM"].encode())
+if not isinstance(public_key, rsa.RSAPublicKey):
+    raise TypeError("public_key_pem must contain an RSA public key")
+if public_key.key_size < 2048:
+    raise ValueError("public_key_pem must contain an RSA public key of at least 2048 bits")
+
+jwk = json.loads(RSAAlgorithm.to_jwk(public_key))
+jwk = {
+    "kty": jwk["kty"],
+    "n": jwk["n"],
+    "e": jwk["e"],
+    "use": "sig",
+    "alg": "RS256",
+    "kid": os.environ["JWK_KID"],
+}
+print(json.dumps({"keys": [jwk]}, separators=(",", ":")))
+PY
+}
+
 # Check required variables
 if [ -z "${KC_BASE_URL:-}" ]; then
     echo "❌ Error: KC_BASE_URL is not set (commandline .env* or in pipeline)" >&2
@@ -134,7 +172,53 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
     CLIENT_NAME=$(yq -r ".clients[$i].name" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
     CLIENT_DESC=$(yq -r ".clients[$i].description" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
     CLIENT_SECRET=$(yq -r ".clients[$i].secret" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
+    CLIENT_AUTH_TYPE=$(yq -r ".clients[$i].auth_type // \"client-secret\"" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
+    PUBLIC_KEY_PEM=$(yq -r ".clients[$i].public_key_pem // \"\"" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
+    JWKS_KID=$(yq -r ".clients[$i].jwks_kid // \"$CLIENT_ID\"" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
     ACCESS_TOKEN_LIFESPAN=$(yq -r ".clients[$i].access_token_lifespan // \"\"" "$KC_APP_REALM_MACHINE_CLIENT_YAML")
+    JWKS_JSON=""
+    TOKEN_ENDPOINT_AUTH_SIGNING_ALG=""
+
+    if [ "$CLIENT_AUTH_TYPE" != "client-secret" ] && [ "$CLIENT_AUTH_TYPE" != "client-jwt" ]; then
+        echo "❌ Error: auth_type for $CLIENT_ID must be 'client-secret' or 'client-jwt'" >&2
+        exit 1
+    fi
+
+    if [ "$CLIENT_AUTH_TYPE" = "client-jwt" ]; then
+        TOKEN_ENDPOINT_AUTH_SIGNING_ALG="RS256"
+    fi
+
+    if [ "$(yq -r ".clients[$i] | has(\"jwks_url\")" "$KC_APP_REALM_MACHINE_CLIENT_YAML")" = "true" ]; then
+        echo "❌ Error: $CLIENT_ID uses unsupported jwks_url; use public_key_pem instead" >&2
+        exit 1
+    fi
+
+    if [ "$(yq -r ".clients[$i] | has(\"jwks_json\")" "$KC_APP_REALM_MACHINE_CLIENT_YAML")" = "true" ]; then
+        echo "❌ Error: $CLIENT_ID uses unsupported jwks_json; use public_key_pem instead" >&2
+        exit 1
+    fi
+
+    JWKS_SOURCE_COUNT=0
+    if [ -n "$PUBLIC_KEY_PEM" ]; then JWKS_SOURCE_COUNT=$((JWKS_SOURCE_COUNT + 1)); fi
+
+    if [ "$JWKS_SOURCE_COUNT" -gt 1 ]; then
+        echo "❌ Error: $CLIENT_ID defines multiple public key sources; use public_key_pem" >&2
+        exit 1
+    fi
+
+    if [ "$CLIENT_AUTH_TYPE" = "client-jwt" ] && [ "$JWKS_SOURCE_COUNT" -eq 0 ]; then
+        echo "❌ Error: $CLIENT_ID uses client-jwt but has no public_key_pem" >&2
+        exit 1
+    fi
+
+    if [ -n "$PUBLIC_KEY_PEM" ]; then
+        JWKS_JSON=$(build_jwks_from_public_key_pem "$PUBLIC_KEY_PEM" "$JWKS_KID")
+    fi
+
+    if [ -n "$JWKS_JSON" ] && ! echo "$JWKS_JSON" | jq -e '.keys | type == "array" and all(.[]; (.kty == "RSA") and ((.alg // "RS256") == "RS256"))' > /dev/null; then
+        echo "❌ Error: jwks_json for $CLIENT_ID must be a JWKS object with RSA keys and RS256 algorithm" >&2
+        exit 1
+    fi
 
     echo "🔍 Checking if client $CLIENT_ID exists..."
     CLIENT_CHECK=$(curl -s -H "Authorization: Bearer $TOKEN" \
@@ -146,7 +230,18 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
         # Compare YAML values with current Keycloak state
         CURRENT_NAME=$(echo "$CLIENT_CHECK" | jq -r '.[0].name // ""')
         CURRENT_DESC=$(echo "$CLIENT_CHECK" | jq -r '.[0].description // ""')
+        CURRENT_AUTHENTICATOR=$(echo "$CLIENT_CHECK" | jq -r '.[0].clientAuthenticatorType // "client-secret"')
         CURRENT_LIFESPAN=$(echo "$CLIENT_CHECK" | jq -r '.[0].attributes["access.token.lifespan"] // ""')
+        CURRENT_USE_JWKS_URL=$(echo "$CLIENT_CHECK" | jq -r '.[0].attributes["use.jwks.url"] // ""')
+        CURRENT_JWKS_URL=$(echo "$CLIENT_CHECK" | jq -r '.[0].attributes["jwks.url"] // ""')
+        CURRENT_USE_JWKS_STRING=$(echo "$CLIENT_CHECK" | jq -r '.[0].attributes["use.jwks.string"] // ""')
+        CURRENT_JWKS_JSON=$(echo "$CLIENT_CHECK" | jq -r '.[0].attributes["jwks.string"] // ""')
+        CURRENT_TOKEN_ENDPOINT_AUTH_SIGNING_ALG=$(echo "$CLIENT_CHECK" | jq -r '.[0].attributes["token.endpoint.auth.signing.alg"] // ""')
+
+        EXPECTED_USE_JWKS_STRING=""
+        if [ -n "$JWKS_JSON" ]; then
+            EXPECTED_USE_JWKS_STRING="true"
+        fi
 
         NEEDS_UPDATE=false
         if [ "$CURRENT_NAME" != "$CLIENT_NAME" ]; then
@@ -157,13 +252,37 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
             NEEDS_UPDATE=true
             CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }description changed"
         fi
+        if [ "$CURRENT_AUTHENTICATOR" != "$CLIENT_AUTH_TYPE" ]; then
+            NEEDS_UPDATE=true
+            CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }auth type changed"
+        fi
+        if [ "$CURRENT_TOKEN_ENDPOINT_AUTH_SIGNING_ALG" != "$TOKEN_ENDPOINT_AUTH_SIGNING_ALG" ]; then
+            NEEDS_UPDATE=true
+            CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }token endpoint auth signing algorithm changed"
+        fi
         if [ "$CURRENT_LIFESPAN" != "$ACCESS_TOKEN_LIFESPAN" ]; then
             NEEDS_UPDATE=true
             CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }token lifespan changed"
         fi
+        if [ "$CURRENT_USE_JWKS_URL" != "" ]; then
+            NEEDS_UPDATE=true
+            CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }JWKS URL mode removed"
+        fi
+        if [ "$CURRENT_JWKS_URL" != "" ]; then
+            NEEDS_UPDATE=true
+            CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }JWKS URL removed"
+        fi
+        if [ "$CURRENT_USE_JWKS_STRING" != "$EXPECTED_USE_JWKS_STRING" ]; then
+            NEEDS_UPDATE=true
+            CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }inline JWKS mode changed"
+        fi
+        if [ "$CURRENT_JWKS_JSON" != "$JWKS_JSON" ]; then
+            NEEDS_UPDATE=true
+            CLIENT_CHANGES="${CLIENT_CHANGES:+$CLIENT_CHANGES, }inline JWKS changed"
+        fi
 
         # Check secret if defined in YAML
-        if [ "$CLIENT_SECRET" != "null" ] && [ -n "$CLIENT_SECRET" ]; then
+        if [ "$CLIENT_AUTH_TYPE" = "client-secret" ] && [ "$CLIENT_SECRET" != "null" ] && [ -n "$CLIENT_SECRET" ]; then
             CURRENT_SECRET_RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" \
                 "${KC_BASE_URL}/admin/realms/${REALM_NAME}/clients/$CLIENT_UUID/client-secret")
             CURRENT_SECRET=$(echo "$CURRENT_SECRET_RESPONSE" | jq -r '.value // ""')
@@ -178,9 +297,10 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
             UPDATE_DATA=$(echo "$CLIENT_CHECK" | jq \
                 --arg name "$CLIENT_NAME" \
                 --arg description "$CLIENT_DESC" \
-                '.[0] | .name = $name | .description = $description')
+                --arg authenticator "$CLIENT_AUTH_TYPE" \
+                '.[0] | .name = $name | .description = $description | .clientAuthenticatorType = $authenticator')
 
-            if [ "$CLIENT_SECRET" != "null" ] && [ -n "$CLIENT_SECRET" ]; then
+            if [ "$CLIENT_AUTH_TYPE" = "client-secret" ] && [ "$CLIENT_SECRET" != "null" ] && [ -n "$CLIENT_SECRET" ]; then
                 UPDATE_DATA=$(echo "$UPDATE_DATA" | jq --arg secret "$CLIENT_SECRET" '.secret = $secret')
             fi
 
@@ -188,6 +308,22 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
                 UPDATE_DATA=$(echo "$UPDATE_DATA" | jq --arg lifespan "$ACCESS_TOKEN_LIFESPAN" '.attributes["access.token.lifespan"] = $lifespan')
             else
                 UPDATE_DATA=$(echo "$UPDATE_DATA" | jq 'del(.attributes["access.token.lifespan"])')
+            fi
+
+            if [ -n "$TOKEN_ENDPOINT_AUTH_SIGNING_ALG" ]; then
+                UPDATE_DATA=$(echo "$UPDATE_DATA" | jq \
+                    --arg alg "$TOKEN_ENDPOINT_AUTH_SIGNING_ALG" \
+                    '.attributes["token.endpoint.auth.signing.alg"] = $alg')
+            else
+                UPDATE_DATA=$(echo "$UPDATE_DATA" | jq 'del(.attributes["token.endpoint.auth.signing.alg"])')
+            fi
+
+            if [ -n "$JWKS_JSON" ]; then
+                UPDATE_DATA=$(echo "$UPDATE_DATA" | jq \
+                    --arg jwksJson "$JWKS_JSON" \
+                    '.attributes["use.jwks.string"] = "true" | .attributes["jwks.string"] = $jwksJson | del(.attributes["use.jwks.url"], .attributes["jwks.url"])')
+            else
+                UPDATE_DATA=$(echo "$UPDATE_DATA" | jq 'del(.attributes["use.jwks.url"], .attributes["jwks.url"], .attributes["use.jwks.string"], .attributes["jwks.string"])')
             fi
 
             UPDATE_RESPONSE=$(curl -s -X PUT "${KC_BASE_URL}/admin/realms/${REALM_NAME}/clients/$CLIENT_UUID" \
@@ -226,14 +362,27 @@ for i in "${VALID_INDICES[@]+"${VALID_INDICES[@]}"}"; do
             --arg clientId "$CLIENT_ID" \
             --arg name "$CLIENT_NAME" \
             --arg description "$CLIENT_DESC" \
-            '{clientId: $clientId, name: $name, description: $description, protocol: "openid-connect", publicClient: false, serviceAccountsEnabled: true, standardFlowEnabled: false, directAccessGrantsEnabled: false, enabled: true}')
+            --arg authenticator "$CLIENT_AUTH_TYPE" \
+            '{clientId: $clientId, name: $name, description: $description, protocol: "openid-connect", publicClient: false, serviceAccountsEnabled: true, standardFlowEnabled: false, directAccessGrantsEnabled: false, enabled: true, clientAuthenticatorType: $authenticator}')
 
-        if [ "$CLIENT_SECRET" != "null" ] && [ -n "$CLIENT_SECRET" ]; then
+        if [ "$CLIENT_AUTH_TYPE" = "client-secret" ] && [ "$CLIENT_SECRET" != "null" ] && [ -n "$CLIENT_SECRET" ]; then
             CLIENT_DATA=$(echo "$CLIENT_DATA" | jq --arg secret "$CLIENT_SECRET" '.secret = $secret')
         fi
 
         if [ -n "$ACCESS_TOKEN_LIFESPAN" ]; then
             CLIENT_DATA=$(echo "$CLIENT_DATA" | jq --arg lifespan "$ACCESS_TOKEN_LIFESPAN" '.attributes["access.token.lifespan"] = $lifespan')
+        fi
+
+        if [ -n "$TOKEN_ENDPOINT_AUTH_SIGNING_ALG" ]; then
+            CLIENT_DATA=$(echo "$CLIENT_DATA" | jq \
+                --arg alg "$TOKEN_ENDPOINT_AUTH_SIGNING_ALG" \
+                '.attributes["token.endpoint.auth.signing.alg"] = $alg')
+        fi
+
+        if [ -n "$JWKS_JSON" ]; then
+            CLIENT_DATA=$(echo "$CLIENT_DATA" | jq \
+                --arg jwksJson "$JWKS_JSON" \
+                '.attributes["use.jwks.string"] = "true" | .attributes["jwks.string"] = $jwksJson')
         fi
 
         CREATE_RESPONSE=$(curl -s -X POST "${KC_BASE_URL}/admin/realms/${REALM_NAME}/clients" \

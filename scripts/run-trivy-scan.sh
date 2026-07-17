@@ -21,6 +21,19 @@ esac
 
 mkdir -p "$OUTPUT_DIR"
 
+# When this runs in a container as root against a bind-mounted repo (local
+# `make trivy`), any file written under $OUTPUT_DIR is created root-owned on the
+# host. That later breaks non-root writes elsewhere under tmp/ (e.g.
+# tmp/KC_APP_REALM_ADMIN_SECRET.txt during `make up`). If the caller passes its
+# host UID/GID, hand ownership of the output back on exit. No-op in CI, where the
+# job runs directly (not root over a bind mount) and HOST_UID is unset.
+restore_output_ownership() {
+  if [ -n "${HOST_UID:-}" ] && [ "$(id -u)" = "0" ]; then
+    chown -R "${HOST_UID}:${HOST_GID:-$HOST_UID}" "$OUTPUT_DIR" 2>/dev/null || true
+  fi
+}
+trap restore_output_ownership EXIT
+
 RESULTS_JSON="$OUTPUT_DIR/trivy-results.json"
 FOUND_CVES="$OUTPUT_DIR/found-cves.txt"
 ALLOWED_CVES="$OUTPUT_DIR/allowed-cves.txt"
