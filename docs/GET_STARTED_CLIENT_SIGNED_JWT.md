@@ -5,7 +5,6 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
 <h2>Table of Contents</h2>
 
 - [Introduction](#introduction)
-- [Actions](#actions)
 - [Step 1. Configure Keypair (admin)](#step-1-configure-keypair-admin)
   - [1a. Local](#1a-local)
   - [1b. PRE, PRD](#1b-pre-prd)
@@ -24,22 +23,24 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
 
 SDEP supports **OAuth 2.0** with the **Client Credentials grant**.
 
-The Client Credentials grant supports two **client authentication** types:
+The Client Credentials grant supports **two authentication types**:
 
-- Client ID & secret
-- Client-signed JWT
+- **Client ID & secret**
+- **Client-signed JWT**
 
 Both authentication types operate on the same `/token` endpoint.
+
+---
 
 This document focuses on **client-signed JWT**.
 
 - See [Authentication and Authorization](./SECURITY.md#authentication-and-authorization) for more info on both authentication types
 
-## Actions
+---
 
 Client-signed JWT authentication uses a private/public key pair to get authenticated.
 
-Actions to be performed by **client** (admin/machine):
+Actions to be performed by **client** (admin/machine), furher explained in the following sections:
 
 - Create a **private/public key pair**
 - Keep the **private key** for yourself
@@ -53,11 +54,13 @@ Actions to be performed by **client** (admin/machine):
   - **Re-authenticate** on first failure or within 5 minutes (when `Bearer` tokens expire)
 - Rotate private/public key pair conform own security guidelines
 
-Actions to be performed by **team SDEP** (implemented for SDEP-NL):
+Actions to be performed by **team SDEP** (implemented for SDEP-NL), furher explained in the following sections:
 
 - Receive request for SDEP access from client (incl. public key)
 - Create a Keycloak machine client (with required roles) containing the public key (identified by `kid` = key-id)
 - Hand-out token request values (incl. `kid`) back to client
+
+Actions as follows:
 
 ## Step 1. Configure Keypair (admin)
 
