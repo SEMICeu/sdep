@@ -1,8 +1,10 @@
 <h1>Security</h1>
 
-SDEP is an API-first application built to support machine-to-machine (M2M) interactions.
+SDEP is an **API-first application** designed for **machine-to-machine (M2M) integrations**.
 
-The following security considerations apply:
+The following security considerations apply.
+
+<h2>Table of Contents</h2>
 
 - [Identification](#identification)
 - [Authentication and Authorization](#authentication-and-authorization)
@@ -31,22 +33,44 @@ The following security considerations apply:
 
 ## Identification
 
-Upfront identification of machine-clients is handled process-wise (outside the scope of this repo).
+Confidential machine clients must be identified upfront. This is assumed to be handled through established operational processes and is therefore outside the scope of this document.
 
 ## Authentication and Authorization
 
-**Framework**
+For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials grant** (`grant_type=client_credentials`). This is the standard framework for trusted machine-to-machine (M2M) communication.
 
-For authentication and authorization, SDEP adopts OAuth 2.0 with JWT-based authentication, the standard framework for trusted machine-to-machine (M2M) communication.
+The Client Credentials Grant supports two types of **client authentication**:
 
-**Implementation**
+- **Client ID & Secret**
+  - The client sends a static symmetric shared secret to an Authorization Server (`client_secret_post` / `client_secret_basic`).
+  - The reference implementation in this repository uses **Keycloak** as the authorization server.
+- **Client-Signed JWT**
+  - The client generates a short-lived JSON Web Token (JWT) and signs it using its own private key (`private_key_jwt`).
+  - An Authorization Server validates this request using the client's registered public key, offering a higher level of security since no shared secrets are transmitted over the wire.
 
-Two implementations are common:
+Both authentication types allow a confidential client (machine) to authenticate against the same `/token` endpoint, in order to acquire a **Bearer Access Token**.
 
-- **Client-signed JWT** (RFC 7523) - <https://datatracker.ietf.org/doc/html/rfc7523>
-- **Client credentials flow** (RFC 6749, section 4.4) - <https://datatracker.ietf.org/doc/html/rfc6749#section-4.4>
+While they both target the **Client Credentials Grant Type**, it is important to distinguish between the **workflow** and the **authentication method**:
 
-The client-signed JWT flow is regarded as most secure:
+- **The Flow (Grant Type):** There is only one underlying OAuth 2.0 flow being executed here - the **Client Credentials Flow**.
+  - This flow is designed for secure, machine-to-machine communication where no end-user context is required.
+- **The Authentication Methods:** The two approaches represent different mechanisms for the client to prove its identity *within* that flow:
+  - \*\*Client ID & Secret
+  - Client-Signed JWT
+
+---
+
+**Specification**
+
+- **Client Credentials grant** (RFC 6749, section 4.4) - <https://datatracker.ietf.org/doc/html/rfc6749#section-4.4>
+- **Client ID & Secret** (RFC 6749, section 2.3.1) - <https://datatracker.ietf.org/doc/html/rfc6749#section-2.3.1>
+- **Client-Signed JWT** (RFC 7523) - <https://datatracker.ietf.org/doc/html/rfc7523>
+
+---
+
+**Evaluation**
+
+Client-signed JWT is regarded as the most secure of the two methods:
 
 - The OAuth 2.0 Security Best Current Practice (RFC 9700, section 2.5) recommends asymmetric client authentication (private-key JWT per RFC 7523) over shared secrets, because the authorization server stores no symmetric key and there is no shared credential to leak - <https://datatracker.ietf.org/doc/html/rfc9700#section-2.5>.
 - Client-signed JWTs avoid distributing long-lived shared secrets to API clients.
@@ -54,37 +78,43 @@ The client-signed JWT flow is regarded as most secure:
 - This also makes key rotation explicit and keeps private key material outside SDEP configuration.
 - Interactive testing in the Swagger UI is supported, though it requires interaction with the /token endpoint first to acquire a bearer token
 
-The client credentials flow facilitates easier testing in the Swagger UI
+---
 
-- Interactive testing in the Swagger UI can directly be done, using client-id and secret.
+**Implementation**
 
-SDEP-NL supports both flows (via the same `/token` endpoint):
+SDEP-NL supports both authentication methods (via the same `/token` endpoint), however:
 
-- The Client-signed JWT is the only supported solution in Production environment
-- The Client credentials flow is additionally supported in the Test and Pre-Production environments
+- Both in the SDEP-NL Test and **Pre-Production** environments
+- Only client-signed JWT in the SDEP-NL **Production** environment
+
+---
 
 **Authentication**
 
 Authentication (obtaining a bearer token) proves who the client is, and can take place at the same `/token` endpoint, via:
 
 - Client-signed JWT (`client_signed_jwt`)
-- Client credentials flow (`client_id` and `client_secret`)
+- Client secret (`client_id` and `client_secret`)
 
-The Swagger UI **Authorize** button follows the application configuration `CLIENT_CREDENTIALS_FLOW_ENABLED`.
+The Swagger UI **Authorize** button follows the application configuration `CLIENT_SECRET_AUTH_ENABLED`.
 
-- When `CLIENT_CREDENTIALS_FLOW_ENABLED` is `true`:
-  - The Swagger UI uses the OAuth2 client credentials flow (client id and secret).
-- When `CLIENT_CREDENTIALS_FLOW_ENABLED` is `false`:
-  - The Swagger UI accepts a Bearer token that the operator obtained out of band via the client-signed JWT flow, because Swagger cannot sign a client JWT itself.
+- When `CLIENT_SECRET_AUTH_ENABLED` is `true`:
+  - The Swagger UI uses the OAuth 2.0 Client Credentials flow with client-secret authentication (client id and secret).
+- When `CLIENT_SECRET_AUTH_ENABLED` is `false`:
+  - The Swagger UI accepts a Bearer token that the operator obtained out of band with a client-signed JWT, because Swagger cannot sign a client JWT itself.
 
-**Authorization** determines what the client is allowed to do.
+---
 
-- Based on the client's identity and pre-configured permissions, the server issues an access token containing specific **scopes**.
+**Authorization**
+
+Authorization determines what the client is allowed to do.
+
+- Based on the client's identity and pre-configured permissions, the server issues an access token containing specific **scopes** (roles)
 - The client then presents this as a Bearer token during API calls to access protected resources.
 
-**Supported Scopes**
+Supported scopes (roles) are:
 
-| Role         | Purpose                              |
+| Scope (role) | Purpose                              |
 | :----------- | :----------------------------------- |
 | `sdep_ca`    | Competent Authority access           |
 | `sdep_str`   | STR Platform access                  |
@@ -92,7 +122,11 @@ The Swagger UI **Authorize** button follows the application configuration `CLIEN
 | `sdep_read`  | Read operations                      |
 | `sdep_write` | Write operations                     |
 
-**JWT Claims used by the application:**
+---
+
+**JWT Claims**
+
+JWT Claims used by the application:
 
 | Claim                | Maps to                                       |
 | :------------------- | :-------------------------------------------- |
@@ -176,18 +210,18 @@ Measures taken based on:
 
 | ID             | Subject                                         | Explanation                                                                               | Measure                                                                                        |
 | :------------- | :---------------------------------------------- | :---------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
-| **A01:2025**   | Broken Access Control                           | Unauthorized access to data or functions                                                  | Endpoints secured by OAuth2 with JWT                                                           |
+| **A01:2025**   | Broken Access Control                           | Unauthorized access to data or functions                                                  | Endpoints secured by OAuth 2.0 with JWT                                                        |
 | **A02:2025**   | Security misconfiguration                       | Bad configurations / insecure defaults / environment mistakes                             | Externalized config (`config.py`)                                                              |
 | **A03:2025**   | Software supply chain failures                  | Vulnerabilities in dependencies and external libraries                                    | [Container Image Scans](#container-image-scans) (part of CI/CD)                                |
 | **A04:2025**   | Cryptographic failures                          | Failures in encryption, key management                                                    | TLS terminated at Gateway (part of CI/CD); RS256 for JWT in IAM (e.g. Keycloak, part of CI/CD) |
 | **A05:2025**   | Injection                                       | Injection attacks (SQL, XSS, command, path, etc.)                                         | See section [XSS, CSP, SQL, Path (Injection)](#xss-csp-sql-path-injection) below               |
 | **A06:2025**   | Insecure design                                 | Poor security considered already at design/architecture phase                             | Security by design (SDEP documentation)                                                        |
-| **A07:2025**   | Authentication Failures                         | Weak or faulty authentication mechanisms (login, session management, credential handling) | Endpoints secured by OAuth2 with JWT                                                           |
+| **A07:2025**   | Authentication Failures                         | Weak or faulty authentication mechanisms (login, session management, credential handling) | Endpoints secured by OAuth 2.0 with JWT                                                        |
 | **A08:2025**   | Software or data integrity failures             | Failures in ensuring data / code integrity                                                | Pydantic validation (application) and source code control (part of CI/CD)                      |
 | **A09:2025**   | Logging and alerting failures                   | Insufficient or missing logging/monitoring, alerting of security-relevant events          | Audit log                                                                                      |
 | **A10:2025**   | Mishandling of exceptional conditions           | Improper handling of errors, exceptions, edge-cases, unexpected inputs or states          | Exception handling (`exception_handlers.py`)                                                   |
 | **API1:2023**  | Broken Object Level Authorization               | Unauthorized access to objects by manipulating IDs                                        | Object-level scoping via JWT `client_id` in service/CRUD layer                                 |
-| **API2:2023**  | Broken Authentication                           | Flawed identity verification allowing unauthorized access                                 | OAuth2 with JWT (RS256), JWKS key rotation, token proxy timeout                                |
+| **API2:2023**  | Broken Authentication                           | Flawed identity verification allowing unauthorized access                                 | OAuth 2.0 with JWT (RS256), JWKS key rotation, token proxy timeout                             |
 | **API3:2023**  | Broken Object Property Level Authorization      | Exposing sensitive properties or allowing unauthorized property modification              | Pydantic schemas (explicit fields, no mass assignment, `frozen=True` on auth models)           |
 | **API4:2023**  | Unrestricted Resource Consumption               | Missing limits on resources allowing DoS or cost exploitation                             | Upload/batch/pagination limits; rate limiting at deployment level                              |
 | **API5:2023**  | Broken Function Level Authorization             | Accessing admin or restricted functions without proper authorization                      | Role-based endpoint protection via `RequireRoles`                                              |
@@ -272,7 +306,7 @@ The Swagger UI is intentionally served publicly by FastAPI without authenticatio
 - As such, exposing the API documentation is considered an accepted and safe design decision rather than a security risk
 - Potential risks related to public Swagger UI exposure and unauthorized access to API documentation are therefore not applicable in this context
 
-Unauthorized usage of API endpoints is mitigated through the OAuth2 client credentials flow using JWT bearer tokens.
+Unauthorized usage of API endpoints is mitigated through the OAuth 2.0 Client Credentials flow using JWT bearer tokens.
 
 ## File Upload
 
@@ -359,19 +393,19 @@ To avoid data leaks, secrets are externalized in [`config.py`](https://github.co
 
 To avoid misuse on various layers, HTTP-headers are hardened in [`main.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/main.py) and [`headers.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/security/headers.py):
 
-| Layer                           | HTTP-header                                                                                                                      | Avoids                                                                                                             |
-| :------------------------------ | :------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Cache control (sensitive paths) | `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0` on `/api/auth/**`, `/api/ca/**`, `/api/str/**` | Cached responses leaking authentication tokens or personal data                                                    |
-| Content security                | `Content-Security-Policy: default-src 'self'; script-src 'self'; ...` (CSP)                                                      | Cross-site scripting (XSS), code injection, and data exfiltration                                                  |
-| Cross-origin                    | `Cross-Origin-Embedder-Policy: require-corp` (COEP)                                                                              | Cross-origin resource leaks via embedded content (consider `unsafe-none` if encountering 504 issues in deployment) |
-| Cross-origin                    | `Cross-Origin-Opener-Policy: same-origin` (COOP)                                                                                 | Browsing context from cross-origin openers                                                                         |
-| Cross-origin                    | `Cross-Origin-Resource-Policy: same-origin` (CORP)                                                                               | Other origins loading SDEP responses                                                                               |
-| Encryption                      | `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` (HSTS)                                                 | Plain (unencrypted) HTTP-sniffing                                                                                  |
-| Frame protection                | `frame-ancestors 'none'`                                                                                                         | Clickjacking                                                                                                       |
-| Frame protection                | `X-Frame-Options: DENY`                                                                                                          | Clickjacking                                                                                                       |
-| MIME protection                 | `X-Content-Type-Options: nosniff`                                                                                                | MIME-sniffing                                                                                                      |
-| Permissions                     | `Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()`                | Unauthorized access to device features (geolocation, microphone, ...)                                              |
-| Referrer policy                 | `Referrer-Policy: no-referrer`                                                                                                   | Information leakage via Referer                                                                                    |
+| Layer                           | HTTP-header                                                                                                                                     | Avoids                                                                                                             |
+| :------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Cache control (sensitive paths) | `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0` on `/api/auth/**`, `/api/ca/**`, `/api/str/**`, `/api/rep/**` | Cached responses leaking authentication tokens or personal data                                                    |
+| Content security                | `Content-Security-Policy: default-src 'self'; script-src 'self'; ...` (CSP)                                                                     | Cross-site scripting (XSS), code injection, and data exfiltration                                                  |
+| Cross-origin                    | `Cross-Origin-Embedder-Policy: require-corp` (COEP)                                                                                             | Cross-origin resource leaks via embedded content (consider `unsafe-none` if encountering 504 issues in deployment) |
+| Cross-origin                    | `Cross-Origin-Opener-Policy: same-origin` (COOP)                                                                                                | Browsing context from cross-origin openers                                                                         |
+| Cross-origin                    | `Cross-Origin-Resource-Policy: same-origin` (CORP)                                                                                              | Other origins loading SDEP responses                                                                               |
+| Encryption                      | `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` (HSTS)                                                                | Plain (unencrypted) HTTP-sniffing                                                                                  |
+| Frame protection                | `frame-ancestors 'none'`                                                                                                                        | Clickjacking                                                                                                       |
+| Frame protection                | `X-Frame-Options: DENY`                                                                                                                         | Clickjacking                                                                                                       |
+| MIME protection                 | `X-Content-Type-Options: nosniff`                                                                                                               | MIME-sniffing                                                                                                      |
+| Permissions                     | `Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()`                               | Unauthorized access to device features (geolocation, microphone, ...)                                              |
+| Referrer policy                 | `Referrer-Policy: no-referrer`                                                                                                                  | Information leakage via Referer                                                                                    |
 
 Although CI/CD-related aspects are outside the scope of this repo, test results for SDEP-NL are as follows.
 
@@ -380,7 +414,7 @@ Although CI/CD-related aspects are outside the scope of this repo, test results 
 
 Note: The `Access-Control-Allow-Origin` (CORS) header is not applicable for SDEP.
 
-- SDEP is a backend API consumed by server-side clients using machine-to-machine (M2M) OAuth2 tokens
+- SDEP is a backend API consumed by server-side clients using machine-to-machine (M2M) OAuth 2.0 tokens
   - Server-to-server calls do not go through a browser
   - So CORS is never triggered
 - Swagger UI is served from the same origin as the API
@@ -493,15 +527,34 @@ See [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/co
 
 A JWT can contain an `aud` (audience) claim that says *which application* the token was issued for. When an application checks `aud`, it rejects tokens that were meant for a different service - even if the signature is valid. This prevents a token issued for Service A from being reused against Service B.
 
-SDEP currently does **not** check `aud`. The reason is practical: Keycloak does not include an `aud` claim in the client credentials tokens it issues to SDEP clients by default. If SDEP started requiring `aud`, every existing client would be rejected until the Keycloak configuration is updated to include it.
+Two different JWTs occur in SDEP, and `aud` is treated differently in each. Which client authentication method was used does not change this: both client secret and client-signed JWT lead to the same kind of access token.
 
-As SDEP is the only application in the Keycloak realm, the aud claim will always originate from SDEP itself. Therefore this has no security impact.
+| JWT                                    | Sent to                        | `aud` checked | Checked by |
+| :------------------------------------- | :----------------------------- | :------------ | :--------- |
+| Client assertion (`client_signed_jwt`) | `/token`, to authenticate      | Yes           | Keycloak   |
+| Access token (`Bearer`)                | The API, to authorize the call | No            | -          |
 
-The current validation guarantees are therefore:
+---
+
+**Client assertion**
+
+With client-signed JWT (`private_key_jwt`), the client signs a short-lived assertion whose `aud` is the authorization server's token endpoint. SDEP does not inspect that assertion: it forwards it to Keycloak as `client_assertion`, and Keycloak validates the signature against the registered public key **and** the `aud` against its own token endpoint. An assertion signed for a different token endpoint is rejected with HTTP 401.
+
+This audience binding is required by RFC 7523 and is what stops an intercepted assertion from being replayed against another authorization server. It is also why each environment configures its own `CLIENT_SIGNED_JWT_AUDIENCE`, matching the public issuer URL of that environment's Keycloak.
+
+---
+
+**Access token**
+
+The bearer token that SDEP itself verifies on each API call is **not** audience-checked. The reason is practical: Keycloak does not include an `aud` claim in the client credentials tokens it issues to SDEP clients by default. If SDEP started requiring `aud`, every existing client would be rejected until the Keycloak configuration is updated to include it.
+
+As SDEP is the only application in the Keycloak realm, the `aud` claim will always originate from SDEP itself. Therefore this has no security impact.
+
+The validation guarantees for the access token are therefore:
 
 - RS256 signature verification using Keycloak JWKS (proves the token was issued by Keycloak and has not been tampered with)
 - Expiry (`exp`) verification (rejects tokens that are no longer valid)
-- No `aud` verification (a valid Keycloak token for another service would be accepted)
+- No `aud` verification (a valid Keycloak token for another service in the same realm would be accepted)
 
 ---
 

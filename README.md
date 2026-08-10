@@ -5,17 +5,18 @@ Overview:
 - [Introduction](#introduction)
 - [Specification](#specification)
 - [Reference Implementation](#reference-implementation)
-- [Production](#production)
-- [Pre-production Testing](#pre-production-testing)
+- [Production (PRD)](#production-prd)
+- [Pre-production Testing (PRE)](#pre-production-testing-pre)
 - [Development](#development)
   - [Fullstack](#fullstack)
   - [Tests (Unit)](#tests-unit)
   - [Tests (Fullstack)](#tests-fullstack)
+  - [Tests (Migrations)](#tests-migrations)
   - [Tests (Performance)](#tests-performance)
+  - [Tests (Security)](#tests-security)
   - [Tests (All)](#tests-all)
-  - [Security](#security)
-  - [Tests (All) + Security](#tests-all-security)
-  - [Documentation](#documentation)
+  - [Markdown](#markdown)
+  - [All](#all)
 - [Functional Design](#functional-design)
 - [Technical Design](#technical-design)
 - [Getting started](#getting-started)
@@ -24,23 +25,21 @@ Overview:
 
 ## Introduction
 
-SDEP is established in accordance with EU legislation for short-term rental data exchange.
+SDEP is established in accordance with **EU legislation** for short-term rental data exchange.
 
 https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng
 
-In accordance with EU legislation, SDEP enables the following:
+In accordance with this legislation, SDEP supports the following capabilities:
 
-In accordance with EU legislation, SDEP supports the following capabilities:
+- **Ingesting data on regulated areas** from competent authorities (CAs)
+- **Providing data on regulated areas** to short-term rental platforms (STRs)
+- **Ingesting rental activity data** from STRs
+- **Providing rental activity data** to CAs and other relevant stakeholders
+- **Ingesting flagged listing data** from STRs
+- **Providing flagged listing data** to CAs and other relevant stakeholders
+- **Supporting statistical reporting** to reporting/statistics offices (REPs) and other relevant stakeholders
 
-- **Ingesting regulated area data** from competent authorities (CAs)
-- **Providing regulated area data** to short-term rental platforms (STRs)
-- **Ingesting rental activity data** from short-term rental platforms (STRs)
-- **Providing rental activity data** to competent authorities (CAs) and other relevant stakeholders
-- **Ingesting flagged listing data** from short-term rental platforms (STRs)
-- **Providing flagged listing data** to relevant stakeholders
-- **Supporting statistical reporting** for relevant stakeholders
-
-> **Note**: Support for flagged listings is currently under development.
+> **Note**: Support for flagged listings and statistical reporting is currently under development.
 
 ## Specification
 
@@ -48,26 +47,29 @@ This repository contains the **API specifications** for SDEP implementations acr
 
 **Harmonized components**
 
-- The **short-term rental (STR)** component is **harmonized at EU level** and is common to all SDEP implementations in EU Member States.
+- The short-term rental (**STR**) component is **harmonized at EU level**
+- It is common to all SDEP implementations in EU Member States.
 
 **National components**
 
-- The **competent authority (CA)** and **reporting/statistics (REP)** components are provided as **guidance only**.
+- The competent authority (**CA**) and reporting/statistics (**REP**) components are provided as **guidance only**.
 - Their implementation may vary between EU Member States to accommodate national legislation and administrative requirements.
 
 ## Reference Implementation
 
-This repository contains the **EU reference implementation** for SDEP implementations across EU Member States.
+This repository contains the **EU reference implementation** for SDEP implementations (CA, STR, REP) across EU Member States.
 
 The implementation is provided as **guidance only** and can serve as a **blueprint** for national implementations.
 
 The implementation may differ between EU Member States.
 
-## Production
+## Production (PRD)
 
-The reference implementation is deployed in production (**PRD**) in the Netherlands as **SDEP-NL** - https://sdep.gov.nl/api/docs.
+The reference implementation is deployed in production (**PRD**) in the Netherlands as **SDEP-NL**
 
-The PRD environment:
+- https://sdep.gov.nl/api/docs.
+
+The production environment (PRD):
 
 - Enables competent authorities (CA) and short-term rental platforms (STR) in the Netherlands to exchange regulated-area and rental-activity data in accordance with EU legislation
 - Includes the **EU-harmonized** short-term rental (STR) component
@@ -77,11 +79,13 @@ The PRD environment:
 
 For onboarding, see [Getting Started in PRD](./docs/GET_STARTED_PRD.md).
 
-## Pre-production Testing
+## Pre-production Testing (PRE)
 
-To facilitate end-to-end testing with integration partners, the reference implementation is also deployed in a dedicated pre-production environment (**PRE**) in the Netherlands within SDEP-NL - https://pre-sdep.minvro.nl/api/docs.
+To facilitate end-to-end testing with integration partners, the reference implementation is also deployed in a dedicated pre-production environment (**PRE**) in the Netherlands within SDEP-NL
 
-The PRE environment:
+- https://pre-sdep.minvro.nl/api/docs.
+
+The pre-production environment (PRE):
 
 - Enables integration partners to test integrations with the **EU-harmonized** short-term rental (STR) component before connecting to production systems
 - Also provides testing access to the **SDEP-NL-specific** competent authority (CA) and reporting/statistics (REP) components
@@ -105,6 +109,8 @@ The reference implementation can be developed and tested **fullstack** on a loca
 
 ### Fullstack
 
+---
+
 **Prerequisites**
 
 Required:
@@ -118,62 +124,70 @@ Optional:
 
 - DBGate (PostgreSQL management)
 
+---
+
 **Clone this repo**
 
 To your local workstation.
 
+---
+
 **Run SDEP (fullstack)**
 
-Incl. local infra (postgres + keycloak + backend):
+Start Postgres + Keycloak + SDEP API (backend):
 
 ```
 make up
 ```
 
-Default ports for the started services are defined in `.env`
+*Default ports for the started services are defined in `.env`. To override any of these values, define them in `.env.extra` (see example in `.env.extra.example`).*
 
-- To override any of these values, define them in `.env.extra`
-- See example in `.env.extra.example`
-
-Explore API docs (Swagger UI):
+Explore API docs in Swagger UI:
 
 - http://localhost:8000/api/docs
 
-Authorize in Swagger UI:
+In Swagger UI, use **Authorize** to activate either of the following **client authentication methods** (both fall under the same **Client Credentials flow**, see also [Authentication and Authorization](./docs/SECURITY.md#authentication-and-authorization)):
 
-- **Default**, use **client credentials flow** (client-id, client-secret)
-  - To faciliate easy testing
-  - See [machine-clients.yaml](./keycloak/machine-clients.yaml) for credentials & roles
-  - All roles are present, so you can replay all end-to-end scenarios (CA, STR, REP)
-- **Optionally**, use **client-signed JWT authentication**
-  - To simulate Production
-  - In your `.env.extra`, configure `CLIENT_CREDENTIALS_FLOW_ENABLED=false`
-  - See [Client-Signed JWT Authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md) for obtaining the required bearer token
-  - See [machine-clients.yaml](./keycloak/machine-clients.yaml) for credentials & roles
-  - Only one role/credential is present, just to illustrate how client-signed JWT authentication will work in production
+- **Client ID & secret** ("client secret auth")
 
-Explore the API endpoints in your current role (CA, STR, REP).
+  - This is the default for testing (easier to use)
+  - It uses **client-id & secret** to acquire a `Bearer` token, that is used in turn to invoke the other (authenticated) endpoints
+  - See [machine-clients.yaml](./keycloak/machine-clients.yaml) for credentials & roles
+  - Credentials for all roles are present, so you can replay all end-to-end scenarios (CA, STR, REP)
+
+- **Client-signed JWT** ("client signed JWT auth")
+
+  - This provides a more secure way to test production behavior
+  - It uses **client-signed JWT** to acquire a `Bearer` token, that is used in turn to invoke the other (authenticated) endpoints
+  - It requires an additional private/public keypair to generate the client-signed JWT
+  - Credentials for all roles are explained in the guidance, so you can test how client-signed JWT authentication works for your role (CA, STR, REP)
+  - It also requires you to disable client-secret authentication in your local `.env.extra` (consider a `make backend-restart` to effectuate):
+    ```bash
+    CLIENT_SECRET_AUTH_ENABLED=false
+    ```
+  - See [Client-Signed JWT Authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
+
+- National SDEP implementations are free to adopt either method in production
+
+  - SDEP-NL supports both methods in pre-production (PRE)
+  - SDEP-NL supports only client-signed JWT in production (PRD)
+
+---
 
 **Run SDEP (backend only)**
 
-Excl. local infra:
+Start SDEP API (backend) only, excl. Postgres and Keycloak:
 
 ```
 cd backend
 make up
 ```
 
-**Explore all options**
-
-```
-make
-```
-
 ---
 
 ### Tests (Unit)
 
-Backend only:
+Backend:
 
 ```
 cd backend
@@ -184,9 +198,10 @@ make test
 
 ### Tests (Fullstack)
 
-Fullstack (invoke from top-level):
+Fullstack:
 
 ```
+# Invoke from top-level
 make test-full
 ```
 
@@ -198,13 +213,21 @@ The tests cover the cases as described in the [integration test documentation](.
 - Test isolation is enforced by comparing table row counts before and after execution (PRE/POST); any discrepancy causes the build to fail
 - A consolidated summary report presents per-suite and overall totals (executed/passed/failed) and exits with a non-zero status if any test fails
 
-Malware scanning (ClamAV) is part of the fullstack tests and is run as a separate command (it is not included in `make test-full`):
+> Fullstack tests can be re-used in Test or Production environments (contact team SDEP-NL for more info).
+
+---
+
+### Tests (Migrations)
+
+Alembic migrations are verified separately against PostgreSQL:
 
 ```
-make test-malware
+make test-migrations
 ```
 
-All fullstack tests can also be re-used/run against real deployments (TST, ACC, PRE, PRD; contact SDEP-NL for more info).
+- Applies all migrations to an empty database (`make -C backend upgrade`)
+- Verifies the resulting check constraints match the models
+- Runs without the full stack, so it is also usable as a CI/CD pipeline gate
 
 ---
 
@@ -220,70 +243,60 @@ For full configuration options and usage examples, see [Performance Tests](./doc
 
 ---
 
+### Tests (Security)
+
+---
+
+**Malware scan (ClamAV)**
+
+Scan uploaded files for malware: `make test-malware`
+
+- Connects directly to the ClamAV container (not the backend API).
+- Runs standalone, so it can be used as a CI/CD security gate without starting the full stack.
+
+---
+
+**Vulnerability scan (Trivy)**
+
+Scan the backend image for common vulnerabilities and exposures (CVEs): `make test-cve`
+
+This command:
+
+- Rebuilds the backend image from scratch (`--pull --no-cache`) to ensure the latest Debian security updates are included. Cached layers may otherwise retain vulnerabilities already fixed upstream.
+- Scans the image with Trivy via the `run-trivy-scan` Compose service.
+- Compares results against `docs/CVE_EXPLAINS.md` and fails if:
+  - New CVEs are found that are not allowlisted.
+  - Allowlisted CVEs are no longer present and should be removed.
+
+The scan uses a temporary image tag and does not affect the image used by `make up`.
+
+> **Note:** `docs/CVE_EXPLAINS.md` is intentionally not committed. Each EU member state implementing an SDEP is responsible for maintaining its own CVE allowlist and remediation process within its CI/CD pipeline.
+
+---
+
+**Keeping images up to date**
+
+Security updates are installed via `apt-get upgrade` during the Docker build, so they are only applied when the relevant layer is rebuilt.
+
+- `make up` reuses Docker's build cache for faster local development and therefore does **not** guarantee the latest security patches.
+- CI/CD should always perform a clean rebuild (e.g. `--pull --no-cache`) before publishing or deploying images.
+- `make test-cve` already performs such a clean rebuild, ensuring the scan runs against a fully up-to-date image.
+
+To refresh your local backend image manually: `make test-cve` or `docker compose build --pull --no-cache backend`.
+
+---
+
 ### Tests (All)
 
-All tests in one go (fullstack + performance):
+Test all in one go (fullstack + migrations + malware + performance):
 
 ```
 make test
 ```
 
-This runs the fullstack tests (`test-full` and the malware scan `test-malware`), followed by the performance test (`test-perf`).
-
 ---
 
-### Security
-
-Scan the backend image for known CVEs:
-
-```
-make trivy
-```
-
-This check:
-
-- Builds the backend image from scratch with `--pull --no-cache`
-  - This ensures the latest Debian security updates are included.
-  - Cached layers can otherwise retain vulnerabilities that have already been fixed upstream.
-- Scans the resulting image with Trivy via the `run-trivy-scan` Compose service.
-- Compares findings against the allowlist in a `docs/CVE_EXPLAINS.md` and fails if:
-  - New CVEs are detected that are not allowlisted.
-  - Allowlisted CVEs are no longer present and should be removed from the file.
-
-The `docs/CVE_EXPLAINS.md` is not checked-in.
-
-- Each EU member state implementing an SDEP is responsible for monitoring and remediating CVEs within its own CI/CD
-
-The scan uses a temporary image tag and does not affect the image used by `make up`.
-
-OS security updates are applied by `apt-get upgrade` in the Dockerfile, but those updates are only incorporated when the layer is rebuilt.
-
-- For fast local development, `make up` reuses Docker's build cache
-  - Image is not guaranteed to include the latest security patches.
-- In CI/CD guarantee, a fully up-to-date image should be guaranteed by disable caching
-  - For example, `--cache=false`
-- In the Trivy security gate (`make trivy`), a fully up-to-date image is also guaranteed
-  - See the above `--pull --no-cache`.
-
-To refresh a local image on demand:
-
-```bash
-make trivy
-# or
-docker compose build --pull --no-cache backend
-```
-
----
-
-### Tests (All) + Security
-
-```
-make all
-```
-
----
-
-### Documentation
+### Markdown
 
 Markdown lint:
 
@@ -295,6 +308,16 @@ Markdown format:
 
 ```
 make md-format
+```
+
+---
+
+### All
+
+All in one go:
+
+```
+make all
 ```
 
 ## Functional Design

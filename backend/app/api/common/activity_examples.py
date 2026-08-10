@@ -15,6 +15,7 @@ ACTIVITY_EXAMPLE_RESPONSE: dict[int | str, dict[str, Any]] = {
                             "activityName": "Amsterdam Summer Rental",
                             "status": "finished",
                             "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                            "areaName": "Amsterdam",
                             "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                             "competentAuthorityName": "Gemeente Amsterdam",
                             "url": "http://example.com/amsterdam-myhouse-1",

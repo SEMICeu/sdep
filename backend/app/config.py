@@ -51,13 +51,18 @@ class Settings(BaseSettings):
         default="",
         description="Keycloak server URL for token endpoint",
     )
-    # Client credentials flow (client_id/client_secret authentication) is considered as less-secure.
-    # Default false, only recommended in local- and test environments and test environments.
-    CLIENT_CREDENTIALS_FLOW_ENABLED: bool = Field(
+    # Client-secret authentication (a static shared secret) is considered less secure
+    # than client-signed JWT. Both use the same Client Credentials flow; this flag
+    # gates the authentication method, not the flow. Note that client-signed JWT
+    # (private_key_jwt) always stays available, even when this flag is false.
+    # Default enabled is false, recommended to enable (true) in local- and test environments only.
+    CLIENT_SECRET_AUTH_ENABLED: bool = Field(
         default=False,
         description=(
-            "Allow client credentials flow. "
-            "Disabled by default; only allow in local- and test environments "
+            "Allow client-secret authentication (client_secret_post / client_secret_basic) "
+            "on the token endpoint. Disabled by default; only allow in local- and test "
+            "environments. Client-signed JWT (private_key_jwt) always stays available, "
+            "even when this flag is false."
         ),
     )
 

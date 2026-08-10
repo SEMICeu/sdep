@@ -46,7 +46,7 @@ AUTH_V1 = ApiDomain(
     root_path="/api/auth/v1",
     title="SDEP - Auth API",
     description=(
-        "Authentication endpoints for machine-to-machine OAuth2 Client Credentials flow "
+        "Authentication endpoints for machine-to-machine OAuth 2.0 Client Credentials flow "
         "via Keycloak."
     ),
     status="stable",

@@ -31,6 +31,7 @@ ACTIVITIES_DESCRIPTION = (
     "- `activityName`: Display name (optional) of the activity\n"
     "- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n"
     "- `areaId`: Functional ID referencing the area where the activity took place\n"
+    "- `areaName`: Display name (optional) of the area where the activity took place\n"
     "- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n"
     "- `competentAuthorityName`: Display name (optional) of the competent authority\n"
     "- `url`: URL of the originating listing/advertisement\n"

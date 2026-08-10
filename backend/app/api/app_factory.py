@@ -2,7 +2,7 @@
 
 Every API domain (CA, STR, REP, ...) builds its sub-application the same way: metadata
 from the domain registry, the shared custom OpenAPI generator and exception handlers, the
-routers the domain exposes, and the OAuth2 bearer-token security override. This single
+routers the domain exposes, and the OAuth 2.0 bearer-token security override. This single
 factory captures that shared shape so each domain only supplies its registry entry and the
 list of routers to mount.
 """

@@ -2,12 +2,45 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.4.0
+
+- Added the optional `areaName` field to activity responses
+  - Populated `areaName` from the related area for CA v1 and v2 activity lists, REP v1 activity lists, and successful STR v1 bulk response items
+  - No breaking API changes: `areaName` is an optional response field, so existing clients remain compatible
+- Corrected the integration test documentation and HSTS check
+  - Clarified that the application also sets the `Strict-Transport-Security` header itself rather than delegating it to the reverse proxy
+- Corrected the description of the OAuth 2.0 Client Credentials grant across documentation and code comments
+  - Clarified that client ID/secret and client-signed JWT are not separate OAuth flows; both use the OAuth 2.0 Client Credentials grant and differ only in the client authentication method (`client_secret_post` / `client_secret_basic` versus `private_key_jwt`)
+  - Updated the getting-started documentation for **PRE** and **PRD** accordingly
+- Renamed `CLIENT_CREDENTIALS_FLOW_ENABLED` to `CLIENT_SECRET_AUTH_ENABLED`
+  - Clarified that optional client-secret authentication and always-enabled client-signed JWT authentication are both authentication methods within the Client Credentials flow
+  - No impact on the API contract
+- Improved Makefile test targets and preserving the optional "keep testdata" behavior
+- Made `tests/test_auth_client_jwt.py` reusable against deployed environments
+- Remediated two dependency CVEs and refreshed the CVE allowlist
+  - Raised `cryptography` to `>=50.0.0` (CVE-2026-69247, a Bleichenbacher oracle in the PKCS7 decrypt helpers) and `python-dotenv` to `>=1.2.2` (CVE-2026-28684, symlink following in `set_key()` / `unset_key()`); SDEP reaches neither code path, so both floors are defense in depth
+  - Documented 17 newly reported OS-level CVEs and removed one stale entry
+- Improved the CVE scan (1/3)
+  - Nine CVE allowlist rows named a package the scanner does not report for that CVE; for seven of them the recorded justification did not apply to the affected component at all, so the risk acceptance was never valid
+  - CVE-2026-5435, CVE-2026-6238 and CVE-2026-28684 were accepted on the grounds that "SDEP does not use GnuTLS", but are glibc and `python-dotenv` flaws
+  - CVE-2026-27171 and CVE-2026-5704 were accepted as systemd flaws, but are zlib and tar flaws
+  - CVE-2026-3184 and CVE-2026-27456 were accepted as libgcrypt and systemd flaws, but are util-linux flaws
+  - CVE-2026-5450 and CVE-2026-5928 named the source package `glibc` rather than the reported binary packages `libc-bin` / `libc6`; the justification held, but the row could not be matched against the scan
+  - All nine have been re-justified against the component the scanner actually reports; CVE-2026-28684 turned out to be fixable once correctly attributed and was remediated by the `python-dotenv` bump above rather than re-accepted
+  - Separately, 11 entries were re-filed under the severity the scanner reports, and duplicate rows for four `perl-base` CVEs (each listed under three headings) were collapsed
+- Improved the CVE scan (2/3)
+  - `scripts/run-trivy-scan.sh` now fails when an allowlist row names a package Trivy does not report for that CVE, sits under a heading that does not match the reported severity, or repeats a CVE
+  - Previously only CVE ids were compared, which is why the wrong-package and wrong-severity entries above went undetected
+  - The scan report is now rendered by Trivy itself instead of being scraped out of the results JSON
+- Improved the CVE scan (3/3)
+  - Trivy version has been pinned
+
 # 1.3.2
 
 - Fixed bulk activity POST returning HTTP 500 (`MultipleResultsFound`) when duplicate current owner rows existed
 - Implemented OAuth 2.0 JWT Client Authentication (RFC 7523), alongside the already implemented OAuth 2.0 Client Credentials Grant (RFC 6749).
   - **OAuth 2.0 JWT Client Authentication** (a.k.a. **client-signed JWT**): is most secure and is the only option supported in SDEP-NL Production (PRD). Supports interactive testing in Swagger UI by first obtaining a bearer token at the `/token` endpoint
-  - **OAuth 2.0 Client Credentials Grant** (a.k.a. **client credentials flow)**: is less secure and remains to be supported in SDEP-NL Pre-Production (PRE). Supports interactive testing in Swagger UI by directly authorizing via client id & secret (under the hood, Swagger obtains the bearer token via the `/token` endpoint)
+  - **OAuth 2.0 Client Credentials Grant** (a.k.a. **client credentials flow)**: is less secure and remains to be supported in SDEP-NL Pre-Production (PRE). Supports interactive testing in Swagger UI by directly authorizing via client ID & secret (under the hood, Swagger obtains the bearer token via the `/token` endpoint)
   - Updated the getting started guides (PRE, PRD) accordingly
 
 # 1.3.1

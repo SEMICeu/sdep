@@ -275,6 +275,7 @@ def test_activity_and_area_schema_helpers_and_serializers():
             "activity_name": None,
             "status": ActivityStatus.finished,
             "area_id_functional": "area-1",
+            "area_name": "Area",
             "competent_authority_id_functional": "ca-1",
             "competent_authority_name": "Authority",
             "url": "http://example.com",
@@ -301,6 +302,7 @@ def test_activity_and_area_schema_helpers_and_serializers():
     )
     dumped = activity_response.model_dump(by_alias=True, mode="json")
     assert "activityName" not in dumped
+    assert dumped["areaName"] == "Area"
     assert "competentAuthorityName" in dumped
     assert dumped["registrationNumber"] == "REG-1"
 
@@ -310,6 +312,7 @@ def test_activity_and_area_schema_helpers_and_serializers():
             "activity_name": "Shown",
             "status": ActivityStatus.finished,
             "area_id_functional": "area-1",
+            "area_name": None,
             "competent_authority_id_functional": "ca-1",
             "competent_authority_name": None,
             "url": "http://example.com",
@@ -338,6 +341,7 @@ def test_activity_and_area_schema_helpers_and_serializers():
         by_alias=True, mode="json"
     )
     assert dumped_without_ca_name["activityName"] == "Shown"
+    assert "areaName" not in dumped_without_ca_name
     assert "competentAuthorityName" not in dumped_without_ca_name
 
     area_response = AreaResponse.model_validate(

@@ -6,13 +6,13 @@
 #
 # Client ID best practice - https://www.oauth.com/oauth2-servers/client-registration/client-id-secret
 # E.g. id: "155968724319.sdep.gov.local"
-# Generate using "shuf -zer -n 12 {0..9}"
+# Generate e.g. using "shuf -zer -n 12 {0..9}"
 #
 clients:
 
   # 1. Test clients whose test data is automatically removed after automated test runs
 
-  # 1a. Competent authorities (CA) - client credentials flow
+  # 1a. Competent authorities (CA) - client secret
   #     (less secure, but available in SDEP-NL Test environments and
   #     Pre-Production, to support interactive testing in Swagger UI)
   - id: "sdep-test-ca.01"
@@ -32,7 +32,7 @@ clients:
       - sdep_read
       - sdep_write
 
-  # 1b. Short-term rental platforms (STR) - client credentials flow
+  # 1b. Short-term rental platforms (STR) - client secret
   #     (less secure, but available in SDEP-NL Test environments and
   #     Pre-Production, to support interactive testing in Swagger UI)
   - id: "sdep-test-str.01"
@@ -44,7 +44,7 @@ clients:
       - sdep_read
       - sdep_write
 
-  # 1c. Reporting / statistics office (REP) - client credentials flow
+  # 1c. Reporting / statistics office (REP) - client secret
   - id: "sdep-test-rep.01"
     secret: "sdep-test-rep.01"
     name: "Test REP 01 (test automation, ephemeral data)"
@@ -55,7 +55,7 @@ clients:
 
   # 2. Test clients whose test data remains unaffected after automated test runs
 
-  # 2a. Competent authorities (CA) - client credentials flow
+  # 2a. Competent authorities (CA) - client secret
   - id: "sdep-ca.01"
     secret: "sdep-ca.01"
     name: "Test CA 01 (interactive usage, persistent data)"
@@ -73,7 +73,7 @@ clients:
       - sdep_read
       - sdep_write
 
-  # 2b. Short-term rental platforms (STR) - client credentials flow
+  # 2b. Short-term rental platforms (STR) - client secret
   - id: "sdep-str.01"
     secret: "sdep-str.01"
     name: "Test STR 01 (interactive usage, persistent data)"
@@ -91,7 +91,7 @@ clients:
       - sdep_read
       - sdep_write
 
-  # 2c. Reporting / statistics office (REP) - client credentials flow
+  # 2c. Reporting / statistics office (REP) - client secret
   - id: "sdep-rep.01"
     secret: "sdep-rep.01"
     name: "Test REP 01 (interactive usage, persistent data)"
@@ -102,7 +102,7 @@ clients:
 
   # 3. Test clients whose test data remains unaffected after automated test runs, deployed with predefined test data
 
-  # 3a. Competent authorities (CA) - client credentials flow
+  # 3a. Competent authorities (CA) - client secret
   - id: "sdep-ca.0363"
     secret: "sdep-ca.0363"
     name: "Gemeente Amsterdam"

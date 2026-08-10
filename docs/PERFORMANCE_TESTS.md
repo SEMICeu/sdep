@@ -57,8 +57,8 @@ Both are invoked via `make test-perf`.
 
 **Design:**
 
-- Authenticates through the current integration-test path, which uses client credentials flow with `client_id`/`client_secret` credentials
-- Requires `CLIENT_CREDENTIALS_FLOW_ENABLED=true` on the backend under test
+- Authenticates through the current integration-test path, which uses client-secret authentication with `client_id`/`client_secret` credentials
+- Requires `CLIENT_SECRET_AUTH_ENABLED=true` on the backend under test
 - Generates realistic activity payloads with randomized addresses, guest counts, and country codes
 - Submits batches via `POST /api/str/v1/activities/bulk` at maximum throughput
 - Collects per-request success/failure counts from the bulk response body
@@ -70,7 +70,7 @@ Both are invoked via `make test-perf`.
 2. Spawns `PERF_USERS` concurrent Locust users (default: 10), ramping up at `PERF_RAMP_UP` users/second
 3. Each Locust user authenticates at start and re-authenticates automatically when the bearer token expires (HTTP 401), then repeatedly submits bulk requests (0.1-0.5s pause between requests)
 4. After the configured duration, Locust prints per-endpoint statistics and the custom summary block
-5. Unless `PERF_KEEP_DATA=true`, the script runs `postgres/clean-testrun.sql` to remove all test data from the database
+5. Unless `KEEP_TEST_DATA=true`, the script runs `postgres/clean-testrun.sql` to remove all test data from the database
 
 **Note on wait time and measurements:** The 0.1-0.5s pause between requests (Locust `wait_time`) adds to the total wall-clock duration but does **not** affect per-request response time statistics (avg, p50, p95, p99). It does slightly reduce measured throughput (activities/sec) compared to a zero-wait scenario, because each user idles between requests.
 
@@ -84,7 +84,7 @@ Each activity contains the following fields:
 
 | Field                | How it is generated                                                                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `activityId`         | Prefix + 12 random hex characters from `uuid4`. Prefix is `sdep-test-perf-` (throwaway) or `perf-` when `PERF_KEEP_DATA=true`             |
+| `activityId`         | `sdep-test-perf-` + 12 random hex characters from `uuid4`                                                                                 |
 | `url`                | Fake URL using the same unique ID (e.g. `http://sdep-test-perf.example.com/<id>`)                                                         |
 | `registrationNumber` | `REGPERF` + 8 uppercase hex characters                                                                                                    |
 | `address`            | Random Dutch street name (`Prinsengracht`, `Keizersgracht`, etc.), house number (1-999), postcode, and city from hardcoded lists          |
@@ -93,47 +93,48 @@ Each activity contains the following fields:
 | `numberOfGuests`     | Random integer 1-10                                                                                                                       |
 | `countryOfGuests`    | List of length `numberOfGuests`, each element sampled with replacement from `NLD`, `DEU`, `BEL`, `FRA`, `GBR`, `ESP`, `ITA`, `USA`, `N/A` |
 
-The `activityId` prefix convention controls cleanup:
+The `sdep-test-` naming convention controls cleanup:
 
 - IDs starting with `sdep-test-perf-` are treated as throwaway test data and cleaned up after the test run.
-- When `PERF_KEEP_DATA=true`, the prefix is `perf-` and data is retained in the database.
+- `KEEP_TEST_DATA=true` skips that cleanup for its own run only; the naming is unchanged, so the next run without "keep" removes the rows.
 
 ---
 
 ### Test Data Cleanup
 
-After the Locust run completes, `scripts/run-tests-perf.sh` automatically cleans up test data unless `PERF_KEEP_DATA=true`.
+After the Locust run completes, `scripts/run-tests-perf.sh` automatically cleans up test data unless `KEEP_TEST_DATA=true`.
 
 Cleanup executes `postgres/clean-testrun.sql` via `docker exec psql`, which:
 
-1. **Deletes activities** in batches of 10,000 rows where `activity_id LIKE 'sdep-test-%'` or the activity belongs to an area matching `sdep-test-%`. Batched deletes avoid long-running transactions that could time out under load.
+1. **Deletes activities** in batches of 10,000 rows where `activity_id LIKE 'sdep-test-%'`, or the activity belongs to an area or a platform that the deletes below remove. Batched deletes avoid long-running transactions that could time out under load.
 2. **Deletes areas** linked to `sdep-test-%` area IDs or `sdep-test-%` competent authorities.
 3. **Deletes platforms** with `sdep-test-%` platform IDs.
 4. **Deletes competent authorities** with `sdep-test-%` IDs.
 
-Deletion follows FK order: children (activities) first, then parents (areas, platforms, competent authorities).
+Deletion follows FK order: children (activities) first, then parents (areas, platforms, competent authorities). An activity has two parents (`area` and `platform`), so step 1 must cover every row that step 2 or step 3 would orphan - otherwise those steps fail on their foreign key.
 
-The same cleanup SQL is used by `make .clean-testrun` for all test types (integration and performance), since all test data shares the `sdep-test-*` naming convention.
+The same cleanup SQL is used by both test runners (`scripts/run-tests.sh` and `scripts/run-tests-perf.sh`) for all test types (integration and performance), since all cleaned-up test data shares the `sdep-test-*` naming convention. See [Test Data Lifecycle](./INTEGRATION_TESTS.md#test-data-lifecycle) for how the two runners and the two "keep" modes interact.
 
-- When `PERF_KEEP_DATA=true`, the activity ID prefix switches to `perf-` (without the `sdep-test-` prefix)
-- So those records are not matched by the cleanup query and survive in the database
+- When `KEEP_TEST_DATA=true`, the run skips its own cleanup, so its rows are still there when the run finishes, ready for inspection
+- Those rows do **not** survive the next test run without "keep", and cannot: the fixture areas are owned by the `sdep-test-ca.01` competent authority and the activities by the `sdep-test-str.01` platform, and the cleanup deletes those accounts themselves. The foreign keys take everything they own with them, whatever the rows are named
+- Use `KEEP_TEST_DATA=true` to inspect a run before the next test run, not as long-term storage. Only `make postgres-drop` guarantees an empty slate
 
 ## Results
 
 After running the tests:
 
-| Field                          | Meaning                                                                                                                                                      |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Configuration**              | Repeats the parameter values used for this test run                                                                                                          |
-| **Total activities processed** | Sum of all per-item OK + NOK results across all HTTP requests, incl. overshoot                                                                               |
-| **HTTP requests**              | Total HTTP requests with per-endpoint breakdown (auth + bulk)                                                                                                |
-| **Throughput**                 | Actual sustained rate of successfully processed activities per second                                                                                        |
-| **Bulk requests/sec**          | Actual sustained rate of bulk POST requests per second (x activities per request)                                                                            |
-| **Extrapolated**               | Throughput projected over 24 hours - what the system *can* sustain                                                                                           |
-| **Target**                     | What you *asked* for (`PERF_ACTIVITIES_TARGET`), reached by `PERF_USERS` concurrent users                                                                    |
-| **Verdict**                    | Whether extrapolated capacity meets or exceeds the target, with the headroom ratio                                                                           |
-| **Overshoot**                  | Only shown when `PERF_STOP_ON_TARGET=true` and total exceeds target (see explanation below)                                                                  |
-| **Correctness (SLI)**          | Post-test verification: samples 10 submitted activities and verifies them via `GET /ca/activities` (only runs when `PERF_KEEP_DATA=true`; skipped otherwise) |
+| Field                          | Meaning                                                                                                                                                                                                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Configuration**              | Repeats the parameter values used for this test run                                                                                                                                                                                                |
+| **Total activities processed** | Sum of all per-item OK + NOK results across all HTTP requests, incl. overshoot                                                                                                                                                                     |
+| **HTTP requests**              | Total HTTP requests with per-endpoint breakdown (auth + bulk)                                                                                                                                                                                      |
+| **Throughput**                 | Actual sustained rate of successfully processed activities per second                                                                                                                                                                              |
+| **Bulk requests/sec**          | Actual sustained rate of bulk POST requests per second (x activities per request)                                                                                                                                                                  |
+| **Extrapolated**               | Throughput projected over 24 hours - what the system *can* sustain                                                                                                                                                                                 |
+| **Target**                     | What you *asked* for (`PERF_ACTIVITIES_TARGET`), reached by `PERF_USERS` concurrent users                                                                                                                                                          |
+| **Verdict**                    | Whether extrapolated capacity meets or exceeds the target, with the headroom ratio                                                                                                                                                                 |
+| **Overshoot**                  | Only shown when `PERF_STOP_ON_TARGET=true` and total exceeds target (see explanation below)                                                                                                                                                        |
+| **Correctness (SLI)**          | Post-test verification: samples 10 submitted activities and verifies them via `GET /ca/activities`. Runs on every run - verification happens at `test_stop`, before cleanup - and is skipped only when `CA_CLIENT_ID`/`CA_CLIENT_SECRET` are unset |
 
 **Note on target vs extrapolated:** The target controls the *minimum* load (number of concurrent users). Each user fires requests as fast as possible, so actual throughput is whatever the server can sustain. The "extrapolated" value shows real capacity; the ratio tells you how much headroom exists above the target.
 

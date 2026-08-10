@@ -158,13 +158,13 @@ def create_verify_bearer_token(
         request: Request,
         token: str = Depends(oauth2_scheme),
     ) -> dict[str, Any]:
-        """Verify JWT bearer token using the configured OAuth2 scheme.
+        """Verify JWT bearer token using the configured OAuth 2.0 scheme.
 
         Args:
             request: FastAPI request — used to stash the parsed payload on
                 ``request.state`` so the audit middleware can reuse it instead
                 of re-running JWT signature verification.
-            token: JWT Bearer token from OAuth2 flow
+            token: JWT Bearer token from OAuth 2.0 flow
 
         Returns:
             Decoded JWT payload
@@ -180,7 +180,7 @@ def create_verify_bearer_token(
 
 
 class OAuth2ClientCredentials(OAuth2):
-    """OAuth2 Client Credentials flow with token extraction from Authorization header.
+    """OAuth 2.0 Client Credentials flow with token extraction from Authorization header.
 
     This extends FastAPI's OAuth2 base class to support extracting Bearer tokens
     from the Authorization header for the Client Credentials flow.
@@ -226,6 +226,6 @@ def get_oauth_schema(auth_version: int = 1):
     )
 
 
-# Default OAuth2 scheme and bearer token verifier for use by auth_dependencies
+# Default OAuth 2.0 scheme and bearer token verifier for use by auth_dependencies
 _default_oauth2_scheme = get_oauth_schema(auth_version=1)
 verify_bearer_token = create_verify_bearer_token(_default_oauth2_scheme)

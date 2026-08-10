@@ -1,62 +1,122 @@
 <h1>SDEP-NL - Pre-Production</h1>
 
-Welcome to the **SDEP-NL pre-production environment (PRE)**.
+Welcome to the **SDEP-NL Pre-Production (PRE) environment**. As an **integration partner** testing SDEP, you can use this environment:
 
-## About This Guide
+- To validate your integration before moving to SDEP-NL production
+- To pre-validate your integration against the harmonized short-term rental API, before moving to the SDEP in your country.
 
-**Purpose**: Prepare for access to the SDEP-NL pre-production environment.
+> **Disclaimer**: For end-to-end testing per country, always contact your **national SDEP representative** for guidance on deployment, integrations, and operations.
 
-**Target audience**: Integration partners testing against SDEP-NL PRE.
-
-**Outcome after completion**: Request PRE access and test machine-to-machine API calls.
-
-## Table of Contents
+<h2>Table of Contents</h2>
 
 - [Introduction](#introduction)
-- [Prepare](#prepare)
+  - [SDEP](#sdep)
+  - [Authentication](#authentication)
 - [Get Access](#get-access)
+  - [Generate keypair](#generate-keypair)
+  - [Contact team SDEP-NL](#contact-team-sdep-nl)
+  - [Receive credentials](#receive-credentials)
+- [Ask questions](#ask-questions)
 
 ## Introduction
 
+---
+
+### SDEP
+
 The **Single Digital Entry Point (SDEP)** is established in accordance with [EU legislation](https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng) for short-term rental data exchange.
 
-This repository contains the EU-harmonized **API specification** and a **reference implementation** that serves as a blueprint for national deployments. See [Introduction](../README.md#introduction), [Specification](../README.md#specification), and [Implementation](../README.md#reference-implementation) for details.
+The SDEP repository contains:
 
-The reference implementation is deployed in **pre-production** (PRE) as **SDEP-NL** for the Netherlands to facilitate end-to-end testing with integration partners, enabling competent authorities (CA) and short-term rental platforms (STR) to exchange regulated-area and rental-activity data in accordance with EU legislation.
+- The **EU-harmonized API specification** for short-term rental platforms (**STR**)
+- The **NL-specific API specification** for competent authorities (**CA**) and reporting/statistics offices (**REP**)
+- The **NL-specific reference implementation**
+
+The reference implementation is deployed in the **SDEP-NL Pre-Production (PRE)** environment, enabling integration partners to perform end-to-end testing before moving to production, or before moving to their own national implementation.
+
+In PRE, only **anonymized data** should be used; a daily cleanup removes any residual test data.
+
+The NL-specific API specification and reference implementation can also serve as a blueprint for other national deployments.
 
 https://pre-sdep.minvro.nl/api/docs
 
-The PRE environment includes the **EU-harmonized STR component** and the **SDEP-NL-specific CA and REP components**. Only anonymized data should be used; a daily cleanup removes any residual test data.
+---
 
-> **Disclaimer**: For end-to-end testing in your own country, always contact your **national SDEP representative** for guidance on deployment, integrations, and operations.
-
-## Prepare
+### Authentication
 
 SDEP is an **API-first application** designed for **machine-to-machine (M2M) integrations**.
 
-- **SDEP-NL** uses **oAuth2 with client-signed JWT authentication** for machine clients (most secure)
-  - The Swagger **Authorize** button accepts a Bearer token, which is obtained via the client-signed JWT flow (`/token` endpoint)
-  - To prepare for the client-signed JWT flow, you need to setup a private/public key pair.
-  - To set up a private/public key pair, see [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md).
-- **SDEP-NL** supports **oAuth2 with client credentials flow** for additional testing purposes (less secure)
-  - The Swagger **Authorize** button accepts a Client ID and Client Secret.
-  - Preparation is not required.
+For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials grant**.
 
-> **National SDEP implementations** can decide on their own which flow they adopt; this does not impact the API
+The Client Credentials Grant supports two types of **client authentication**, both on the same `/token` endpoint:
+
+- **Client ID & Secret**
+- **Client-Signed JWT**
+
+SDEP-NL PRE supports both authentication types.
+
+- **Client ID & Secret**
+  - This is the default.
+  - No additional setup is required on your side.
+  - It allows you to easily authenticate and use the Swagger UI with a client ID and client secret.
+  - It is used for testing purposes only.
+- **Client-Signed JWT**
+  - This is the most secure option.
+  - It requires you to setup a private/public key pair upfront, and submit the public key to team SDEP-NL.
+  - It still allows you to authenticate and use the Swagger UI (after you programmatically acquired a `Bearer` token).
+  - It is used to test (simulate) the behavior in the production environment.
+  - See [Get Started with Client Signed JWT](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance.
+
+> Contrary to PRE, the SDEP-NL production environment (PRD) only supports client-signed JWT authentication: see [Getting Started in PRD](./GET_STARTED_PRD.md).
+
+> National SDEP implementations are free to adopt either authentication method; this does not impact the API.
+
+> To explore both authentication methods locally, see [Fullstack](../README.md#fullstack).
 
 ## Get Access
 
-To **request test-client access for SDEP-NL Pre-Production**, please email us, using the contact details listed at <https://pre-sdep.minvro.nl/api/docs>.
+Take the following steps to **get access to the SDEP-NL pre-production (PRE)** environment.
 
-Include the following details in your request:
+---
 
-- **Technical email address**: used for onboarding and operational contact.
-- **Technical phone number**: used for onboarding and operational contact.
-- **Role** (are you a competent authority (CA), short-term rental platform (STR), or reporting.statistics office (REP)): used to grant the appropriate API permissions.
-- **For client-signed JWT authentication (required)**: your public key in PEM format, used to authenticate your client by verifying the JWTs it signs.
-- **Client credentials flow (optional, extra)**: opt-in, used for additional (easier) interactive testing in Swagger.
+### Generate keypair
 
-If you have any questions, please feel free to reach out.
+See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for **guidance**.
+
+---
+
+### Contact team SDEP-NL
+
+**Inquire contact details for team SDEP-NL** (email address) at <https://pre-sdep.minvro.nl/api/docs>.
+
+**Send an email** to SDEP-NL containing the following contact details for your **technical representative**:
+
+- **Technical representative’s email address**: used for onboarding and operational communication.
+- **Technical representative’s phone number**: used for onboarding and operational communication.
+
+Also include in the email:
+
+- **Your public key**: used to authenticate your client through client-signed JWT
+  - See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
+- **Your Role**: used to grant the appropriate API permissions
+  - Competent authority (CA)
+  - Short-term rental platform (STR)
+  - Reporting statistics office (REP)
+
+---
+
+### Receive credentials
+
+From team SDEP-NL, you will receive:
+
+- **Client ID & secret**: to support **client-secret authentication**
+- **Token request values**: to support **client-signed JWT**
+
+See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for applying these to the SDEP API.
+
+## Ask questions
+
+If you have any questions, feel free to reach out at the above contact details.
 
 Best regards,
 **Team SDEP-NL**

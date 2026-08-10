@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import Select
@@ -469,9 +469,11 @@ async def bulk_mark_as_ended(
 async def bulk_create(
     session: AsyncSession,
     activities: list[ActivityBulkCreate],
-) -> None:
+    platform: Platform,
+    areas_by_functional_id: dict[str, Area],
+) -> list[Activity]:
     """
-    Bulk insert activities using a single multi-row INSERT (Validation flow Step 3).
+    Create activities from pre-validated bulk rows.
 
     Only pre-validated records should be passed to this function.
     All application-level validation (Pydantic, RI check, deactivation guard)
@@ -480,38 +482,45 @@ async def bulk_create(
     Args:
         session: Async database session
         activities: List of validated activity objects with resolved technical IDs
+        platform: Platform ORM object for all activities in the batch
+        areas_by_functional_id: Mapping of functional area IDs to Area ORM objects
+
+    Returns:
+        Created Activity instances in the same order as the input rows
     """
     if not activities:
-        return
+        return []
 
-    activity_rows = [
-        {
-            "activity_id": activity.activity_id,
-            "activity_name": activity.activity_name,
-            "status": activity.status,
-            "platform_id": activity.platform_technical_id,
-            "area_id": activity.area_technical_id,
-            "url": activity.url,
-            "address_thoroughfare": activity.address.thoroughfare,
-            "address_locator_designator_number": activity.address.locator_designator_number,
-            "address_locator_designator_letter": activity.address.locator_designator_letter,
-            "address_locator_designator_addition": activity.address.locator_designator_addition,
-            "address_post_code": activity.address.post_code,
-            "address_post_name": activity.address.post_name,
-            "address_full_address": activity.address.full_address,
-            "registration_number": activity.registration_number,
-            "number_of_guests": activity.number_of_guests,
-            "country_of_guests": activity.country_of_guests,
-            "temporal_start_date_time": activity.temporal.start_date_time,
-            "temporal_end_date_time": activity.temporal.end_date_time,
-            "created_at": activity.created_at,
-        }
+    activity_objects = [
+        Activity(
+            activity_id=activity.activity_id,
+            activity_name=activity.activity_name,
+            status=activity.status,
+            platform_id=activity.platform_technical_id,
+            area_id=activity.area_technical_id,
+            platform=platform,
+            area=areas_by_functional_id[activity.area_id],
+            url=activity.url,
+            address_thoroughfare=activity.address.thoroughfare,
+            address_locator_designator_number=activity.address.locator_designator_number,
+            address_locator_designator_letter=activity.address.locator_designator_letter,
+            address_locator_designator_addition=activity.address.locator_designator_addition,
+            address_post_code=activity.address.post_code,
+            address_post_name=activity.address.post_name,
+            address_full_address=activity.address.full_address,
+            registration_number=activity.registration_number,
+            number_of_guests=activity.number_of_guests,
+            country_of_guests=activity.country_of_guests,
+            temporal_start_date_time=activity.temporal.start_date_time,
+            temporal_end_date_time=activity.temporal.end_date_time,
+            created_at=activity.created_at,
+        )
         for activity in activities
     ]
 
-    stmt = insert(Activity)
-    await session.execute(stmt, activity_rows)
+    session.add_all(activity_objects)
     await session.flush()
+    return activity_objects
 
 
 async def get_current_by_activity_ids(

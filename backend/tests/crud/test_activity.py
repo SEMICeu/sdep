@@ -598,7 +598,7 @@ class TestActivityCRUD:
         assert reg_two.activity_id in ended_ids
 
         area_two = await AreaFactory.create_async(async_session)
-        await activity.bulk_create(
+        created_objects = await activity.bulk_create(
             async_session,
             [
                 ActivityBulkCreate.model_validate(
@@ -630,12 +630,18 @@ class TestActivityCRUD:
                     }
                 )
             ],
+            platform,
+            {area_two.area_id: area_two},
         )
 
         created = await activity.get_by_activity_id(
             async_session, "bulk-created-activity"
         )
         assert created is not None
+        assert len(created_objects) == 1
+        assert created_objects[0].activity_id == "bulk-created-activity"
+        assert created_objects[0].platform is platform
+        assert created_objects[0].area is area_two
 
     async def test_unique_constraint_activity_id_platform_id_created_at(
         self, async_session: AsyncSession

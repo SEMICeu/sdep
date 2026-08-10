@@ -21,10 +21,9 @@ import httpx
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-# Bearer token is runtime state written by test_auth_client.py relative to the
+# Bearer token is runtime state written by test_auth_client_bootstrap.py relative to the
 # CURRENT working directory (./tmp/.bearer_token). Resolve it the same way so the
-# test works when reused from another repo (e.g. sdep-deployment), not just from
-# sdep-app. SHAPEFILE_PATH stays REPO_ROOT-anchored — it is a static sdep-app asset.
+# test works when reused from a consuming repository, not just from sdep-app. SHAPEFILE_PATH stays REPO_ROOT-anchored — it is a static sdep-app asset.
 BEARER_TOKEN_FILE = Path(os.getenv("TOKEN_FILE", "tmp/.bearer_token"))
 SHAPEFILE_PATH = REPO_ROOT / "test-data" / "shapefiles" / "Amsterdam.zip"
 

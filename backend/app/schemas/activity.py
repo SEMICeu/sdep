@@ -258,6 +258,12 @@ class ActivityResponse(BaseModel):
             "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495",
         ],
     )  # Functional ID reference
+    area_name: str | None = Field(
+        None,
+        serialization_alias="areaName",
+        max_length=64,
+        description="Display name (optional) of the area where this activity took place",
+    )  # Attribute
     competent_authority_id: FunctionalId = Field(
         ...,
         serialization_alias="competentAuthorityId",
@@ -329,6 +335,8 @@ class ActivityResponse(BaseModel):
         data = serializer(self)
         if data.get("activityName") is None:
             data.pop("activityName", None)
+        if data.get("areaName") is None:
+            data.pop("areaName", None)
         if data.get("competentAuthorityName") is None:
             data.pop("competentAuthorityName", None)
         return data

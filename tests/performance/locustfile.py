@@ -44,9 +44,13 @@ PERF_AREA_IDS = [x for x in os.environ.get("PERF_AREA_IDS", "").split(",") if x]
 PERF_USERS = int(os.environ.get("PERF_USERS", "1"))
 PERF_MAX_DURATION_SECONDS = int(os.environ.get("PERF_MAX_DURATION_SECONDS", "300"))
 PERF_ACTIVITIES_TARGET = int(os.environ.get("PERF_ACTIVITIES_TARGET", "500000"))
-PERF_KEEP_DATA = os.environ.get("PERF_KEEP_DATA", "false").lower() in ("true", "1", "yes")
+KEEP_TEST_DATA = os.environ.get("KEEP_TEST_DATA", "false").lower() in ("true", "1", "yes")
 PERF_STOP_ON_TARGET = os.environ.get("PERF_STOP_ON_TARGET", "false").lower() in ("true", "1", "yes")
-ACTIVITY_ID_PREFIX = "perf" if PERF_KEEP_DATA else "sdep-test-perf"
+# Always sdep-test-perf, keep-run or not. A separate "perf" prefix used to be used to
+# hide keep-run activities from the cleanup, but it never worked: the fixture areas and
+# both client accounts the perf data hangs off are sdep-test-*, and clean-testrun.sql
+# deletes those, taking their activities with them whatever the activity is called.
+ACTIVITY_ID_PREFIX = "sdep-test-perf"
 TARGET_TOTAL = PERF_ACTIVITIES_TARGET
 
 # Global counters for summary
@@ -139,9 +143,6 @@ def _verify_correctness():
     key fields against the originally submitted payloads to detect silent
     data corruption under load (race conditions, partial writes).
     """
-    if not PERF_KEEP_DATA:
-        print("  Correctness (SLI):         skipped (requires PERF_KEEP_DATA=true)")
-        return
     if not sampled_activities:
         print("  Correctness (SLI):         skipped (no samples collected)")
         return
@@ -283,7 +284,7 @@ def _print_summary():
     print(_cfg("PERF_BATCH_SIZE", f"{BATCH_SIZE} (activities per HTTP request)"))
     print(_cfg("PERF_MAX_DURATION_SECONDS", f"{PERF_MAX_DURATION_SECONDS} ({PERF_MAX_DURATION_SECONDS / 60:.1f}m / {PERF_MAX_DURATION_SECONDS / 3600:.2f}h) (max. test duration)"))
     print(_cfg("PERF_STOP_ON_TARGET", f"{PERF_STOP_ON_TARGET} (stop early when target reached)"))
-    print(_cfg("PERF_KEEP_DATA", f"{PERF_KEEP_DATA} (keep data in database)"))
+    print(_cfg("KEEP_TEST_DATA", f"{KEEP_TEST_DATA} (keep data in database)"))
     print("  Results:")
     print(f"    Total activities processed:  {total:,} ({_human(total)}) (succeeded + failed, incl. overshoot)")
     print(f"    Succeeded:                   {total_activities_ok:,} ({_human(total_activities_ok)}) (activities accepted by the API)")
@@ -486,6 +487,8 @@ class BulkActivityUser(HttpUser):
 
             break
 
-        # Sample one activity for post-test correctness verification (only when keeping data)
-        if PERF_KEEP_DATA and response.status_code in (200, 201) and len(sampled_activities) < CORRECTNESS_SAMPLE_SIZE:
+        # Sample one activity for post-test correctness verification. Runs on every
+        # run: verification happens at test_stop, before the runner cleans up, so the
+        # rows are still there whether or not the data is kept.
+        if response.status_code in (200, 201) and len(sampled_activities) < CORRECTNESS_SAMPLE_SIZE:
             sampled_activities.append(random.choice(activities))

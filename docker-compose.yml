@@ -23,11 +23,17 @@ services:
       - ./postgres/init-keycloak.sql:/docker-entrypoint-initdb.d/init-keycloak.sql
       - ./postgres/init-app.sql:/docker-entrypoint-initdb.d/init-app.sql
       - ./test-data:/test-data:ro
+    # Probe over TCP (-h localhost), not the default unix socket. While the entrypoint
+    # runs initdb and the /docker-entrypoint-initdb.d scripts, it serves a temporary
+    # server with listen_addresses='', which answers on the socket but not on TCP - a
+    # socket probe would report healthy mid-init. start_period covers that first-boot
+    # work without burning the retries.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPER_USER} -d ${POSTGRES_DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -h localhost -U ${POSTGRES_SUPER_USER} -d ${POSTGRES_DB_NAME}"]
       interval: 2s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   keycloak:
     image: quay.io/keycloak/keycloak:${KC_VERSION}
@@ -81,7 +87,7 @@ services:
     environment:
       KC_BASE_URL: ${BACKEND_KC_BASE_URL}
       # Value comes from .env
-      CLIENT_CREDENTIALS_FLOW_ENABLED: ${CLIENT_CREDENTIALS_FLOW_ENABLED}
+      CLIENT_SECRET_AUTH_ENABLED: ${CLIENT_SECRET_AUTH_ENABLED}
       POSTGRES_HOST: ${POSTGRES_CONTAINER_NAME}
       POSTGRES_PORT: 5432
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}
@@ -104,12 +110,12 @@ services:
         condition: service_started
 
   run-trivy-scan:
-    # Only started on demand via `make trivy` (docker compose run, which enables
+    # Only started on demand via `make test-cve` (docker compose run, which enables
     # this profile for the named service). Excluded from `docker compose up` so a
     # routine `make up` never launches the (root) scanner - it would re-create
     # root-owned files under tmp/ and break later writes such as .keycloak-admin.
     profiles: ["trivy"]
-    image: ${TRIVY_IMAGE:-aquasec/trivy:latest}
+    image: ${TRIVY_IMAGE:-aquasec/trivy:0.72.0}
     entrypoint: ["/bin/sh"]
     command: ["./scripts/run-trivy-scan.sh"]
     working_dir: /work

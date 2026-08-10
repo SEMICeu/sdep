@@ -82,6 +82,19 @@
             "title": "Areaid",
             "type": "string"
           },
+          "areaName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the area where this activity took place",
+            "title": "Areaname"
+          },
           "competentAuthorityId": {
             "description": "Functional ID referencing the competent authority that owns the area",
             "examples": [
@@ -564,7 +577,7 @@
   "paths": {
     "/activities": {
       "get": {
-        "description": "Get activities for the currently authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
+        "description": "Get activities for the currently authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `areaName`: Display name (optional) of the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
         "operationId": "getActivityByCompetentAuthority",
         "parameters": [
           {
@@ -618,6 +631,7 @@
                         "thoroughfare": "Prinsengracht"
                       },
                       "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                      "areaName": "Amsterdam",
                       "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                       "competentAuthorityName": "Gemeente Amsterdam",
                       "countryOfGuests": [

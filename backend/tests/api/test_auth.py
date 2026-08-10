@@ -44,7 +44,7 @@ class _MockAsyncClient:
 
 
 def _enable_client_credentials_flow(monkeypatch):
-    monkeypatch.setattr(auth_router.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", True)
+    monkeypatch.setattr(auth_router.settings, "CLIENT_SECRET_AUTH_ENABLED", True)
 
 
 @pytest.mark.asyncio
@@ -144,9 +144,7 @@ class TestAuthRouter:
         self, monkeypatch
     ):
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
-        monkeypatch.setattr(
-            auth_router.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", False
-        )
+        monkeypatch.setattr(auth_router.settings, "CLIENT_SECRET_AUTH_ENABLED", False)
 
         async with AsyncClient(
             transport=ASGITransport(app=app_auth_v1), base_url="http://test"
@@ -166,9 +164,7 @@ class TestAuthRouter:
         self, monkeypatch
     ):
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
-        monkeypatch.setattr(
-            auth_router.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", False
-        )
+        monkeypatch.setattr(auth_router.settings, "CLIENT_SECRET_AUTH_ENABLED", False)
 
         credentials = base64.b64encode(b"client-a:secret-a").decode()
         async with AsyncClient(
@@ -192,9 +188,7 @@ class TestAuthRouter:
             response=_MockResponse(200, {"access_token": "assertion-token"})
         )
         monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example/")
-        monkeypatch.setattr(
-            auth_router.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", False
-        )
+        monkeypatch.setattr(auth_router.settings, "CLIENT_SECRET_AUTH_ENABLED", False)
         monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
 
         async with AsyncClient(

@@ -397,9 +397,17 @@ class TestAreaCRUD:
             async_session, ["mapped-area-id", "missing-area-id"]
         )
 
-        assert result == {
-            "mapped-area-id": (mapped_area.id, "ca-map-id", "Mapped Authority")
-        }
+        assert set(result) == {"mapped-area-id"}
+        assert result["mapped-area-id"].id == mapped_area.id
+        assert result["mapped-area-id"].area_name == mapped_area.area_name
+        assert (
+            result["mapped-area-id"].competent_authority.competent_authority_id
+            == "ca-map-id"
+        )
+        assert (
+            result["mapped-area-id"].competent_authority.competent_authority_name
+            == "Mapped Authority"
+        )
 
     async def test_get_area_id_map_handles_empty_and_nonempty_input(
         self, async_session: AsyncSession

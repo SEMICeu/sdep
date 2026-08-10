@@ -395,7 +395,7 @@ def test_validate_jwt_token_success_and_error_paths(monkeypatch):
 async def test_protected_endpoint_maps_jwt_errors_to_http_status_end_to_end(
     monkeypatch,
 ):
-    """End-to-end wiring guard for issue #165.
+    """End-to-end wiring guard for JWT error mapping.
 
     Drives a real request through an app wired with the standard exception
     handlers and the real ``verify_bearer_token`` dependency, and asserts the
@@ -485,14 +485,14 @@ async def test_create_verify_bearer_token_dependency_and_oauth2_client_credentia
     assert await strict(_request(auth="Bearer hello")) == "hello"
 
 
-def _generate_ca_v1_openapi(*, flow_enabled: bool, monkeypatch) -> dict:
-    """Regenerate the CA v1 OpenAPI with the client-credentials flag toggled.
+def _generate_ca_v1_openapi(*, secret_auth_enabled: bool, monkeypatch) -> dict:
+    """Regenerate the CA v1 OpenAPI with the client-secret auth flag toggled.
 
     The domain app caches its schema, so reset the cache before and after to keep
     this from leaking into other tests that read the default contract.
     """
     monkeypatch.setattr(
-        openapi_utils.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", flow_enabled
+        openapi_utils.settings, "CLIENT_SECRET_AUTH_ENABLED", secret_auth_enabled
     )
     app_ca_v1.openapi_schema = None
     try:
@@ -513,7 +513,7 @@ def _security_requirements(schema: dict) -> list[dict]:
 
 def test_docs_keep_oauth2_scheme_when_client_credentials_enabled(monkeypatch):
     """With the flow enabled, the docs expose the OAuth2 (client credentials) Authorize button."""
-    schema = _generate_ca_v1_openapi(flow_enabled=True, monkeypatch=monkeypatch)
+    schema = _generate_ca_v1_openapi(secret_auth_enabled=True, monkeypatch=monkeypatch)
 
     schemes = schema["components"]["securitySchemes"]
     assert schemes["OAuth2ClientCredentials"]["type"] == "oauth2"
@@ -526,7 +526,7 @@ def test_docs_keep_oauth2_scheme_when_client_credentials_enabled(monkeypatch):
 
 def test_docs_expose_bearer_scheme_when_client_credentials_disabled(monkeypatch):
     """With the flow disabled, the non-functional OAuth2 button becomes a Bearer paste field."""
-    schema = _generate_ca_v1_openapi(flow_enabled=False, monkeypatch=monkeypatch)
+    schema = _generate_ca_v1_openapi(secret_auth_enabled=False, monkeypatch=monkeypatch)
 
     schemes = schema["components"]["securitySchemes"]
     assert "OAuth2ClientCredentials" not in schemes
@@ -550,9 +550,7 @@ def test_docs_untouched_when_no_oauth2_scheme_and_client_credentials_disabled(
     a schema that lacks one has nothing to rewrite and is passed through even when
     the flow is disabled.
     """
-    monkeypatch.setattr(
-        openapi_utils.settings, "CLIENT_CREDENTIALS_FLOW_ENABLED", False
-    )
+    monkeypatch.setattr(openapi_utils.settings, "CLIENT_SECRET_AUTH_ENABLED", False)
     schema = {"components": {"securitySchemes": {}}, "paths": {}}
 
     result = openapi_utils.use_bearer_scheme_when_client_credentials_disabled(schema)

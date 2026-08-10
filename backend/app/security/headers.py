@@ -81,7 +81,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             )
             response.headers["Pragma"] = "no-cache"
 
-        # HSTS - enforce HTTPS (optional, usually handled by reverse proxy)
+        # HSTS - enforce HTTPS. Enabled by this application as defense in depth;
+        # the reverse proxy in front of it may set the header as well.
         if self.enable_hsts:
             response.headers["Strict-Transport-Security"] = (
                 f"max-age={self.hsts_max_age}; includeSubDomains; preload"

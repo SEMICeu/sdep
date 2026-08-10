@@ -32,9 +32,7 @@ from app.schemas.activity import (
     ActivityResponse,
 )
 from app.schemas.activity_bulk import ActivityBulkResponse, ActivityBulkResultItem
-from app.schemas.address import CommonAddressResponse
 from app.schemas.error import ErrorDetail, ErrorResponse
-from app.schemas.temporal import CommonTemporalResponse
 
 logger = logging.getLogger(__name__)
 
@@ -250,58 +248,36 @@ async def create_activities_bulk(
     # Use a single timestamp for all items in the batch
     batch_created_at = datetime.now(UTC)
 
+    created_activity_by_index = {}
     if valid_indexes:
         activity_rows: list[ActivityBulkCreate] = []
         for i in valid_indexes:
             activity_req = validated_items[i]
-            area_technical_id = area_ca_map[activity_req.area_id][0]
+            area_obj = area_ca_map[activity_req.area_id]
             activity_rows.append(
                 ActivityBulkCreate(
                     **activity_req.model_dump(),
                     platform_technical_id=platform.id,
-                    area_technical_id=area_technical_id,
+                    area_technical_id=area_obj.id,
                     created_at=batch_created_at,
                 )
             )
 
-        await activity_crud.bulk_create(session, activity_rows)
+        created_activities = await activity_crud.bulk_create(
+            session, activity_rows, platform, area_ca_map
+        )
+        created_activity_by_index = dict(
+            zip(valid_indexes, created_activities, strict=True)
+        )
 
     # ── Step 4: Feedback ────────────────────────────────────────────────
     # Fill in OK results for valid items with embedded ActivityResponse
     for i in valid_indexes:
         activity_req = validated_items[i]
-        area_id_str = activity_req.area_id
         activity_id = activity_req.validated_activity_id
-        _, ca_id, ca_name = area_ca_map[area_id_str]
+        created_activity = created_activity_by_index[i]
 
-        activity_response = ActivityResponse(
-            activity_id=activity_id,
-            activity_name=activity_req.activity_name,
-            status=activity_req.status,
-            area_id=area_id_str,
-            competent_authority_id=ca_id,
-            competent_authority_name=ca_name,
-            url=activity_req.url,
-            address=CommonAddressResponse(
-                thoroughfare=activity_req.address.thoroughfare,
-                locator_designator_number=activity_req.address.locator_designator_number,
-                locator_designator_letter=activity_req.address.locator_designator_letter,
-                locator_designator_addition=activity_req.address.locator_designator_addition,
-                post_code=activity_req.address.post_code,
-                post_name=activity_req.address.post_name,
-                full_address=activity_req.address.full_address,
-            ),
-            registration_number=activity_req.registration_number,
-            number_of_guests=activity_req.number_of_guests,
-            country_of_guests=activity_req.country_of_guests,
-            temporal=CommonTemporalResponse(
-                start_datetime=activity_req.temporal.start_date_time,
-                end_datetime=activity_req.temporal.end_date_time,
-            ),
-            platform_id=platform.platform_id,
-            platform_name=platform_name,
-            created_at=batch_created_at,
-        )
+        activity_response = ActivityResponse.model_validate(created_activity)
 
         results[i] = ActivityBulkResultItem(
             activityIndex=i,

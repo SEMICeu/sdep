@@ -53,17 +53,17 @@ def _normalized_openapi(app: FastAPI) -> dict[str, Any]:
 
     Snapshots capture the full, client-credentials-enabled contract (the OAuth2
     Authorize flow that non-production environments serve). The Bearer-only variant
-    served when ``CLIENT_CREDENTIALS_FLOW_ENABLED`` is false is covered separately in
+    served when ``CLIENT_SECRET_AUTH_ENABLED`` is false is covered separately in
     ``tests/test_openapi_and_security_utils.py``, so the flag is forced on here to keep
     the frozen contract independent of the ambient setting.
     """
-    original_flag = openapi_module.settings.CLIENT_CREDENTIALS_FLOW_ENABLED
-    openapi_module.settings.CLIENT_CREDENTIALS_FLOW_ENABLED = True
+    original_flag = openapi_module.settings.CLIENT_SECRET_AUTH_ENABLED
+    openapi_module.settings.CLIENT_SECRET_AUTH_ENABLED = True
     app.openapi_schema = None
     try:
         schema = app.openapi()
     finally:
-        openapi_module.settings.CLIENT_CREDENTIALS_FLOW_ENABLED = original_flag
+        openapi_module.settings.CLIENT_SECRET_AUTH_ENABLED = original_flag
         app.openapi_schema = None
 
     schema["info"]["version"] = PLACEHOLDER_VERSION

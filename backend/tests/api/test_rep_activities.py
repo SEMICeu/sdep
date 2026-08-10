@@ -158,7 +158,7 @@ class TestREPActivitiesAPI:
         }
         assert competent_authority_ids == {"0363", "0518"}
 
-        # Verify the acceptance-criteria fields are present (issue #99)
+        # Verify the required REP activity fields are present
         activity = data["activities"][0]
         assert "temporal" in activity
         assert "startDatetime" in activity["temporal"]
@@ -168,6 +168,17 @@ class TestREPActivitiesAPI:
         assert "registrationNumber" in activity
         assert "competentAuthorityId" in activity
         assert "competentAuthorityName" in activity
+        activities_by_url = {
+            activity["url"]: activity for activity in data["activities"]
+        }
+        assert (
+            activities_by_url["http://example.com/amsterdam-0"]["areaName"]
+            == "Amsterdam Area"
+        )
+        assert (
+            activities_by_url["http://example.com/denhaag-0"]["areaName"]
+            == "Den Haag Area"
+        )
 
     async def test_get_activities_excludes_ended_versions(
         self, async_session: AsyncSession, setup_overrides, test_data

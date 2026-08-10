@@ -90,6 +90,7 @@ occurrence is processed. Earlier occurrences receive NOK.
 - `activityName`: Display name (optional) of the activity
 - `status`: Lifecycle status of the activity: `finished` or `cancelled`
 - `areaId`: Functional ID referencing the area where this activity took place
+- `areaName`: Display name (optional) of the area where this activity took place
 - `competentAuthorityId`: Functional ID of the competent authority that owns the referenced area
 - `competentAuthorityName`: Display name (optional) of the competent authority
 - `url`: URL of the originating listing/advertisement

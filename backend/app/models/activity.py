@@ -206,6 +206,11 @@ class Activity(Base):
         return self.area.area_id
 
     @property
+    def area_name(self) -> str | None:
+        """Return the related area display name."""
+        return self.area.area_name
+
+    @property
     def competent_authority_id_functional(self) -> str:
         """Return the related competent authority functional ID."""
         return self.area.competent_authority.competent_authority_id

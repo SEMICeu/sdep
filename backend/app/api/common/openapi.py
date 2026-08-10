@@ -130,7 +130,7 @@ def extract_bulk_activity_item_schema(
     `ActivityRequest` as a separate component. This hook moves the inlined schema
     to `components.schemas["ActivityRequest"]` and replaces the inline with a
     `$ref`, giving the common API contract a reusable, concretely-typed item
-    schema (issue #68).
+    schema.
 
     Args:
         openapi_schema: The generated OpenAPI schema dictionary
@@ -197,12 +197,12 @@ def sort_schemas_by_namespace(openapi_schema: dict[str, Any]) -> dict[str, Any]:
 def use_bearer_scheme_when_client_credentials_disabled(
     openapi_schema: dict[str, Any],
 ) -> dict[str, Any]:
-    """Swap the OAuth2 client-credentials scheme for an HTTP Bearer scheme when the
+    """Swap the OAuth 2.0 Client Credentials scheme for an HTTP Bearer scheme when the
     client-credentials (client_secret) token flow is disabled.
 
-    Swagger UI's "Authorize" button for the OAuth2 client-credentials flow performs a
+    Swagger UI's "Authorize" button for the OAuth 2.0 Client Credentials flow performs a
     client_id/client_secret exchange against ``/token``. When
-    ``CLIENT_CREDENTIALS_FLOW_ENABLED`` is false that exchange is rejected, so the
+    ``CLIENT_SECRET_AUTH_ENABLED`` is false that exchange is rejected, so the
     button cannot obtain a token. Swagger cannot sign a client JWT itself, so rather
     than drop authentication from the docs entirely we expose a plain Bearer scheme:
     the operator obtains a token out of band (client-signed JWT) and pastes it into
@@ -212,7 +212,7 @@ def use_bearer_scheme_when_client_credentials_disabled(
     bearer-token verification is unchanged. When the flow is enabled the schema is
     returned untouched.
     """
-    if settings.CLIENT_CREDENTIALS_FLOW_ENABLED:
+    if settings.CLIENT_SECRET_AUTH_ENABLED:
         return openapi_schema
 
     components = openapi_schema.get("components", {})
@@ -286,14 +286,14 @@ def create_custom_openapi(app: FastAPI) -> Callable:
         # Remove 422 from endpoints that never emit it
         openapi_schema = remove_inapplicable_422_responses(openapi_schema)
 
-        # Extract inlined ActivityRequest item schema into components (issue #68)
+        # Extract inlined ActivityRequest item schema into components
         openapi_schema = extract_bulk_activity_item_schema(openapi_schema)
 
         # Sort schemas by namespace first, then alphabetically
         openapi_schema = sort_schemas_by_namespace(openapi_schema)
 
-        # When the client-credentials flow is disabled, present a Bearer scheme in
-        # the docs instead of the (non-functional) OAuth2 Authorize flow.
+        # When client-secret authentication is disabled, present a Bearer scheme in
+        # the docs instead of the (non-functional) OAuth 2.0 Authorize flow.
         openapi_schema = use_bearer_scheme_when_client_credentials_disabled(
             openapi_schema
         )

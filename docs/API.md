@@ -7,9 +7,12 @@ This document describes principles and patterns for the SDEP API.
 - [Principle](#principle)
 - [Patterns](#patterns)
 - [Versioning](#versioning)
-  - [API Versioning](#api-versioning)
-  - [Backward and Forward Compatibility](#backward-and-forward-compatibility)
-  - [Application Versioning](#application-versioning)
+  - [API Contract](#api-contract)
+  - [API Status](#api-status)
+  - [Compatibility](#compatibility)
+  - [CA Activity Filters (v2)](#ca-activity-filters-v2)
+  - [REP Activity Filters (v1)](#rep-activity-filters-v1)
+  - [Application](#application)
 - [HTTP Status Codes](#http-status-codes)
   - [Success](#success)
   - [Client Errors](#client-errors)
@@ -67,13 +70,15 @@ This document describes principles and patterns for the SDEP API.
 
 ---
 
-### API Versioning
+### API Contract
 
 The API version (contract) is embedded in the URL path (`/api/{domain}/v1/...`).
 
 A new version (e.g. v2) is introduced only when a **breaking change** to the contract is unavoidable - a removed or renamed field, a changed type, or altered semantics.
 
 Additive changes (new optional fields, new endpoints) do **not** require a new version.
+
+When a new API version is released, the previous version (N-1) remains available for a deprecation period to give clients time to migrate. Only the current (N) and previous (N-1) versions are supported simultaneously.
 
 ---
 
@@ -95,6 +100,20 @@ A beta API can be available in production. Clients may integrate with it, but th
 | ca     | v2      | beta   | Activities with optional query filters (new)        |
 | str    | v1      | stable |                                                     |
 | rep    | v1      | beta   | Read-only reporting API for reporting offices (new) |
+
+---
+
+### Compatibility
+
+Backward compatibility:
+
+- Clients built against an older contract continue to work against a newer release of the same API version
+- This is the primary design goal: existing integrations must not break on a same-version update
+
+Forward compatibility:
+
+- An older server gracefully handling newer client payloads (e.g. by ignoring unknown fields)
+- Is a best-effort courtesy, not a guarantee across API versions
 
 ---
 
@@ -131,25 +150,9 @@ All provided filters are combined with AND semantics. The `filterCreatedAtFrom` 
 
 `GET /api/rep/v1/activities` returns at most 1000 records per request: the `limit` parameter defaults to 1000 (also the maximum). Use `offset` together with `GET /api/rep/v1/activities/count` to page through larger result sets.
 
-When a new API version is released, the previous version (N-1) remains available for a deprecation period to give clients time to migrate. Only the current (N) and previous (N-1) versions are supported simultaneously.
-
 ---
 
-### Backward and Forward Compatibility
-
-Backward compatibility:
-
-- Clients built against an older contract continue to work against a newer release of the same API version
-- This is the primary design goal: existing integrations must not break on a same-version update
-
-Forward compatibility:
-
-- An older server gracefully handling newer client payloads (e.g. by ignoring unknown fields)
-- Is a best-effort courtesy, not a guarantee across API versions
-
----
-
-### Application Versioning
+### Application
 
 The deployed application (serving the contract) follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`):
 
@@ -389,7 +392,7 @@ Within **SDEP-NL**, a dedicated API gateway is currently **not** used. This is a
 In context of SDEP-NL:
 
 - **SDEP-NL already provides clear API boundaries** \
-  The SDEP API itself acts as a functional gateway for data exchange, with well-defined domains (`str` vs `ca`), OAuth2 client credential flows, and strict role separation.
+  The SDEP API itself acts as a functional gateway for data exchange, with well-defined domains (`str` vs `ca`), the OAuth 2.0 Client Credentials flow, and strict role separation.
 
 - **Workload is primarily transactional, not cache-driven** \
   Typical interactions (e.g. `POST /str/activities/bulk`, area upload/download) are write-heavy or data-exchange oriented, limiting the value of traditional API gateway features like response caching.

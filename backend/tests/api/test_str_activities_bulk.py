@@ -203,6 +203,7 @@ class TestSTRActivitiesBulkAPI:
         assert activity["activityName"] == "Test Activity"
         assert activity["status"] == "finished"
         assert activity["areaId"] == test_areas["area1"].area_id
+        assert activity["areaName"] == test_areas["area1"].area_name
         assert activity["competentAuthorityId"] == "test"
         assert activity["competentAuthorityName"] == "Test Authority"
         assert activity["url"] == "http://example.com/bulk-fields-001"

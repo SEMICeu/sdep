@@ -117,10 +117,10 @@
         "type": "object"
       },
       "TokenResponse": {
-        "description": "OAuth2 token response model",
+        "description": "OAuth 2.0 token response model",
         "properties": {
           "access_token": {
-            "description": "OAuth2 bearer access token to be used in the Authorization header of subsequent API requests",
+            "description": "OAuth 2.0 bearer access token to be used in the Authorization header of subsequent API requests",
             "title": "Access Token",
             "type": "string"
           },
@@ -146,7 +146,7 @@
     }
   },
   "info": {
-    "description": "Authentication endpoints for machine-to-machine OAuth2 Client Credentials flow via Keycloak. Status: stable.",
+    "description": "Authentication endpoints for machine-to-machine OAuth 2.0 Client Credentials flow via Keycloak. Status: stable.",
     "title": "SDEP - Auth API",
     "version": "<frozen-version>"
   },

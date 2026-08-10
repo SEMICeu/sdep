@@ -132,7 +132,7 @@ async def post_auth_token(
             detail="Client credentials must be provided via HTTP Basic Auth, form parameters, or client-signed JWT",
         )
 
-    if has_secret_credentials and not settings.CLIENT_CREDENTIALS_FLOW_ENABLED:
+    if has_secret_credentials and not settings.CLIENT_SECRET_AUTH_ENABLED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Client secret token authentication is disabled; use client-signed JWT authentication",

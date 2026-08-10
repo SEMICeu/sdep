@@ -1,58 +1,107 @@
 <h1>SDEP-NL - Production</h1>
 
-Welcome to the **SDEP-NL production environment (PRD)**.
+Welcome to the **SDEP-NL Production (PRD) environment**. As an **integration partner**, you can use this environment to exchange data with the Netherlands.
 
-## About This Guide
+> **Disclaimer**: For production use per country, always contact your **national SDEP representative** regarding national deployment and operational responsibilities.
 
-**Purpose**: Prepare for access to the SDEP-NL production environment.
-
-**Target audience**: Integration partners connecting to SDEP-NL PRD.
-
-**Outcome after completion**: Request PRD access and connect a production machine client.
-
-## Table of Contents
+<h2>Table of Contents</h2>
 
 - [Introduction](#introduction)
-- [Prepare](#prepare)
+  - [SDEP](#sdep)
+  - [Authentication](#authentication)
 - [Get Access](#get-access)
+  - [Generate keypair](#generate-keypair)
+  - [Contact team SDEP-NL](#contact-team-sdep-nl)
+  - [Receive credentials](#receive-credentials)
+- [Ask questions](#ask-questions)
 
 ## Introduction
 
+---
+
+### SDEP
+
 The **Single Digital Entry Point (SDEP)** is established in accordance with [EU legislation](https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng) for short-term rental data exchange.
 
-This repository contains the EU-harmonized **API specification** and a **reference implementation** that serves as a blueprint for national deployments. See [Introduction](../README.md#introduction), [Specification](../README.md#specification), and [Implementation](../README.md#reference-implementation) for details.
+The SDEP repository contains:
 
-The reference implementation is deployed in **production** (PRD) as **SDEP-NL** for the Netherlands, enabling competent authorities (CA) and short-term rental platforms (STR) to exchange regulated-area and rental-activity data in accordance with EU legislation.
+- The **EU-harmonized API specification** for short-term rental platforms (**STR**)
+- The **NL-specific API specification** for competent authorities (**CA**) and reporting/statistics offices (**REP**)
+- The **NL-specific reference implementation**
+
+The reference implementation is deployed in the **SDEP-NL Production (PRD)** environment, enabling integration partners to exchange data with the Netherlands.
+
+The NL-specific API specification and reference implementation can also serve as a blueprint for other national deployments.
 
 https://sdep.gov.nl/api/docs
 
-The PRD environment includes the **EU-harmonized STR component** and the **SDEP-NL-specific CA and REP components**.
+---
 
-> **Disclaimer**: For production use in your own country, always contact your **national SDEP representative** regarding national deployment and operational responsibilities.
-
-## Prepare
+### Authentication
 
 SDEP is an **API-first application** designed for **machine-to-machine (M2M) integrations**.
 
-- **SDEP-NL** uses **oAuth2 with client-signed JWT authentication** for machine clients (most secure)
-  - The Swagger **Authorize** button accepts a Bearer token, which is obtained via the client-signed JWT flow (`/token` endpoint)
-  - To prepare for the client-signed JWT flow, you need to setup a private/public key pair.
-  - To set up a private/public key pair, see [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md).
+For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials grant**.
 
-> **National SDEP implementations** can decide on their own which flow they adopt; this does not impact the API
+The Client Credentials Grant supports two types of **client authentication**, both on the same `/token` endpoint:
+
+- **Client ID & Secret**
+- **Client-Signed JWT**
+
+SDEP-NL PRD only supports Client-Signed JWT.
+
+- This is the most secure option.
+- It requires you to setup a private/public key pair upfront, and submit the public key to team SDEP-NL.
+- It allows you to authenticate and use the Swagger UI (after you programmatically acquired a `Bearer` token).
+- See [Get Started with Client Signed JWT](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance.
+
+> National SDEP implementations are free to adopt either authentication method; this does not impact the API.
+
+> To explore both authentication methods locally, see [Fullstack](../README.md#fullstack).
 
 ## Get Access
 
-To **request client access for SDEP-NL Production**, please email us, using the contact details listed at <https://sdep.gov.nl/api/docs>.
+Take the following steps to **get access to the SDEP-NL production (PRD)** environment.
 
-Include the following details in your request:
+---
 
-- **Technical email address**: used for onboarding and operational contact.
-- **Technical phone number**: used for onboarding and operational contact.
-- **Role** (are you a competent authority (CA), short-term rental platform (STR), or reporting.statistics office (REP)): used to grant the appropriate API permissions.
-- **For client-signed JWT authentication (required)**: your public key in PEM format, used to authenticate your client by verifying the JWTs it signs.
+### Generate keypair
 
-If you have any questions, please feel free to reach out.
+See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for **guidance**.
+
+---
+
+### Contact team SDEP-NL
+
+**Inquire contact details for team SDEP-NL** (email address) at <https://sdep.gov.nl/api/docs>.
+
+**Send an email** to SDEP-NL containing the following contact details for your **technical representative**:
+
+- **Technical representative’s email address**: used for onboarding and operational communication.
+- **Technical representative’s phone number**: used for onboarding and operational communication.
+
+Also include in the email:
+
+- **Your public key**: used to authenticate your client through client-signed JWT
+  - See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
+- **Your Role**: used to grant the appropriate API permissions
+  - Competent authority (CA)
+  - Short-term rental platform (STR)
+  - Reporting statistics office (REP)
+
+---
+
+### Receive credentials
+
+From team SDEP-NL, you will receive:
+
+- **Token request values**: to support **client-signed JWT**
+
+See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for applying these to the SDEP API.
+
+## Ask questions
+
+If you have any questions, feel free to reach out at the above contact details.
 
 Best regards,
 **Team SDEP-NL**

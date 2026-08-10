@@ -397,38 +397,34 @@ async def get_area_id_map(
 async def get_area_ca_map(
     session: AsyncSession,
     area_ids: list[str],
-) -> dict[str, tuple[int, str, str | None]]:
+) -> dict[str, Area]:
     """
-    Fetch current areas with their competent authority data in a single query.
+    Fetch current areas with their competent authority loaded.
 
-    Returns a mapping of {functional_area_id: (technical_id, ca_functional_id, ca_name)}
-    for all current areas matching the given IDs.
+    Returns a mapping of {functional_area_id: Area} for all current areas matching
+    the given IDs.
 
     Args:
         session: Async database session
         area_ids: List of area functional IDs to look up
 
     Returns:
-        Dictionary mapping functional area_id to (technical_id, ca_id, ca_name)
+        Dictionary mapping functional area_id to Area
     """
     if not area_ids:
         return {}
 
     stmt = (
-        select(
-            Area.area_id,
-            Area.id,
-            CompetentAuthority.competent_authority_id,
-            CompetentAuthority.competent_authority_name,
-        )
-        .join(CompetentAuthority, Area.competent_authority_id == CompetentAuthority.id)
+        select(Area)
+        .options(selectinload(Area.competent_authority))
         .where(
             Area.area_id.in_(area_ids),
             Area.ended_at.is_(None),
         )
     )
     result = await session.execute(stmt)
-    return {row[0]: (row[1], row[2], row[3]) for row in result.all()}
+    areas = result.scalars().all()
+    return {area.area_id: area for area in areas}
 
 
 async def mark_as_ended(

@@ -1,0 +1,57 @@
+{
+  // SDEP Markdown linting — enforces the project's Markdown house rules.
+  //
+  // Division of labour:
+  //   - mdformat (run via uv) owns *formatting*, including table alignment.
+  //   - markdownlint (run via npx) owns *linting* plus the project-specific
+  //     house rules below. Built-in rules that mdformat already satisfies are
+  //     enabled as a safety net; everything else is opt-in (default: false) to
+  //     keep the gate predictable and avoid fighting the formatter.
+  //
+  // This file is loaded explicitly via `markdownlint-cli2 --config` (see the
+  // Makefile). "customRules" paths are resolved relative to this file, while
+  // "globs"/"ignores" are resolved relative to the repo root (the working dir).
+  //
+  // Run `make md-format` to auto-fix, `make md-lint` to check.
+  "customRules": [
+    "./markdownlint-rules/no-smart-dash.cjs",
+    "./markdownlint-rules/h1-html.cjs",
+    "./markdownlint-rules/hr-before-h3.cjs",
+    "./markdownlint-rules/max-heading-depth.cjs"
+  ],
+  "config": {
+    "default": false,
+
+    // House rules
+    "no-smart-dash": true,
+    "h1-html": true,
+    "hr-before-h3": true,
+    "max-heading-depth": true,
+
+    // Built-in rules that mdformat already produces — kept on as a safety net
+    "MD004": { "style": "dash" }, // unordered list marker must be "-"
+    "MD009": true, // no trailing spaces
+    "MD010": true, // no hard tabs
+    "MD012": true, // no multiple consecutive blank lines
+    "MD018": true, // space after ATX "#"
+    "MD019": true, // no multiple spaces after ATX "#"
+    "MD022": true, // blank lines around headings
+    // Blank lines around fenced code blocks, except inside list items:
+    // a fence indented under a bullet stays attached to it. Requiring blank
+    // lines there turns the item loose, and mdformat then spreads that
+    // looseness over every sibling bullet, which hurts readability.
+    "MD031": { "list_items": false },
+    "MD032": true, // blank lines around lists
+    "MD047": true // single trailing newline at end of file
+  },
+  "globs": [
+    "README.md",
+    "CLAUDE.md",
+    "docs/**/*.md"
+  ],
+  "ignores": [
+    "**/node_modules/**",
+    "**/.venv/**",
+    "tmp/**"
+  ]
+}

@@ -48,8 +48,6 @@ This document provides an overview of the SDEP (Single Digital Entry Point) tech
 
 See also: [Database Dialects](./DATABASE_DIALECTS.md) | [Development](./DEVELOPMENT.md)
 
----
-
 ## Overview
 
 SDEP is a FastAPI-based REST API that enables:
@@ -60,15 +58,11 @@ SDEP is a FastAPI-based REST API that enables:
 - The statistics office (REP) to query all registered rental activities for statistical analysis
 - Compliance with EU Regulation 2024/1028
 
----
-
 ## Scope and Reference Implementation
 
 **Production (NL):** https://sdep.gov.nl/api/docs
 
 - This is the reference implementation for this repo
-
----
 
 ## Technology Stack
 
@@ -81,7 +75,7 @@ SDEP is a FastAPI-based REST API that enables:
 - **ORM:** SQLAlchemy 2.0+ (async)
 - **Migrations:** Alembic
 - **Validation:** Pydantic 2.10+
-- **Authentication:** OAuth2 Client Credentials via authorization server (e.g. Keycloak)
+- **Authentication:** OAuth 2.0 Client Credentials via authorization server (e.g. Keycloak)
 - **Server:** Uvicorn
 
 ---
@@ -89,7 +83,7 @@ SDEP is a FastAPI-based REST API that enables:
 ### Infrastructure
 
 - **Container Platform:** Docker + Docker Compose
-- **Identity Provider:** e.g. Keycloak (OAuth2/OIDC)
+- **Identity Provider:** e.g. Keycloak (OAuth 2.0)
 - **Database:** PostgreSQL 15+
 - **Package Manager:** uv (Python)
 
@@ -101,9 +95,7 @@ SDEP is a FastAPI-based REST API that enables:
 - **Type Checking:** Pyright
 - **Testing:** pytest (with pytest-asyncio, pytest-xdist for parallel execution)
 - **Pre-commit:** Hooks for code quality
-- **CI/CD:** GitLab CI or otherwise (out of scope for this project)
-
----
+- **CI/CD:** Pipeline platform of choice (out of scope for this project)
 
 ## Repository / Directory Structure
 
@@ -112,6 +104,7 @@ sdep-app/
 ├── backend/                                    # Python FastAPI application
 │   ├── app/                                    # Application code
 │   │   ├── api/                                # API layer (routers, endpoints)
+│   │   │   ├── app_factory.py                  # Domain sub-app factory (shared setup for all domains)
 │   │   │   ├── common/                         # Shared API components (routers, openapi, security)
 │   │   │   │   ├── routers/                    # API routers
 │   │   │   │   │   ├── auth.py                 # Authentication router
@@ -120,6 +113,7 @@ sdep-app/
 │   │   │   │   │   ├── str_activities_bulk.py  # STR bulk activity endpoints
 │   │   │   │   │   └── str_areas.py            # STR area endpoints
 │   │   │   │   ├── activity_examples.py        # Shared OpenAPI activity response examples
+│   │   │   │   ├── activity_handlers.py        # Shared activity logic (CA v1/v2 and REP)
 │   │   │   │   ├── auth_dependencies.py        # Shared auth/role dependencies
 │   │   │   │   ├── exception_handlers.py
 │   │   │   │   ├── filename.py                 # Download filename sanitization
@@ -132,21 +126,17 @@ sdep-app/
 │   │   │       ├── auth/
 │   │   │       │   └── v1.py                   # Auth domain sub-app
 │   │   │       ├── ca/
-│   │   │       │   ├── app_factory.py          # Sub-app factory (shared setup for v1/v2)
 │   │   │       │   ├── v1.py                   # CA domain sub-app v1
 │   │   │       │   ├── v2.py                   # CA domain sub-app v2
 │   │   │       │   └── routers/
 │   │   │       │       ├── activities_v1.py    # CA activity endpoints v1
 │   │   │       │       ├── activities_v2.py    # CA activity endpoints v2 (with filters)
-│   │   │       │       ├── activity_handlers.py  # Shared activity logic (v1 and v2)
 │   │   │       │       └── areas.py            # CA area endpoints
 │   │   │       ├── rep/
-│   │   │       │   ├── app_factory.py          # Sub-app factory (shared setup for REP)
 │   │   │       │   ├── v1.py                   # REP domain sub-app
 │   │   │       │   └── routers/
 │   │   │       │       └── activities_v1.py    # REP activity endpoints (read-only)
 │   │   │       └── str/
-│   │   │           ├── app_factory.py          # Sub-app factory (shared setup for STR)
 │   │   │           └── v1.py                   # STR domain sub-app
 │   │   ├── crud/                               # Database operations (CRUD)
 │   │   │   ├── activity.py
@@ -196,7 +186,10 @@ sdep-app/
 │   ├── alembic/                                # Database migrations
 │   │   ├── env.py                              # Alembic environment config
 │   │   └── versions/                           # Migration scripts
-│   │       └── 001_initial.py                  # Initial migration
+│   │       ├── 001_initial.py                  # Initial migration
+│   │       └── *.py                            # Additional migrations on top
+│   ├── scripts/                                # Backend helper scripts
+│   │   └── wait_for_postgres.py                # Block until the database accepts connections
 │   ├── tests/                                  # Unit tests (mirrors app/ structure)
 │   │   ├── api/                                # API layer tests
 │   │   ├── crud/                               # CRUD layer tests
@@ -217,25 +210,28 @@ sdep-app/
 │   │   └── test_malware_scan.py                # ClamAV malware scan test
 │   ├── performance/                            # Performance tests (Locust)
 │   │   └── locustfile.py                       # Bulk activity load test
-│   ├── test_auth_client.py                     # OAuth2 token acquisition utility
-│   ├── test_auth_credentials.py                # Test client credentials flow
+│   ├── test_auth_client_bootstrap.py           # Bearer token acquisition utility (client secret)
+│   ├── test_auth_client_jwt.py                 # Test client-signed JWT (private_key_jwt) + roles
+│   ├── test_auth_client_secret.py              # Test client-secret authentication
 │   ├── test_auth_headers.py                    # Security headers compliance
 │   ├── test_auth_unauthorized.py               # Test unauthorized access rejection
 │   ├── test_ca_activities.py                   # Test CA activity endpoints
 │   ├── test_ca_areas.py                        # Test CA area submission
 │   ├── test_client_id_regex.py                 # Test client ID regex validation
 │   ├── test_health_ping.py                     # Health check tests
+│   ├── test_postgres_check_constraints.py      # Test database check constraints
+│   ├── test_rep_activities.py                  # Test REP activity endpoints
 │   ├── test_smoketest.py                       # Smoke test audit-excluded endpoints
 │   ├── test_str_activities_bulk.py             # Test STR bulk activity submission
 │   └── test_str_areas.py                       # Test STR area query endpoints
 │
 ├── keycloak/                                   # Keycloak config
 │   ├── add-realm-admin.sh                      # Create realm admin user
-│   ├── add-realm-machine-clients.sh            # Configure OAuth2 machine clients
+│   ├── add-realm-machine-clients.sh            # Configure OAuth 2.0 machine clients
 │   ├── add-realm-roles.sh                      # Configure roles
 │   ├── add-realm.sh                            # Initialize realm
 │   ├── get-client-secret.sh                    # Retrieve client secret
-│   ├── machine-clients.yaml                    # Machine client definitions (CA, STR)
+│   ├── machine-clients.yaml                    # Machine client definitions (CA, STR, REP)
 │   ├── realm.yaml                              # Realm configuration
 │   ├── roles.yaml                              # Role definitions
 │   └── wait.sh                                 # Wait for Keycloak startup
@@ -251,7 +247,7 @@ sdep-app/
 │   ├── shapefiles/                             # Shapefile test data (zipped)
 │   ├── 01-competent-authority.sql              # Competent authority fixtures
 │   ├── 02-area-generated.sql                   # Generated area data
-│   └── generate-area-sql.sh                    # Area data generator script
+│   └── postgres-prep-area-sql.sh               # Area data generator script
 │
 ├── docs/                                       # Documentation
 │   ├── API.md                                  # API documentation
@@ -260,6 +256,7 @@ sdep-app/
 │   ├── DATABASE_DIALECTS.md                    # SQLite/PostgreSQL compatibility
 │   ├── DATAMODEL.md                            # Data Model documentation
 │   ├── DEVELOPMENT.md                          # Workflow, testing, configuration
+│   ├── GET_STARTED_CLIENT_SIGNED_JWT.md        # Getting started with client-signed JWT (private_key_jwt)
 │   ├── GET_STARTED_PRD.md                      # Getting started with the production (PRD) environment
 │   ├── GET_STARTED_PRE.md                      # Getting started with the pre-production (PRE) environment
 │   ├── INTEGRATION_TESTS.md                    # Integration test documentation
@@ -271,36 +268,41 @@ sdep-app/
 │   ├── sdep_openapi_auth_v1.pdf                # OpenAPI auth v1 PDF export
 │   ├── sdep_openapi_ca_v1.pdf                  # OpenAPI CA v1 PDF export
 │   ├── sdep_openapi_str_v1.pdf                 # OpenAPI STR v1 PDF export
-│   └── diagrams/                               # Architecture and data model diagrams
-│       ├── ACTIVITY.excalidraw
-│       ├── ACTIVITY.svg
-│       ├── ACTIVITYFLOW.excalidraw
-│       ├── ACTIVITYFLOW.svg
-│       ├── ARCHITECTURE_FUNC.png
-│       ├── DATAMODEL.excalidraw
-│       ├── DATAMODEL.svg
-│       ├── LISTING.excalidraw
-│       ├── LISTING.svg
-│       ├── LISTINGFLOW.excalidraw
-│       └── LISTINGFLOW.svg
+│   ├── diagrams/                               # Architecture and data model diagrams
+│   │       ├── ACTIVITY.excalidraw
+│   │       ├── ACTIVITY.svg
+│   │       ├── ACTIVITYFLOW.excalidraw
+│   │       ├── ACTIVITYFLOW.svg
+│   │       ├── ARCHITECTURE_FUNC.png
+│   │       ├── DATAMODEL.excalidraw
+│   │       ├── DATAMODEL.svg
+│   │       ├── LISTING.excalidraw
+│   │       ├── LISTING.svg
+│   │       ├── LISTINGFLOW.excalidraw
+│   │       └── LISTINGFLOW.svg
+│   └── markdown-tooling/                       # Markdown format/lint tooling (see `make md-format`, `make md-lint`)
+│       ├── markdownlint-rules/                 # Custom markdownlint rules
+│       └── mdformat-sdep/                      # mdformat plugin enforcing the project style rules
 │
 ├── scripts/                                    # Utility scripts
+│   ├── create-client-signed-jwt.py             # Create a client-signed JWT assertion (portable, standalone)
 │   ├── generate-eicar-zip.sh                   # Generate EICAR test archive (malware scan test)
+│   ├── generate-keycloak-machine-clients.py    # Generate client-signed JWT test clients (CA, STR, REP)
 │   ├── run-tests.sh                            # Integration test runner
 │   ├── run-tests-perf.sh                       # Performance test runner (Locust)
-│   └── run-trivy-scan.sh                       # Trivy CVE scan vs CVE_EXPLAINS.md allowlist
+│   ├── run-trivy-scan.sh                       # Trivy CVE scan vs CVE_EXPLAINS.md allowlist
+│   ├── show-keycloak-client-jwks.py            # Show a client's public key (JWKS) stored in Keycloak
+│   └── validate-client-key-pair.py             # Verify a private key matches the configured public key
 │
 ├── .env                                        # Environment variables
+├── .env.extra.example                          # Template for `.env.extra`, the optional local override file
 ├── .gitignore                                  # Git ignore rules
-├── .gitlab-ci.yml                              # GitLab CI/CD configuration
 ├── CHANGELOG.md                                # Changelog
 ├── docker-compose.yml                          # Multi-container orchestration
 ├── LICENSE.md                                  # EUPL License
 ├── Makefile                                    # Root-level make targets
 └── README.md                                   # Quick start guide
 ```
-
----
 
 ## Backend Architecture
 
@@ -353,15 +355,13 @@ The backend follows a **layered architecture** pattern:
 
 For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.md), and [API](./API.md).
 
----
-
 ## API Surface
 
 ---
 
 ### Authentication
 
-- `POST /api/auth/v1/token` - OAuth2 token endpoint
+- `POST /api/auth/v1/token` - OAuth 2.0 token endpoint
 
 ---
 
@@ -504,8 +504,6 @@ Shared vs. version-specific code (CA domain as example):
 Adding a version is therefore cheap: define a new `activities_vN.py`, a one-line
 `vN.py`, mount it in `main.py`, and register its `/docs` + `/openapi.json` paths in
 the audit skip-list and CSP allowlist.
-
----
 
 ## Data and Lifecycle Design
 
@@ -927,8 +925,6 @@ Net effect:
 - N new `activity` rows (one per valid item), each with FKs `activity.platform_id → platform.id` and `activity.area_id → area.id`
 - Optionally M old `activity` rows marked ended when a supplied `activityId` had an active version for this platform
 
----
-
 ## Transaction Management
 
 Two session factories handle different operation types:
@@ -939,8 +935,6 @@ Two session factories handle different operation types:
 | `get_async_db_read_only` | Read-only (autoflush=False) | No transaction overhead                       | GET endpoints  |
 
 POST endpoints use `get_async_db` which wraps the entire request in a single transaction. If any error occurs, the entire operation is rolled back. On success, the transaction is committed automatically.
-
----
 
 ## Validation
 
@@ -1019,8 +1013,6 @@ The JWT token's `client_id` claim is stored separately in the private `client_id
 
 The private `client_id` is never serialized in public API responses, OpenAPI examples, or public documentation as an owner ID.
 
----
-
 ## Status Codes and Exception Handling
 
 For the complete list of HTTP status codes used by the API, see [HTTP Status Codes](API.md#http-status-codes).
@@ -1043,8 +1035,6 @@ The table below shows how application exceptions map to HTTP status codes:
 | 500                               | `Exception`                           | Catch-all (unexpected code failure)                                                                                                                                             |
 | 503                               | `DatabaseOperationalError`            | Database temporarily unavailable                                                                                                                                                |
 | 503                               | `AuthorizationServerOperationalError` | Authorization server temporarily unavailable                                                                                                                                    |
-
----
 
 ## Bulk Activity Submissions
 

@@ -43,7 +43,7 @@ make
 ### Integration Tests (`tests/`)
 
 - Shell scripts using curl
-- Test OAuth2 flows
+- Test OAuth 2.0 flows
 - Test API endpoints with single-item and bulk POST payloads
 - Test security headers (OWASP compliance)
 - Test validation (Pydantic + business logic)
@@ -56,8 +56,8 @@ make
 
 - Locust-based load testing for the bulk activity endpoint (`POST /api/str/v1/activities/bulk`)
 - Measures throughput (activities/sec), extrapolates capacity (activities/day), compares against configurable target
-- Uses isolated test data (`sdep-test-perf-*` prefix) by default; optionally keeps data in database (`PERF_KEEP_DATA=true`)
-- Configurable: `PERF_ACTIVITIES_TARGET` (total target volume), `PERF_USERS` (concurrent users to reach target), `PERF_MAX_DURATION_SECONDS`, `PERF_BATCH_SIZE`, `PERF_KEEP_DATA`
+- Uses isolated test data (`sdep-test-perf-*` prefix) by default; optionally keeps data in database (`KEEP_TEST_DATA=true`)
+- Configurable: `PERF_ACTIVITIES_TARGET` (total target volume), `PERF_USERS` (concurrent users to reach target), `PERF_MAX_DURATION_SECONDS`, `PERF_BATCH_SIZE`, `KEEP_TEST_DATA`
 - **Run:** `make test-perf` (or e.g. `make test-perf PERF_USERS=5 PERF_ACTIVITIES_TARGET=1000000 PERF_MAX_DURATION_SECONDS=10`)
 - See [Performance Tests](PERFORMANCE_TESTS.md) for detailed documentation
 
@@ -70,6 +70,6 @@ make
 - **`docker-compose.yml`** - Container orchestration
 - **`backend/pyproject.toml`** - Python dependencies and tool configuration
 - **`backend/alembic.ini`** - Database migration configuration
-- **`keycloak/machine-clients.yaml`** - Test machine client definitions (OAuth2)
+- **`keycloak/machine-clients.yaml`** - Test machine client definitions (OAuth 2.0, client secret); merged with the generated client-signed JWT clients into `tmp/machine-clients-extended.yaml`, which is the file provisioned into Keycloak
 - **`keycloak/roles.yaml`** - Test role definitions
 - **`Makefile`** - Development automation
