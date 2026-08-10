@@ -269,17 +269,17 @@ sdep-app/
 │   ├── sdep_openapi_ca_v1.pdf                  # OpenAPI CA v1 PDF export
 │   ├── sdep_openapi_str_v1.pdf                 # OpenAPI STR v1 PDF export
 │   ├── diagrams/                               # Architecture and data model diagrams
-│   │       ├── ACTIVITY.excalidraw
-│   │       ├── ACTIVITY.svg
-│   │       ├── ACTIVITYFLOW.excalidraw
-│   │       ├── ACTIVITYFLOW.svg
-│   │       ├── ARCHITECTURE_FUNC.png
-│   │       ├── DATAMODEL.excalidraw
-│   │       ├── DATAMODEL.svg
-│   │       ├── LISTING.excalidraw
-│   │       ├── LISTING.svg
-│   │       ├── LISTINGFLOW.excalidraw
-│   │       └── LISTINGFLOW.svg
+│       ├── ACTIVITY.excalidraw
+│       ├── ACTIVITY.svg
+│       ├── ACTIVITYFLOW.excalidraw
+│       ├── ACTIVITYFLOW.svg
+│       ├── ARCHITECTURE_FUNC.png
+│       ├── DATAMODEL.excalidraw
+│       ├── DATAMODEL.svg
+│       ├── LISTING.excalidraw
+│       ├── LISTING.svg
+│       ├── LISTINGFLOW.excalidraw
+│       └── LISTINGFLOW.svg
 │   └── markdown-tooling/                       # Markdown format/lint tooling (see `make md-format`, `make md-lint`)
 │       ├── markdownlint-rules/                 # Custom markdownlint rules
 │       └── mdformat-sdep/                      # mdformat plugin enforcing the project style rules

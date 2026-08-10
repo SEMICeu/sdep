@@ -48,12 +48,12 @@ This repository contains the **API specifications** for SDEP implementations acr
 **Harmonized components**
 
 - The short-term rental (**STR**) component is **harmonized at EU level**
-- It is common to all SDEP implementations in EU Member States.
+- It is common to all SDEP implementations in EU Member States
 
 **National components**
 
-- The competent authority (**CA**) and reporting/statistics (**REP**) components are provided as **guidance only**.
-- Their implementation may vary between EU Member States to accommodate national legislation and administrative requirements.
+- The competent authority (**CA**) and reporting/statistics (**REP**) components are provided as **guidance only**
+- Their implementation may vary between EU Member States to accommodate national legislation and administrative requirements
 
 ## Reference Implementation
 
@@ -251,8 +251,8 @@ For full configuration options and usage examples, see [Performance Tests](./doc
 
 Scan uploaded files for malware: `make test-malware`
 
-- Connects directly to the ClamAV container (not the backend API).
-- Runs standalone, so it can be used as a CI/CD security gate without starting the full stack.
+- Connects directly to the ClamAV container (not the backend API)
+- Runs standalone, so it can be used as a CI/CD security gate without starting the full stack
 
 ---
 
@@ -262,11 +262,11 @@ Scan the backend image for common vulnerabilities and exposures (CVEs): `make te
 
 This command:
 
-- Rebuilds the backend image from scratch (`--pull --no-cache`) to ensure the latest Debian security updates are included. Cached layers may otherwise retain vulnerabilities already fixed upstream.
-- Scans the image with Trivy via the `run-trivy-scan` Compose service.
+- Rebuilds the backend image from scratch (`--pull --no-cache`) to ensure the latest Debian security updates are included. Cached layers may otherwise retain vulnerabilities already fixed upstream
+- Scans the image with Trivy via the `run-trivy-scan` Compose service
 - Compares results against `docs/CVE_EXPLAINS.md` and fails if:
-  - New CVEs are found that are not allowlisted.
-  - Allowlisted CVEs are no longer present and should be removed.
+  - New CVEs are found that are not allowlisted
+  - Allowlisted CVEs are no longer present and should be removed
 
 The scan uses a temporary image tag and does not affect the image used by `make up`.
 
@@ -278,9 +278,9 @@ The scan uses a temporary image tag and does not affect the image used by `make 
 
 Security updates are installed via `apt-get upgrade` during the Docker build, so they are only applied when the relevant layer is rebuilt.
 
-- `make up` reuses Docker's build cache for faster local development and therefore does **not** guarantee the latest security patches.
-- CI/CD should always perform a clean rebuild (e.g. `--pull --no-cache`) before publishing or deploying images.
-- `make test-cve` already performs such a clean rebuild, ensuring the scan runs against a fully up-to-date image.
+- `make up` reuses Docker's build cache for faster local development and therefore does **not** guarantee the latest security patches
+- CI/CD should always perform a clean rebuild (e.g. `--pull --no-cache`) before publishing or deploying images
+- `make test-cve` already performs such a clean rebuild, ensuring the scan runs against a fully up-to-date image
 
 To refresh your local backend image manually: `make test-cve` or `docker compose build --pull --no-cache backend`.
 
