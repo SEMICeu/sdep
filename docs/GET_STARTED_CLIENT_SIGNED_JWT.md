@@ -1,6 +1,9 @@
 <h1>Client-Signed JWT Authentication</h1>
 
-This guide illustrates how to use **client-signed JWT authentication** with SDEP.
+This guide illustrates how to use **client-signed JWT authentication** with SDEP:
+
+- Practice in a local environment
+- Deploy against SDEP pre-production (PRE) and production (PRD)
 
 <h2>Table of Contents</h2>
 
