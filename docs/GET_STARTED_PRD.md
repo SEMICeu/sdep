@@ -43,12 +43,12 @@ SDEP is an **API-first application** designed for **machine-to-machine (M2M) int
 
 For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials grant**.
 
-The Client Credentials Grant supports two types of **client authentication**, both on the same `/token` endpoint:
+The Client Credentials Grant itself supports two types of **client authentication**, both on the same `/token` endpoint:
 
 - **Client ID & Secret**
 - **Client-Signed JWT**
 
-SDEP-NL PRD only supports Client-Signed JWT.
+However, SDEP-NL PRD only supports Client-Signed JWT.
 
 - This is the most secure option.
 - It requires you to setup a private/public key pair upfront, and submit the public key to team SDEP-NL.
