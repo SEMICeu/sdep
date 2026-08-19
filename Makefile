@@ -5,7 +5,7 @@ SHELL := /bin/bash
 # and any drift from the file layout is visible in review.
 .PHONY: .build .clean-stale \
         postgres-up postgres-down postgres-login postgres-status postgres-status-full \
-        .drop-database .migrate-database .load-test-data postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load postgres-count postgres-auditlog postgres-clean-testrun postgres-prep-area-sql \
+        .drop-database .migrate-database .load-test-data postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load postgres-size postgres-count postgres-auditlog postgres-clean-testrun postgres-prep-area-sql \
         dbgate-up dbgate-down dbgate-restart dbgate-status \
         keycloak-up keycloak-down .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles keycloak-generate-machine-clients keycloak-configure keycloak-show-client-public-key keycloak-match-client-public-keys .get-client-credentials \
         backend-up backend-down backend-restart \
@@ -167,6 +167,11 @@ postgres-drop-migrate-load: .clean-stale ## Drop + migrate + load
 	@echo "🔄 Dropping, migrating and loading sdep-database..."
 	@$(MAKE) --no-print-directory .drop-database .migrate-database .load-test-data
 	@echo "✅ SDEP database dropped, migrated and loaded!"
+
+postgres-size: ## Show database size
+	@set -a && source .env && set +a && \
+	echo "🔍 Showing size of database $$POSTGRES_DB_NAME..." && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT pg_size_pretty(pg_database_size(current_database()));"
 
 postgres-count: ## Count rows in all tables
 	@echo "🔍 Counting rows in all tables..."

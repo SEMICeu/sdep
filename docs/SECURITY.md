@@ -134,6 +134,12 @@ JWT Claims used by the application:
 | `client_name`        | Platform or Competent Authority display name  |
 | `realm_access.roles` | Role-based authorization                      |
 
+---
+
+**A note about 2FA**
+
+Because software, scripts, and servers cannot naturally approve push notifications or type one-time passcodes, M2M authentication inherently uses non-interactive, cryptographic credentials instead of human-style two-factor authentication (2FA).
+
 ## Smaller Platforms
 
 Smaller platforms can opt for delegating SDEP API-invocation to third-parties.
