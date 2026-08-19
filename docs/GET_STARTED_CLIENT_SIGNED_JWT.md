@@ -26,7 +26,7 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
 
 SDEP supports **OAuth 2.0** with the **Client Credentials grant**.
 
-The Client Credentials grant supports **two authentication types**:
+The Client Credentials grant itself supports **two authentication types**:
 
 - **Client ID & secret**
 - **Client-signed JWT**

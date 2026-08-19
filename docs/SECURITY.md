@@ -39,7 +39,7 @@ Confidential machine clients must be identified upfront. This is assumed to be h
 
 For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials grant** (`grant_type=client_credentials`). This is the standard framework for trusted machine-to-machine (M2M) communication.
 
-The Client Credentials Grant supports two types of **client authentication**:
+The Client Credentials Grant itself supports two types of **client authentication**:
 
 - **Client ID & Secret**
   - The client sends a static symmetric shared secret to an Authorization Server (`client_secret_post` / `client_secret_basic`).

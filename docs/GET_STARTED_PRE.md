@@ -48,7 +48,7 @@ SDEP is an **API-first application** designed for **machine-to-machine (M2M) int
 
 For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials grant**.
 
-The Client Credentials Grant supports two types of **client authentication**, both on the same `/token` endpoint:
+The Client Credentials Grant itself supports two types of **client authentication**, both on the same `/token` endpoint:
 
 - **Client ID & Secret**
 - **Client-Signed JWT**
