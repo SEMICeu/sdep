@@ -105,6 +105,12 @@ The Swagger UI **Authorize** button follows the application configuration `CLIEN
 
 ---
 
+**A note on 2FA**
+
+Because software, scripts, and servers cannot naturally approve push notifications or type one-time passcodes, M2M authentication inherently uses non-interactive, cryptographic credentials instead of human-style two-factor authentication (2FA).
+
+---
+
 **Authorization**
 
 Authorization determines what the client is allowed to do.
@@ -133,12 +139,6 @@ JWT Claims used by the application:
 | `client_id`          | Platform or Competent Authority functional ID |
 | `client_name`        | Platform or Competent Authority display name  |
 | `realm_access.roles` | Role-based authorization                      |
-
----
-
-**A note about 2FA**
-
-Because software, scripts, and servers cannot naturally approve push notifications or type one-time passcodes, M2M authentication inherently uses non-interactive, cryptographic credentials instead of human-style two-factor authentication (2FA).
 
 ## Smaller Platforms
 
