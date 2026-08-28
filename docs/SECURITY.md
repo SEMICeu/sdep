@@ -485,10 +485,19 @@ The Docker container runs as a non-root user (`app`), following the principle of
 
 ## Container Image Scans
 
-To minimize exposure to Common Vulnerabilities and Exposures (CVEs), container image scanning is assumed to be part of CI/CD (outside the scope of this repository):
+To minimize exposure to Common Vulnerabilities and Exposures (CVEs), the reference implementation includes container image scanning as part of CI/CD:
 
 - Continuously monitor and remediate Critical and High severity CVEs.
 - Implement remediation according to a “comply (fix) or explain” policy.
+
+The reference implementation provides two CVE checks:
+
+- `make test-cve` builds the image, scans it with Trivy, and compares the findings with the CVE allowlist in `docs/CVE_EXPLAINS.md`. It fails when the scan reports a CVE the allowlist does not justify, when the allowlist still lists a CVE the scan no longer reports, when a listed package or severity differs from what the scan reports, or when the same CVE is listed twice.
+- `make test-cve-offline` scans nothing. It feeds prepared reports to the comparison script to confirm it still catches each of those cases, and checks that the identifiers in the allowlist have a plausible year. Because it needs no image, it is the fast check and runs in `make all`, while the image scan runs in `make ci-gate`.
+
+> **Note:** `docs/CVE_EXPLAINS.md` is intentionally not committed. Each EU member state implementing an SDEP is responsible for maintaining its own CVE allowlist and remediation process within its CI/CD pipeline.
+
+Running the scanner and validating its report should be regarded as blocking CI/CD checks (`make ci-gate`).
 
 ---
 

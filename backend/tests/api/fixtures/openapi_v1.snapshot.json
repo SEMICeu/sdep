@@ -1105,7 +1105,7 @@
     }
   },
   "info": {
-    "description": "SDEP is a gateway for the electronic transmission of data between online short-term rental platforms (STR) and competent authorities (CA), ensuring timely, reliable and efficient data sharing processes.\n\n- [Github (open source)](https://github.com/SEMICeu/sdep)\n\n- [EU legislation](https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng)\n\n- [STR Application Profile (STR-AP)](https://semiceu.github.io/STR-AP/releases/1.0.1/)\n\n- [STR origin prototype v0.0.67](https://eu-str.sdep-pilot.eu/swagger/index.html)\n\nContact:\n\n- [boris.dijkmans@rijksoverheid.nl](mailto:boris.dijkmans@rijksoverheid.nl)",
+    "description": "SDEP is a gateway for the electronic transmission of data between online short-term rental platforms (STR) and competent authorities (CA), ensuring timely, reliable and efficient data sharing processes.\n\n- [Github (open source)](https://github.com/SEMICeu/sdep)\n\n- [EU legislation](https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng)\n\n- [STR Application Profile (STR-AP)](https://semiceu.github.io/STR-AP/releases/1.0.1/)\n\n- [STR origin prototype v0.0.67](https://eu-str.sdep-pilot.eu/swagger/index.html)\n\nContact:\n\n- [nationaalcoordinatorsdep@minbzk.nl](mailto:nationaalcoordinatorsdep@minbzk.nl)",
     "title": "Short Term Rental (STR) - Single Digital Entry Point (SDEP)",
     "version": "<frozen-version>"
   },

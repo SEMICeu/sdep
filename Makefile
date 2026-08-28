@@ -13,7 +13,7 @@ SHELL := /bin/bash
         .is-up .ensure-up test-smoke test-full test-full-keep test-full-verbose test-ca test-str test-rep test-security \
         .postgres-up-unless-ci test-migrations \
         test-perf test-perf-keep test-perf-verbose \
-        test-malware test-cve \
+        test-malware test-cve test-cve-offline \
         test test-keep \
         md-lint md-format \
         all ci-gate \
@@ -670,7 +670,7 @@ test-cve: export DOCKER_DEFAULT_PLATFORM := linux/amd64
 # The fresh --no-cache build below otherwise replaces local/sdep-backend:latest,
 # which would make the next `make up` needlessly recreate the backend container.
 test-cve: export BACKEND_IMAGE_VERSION := trivy-scan
-test-cve: ## Test CVEs
+test-cve: ## Test the CVE allowlist by really scanning the SDEP backend image (fails on failure > fix or explain in docs/CVE_EXPLAINS.md)
 	@echo "🔒 Scanning backend image for CVEs..."
 	@echo ""
 	@# Always build fresh (--pull --no-cache) so apt-get upgrade fetches current
@@ -678,14 +678,24 @@ test-cve: ## Test CVEs
 	@$(DOCKER_COMPOSE) build --pull --no-cache backend
 	@mkdir -p tmp/trivy-scan
 	@docker save "$(BACKEND_IMAGE_NAME):$(if $(BACKEND_IMAGE_VERSION),$(BACKEND_IMAGE_VERSION),latest)" -o tmp/trivy-scan/backend-image.tar
-	@# Pass host UID/GID so the (root) container hands tmp/trivy-scan ownership
-	@# back to us; otherwise root-owned output breaks later `make up` writes to tmp/.
+	@# Stage 1 - scan in the Trivy image (writes tmp/trivy-scan/trivy-results.json).
+	@# Pass host UID/GID so the container restores ownership of its report.
 	@$(DOCKER_COMPOSE) run --rm \
 		-e TRIVY_INPUT=tmp/trivy-scan/backend-image.tar \
 		-e HOST_UID=$$(id -u) -e HOST_GID=$$(id -g) \
 		run-trivy-scan
+	@# Stage 2 - reconcile the report against the allowlist (plain Python, on the host).
+	@uv run --script scripts/check_cve_allowlist.py tmp/trivy-scan/trivy-results.json
 	@echo ""
 	@echo "✅ CVE scan completed!"
+
+# Smoketest for scripts/check_cve_allowlist.py itself, plus an offline plausible-year sanity
+# check for CVE ids. Feeds the script fake scan reports, so it runs without Docker or an image.
+test-cve-offline: ## Test the CVE allowlist script with fake reports, check CVE ids in the docs
+	@echo "🧪 Testing the CVE allowlist script with fake reports (no image scan)..."
+	@uv run --script tests/test_cve_ids.py
+	@uv run --script tests/test_trivy_allowlist.py
+	@echo "✅ CVE allowlist script tests completed!"
 
 ##@ Tests (all)
 
@@ -759,33 +769,39 @@ md-format: ## Format markdown
 
 ##@ All
 
-all: ## Test all + CVEs + lint markdown
-	@echo "🧪 Running all tests, CVE scan and markdown lint..."
+all: ## Test fullstack + migrations + performance + malware + CVE scripts (offline)    + lint markdown
+	@echo "🧪 Running all tests, CVE allowlist script smoketest and markdown lint..."
 	@echo ""
 	@$(MAKE) --no-print-directory test
-	@$(MAKE) --no-print-directory test-cve
+	@$(MAKE) --no-print-directory test-cve-offline
 	@$(MAKE) --no-print-directory md-lint
 	@echo ""
-	@echo "✅ All tests, CVE scan and markdown lint completed (test + test-cve + md-lint)"
+	@echo "✅ All tests, CVE allowlist script smoketest and markdown lint completed (test + test-cve-offline + md-lint)"
 
-# Mirrors possible continuous integration checks on push
+# Mirrors the required continuous integration checks on push
 #   test:backend             -> make -C backend test (pytest + coverage)
 #   test:database-migrations -> test-migrations
 #   test:malware             -> test-malware
+#   trivy:scan + trivy:gate  -> test-cve            (scan the image, then check the report against the allowlist)
 #   markdown:lint            -> md-lint
-# Trivy (trivy:backend) is intentionally excluded: it is set to warning, not failure, so it is
-# not a required gate. Run `make test-cve` separately for the image CVE scan.
-# Note: CI does NOT run the fullstack (test-full) or performance (test-perf) suites on push;
-# those live in `make all`/`make test`. Consider to keep this target in sync with continuous integration (pipeline) jobs.
-ci-gate: ## Test backend + migrations + malware + lint markdown (consider this target as CI-gate mirror)
+# Split by cost, not by pipeline shape: the image scan is the slow check and lives here, while
+# the offline smoketest of the allowlist script lives in `make all`. The pipeline's
+# test:cve-offline job therefore has no counterpart in this target - run `make all` (or
+# `make test-cve-offline`) when touching scripts/check_cve_allowlist.py or the CVE documents.
+# Note: CI does NOT run the fullstack (test-full) suite on push; that lives in `make all`/`make test`.
+# test-perf is included here by choice, so a local run exercises the bulk path before pushing,
+# even though the pipeline does not. Consider to keep this target in sync with continuous integration (pipeline) jobs.
+ci-gate: ## Test backend   + migrations + performance + malware + CVE scan (fail on error) + lint markdown
 	@echo "🧪 Running CI checks (mirrors pipeline gates)..."
 	@echo ""
 	@$(MAKE) -C backend --no-print-directory test
 	@$(MAKE) --no-print-directory test-migrations
+	@$(MAKE) --no-print-directory test-perf PERF_AUTO_CONFIRM=true
 	@$(MAKE) --no-print-directory test-malware
+	@$(MAKE) --no-print-directory test-cve
 	@$(MAKE) --no-print-directory md-lint
 	@echo ""
-	@echo "✅ CI checks completed (backend test + migrations + malware + md-lint)"
+	@echo "✅ CI checks completed (backend test + migrations + performance + malware + CVE scan + md-lint)"
 
 ##@ Logs
 

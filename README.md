@@ -267,6 +267,9 @@ This command:
 - Compares results against `docs/CVE_EXPLAINS.md` and fails if:
   - New CVEs are found that are not allowlisted
   - Allowlisted CVEs are no longer present and should be removed
+  - An allowlisted CVE names a package that differs from Trivy's report
+  - An allowlisted CVE is filed under a severity that differs from Trivy's report
+  - A CVE appears in more than one allowlist row
 
 The scan uses a temporary image tag and does not affect the image used by `make up`.
 

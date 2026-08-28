@@ -2,6 +2,11 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.4.1
+
+- Replaced the contact address on the API docs landing page with the functional mailbox `nationaalcoordinatorsdep@minbzk.nl`
+- Split the CVE check into separate steps
+
 # 1.4.0
 
 - Added the optional `areaName` field to activity responses

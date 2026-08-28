@@ -218,12 +218,14 @@ sdep-app/
 │   ├── test_ca_activities.py                   # Test CA activity endpoints
 │   ├── test_ca_areas.py                        # Test CA area submission
 │   ├── test_client_id_regex.py                 # Test client ID regex validation
+│   ├── test_cve_ids.py                         # Guard against corrupted (year-rewritten) CVE ids
 │   ├── test_health_ping.py                     # Health check tests
 │   ├── test_postgres_check_constraints.py      # Test database check constraints
 │   ├── test_rep_activities.py                  # Test REP activity endpoints
 │   ├── test_smoketest.py                       # Smoke test audit-excluded endpoints
 │   ├── test_str_activities_bulk.py             # Test STR bulk activity submission
-│   └── test_str_areas.py                       # Test STR area query endpoints
+│   ├── test_str_areas.py                       # Test STR area query endpoints
+│   └── test_trivy_allowlist.py                 # Test CVE allowlist policy validation
 │
 ├── keycloak/                                   # Keycloak config
 │   ├── add-realm-admin.sh                      # Create realm admin user
@@ -285,12 +287,13 @@ sdep-app/
 │       └── mdformat-sdep/                      # mdformat plugin enforcing the project style rules
 │
 ├── scripts/                                    # Utility scripts
+│   ├── check_cve_allowlist.py                  # Reconcile Trivy report vs CVE_EXPLAINS.md allowlist (policy gate)
 │   ├── create-client-signed-jwt.py             # Create a client-signed JWT assertion (portable, standalone)
 │   ├── generate-eicar-zip.sh                   # Generate EICAR test archive (malware scan test)
 │   ├── generate-keycloak-machine-clients.py    # Generate client-signed JWT test clients (CA, STR, REP)
 │   ├── run-tests.sh                            # Integration test runner
 │   ├── run-tests-perf.sh                       # Performance test runner (Locust)
-│   ├── run-trivy-scan.sh                       # Trivy CVE scan vs CVE_EXPLAINS.md allowlist
+│   ├── run-trivy-scan.sh                       # Run Trivy and emit the JSON report (scan only)
 │   ├── show-keycloak-client-jwks.py            # Show a client's public key (JWKS) stored in Keycloak
 │   └── validate-client-key-pair.py             # Verify a private key matches the configured public key
 │

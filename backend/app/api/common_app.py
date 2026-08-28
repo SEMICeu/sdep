@@ -78,7 +78,7 @@ async def docs_landing_page():
 
   <div class="section">
     <h2>Contact</h2>
-    <p><a href="mailto:boris.dijkmans@rijksoverheid.nl">boris.dijkmans@rijksoverheid.nl</a></p>
+    <p><a href="mailto:nationaalcoordinatorsdep@minbzk.nl">nationaalcoordinatorsdep@minbzk.nl</a></p>
   </div>
 </body>
 </html>"""
