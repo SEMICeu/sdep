@@ -5,6 +5,24 @@ from html import escape
 from typing import Literal
 
 ApiStatus = Literal["stable", "beta"]
+# EU-harmonized: common to every SDEP implementation. Country-specific: guidance only,
+# may differ per Member State (this one is SDEP-NL).
+ApiScope = Literal["eu-harmonized", "country-specific"]
+
+# Landing page groups, in display order: (scope, heading, one-line note).
+API_SCOPES: tuple[tuple[ApiScope, str, str], ...] = (
+    (
+        "eu-harmonized",
+        "EU-harmonized",
+        "Common to all SDEP implementations in EU Member States.",
+    ),
+    (
+        "country-specific",
+        "Country-specific",
+        "Implemented for SDEP-NL. This may differ per Member State, but can be used "
+        "for guidance and as a reference implementation.",
+    ),
+)
 
 # OpenAPI specification version every sub-app emits, shown once as a badge in the docs
 # landing page header. Bound to the served contract by the registry tests.
@@ -21,6 +39,7 @@ class ApiDomain:
     title: str
     description: str
     status: ApiStatus
+    scope: ApiScope
     # Cross-version links, given as root paths and resolved lazily against API_DOMAINS so a
     # sibling's label and status are never duplicated in this version's text.
     supersedes_path: str | None = None
@@ -94,6 +113,7 @@ AUTH_V1 = ApiDomain(
         "via Keycloak."
     ),
     status="stable",
+    scope="eu-harmonized",
 )
 
 CA_V1 = ApiDomain(
@@ -104,6 +124,7 @@ CA_V1 = ApiDomain(
         "Endpoints for competent authorities to manage areas and to view activities."
     ),
     status="stable",
+    scope="country-specific",
     superseded_by_path="/api/ca/v2",
 )
 
@@ -115,6 +136,7 @@ CA_V2 = ApiDomain(
         "Endpoints for competent authorities to manage areas and to view activities."
     ),
     status="beta",
+    scope="country-specific",
     supersedes_path="/api/ca/v1",
     changes=(
         "adds four optional activity filters (`filterCreatedAtFrom`, `filterCreatedAtTo`, "
@@ -132,6 +154,7 @@ STR_V1 = ApiDomain(
         "Endpoints for short-term rental platforms to view areas and to submit activities."
     ),
     status="stable",
+    scope="eu-harmonized",
 )
 
 REP_V1 = ApiDomain(
@@ -143,6 +166,7 @@ REP_V1 = ApiDomain(
         "registered activity data."
     ),
     status="beta",
+    scope="country-specific",
 )
 
 API_DOMAINS = (AUTH_V1, CA_V1, CA_V2, STR_V1, REP_V1)

@@ -8,8 +8,8 @@ Status: implemented.
 
 - [Goal](#goal)
 - [Sequence](#sequence)
-- [Data Structure](#data-structure)
-- [Process Agreements](#process-agreements)
+- [Data](#data)
+- [Process](#process)
 
 ## Goal
 
@@ -37,14 +37,14 @@ Legend:
 
 Area management is country-specific (not EU-harmonized).
 
-## Data Structure
+## Data
 
 See:
 
 - [External API](https://sdep.gov.nl/api/docs)
 - [Internal data model](./DATAMODEL.md)
 
-## Process Agreements
+## Process
 
 Areas contain shapefiles, that represent the geospatial location.
 

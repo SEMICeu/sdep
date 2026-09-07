@@ -36,7 +36,14 @@ services:
       start_period: 30s
 
   keycloak:
-    image: quay.io/keycloak/keycloak:${KC_VERSION}
+    # Optimized image, see keycloak/Dockerfile (build-time options baked in)
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
+      args:
+        KC_VERSION: ${KC_VERSION}
+        KC_DB: ${KC_DB}
+    image: ${APP_PREFIX}-keycloak:${KC_VERSION}
     container_name: ${KC_CONTAINER_NAME}
     ports:
       - "${KC_PORT}:8080"
@@ -47,14 +54,13 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_REALM_ADMIN_PASSWORD}
       # https://www.keycloak.org/server/containers
       KC_DB_URL: ${KC_DB_URL}
-      KC_DB: ${KC_DB}
       KC_DB_USERNAME: ${KC_DB_USERNAME}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       # https://www.keycloak.org/server/all-config#category-hostname_v2
       KC_HOSTNAME_STRICT_HTTPS: ${KC_HOSTNAME_STRICT_HTTPS}
       KC_HOSTNAME_STRICT: ${KC_HOSTNAME_STRICT}
       KC_HTTP_ENABLED: ${KC_HTTP_ENABLED}
-    command: start
+    command: start --optimized
     depends_on:
       postgres:
         condition: service_healthy

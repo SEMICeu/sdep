@@ -2,6 +2,7 @@
 
 from app.api.domain_registry import (
     API_DOMAINS,
+    API_SCOPES,
     CA_V1,
     CA_V2,
     OAS_VERSION,
@@ -35,6 +36,7 @@ class TestCrossVersionLinks:
             title="X",
             description="X.",
             status="beta",
+            scope="country-specific",
             superseded_by_path="/api/x/v10",
         )
 
@@ -87,3 +89,23 @@ class TestBadgeConstants:
         """Both values are the same for every domain, so they are shown once in the header."""
         for domain in API_DOMAINS:
             assert "badge" not in domain.html
+
+
+class TestScopes:
+    """Auth and STR are EU-harmonized; CA and REP are national guidance (SDEP-NL)."""
+
+    def test_domains_are_assigned_to_the_expected_scope(self) -> None:
+        by_scope = {
+            scope: {d.label for d in API_DOMAINS if d.scope == scope}
+            for scope, _, _ in API_SCOPES
+        }
+
+        assert by_scope == {
+            "eu-harmonized": {"Auth v1", "STR v1"},
+            "country-specific": {"CA v1", "CA v2", "REP v1"},
+        }
+
+    def test_every_domain_scope_has_a_landing_page_group(self) -> None:
+        known = {scope for scope, _, _ in API_SCOPES}
+
+        assert {domain.scope for domain in API_DOMAINS} <= known

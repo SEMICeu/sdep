@@ -36,10 +36,23 @@ _kc_diagnostics() {
     echo "──────────────────────────────────────────────────────" >&2
 }
 
+# Fail fast when the container is gone: no point waiting out the full timeout
+_kc_assert_running() {
+    local status
+    status=$(docker inspect --format='{{.State.Status}}' "${KC_CONTAINER_NAME}" 2>/dev/null || echo "missing")
+    if [ "$status" != "running" ]; then
+        echo "" >&2
+        echo "❌ Keycloak container is not running (status: ${status})" >&2
+        _kc_diagnostics
+        exit 1
+    fi
+}
+
 # First wait for HTTP endpoint
 HTTP_WAIT_START=$(date +%s)
 LAST_DIAG=$HTTP_WAIT_START
 until curl -sf "${KC_BASE_URL}" > /dev/null 2>&1; do
+    _kc_assert_running
     NOW=$(date +%s)
     ELAPSED=$((NOW - HTTP_WAIT_START))
     if [ "$ELAPSED" -ge "$HTTP_TIMEOUT_SECONDS" ]; then
@@ -66,6 +79,7 @@ done
 # Then wait for admin API to be ready by checking the master realm endpoint
 OIDC_WAIT_START=$(date +%s)
 until curl -sf "${KC_BASE_URL}/realms/master/.well-known/openid-configuration" > /dev/null 2>&1; do
+    _kc_assert_running
     NOW=$(date +%s)
     ELAPSED=$((NOW - OIDC_WAIT_START))
     if [ "$ELAPSED" -ge "$OIDC_TIMEOUT_SECONDS" ]; then

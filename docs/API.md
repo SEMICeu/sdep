@@ -267,7 +267,8 @@ Shared vs. version-specific code (CA domain as example):
   - `app_factory.py` - `create_domain_app(domain, routers)` builds the sub-app (title,
     common 500/503 responses, OpenAPI, exception handlers, bearer-token override,
     `openapi.json` route)
-  - `domain_registry.py` - per-version metadata (label, title, description, status) and
+  - `domain_registry.py` - per-version metadata (label, title, description, status,
+    scope: EU-harmonized or country-specific, which groups the landing page) and
     the cross-version links that render the "Changes from ..." / "Superseded by ..." note
     into the OpenAPI description
   - `common/activity_handlers.py` - the endpoint business logic (list/count)
@@ -445,7 +446,8 @@ GET /api/str/v1/docs
 GET /api/rep/v1/docs
 ```
 
-A landing page at `GET /api/docs` links to all domain docs.
+A landing page at `GET /api/docs` links to all domain docs, grouped into EU-harmonized
+(Auth, STR) and country-specific (CA, REP).
 
 Swagger UI's audience is humans: developers exploring the API, integrators drafting their first request, reviewers sanity-checking a change.
 

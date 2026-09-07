@@ -2,6 +2,7 @@
 
 import json
 from copy import deepcopy
+from html import escape
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -18,7 +19,7 @@ from app.api.common.security import (
 from app.api.common.security import (
     verify_bearer_token as _default_verify,
 )
-from app.api.domain_registry import API_DOMAINS, OAS_VERSION
+from app.api.domain_registry import API_DOMAINS, API_SCOPES, OAS_VERSION
 from app.config import settings
 
 # Create version-independent sub-application
@@ -97,7 +98,14 @@ _register_endpoint_docs("ping", f"{app_common.title} - Ping", {"/ping"})
 
 
 def _render_api_domains() -> str:
-    return "\n".join(domain.html for domain in API_DOMAINS)
+    """Render the domains grouped by scope, in API_SCOPES order."""
+    blocks: list[str] = []
+    for scope, heading, note in API_SCOPES:
+        blocks.append(f"    <h3>{escape(heading)}</h3>")
+        blocks.append(f'    <p class="scope-note">{escape(note)}</p>')
+        blocks.extend(domain.html for domain in API_DOMAINS if domain.scope == scope)
+
+    return "\n".join(blocks)
 
 
 @app_common.get("/docs", response_class=HTMLResponse, include_in_schema=False)
@@ -128,6 +136,8 @@ async def docs_landing_page():
     ul {{ padding-left: 20px; }}
     li {{ margin: 6px 0; }}
     .section {{ margin-top: 24px; }}
+    h3 {{ margin: 20px 0 0; font-size: 1.05em; color: #374151; }}
+    .scope-note {{ margin: 0; color: #6b7280; font-size: 0.9em; }}
   </style>
 </head>
 <body>

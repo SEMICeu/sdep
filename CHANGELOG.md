@@ -2,6 +2,12 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.4.3
+
+- Split EU-harmonized and country-specific on the `/apis/docs` (main) page
+- Fine-tuned the functional design proposal for [listing regulation](./docs/LISTING.md) aka. random checks
+- Hardened the local keycloak startup for development purposes
+
 # 1.4.2
 
 - Restructured the [functional design](./README.md#functional-design)
@@ -11,6 +17,8 @@
 - Each API version now says in its own documentation whether it supersedes, or is superseded by, another version
 - Added an interactive documentation page for the ping endpoint, so a token can be entered, and the endpoint tried out
 - Grouped ping and health together on the API documentation page, and put the environment and OpenAPI version at the top
+- Split the API domains on the API documentation page into EU-harmonized (Auth, STR) and country-specific (CA, REP)
+- Hardened the local Keycloak startup: a pre-built optimized image with local cache replaces the stock image, cutting startup from minutes to seconds and removing cluster discovery timeouts on stale rows; the wait script now fails fast when the container exits
 - Removed an unused route in every API that was shadowed by the framework's own
 - Moved the API endpoint overview from the architecture document into the API document
 - Cleaned up duplicated version labels, a leftover test file and inaccurate makefile messages

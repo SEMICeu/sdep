@@ -2,7 +2,7 @@
 
 import pytest
 from app.api.common_app import app_common
-from app.api.domain_registry import API_DOMAINS, OAS_VERSION
+from app.api.domain_registry import API_DOMAINS, API_SCOPES, OAS_VERSION
 from app.config import settings
 from httpx import ASGITransport, AsyncClient
 
@@ -33,6 +33,31 @@ class TestDocsLandingPage:
         for domain in API_DOMAINS:
             assert domain.docs_path in body
             assert domain.openapi_path in body
+
+    @pytest.mark.asyncio
+    async def test_docs_landing_groups_domains_by_scope(self):
+        """Each domain is listed under its own scope heading, EU-harmonized first."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/docs")
+
+        body = response.text
+        assert "<h2>API domains</h2>" in body
+        assert body.index("<h3>EU-harmonized</h3>") < body.index(
+            "<h3>Country-specific</h3>"
+        )
+
+        heading_at = {
+            scope: body.index(f"<h3>{heading}</h3>") for scope, heading, _ in API_SCOPES
+        }
+        bounds = [*sorted(heading_at.values()), body.index("<h2>Common</h2>")]
+        for domain in API_DOMAINS:
+            start = heading_at[domain.scope]
+            end = bounds[bounds.index(start) + 1]
+            assert start < body.index(f'<a href="{domain.docs_path}">') < end, (
+                domain.label
+            )
 
     @pytest.mark.asyncio
     async def test_docs_landing_contains_api_status_tags(self):

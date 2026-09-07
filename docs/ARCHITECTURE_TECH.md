@@ -220,6 +220,7 @@ sdep-app/
 │   └── test_trivy_allowlist.py                 # Test CVE allowlist policy validation
 │
 ├── keycloak/                                   # Keycloak config
+│   ├── Dockerfile                              # Optimized image (build-time options baked in)
 │   ├── add-realm-admin.sh                      # Create realm admin user
 │   ├── add-realm-machine-clients.sh            # Configure OAuth 2.0 machine clients
 │   ├── add-realm-roles.sh                      # Configure roles
