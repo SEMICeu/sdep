@@ -146,6 +146,11 @@ class Settings(BaseSettings):
         description="SQLAlchemy max overflow connections",
     )
 
+    @property
+    def api_version_label(self) -> str:
+        """Deployment identifier served as OpenAPI `info.version` by every sub-app."""
+        return f"{self.DTAP}-{self.IMAGE_TAG}"
+
 
 @lru_cache
 def get_settings() -> Settings:

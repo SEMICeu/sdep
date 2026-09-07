@@ -3,7 +3,7 @@ SHELL := /bin/bash
 .PHONY: init install \
         upgrade upgrade-sql downgrade revision show-history show-current \
         clean-stale up dev down \
-        test all test-verbose test-coverage test-coverage-verbose test-crud test-services test-api test-security openapi-snapshot-update \
+        test all test-verbose test-coverage test-coverage-verbose test-crud test-services test-api test-security api-snapshot-update api-diff-update \
         format lint typecheck check \
         clean help
 
@@ -171,10 +171,13 @@ all: test ## Synonym to test (Test All)
 
 ##@ Housekeeping
 
-openapi-snapshot-update: ## Update the frozen OpenAPI snapshot
+api-snapshot-update: ## Update the frozen OpenAPI snapshot
 	@echo "🧊 Updating frozen OpenAPI snapshot..."
-	uv run python -c "from tests.api.test_openapi_schema_frozen import write_openapi_snapshots; print(write_openapi_snapshots())"
-	@echo "✅ OpenAPI snapshot updated!"
+	@uv run python -c "from tests.api.test_openapi_schema_frozen import report_openapi_snapshots; print(report_openapi_snapshots())"
+
+api-diff-update: ## Update the generated API version diff (docs/API_DIFF.md)
+	@echo "🔀 Updating API version diff..."
+	@uv run python -c "from tests.api.test_openapi_version_diff import report_version_diff; print(report_version_diff())"
 
 clean: ## Clean up generated files
 	@echo "🧹 Cleaning up..."

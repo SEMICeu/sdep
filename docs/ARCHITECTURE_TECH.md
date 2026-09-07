@@ -5,27 +5,21 @@ This document provides an overview of the SDEP (Single Digital Entry Point) tech
 <h2>Table of Contents</h2>
 
 - [Overview](#overview)
-- [Scope and Reference Implementation](#scope-and-reference-implementation)
 - [Technology Stack](#technology-stack)
   - [Backend](#backend)
   - [Infrastructure](#infrastructure)
   - [Development Tools](#development-tools)
 - [Repository / Directory Structure](#repository-directory-structure)
-- [Backend Architecture](#backend-architecture)
+- [API (versioning)](#api-versioning)
+- [Application (versioning)](#application-versioning)
+- [Backend](#backend-1)
   - [API Layer (`app/api/`)](#api-layer-appapi)
   - [Schemas Layer (`app/schemas/`)](#schemas-layer-appschemas)
   - [Service Layer (`app/services/`)](#service-layer-appservices)
   - [CRUD Layer (`app/crud/`)](#crud-layer-appcrud)
   - [Models Layer (`app/models/`)](#models-layer-appmodels)
-- [API Surface](#api-surface)
-  - [Authentication](#authentication)
-  - [Competent Authority Endpoints](#competent-authority-endpoints)
-  - [STR Platform Endpoints](#str-platform-endpoints)
-  - [Reporting Endpoints](#reporting-endpoints)
-  - [Health Endpoints](#health-endpoints)
   - [Request Flow](#request-flow)
-  - [Versioning (CA)](#versioning-ca)
-- [Data and Lifecycle Design](#data-and-lifecycle-design)
+- [Data](#data)
   - [ID Management](#id-management)
   - [Versioning](#versioning)
   - [Deleting](#deleting)
@@ -33,20 +27,20 @@ This document provides an overview of the SDEP (Single Digital Entry Point) tech
   - [Tenant Isolation](#tenant-isolation)
   - [Lazy Loading](#lazy-loading)
   - [Data Flow](#data-flow)
-- [Transaction Management](#transaction-management)
-- [Validation](#validation)
+- [Transactions](#transactions)
+- [Validations](#validations)
   - [Layers](#layers)
   - [Functional IDs (General)](#functional-ids-general)
   - [Functional IDs (User-Supplied)](#functional-ids-user-supplied)
   - [Owner IDs and JWT Client IDs](#owner-ids-and-jwt-client-ids)
-- [Status Codes and Exception Handling](#status-codes-and-exception-handling)
-- [Bulk Activity Submissions](#bulk-activity-submissions)
+- [Exceptions](#exceptions)
+- [Bulk](#bulk)
   - [Approach](#approach)
   - [Validation Flow](#validation-flow)
   - [Status Codes](#status-codes)
   - [Design Decisions](#design-decisions)
-
-See also: [Database Dialects](./DATABASE_DIALECTS.md) | [Development](./DEVELOPMENT.md)
+- [Database Dialects](#database-dialects)
+- [Development Workflow](#development-workflow)
 
 ## Overview
 
@@ -58,11 +52,9 @@ SDEP is a FastAPI-based REST API that enables:
 - The statistics office (REP) to query all registered rental activities for statistical analysis
 - Compliance with EU Regulation 2024/1028
 
-## Scope and Reference Implementation
+SDEP-NL production is the reference implementation for this repo:
 
-**Production (NL):** https://sdep.gov.nl/api/docs
-
-- This is the reference implementation for this repo
+https://sdep.gov.nl/api/docs.
 
 ## Technology Stack
 
@@ -252,17 +244,22 @@ sdep-app/
 │   └── postgres-prep-area-sql.sh               # Area data generator script
 │
 ├── docs/                                       # Documentation
+│   ├── ACTIVITY.md                             # Activity functional design
 │   ├── API.md                                  # API documentation
+│   ├── API_DIFF.md                             # Generated diff between consecutive API versions
 │   ├── ARCHITECTURE_FUNC.md                    # Functional architecture
 │   ├── ARCHITECTURE_TECH.md                    # Architecture overview (this file)
+│   ├── AREA.md                                 # Area functional design
 │   ├── DATABASE_DIALECTS.md                    # SQLite/PostgreSQL compatibility
 │   ├── DATAMODEL.md                            # Data Model documentation
+│   ├── DEFINITIONS.md                          # Informal definitions of SDEP concepts
 │   ├── DEVELOPMENT.md                          # Workflow, testing, configuration
 │   ├── GET_STARTED_CLIENT_SIGNED_JWT.md        # Getting started with client-signed JWT (private_key_jwt)
 │   ├── GET_STARTED_PRD.md                      # Getting started with the production (PRD) environment
 │   ├── GET_STARTED_PRE.md                      # Getting started with the pre-production (PRE) environment
+│   ├── HOST.md                                 # Host role (out of scope for SDEP)
 │   ├── INTEGRATION_TESTS.md                    # Integration test documentation
-│   ├── LISTING_ACTIVITY.md                     # Activity listing documentation
+│   ├── LISTING.md                              # Listing functional design (proposal)
 │   ├── MIGRATION_ADDRESS_INSPIRE.md            # Address field migration guide (INSPIRE/STR-AP)
 │   ├── PERFORMANCE_TESTS.md                    # Performance test documentation
 │   ├── SECURITY.md                             # Security documentation
@@ -270,18 +267,8 @@ sdep-app/
 │   ├── sdep_openapi_auth_v1.pdf                # OpenAPI auth v1 PDF export
 │   ├── sdep_openapi_ca_v1.pdf                  # OpenAPI CA v1 PDF export
 │   ├── sdep_openapi_str_v1.pdf                 # OpenAPI STR v1 PDF export
-│   ├── diagrams/                               # Architecture and data model diagrams
-│       ├── ACTIVITY.excalidraw
-│       ├── ACTIVITY.svg
-│       ├── ACTIVITYFLOW.excalidraw
-│       ├── ACTIVITYFLOW.svg
-│       ├── ARCHITECTURE_FUNC.png
-│       ├── DATAMODEL.excalidraw
-│       ├── DATAMODEL.svg
-│       ├── LISTING.excalidraw
-│       ├── LISTING.svg
-│       ├── LISTINGFLOW.excalidraw
-│       └── LISTINGFLOW.svg
+│   ├── diagrams/                               # Architecture diagrams
+│   │   └── ARCHITECTURE_FUNC.png
 │   └── markdown-tooling/                       # Markdown format/lint tooling (see `make md-format`, `make md-lint`)
 │       ├── markdownlint-rules/                 # Custom markdownlint rules
 │       └── mdformat-sdep/                      # mdformat plugin enforcing the project style rules
@@ -307,7 +294,35 @@ sdep-app/
 └── README.md                                   # Quick start guide
 ```
 
-## Backend Architecture
+## API (versioning)
+
+See separate [API design document](API.md).
+
+## Application (versioning)
+
+Backward compatibility:
+
+- Clients built against an older contract continue to work against a newer release of the same API version
+- This is the primary design goal: existing integrations must not break on a same-version update
+
+Forward compatibility:
+
+- An older server gracefully handling newer client payloads (e.g. by ignoring unknown fields)
+- Is a best-effort courtesy, not a guarantee across API versions
+
+The deployed application (serving the contract) follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`):
+
+- **MAJOR** - incompatible changes (e.g. architectural overhaul, removed internal behavior)
+- **MINOR** - backward-compatible new functionality
+- **PATCH** - backward-compatible bug fixes
+
+The application version is **independent** of the API version.
+
+An application major bump does not necessarily coincide with an API version bump, and vice versa.
+
+Internal refactors, dependency upgrades, or infrastructure changes may warrant a new application MAJOR while the API contract stays on v1.
+
+## Backend
 
 The backend follows a **layered architecture** pattern:
 
@@ -357,61 +372,6 @@ The backend follows a **layered architecture** pattern:
 - Includes `audit_log.py` for audit trail
 
 For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.md), and [API](./API.md).
-
-## API Surface
-
----
-
-### Authentication
-
-- `POST /api/auth/v1/token` - OAuth 2.0 token endpoint
-
----
-
-### Competent Authority Endpoints
-
-**Areas (v1)**
-
-- `POST /api/ca/v1/areas` - Submit a single area (multipart/form-data: file + optional areaId, areaName)
-- `GET /api/ca/v1/areas` - List own areas (pagination: offset, limit)
-- `GET /api/ca/v1/areas/count` - Count own areas
-- `GET /api/ca/v1/areas/{areaId}` - Download shapefile for own area
-- `DELETE /api/ca/v1/areas/{areaId}` - Delete (deactivate) an own area
-
-**Activities (v1)**
-
-- `GET /api/ca/v1/activities` - Query rental activities (pagination: offset, limit)
-- `GET /api/ca/v1/activities/count` - Count activities
-
-**Activities (v2) - adds optional query filters**
-
-- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId; filters use AND semantics and are scoped to the authenticated CA; createdAt filters must be UTC)
-- `GET /api/ca/v2/activities/count` - Count activities with optional filters (same filter set)
-
----
-
-### STR Platform Endpoints
-
-- `GET /api/str/v1/areas` - List regulated areas (pagination: offset, limit)
-- `GET /api/str/v1/areas/count` - Count areas
-- `GET /api/str/v1/areas/{areaId}` - Download shapefile for area
-- `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
-
----
-
-### Reporting Endpoints
-
-Read-only endpoints for the national statistics office (no write endpoints registered; POST/PUT/PATCH/DELETE return 405):
-
-- `GET /api/rep/v1/activities` - Query rental activities across all competent authorities and platforms (pagination: offset, limit - limit defaults to 1000, the maximum; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId, filterCompetentAuthorityId - AND semantics; createdAt filters must be UTC; invalid functional IDs or non-UTC datetimes → 400)
-- `GET /api/rep/v1/activities/count` - Count activities with optional filters (same filter set)
-
----
-
-### Health Endpoints
-
-- `GET /api/health` - Health check (unauthenticated, infrastructure use)
-- `GET /api/ping` - Ping endpoint (authenticated, requires valid bearer token)
 
 ---
 
@@ -478,37 +438,7 @@ GET /api/ca/v2/activities (bearer token, optional filter query params)
   └── Response: 200 + ActivityListResponse (camelCase JSON)
 ```
 
----
-
-### Versioning (CA)
-
-Each domain is exposed as one or more independently-versioned FastAPI sub-applications,
-mounted side by side (e.g. `/api/ca/v1`, `/api/ca/v2`). A new version is additive:
-existing versions stay byte-compatible.
-
-Shared vs. version-specific code (CA domain as example):
-
-- Shared (one source of truth, used by every version):
-  - `app_factory.py` - `create_ca_app(version, router)` builds the sub-app (title,
-    common 500/503 responses, OpenAPI, exception handlers, bearer-token override,
-    `openapi.json` route)
-  - `routers/activity_handlers.py` - the endpoint business logic (list/count)
-  - `common/pagination.py` - the shared offset/limit query dependency
-  - `routers/areas.py` - the areas endpoints, mounted into every version
-  - Response examples and error-response constants (defined in `activities_v1.py`,
-    imported by later versions)
-  - `schemas/activity.py`, `services/activity.py`, `crud/activity.py` - the data
-    layers; newer behavior (e.g. filters) is added here and gated by the routers
-- Version-specific (one small file per version):
-  - `routers/activities_vN.py` - the route declarations and any version-only query
-    parameters (e.g. v2 adds the `filter*` inputs via an `activity_filters()` dependency)
-  - `vN.py` - a one-line call to the factory wiring the version's router
-
-Adding a version is therefore cheap: define a new `activities_vN.py`, a one-line
-`vN.py`, mount it in `main.py`, and register its `/docs` + `/openapi.json` paths in
-the audit skip-list and CSP allowlist.
-
-## Data and Lifecycle Design
+## Data
 
 ---
 
@@ -928,7 +858,7 @@ Net effect:
 - N new `activity` rows (one per valid item), each with FKs `activity.platform_id → platform.id` and `activity.area_id → area.id`
 - Optionally M old `activity` rows marked ended when a supplied `activityId` had an active version for this platform
 
-## Transaction Management
+## Transactions
 
 Two session factories handle different operation types:
 
@@ -939,7 +869,7 @@ Two session factories handle different operation types:
 
 POST endpoints use `get_async_db` which wraps the entire request in a single transaction. If any error occurs, the entire operation is rolled back. On success, the transaction is committed automatically.
 
-## Validation
+## Validations
 
 Validation is distributed across three layers, each with a distinct responsibility.
 
@@ -1016,30 +946,33 @@ The JWT token's `client_id` claim is stored separately in the private `client_id
 
 The private `client_id` is never serialized in public API responses, OpenAPI examples, or public documentation as an owner ID.
 
-## Status Codes and Exception Handling
+## Exceptions
 
-For the complete list of HTTP status codes used by the API, see [HTTP Status Codes](API.md#http-status-codes).
+All exceptions are handled by global exception handlers:
 
-All exceptions are handled by global exception handlers defined in `app/exceptions/handlers.py` and registered in `app/api/common/exception_handlers.py`.
+- Defined in `app/exceptions/handlers.py`, and
+- Registered in `app/api/common/exception_handlers.py`.
 
-The table below shows how application exceptions map to HTTP status codes:
+The table below maps **application exceptions** to **HTTP status codes**:
 
-| HTTP Status                       | Exception                             | Description                                                                                                                                                                     |
-| --------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400                               | `RequestValidationError`              | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`)                                                                                                     |
-| 400 / 401 / 403 / 404 / 413 / 422 | `HTTPException`                       | Missing/invalid token claims, missing roles, missing credentials, inline input validation, resource not found, oversized upload (`Content-Length` exceeds the per-endpoint cap) |
-| 401                               | `InvalidTokenError`                   | Invalid token (subtype of AuthenticationError)                                                                                                                                  |
-| 401                               | `AuthenticationError`                 | Invalid or expired token                                                                                                                                                        |
-| 403                               | `AuthorizationError`                  | Insufficient permissions                                                                                                                                                        |
-| 404                               | `ResourceNotFoundError`               | Resource not found                                                                                                                                                              |
-| 409                               | `DuplicateResourceError`              | Duplicate resource conflict                                                                                                                                                     |
-| 422                               | `RequestValidationError`              | Invalid request body on a POST request (e.g. missing required field or wrong value type)                                                                                        |
-| 422                               | `ApplicationValidationError`          | Business rule violations (e.g. start time later than end time is NOK )                                                                                                          |
-| 500                               | `Exception`                           | Catch-all (unexpected code failure)                                                                                                                                             |
-| 503                               | `DatabaseOperationalError`            | Database temporarily unavailable                                                                                                                                                |
-| 503                               | `AuthorizationServerOperationalError` | Authorization server temporarily unavailable                                                                                                                                    |
+| Application Exception                 | Description                                                                                                                                                                     | HTTP Status Code                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `RequestValidationError`              | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`)                                                                                                     | 400                               |
+| `HTTPException`                       | Missing/invalid token claims, missing roles, missing credentials, inline input validation, resource not found, oversized upload (`Content-Length` exceeds the per-endpoint cap) | 400 / 401 / 403 / 404 / 413 / 422 |
+| `InvalidTokenError`                   | Invalid token (subtype of AuthenticationError)                                                                                                                                  | 401                               |
+| `AuthenticationError`                 | Invalid or expired token                                                                                                                                                        | 401                               |
+| `AuthorizationError`                  | Insufficient permissions                                                                                                                                                        | 403                               |
+| `ResourceNotFoundError`               | Resource not found                                                                                                                                                              | 404                               |
+| `DuplicateResourceError`              | Duplicate resource conflict                                                                                                                                                     | 409                               |
+| `RequestValidationError`              | Invalid request body on a POST request (e.g. missing required field or wrong value type)                                                                                        | 422                               |
+| `ApplicationValidationError`          | Business rule violations (e.g. start time later than end time is NOK )                                                                                                          | 422                               |
+| `Exception`                           | Catch-all (unexpected code failure)                                                                                                                                             | 500                               |
+| `DatabaseOperationalError`            | Database temporarily unavailable                                                                                                                                                | 503                               |
+| `AuthorizationServerOperationalError` | Authorization server temporarily unavailable                                                                                                                                    | 503                               |
 
-## Bulk Activity Submissions
+*For the complete list of HTTP status codes used by the API, see [HTTP Status Codes](API.md#http-status-codes).*
+
+## Bulk
 
 The bulk endpoint `POST /api/str/v1/activities/bulk` is the single entry point for all STR activity submissions.
 
@@ -1137,3 +1070,11 @@ Prevents unvalidated (untrusted) data from being used in database operations.
 | **D7** | **Single transaction scope** - the entire bulk operation runs in a single transaction; if the bulk INSERT fails, all changes roll back                                                                            | No partial database state. Consistent with the single endpoint's `get_async_db` auto-commit/rollback model.                                                                                                                                                                                                                                                                                                                             |
 | **D8** | **SQLite compatibility** - the bulk INSERT and all queries work on both PostgreSQL and SQLite                                                                                                                     | Unit tests run on SQLite in-memory without requiring PostgreSQL. The `StringArray` TypeDecorator handles dialect differences.                                                                                                                                                                                                                                                                                                           |
 | **D9** | **Lifecycle status on activities** - activity records carry `status` with values `finished` (default) or `cancelled`; resubmitting the same `activityId` with `cancelled` creates a new current cancelled version | Allows platforms to correct previously submitted stays without changing the existing versioning model.                                                                                                                                                                                                                                                                                                                                  |
+
+## Database Dialects
+
+See [Database Dialects](./DATABASE_DIALECTS.md)
+
+## Development Workflow
+
+See [Development](./DEVELOPMENT.md)

@@ -2,57 +2,9 @@
 
 This document provides an overview of the SDEP (Single Digital Entry Point) functional architecture.
 
-<h2>Table of Contents</h2>
-
-- [Diagram](#diagram)
-- [PDF Export](#pdf-export)
-- [Update of Shapefiles](#update-of-shapefiles)
-- [Send Activity Data](#send-activity-data)
-
-## Diagram
-
-Arrows indicate information flows:
-
 ![](./diagrams/ARCHITECTURE_FUNC.png)
 
-## PDF Export
+Remarks:
 
-For current API versions.
-
-- [API auth_v1 pdf](./sdep_openapi_auth_v1.pdf)
-- [API ca_v1 pdf](./sdep_openapi_ca_v1.pdf)
-- [API str_v1 pdf](./sdep_openapi_str_v1.pdf)
-
-> Disclaimer: These PDFs were generated as part of the v1 freeze on 28 April 2026. While the /v1 API is frozen, implementation details may still differ in certain cases (see the [changelog](../CHANGELOG.md) for updates).
-
-## Update of Shapefiles
-
-Update of shapefiles at the beginning of each month.
-
-As discussed in the technical working group: This logic is not handled by the SDEP, but by agreement on a process.
-
-For example, a new Competent Authority want to regulate their area.
-
-- The regulation should start at the beginning of a month
-- And the platforms should be informed 'timely' about the new regulation for that area
-
-See also https://github.com/SEMICeu/sdep/issues/22.
-
-## Send Activity Data
-
-The activity data should only be sent by STR platforms after the stay completion.
-
-As discussed in the technical working group: Use the check-out date as the determining factor for which reporting period an activity record belongs to.
-
-Example:
-
-- A stay running from 28 March to 2 April has a check-out date of 2 April
-- It falls in the April reporting period and is submitted in the May submission cycle
-
-Rationale:
-
-- This is the most natural and operationally clean rule for platforms
-- A stay is only "complete" at check-out, and the data (including duration and guest count) is only fully known at that point
-- It also avoids the complexity of splitting multi-month stays across periods
-
-See also https://github.com/SEMICeu/sdep/issues/40.
+- Arrows indicate information flows
+- National Stat. Bureau == Centraal Bureau voor de Statistiek (CBS, SDEP-NL)

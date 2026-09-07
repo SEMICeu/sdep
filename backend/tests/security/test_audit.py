@@ -312,5 +312,8 @@ class TestAuditMiddleware:
             "/api/str/v1/docs",
             "/api/rep/v1/openapi.json",
             "/api/rep/v1/docs",
+            "/api/openapi.json",
+            "/api/ping/openapi.json",
+            "/api/ping/docs",
         }
         assert expected == SKIP_PATHS

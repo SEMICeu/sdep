@@ -5,14 +5,15 @@ from the domain registry, the shared custom OpenAPI generator and exception hand
 routers the domain exposes, and the OAuth 2.0 bearer-token security override. This single
 factory captures that shared shape so each domain only supplies its registry entry and the
 list of routers to mount.
+
+FastAPI serves `/openapi.json` itself, injecting the mount prefix into `servers` at request
+time, so no domain declares a route for it.
 """
 
-import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, FastAPI
-from fastapi.responses import Response
 
 from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common.openapi import create_custom_openapi
@@ -26,8 +27,6 @@ from app.api.common.security import (
 from app.api.domain_registry import ApiDomain
 from app.config import settings
 
-OpenApiRoute = Callable[[], Awaitable[Response]]
-
 COMMON_RESPONSES: dict[int | str, dict[str, Any]] = {
     500: {
         "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
@@ -40,11 +39,11 @@ COMMON_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 def create_domain_app(
     domain: ApiDomain, routers: list[APIRouter]
-) -> tuple[FastAPI, Callable[..., Any], OpenApiRoute]:
+) -> tuple[FastAPI, Callable[..., Any]]:
     app = FastAPI(
         title=domain.title,
         description=domain.description_with_status,
-        version=f"{settings.DTAP}-{settings.IMAGE_TAG}",
+        version=settings.api_version_label,
         root_path=domain.root_path,
         redoc_url=None,
         responses=COMMON_RESPONSES,
@@ -60,11 +59,4 @@ def create_domain_app(
     verify_bearer_token = create_verify_bearer_token(oauth2_scheme)
     app.dependency_overrides[_default_verify] = verify_bearer_token
 
-    @app.get("/openapi.json", include_in_schema=False)
-    async def get_openapi_json():
-        return Response(
-            content=json.dumps(app.openapi(), indent=2, ensure_ascii=False),
-            media_type="application/json",
-        )
-
-    return app, verify_bearer_token, get_openapi_json
+    return app, verify_bearer_token

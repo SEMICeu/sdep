@@ -124,6 +124,9 @@ services:
       BUILD_IMAGE: "false"
       OUTPUT_DIR: tmp/trivy-scan
       SEVERITY: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
+      # Passed through so `TRIVY_SKIP_DB_REFRESH=1 make test-cve` can reuse the cached
+      # vulnerability DB; by default every scan downloads the current one.
+      TRIVY_SKIP_DB_REFRESH: ${TRIVY_SKIP_DB_REFRESH:-0}
     volumes:
       - ./:/work
       - /var/run/docker.sock:/var/run/docker.sock

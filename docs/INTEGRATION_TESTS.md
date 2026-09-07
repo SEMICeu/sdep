@@ -5,7 +5,6 @@ The [../tests](../tests) directory contains standalone Python scripts for integr
 These tests verify API functionality, authentication, authorization, and security compliance.
 
 - [Running Tests](#running-tests)
-- [See ../Makefile.](#see-makefile)
 - [Configuration](#configuration)
   - [Credentials](#credentials)
   - [Bearer Tokens](#bearer-tokens)
@@ -29,7 +28,7 @@ These tests verify API functionality, authentication, authorization, and securit
 
 ## Running Tests
 
-## See [../Makefile](../Makefile).
+See [../Makefile](../Makefile).
 
 ## Configuration
 

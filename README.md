@@ -325,23 +325,27 @@ make all
 
 ## Functional Design
 
+- [Definitions](./docs/DEFINITIONS.md)
 - [Architecture](./docs/ARCHITECTURE_FUNC.md)
-- [Listing and Activity](./docs/LISTING_ACTIVITY.md) (work in progress)
+- [Host](./docs/HOST.md)
+- [Area](./docs/AREA.md)
+- [Listing](./docs/LISTING.md)
+- [Activity](./docs/ACTIVITY.md)
 
 ## Technical Design
 
 - [Architecture](./docs/ARCHITECTURE_TECH.md)
-- [Internal Data Model](./docs/DATAMODEL.md)
 - [API](./docs/API.md)
+- [API version diff](./docs/API_DIFF.md)
+- [Internal Data Model](./docs/DATAMODEL.md)
 - [Security](./docs/SECURITY.md)
-- [Database Dialects](./docs/DATABASE_DIALECTS.md)
-- [Development](./docs/DEVELOPMENT.md)
 
 ## Getting started
 
-- [Client-signed JWT authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md)
+- [Development](#development)
 - [Pre-production](./docs/GET_STARTED_PRE.md)
 - [Production](./docs/GET_STARTED_PRD.md)
+- [Client-signed JWT authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md)
 
 ## Process
 

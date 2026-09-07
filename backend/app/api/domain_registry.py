@@ -6,6 +6,13 @@ from typing import Literal
 
 ApiStatus = Literal["stable", "beta"]
 
+# OpenAPI specification version every sub-app emits, shown once as a badge in the docs
+# landing page header. Bound to the served contract by the registry tests.
+OAS_VERSION = "3.1"
+
+# Published location of the generated version diff (see docs/API_DIFF.md).
+VERSION_DIFF_URL = "https://github.com/SEMICeu/sdep/blob/main/docs/API_DIFF.md"
+
 
 @dataclass(frozen=True)
 class ApiDomain:
@@ -14,6 +21,14 @@ class ApiDomain:
     title: str
     description: str
     status: ApiStatus
+    # Cross-version links, given as root paths and resolved lazily against API_DOMAINS so a
+    # sibling's label and status are never duplicated in this version's text.
+    supersedes_path: str | None = None
+    superseded_by_path: str | None = None
+    # What this version changes relative to the version it supersedes. Single source for the
+    # OpenAPI description, the docs landing page, and the narrative documentation.
+    changes: str | None = None
+    diff_url: str | None = None
 
     @property
     def docs_path(self) -> str:
@@ -24,19 +39,48 @@ class ApiDomain:
         return f"{self.root_path}/openapi.json"
 
     @property
+    def supersedes(self) -> "ApiDomain | None":
+        return _resolve(self.supersedes_path)
+
+    @property
+    def superseded_by(self) -> "ApiDomain | None":
+        return _resolve(self.superseded_by_path)
+
+    @property
+    def version_note(self) -> str:
+        """Cross-version pointer, shown at the top of Swagger UI via the OpenAPI description."""
+        previous = self.supersedes
+        if previous is not None and self.changes:
+            return f"Changes from {previous.label}: {self.changes}"
+
+        successor = self.superseded_by
+        if successor is not None:
+            return f"Superseded by {successor.label} ({successor.status})."
+
+        return ""
+
+    @property
     def description_with_status(self) -> str:
-        return f"{self.description} Status: {self.status}."
+        parts = (self.description, f"Status: {self.status}.", self.version_note)
+        return " ".join(part for part in parts if part)
 
     @property
     def html(self) -> str:
         status = escape(self.status)
+        diff_link = (
+            "\n      &nbsp;|&nbsp;\n"
+            f'      <a href="{escape(self.diff_url)}">Version diff</a>'
+            if self.diff_url
+            else ""
+        )
 
         return (
             '    <div class="version">\n'
             f'      <a href="{escape(self.docs_path)}">{escape(self.label)}</a>\n'
             f'      <span class="status status-{status}">{status}</span>\n'
             "      &nbsp;|&nbsp;\n"
-            f'      <a href="{escape(self.openapi_path)}">OpenAPI JSON</a>\n'
+            f'      <a href="{escape(self.openapi_path)}">OpenAPI JSON</a>'
+            f"{diff_link}\n"
             "    </div>"
         )
 
@@ -60,6 +104,7 @@ CA_V1 = ApiDomain(
         "Endpoints for competent authorities to manage areas and to view activities."
     ),
     status="stable",
+    superseded_by_path="/api/ca/v2",
 )
 
 CA_V2 = ApiDomain(
@@ -70,6 +115,13 @@ CA_V2 = ApiDomain(
         "Endpoints for competent authorities to manage areas and to view activities."
     ),
     status="beta",
+    supersedes_path="/api/ca/v1",
+    changes=(
+        "adds four optional activity filters (`filterCreatedAtFrom`, `filterCreatedAtTo`, "
+        "`filterPlatformId`, `filterAreaId`) on the activity list and count endpoints; "
+        "no other changes."
+    ),
+    diff_url=VERSION_DIFF_URL,
 )
 
 STR_V1 = ApiDomain(
@@ -94,3 +146,13 @@ REP_V1 = ApiDomain(
 )
 
 API_DOMAINS = (AUTH_V1, CA_V1, CA_V2, STR_V1, REP_V1)
+
+
+def _resolve(root_path: str | None) -> ApiDomain | None:
+    """Look up a sibling domain by root path (lazy - API_DOMAINS is defined above)."""
+    if root_path is None:
+        return None
+
+    return next(
+        (domain for domain in API_DOMAINS if domain.root_path == root_path), None
+    )

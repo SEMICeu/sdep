@@ -8,7 +8,6 @@ https://sdep.gov.nl/api/docs
 <h2>Table of Contents</h2>
 
 - [Overview](#overview)
-- [Diagram](#diagram)
 - [Classes](#classes)
   - [Competent Authority](#competent-authority)
   - [Platform](#platform)
@@ -21,16 +20,44 @@ https://sdep.gov.nl/api/docs
 
 ## Overview
 
+```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+    direction LR
+
+    class CompetentAuthority
+    class Platform
+    class Area
+    class Activity
+    class Address {
+        <<composite>>
+    }
+    class Temporal {
+        <<composite>>
+    }
+    class AuditLog
+
+    CompetentAuthority --> "1:n" Area : regulates
+    Platform --> "1:n" Activity : submits
+    Activity --> "n:1" Area : regulated in
+    Activity *-- Address : located at
+    Activity *-- Temporal : during
+
+    note for AuditLog "Standalone, no foreign key relationships"
+```
+
+---
+
 - A **CompetentAuthority** regulates geographical **Areas** (typically one)
 - A **Platform** submits rental **Activities** (subject to regulation)
 - An **Activity** is regulated in an **Area**
 - An **Activity** is located on an **Address** (rental location)
 - An **Activity** happens during a **Temporal** (rental time period)
 - Activities are routed to CompetentAuthorities based on the referenced Area
-
-## Diagram
-
-![](./diagrams/DATAMODEL.svg)
 
 ## Classes
 

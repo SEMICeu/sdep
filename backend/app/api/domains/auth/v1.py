@@ -1,9 +1,6 @@
 """Auth domain v1 sub-application."""
 
-import json
-
 from fastapi import FastAPI
-from fastapi.responses import Response
 
 from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common.openapi import create_custom_openapi
@@ -15,7 +12,7 @@ from app.config import settings
 app_auth_v1 = FastAPI(
     title=AUTH_V1.title,
     description=AUTH_V1.description_with_status,
-    version=f"{settings.DTAP}-{settings.IMAGE_TAG}",
+    version=settings.api_version_label,
     root_path=AUTH_V1.root_path,
     redoc_url=None,
     responses={
@@ -35,14 +32,6 @@ app_auth_v1.include_router(auth.router)
 
 oauth2_scheme = get_oauth_schema(auth_version=1)
 verify_bearer_token = create_verify_bearer_token(oauth2_scheme)
-
-
-@app_auth_v1.get("/openapi.json", include_in_schema=False)
-async def get_openapi_json():
-    return Response(
-        content=json.dumps(app_auth_v1.openapi(), indent=2, ensure_ascii=False),
-        media_type="application/json",
-    )
 
 
 __all__ = ["app_auth_v1", "verify_bearer_token"]

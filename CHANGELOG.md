@@ -2,6 +2,19 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.4.2
+
+- Restructured the [functional design](./README.md#functional-design)
+- Renewed the functional design proposal for [listing regulation](./docs/LISTING.md) aka. random checks
+- Added [API Version Diff](./docs/API_DIFF.md), showing what changed between two API versions, generated from the API itself so it cannot go stale
+- Added a link to that version comparison on the API documentation page
+- Each API version now says in its own documentation whether it supersedes, or is superseded by, another version
+- Added an interactive documentation page for the ping endpoint, so a token can be entered, and the endpoint tried out
+- Grouped ping and health together on the API documentation page, and put the environment and OpenAPI version at the top
+- Removed an unused route in every API that was shadowed by the framework's own
+- Moved the API endpoint overview from the architecture document into the API document
+- Cleaned up duplicated version labels, a leftover test file and inaccurate makefile messages
+
 # 1.4.1
 
 - Replaced the contact address on the API docs landing page with the functional mailbox `nationaalcoordinatorsdep@minbzk.nl`

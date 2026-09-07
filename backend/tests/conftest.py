@@ -3,6 +3,7 @@
 import asyncio
 import os
 from collections.abc import AsyncGenerator, Generator
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
@@ -14,6 +15,38 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+
+if TYPE_CHECKING:
+    from _pytest.reports import TestReport
+    from _pytest.terminal import TerminalReporter
+
+
+def _first_message_line(report: "TestReport") -> str:
+    """First line of a failure message, which is where a test puts its remediation hint."""
+    reprcrash = getattr(report.longrepr, "reprcrash", None)
+    message = getattr(reprcrash, "message", None) or report.longreprtext
+
+    return message.strip().splitlines()[0] if message.strip() else ""
+
+
+@pytest.hookimpl(trylast=True)  # after the coverage report, so `tail` keeps it
+def pytest_terminal_summary(terminalreporter: "TerminalReporter") -> None:
+    """Repeat each failure message at the very end of the run.
+
+    Pytest drops the message from its own summary line when the line does not fit the
+    terminal width, and the quiet targets pipe through `tail`, so hints like
+    "Run `make api-diff-update`" would otherwise never reach the developer.
+    """
+    failed = terminalreporter.stats.get("failed", [])
+    if not failed:
+        return
+
+    terminalreporter.write_sep("=", "failure messages", red=True)
+    for report in failed:
+        terminalreporter.write_line(report.nodeid)
+        message = _first_message_line(report)
+        if message:
+            terminalreporter.write_line(f"    {message}")
 
 
 @pytest.fixture(scope="session")

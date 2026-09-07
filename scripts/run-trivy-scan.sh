@@ -62,6 +62,19 @@ fi
 
 require_command trivy
 
+# The vulnerability DB is the only moving part of this scan. Trivy keeps a cached DB
+# until its NextUpdate (up to 24h out), so a locally cached run and a fresh pipeline
+# run disagree: the pipeline sees CVEs added since the local copy was cut, and sees
+# severities that were still UNKNOWN when it was cut. Drop the DB before every scan so
+# both read the same feed. No-op in CI, where the cache is empty anyway.
+# Set TRIVY_SKIP_DB_REFRESH=1 to reuse the cached DB (offline work, fast iteration).
+if [ "${TRIVY_SKIP_DB_REFRESH:-0}" = "1" ]; then
+  echo "Reusing the cached vulnerability DB (TRIVY_SKIP_DB_REFRESH=1)."
+else
+  echo "Dropping the cached vulnerability DB so this scan downloads the current one..."
+  trivy clean --vuln-db
+fi
+
 echo "=== Trivy CVE scan ($SEVERITY) ==="
 rm -f "$RESULTS_JSON"
 

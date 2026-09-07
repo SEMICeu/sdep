@@ -1,7 +1,7 @@
 """Freeze the OpenAPI contract for each API domain.
 
 If the public API contract changes intentionally, refresh the committed snapshots
-with `make openapi-snapshot-update` from `backend/Makefile` and review the diff.
+with `make api-snapshot-update` from `backend/Makefile` and review the diff.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ DOMAIN_STATUS_APPS: tuple[tuple[ApiDomain, FastAPI], ...] = (
 )
 
 
-def _snapshot_path(domain: str) -> Path:
+def snapshot_path(domain: str) -> Path:
     return FIXTURES_DIR / f"openapi_{domain}.snapshot.json"
 
 
@@ -94,26 +94,36 @@ def _expand_for_diff(text: str) -> str:
 
 
 def write_openapi_snapshots() -> list[Path]:
-    """Write normalized OpenAPI snapshots for all domains."""
+    """Write the normalized snapshots whose content changed. Returns those paths."""
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
-    paths = []
+    changed = []
     for domain, app in DOMAIN_APPS.items():
-        path = _snapshot_path(domain)
-        path.write_text(_serialize_openapi(_normalized_openapi(app)))
-        paths.append(path)
-    return paths
+        path = snapshot_path(domain)
+        content = _serialize_openapi(_normalized_openapi(app))
+        if path.exists() and path.read_text() == content:
+            continue
+        path.write_text(content)
+        changed.append(path)
+    return changed
 
 
-def write_openapi_snapshot() -> Path:
-    """Legacy entry point for Makefile compatibility."""
-    paths = write_openapi_snapshots()
-    return paths[0].parent
+def report_openapi_snapshots() -> str:
+    """Write the snapshots and describe what changed. Entry point for `make api-snapshot-update`."""
+    changed = write_openapi_snapshots()
+    if not changed:
+        return "✅ OpenAPI snapshot already up to date, no changes made"
+
+    names = ", ".join(path.name for path in changed)
+
+    return (
+        f"✅ OpenAPI snapshot updated ({len(changed)} of {len(DOMAIN_APPS)}): {names}"
+    )
 
 
 @pytest.mark.parametrize("domain", list(DOMAIN_APPS.keys()))
 def test_openapi_schema_is_frozen(domain: str) -> None:
     """Detect unreviewed changes in the committed OpenAPI contract snapshot."""
-    path = _snapshot_path(domain)
+    path = snapshot_path(domain)
     app = DOMAIN_APPS[domain]
     expected = path.read_text()
     actual = _serialize_openapi(_normalized_openapi(app))
@@ -132,7 +142,7 @@ def test_openapi_schema_is_frozen(domain: str) -> None:
         # First line is visible in `make test` (--tb=line); full diff shows in `make test-verbose`
         pytest.fail(
             f"OpenAPI schema for {domain} changed. "
-            "Run `make test-verbose` to see the diff, or `make openapi-snapshot-update` to refresh."
+            "Run `make test-verbose` to see the diff, or `make api-snapshot-update` to refresh."
             f"\n\n{banner}\n  OpenAPI diff: {domain}\n{banner}\n\n{diff}\n\n{banner}"
         )
 

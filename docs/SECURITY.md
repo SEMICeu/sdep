@@ -495,6 +495,8 @@ The reference implementation provides two CVE checks:
 - `make test-cve` builds the image, scans it with Trivy, and compares the findings with the CVE allowlist in `docs/CVE_EXPLAINS.md`. It fails when the scan reports a CVE the allowlist does not justify, when the allowlist still lists a CVE the scan no longer reports, when a listed package or severity differs from what the scan reports, or when the same CVE is listed twice.
 - `make test-cve-offline` scans nothing. It feeds prepared reports to the comparison script to confirm it still catches each of those cases, and checks that the identifiers in the allowlist have a plausible year. Because it needs no image, it is the fast check and runs in `make all`, while the image scan runs in `make ci-gate`.
 
+The image scan reads a vulnerability database that upstream rebuilds every few hours. Trivy caches that database locally and keeps it until its recorded next-update time, up to a day later, so a cached local scan and a fresh pipeline scan can report different CVEs and different severities for the same image. `make test-cve` therefore drops the cached database before every scan and downloads the current one, matching what the pipeline does. Set `TRIVY_SKIP_DB_REFRESH=1` to reuse the cached database when working offline or iterating quickly, accepting that the result may no longer match the pipeline.
+
 > **Note:** `docs/CVE_EXPLAINS.md` is intentionally not committed. Each EU member state implementing an SDEP is responsible for maintaining its own CVE allowlist and remediation process within its CI/CD pipeline.
 
 Running the scanner and validating its report should be regarded as blocking CI/CD checks (`make ci-gate`).

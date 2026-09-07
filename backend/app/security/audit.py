@@ -34,6 +34,9 @@ SKIP_PATHS = frozenset(
         "/api/str/v1/docs",
         "/api/rep/v1/openapi.json",
         "/api/rep/v1/docs",
+        "/api/openapi.json",
+        "/api/ping/openapi.json",
+        "/api/ping/docs",
     }
 )
 

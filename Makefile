@@ -700,36 +700,26 @@ test-cve-offline: ## Test the CVE allowlist script with fake reports, check CVE 
 ##@ Tests (all)
 
 test: ## Test fullstack + migrations + performance + security (malware)
-	@echo "🧪 Running all tests..."
-	@echo ""
-	@echo "  1. Test (fullstack) > test-full"
-	@echo "  2. Test (migrations) > test-migrations"
-	@echo "  3. Test (performance) > test-perf"
-	@echo "  4. Test (security) > test-malware"
+	@echo "🧪 Running: test-full + test-migrations + test-perf + test-malware"
 	@echo ""
 	@$(MAKE) --no-print-directory test-full
 	@$(MAKE) --no-print-directory test-migrations
 	@$(MAKE) --no-print-directory test-perf PERF_AUTO_CONFIRM=true
 	@$(MAKE) --no-print-directory test-malware
 	@echo ""
-	@echo "✅ All tests completed (fullstack + migrations + performance + security)"
+	@echo "✅ Completed"
 	@echo ""
 	@$(MAKE) --no-print-directory postgres-count
 
 test-keep: ## Test fullstack + migrations + performance + security (malware); keep generated test-data (not idempotent, similar to test-full-keep and test-perf-keep)
-	@echo "🧪 Running all tests (keep generated test-data)..."
-	@echo ""
-	@echo "  1. Test (fullstack) > test-full-keep"
-	@echo "  2. Test (migrations) > test-migrations"
-	@echo "  3. Test (performance) > test-perf-keep"
-	@echo "  4. Test (security) > test-malware"
+	@echo "🧪 Running (keep test-data): test-full-keep + test-migrations + test-perf-keep + test-malware"
 	@echo ""
 	@$(MAKE) --no-print-directory test-full-keep
 	@$(MAKE) --no-print-directory test-migrations
 	@$(MAKE) --no-print-directory test-perf-keep PERF_AUTO_CONFIRM=true
 	@$(MAKE) --no-print-directory test-malware
 	@echo ""
-	@echo "✅ All tests completed (fullstack + migrations + performance + security, test-data kept)"
+	@echo "✅ Completed (test-data kept)"
 	@echo ""
 	@$(MAKE) --no-print-directory postgres-count
 
@@ -770,13 +760,13 @@ md-format: ## Format markdown
 ##@ All
 
 all: ## Test fullstack + migrations + performance + malware + CVE scripts (offline)    + lint markdown
-	@echo "🧪 Running all tests, CVE allowlist script smoketest and markdown lint..."
+	@echo "🧪 Running: test (test-full + test-migrations + test-perf + test-malware) + test-cve-offline + md-lint"
 	@echo ""
 	@$(MAKE) --no-print-directory test
 	@$(MAKE) --no-print-directory test-cve-offline
 	@$(MAKE) --no-print-directory md-lint
 	@echo ""
-	@echo "✅ All tests, CVE allowlist script smoketest and markdown lint completed (test + test-cve-offline + md-lint)"
+	@echo "✅ Completed"
 
 # Mirrors the required continuous integration checks on push
 #   test:backend             -> make -C backend test (pytest + coverage)
@@ -792,7 +782,7 @@ all: ## Test fullstack + migrations + performance + malware + CVE scripts (offli
 # test-perf is included here by choice, so a local run exercises the bulk path before pushing,
 # even though the pipeline does not. Consider to keep this target in sync with continuous integration (pipeline) jobs.
 ci-gate: ## Test backend   + migrations + performance + malware + CVE scan (fail on error) + lint markdown
-	@echo "🧪 Running CI checks (mirrors pipeline gates)..."
+	@echo "🧪 Running CI checks (mirrors pipeline gates): backend test + test-migrations + test-perf + test-malware + test-cve + md-lint"
 	@echo ""
 	@$(MAKE) -C backend --no-print-directory test
 	@$(MAKE) --no-print-directory test-migrations
@@ -801,7 +791,7 @@ ci-gate: ## Test backend   + migrations + performance + malware + CVE scan (fail
 	@$(MAKE) --no-print-directory test-cve
 	@$(MAKE) --no-print-directory md-lint
 	@echo ""
-	@echo "✅ CI checks completed (backend test + migrations + performance + malware + CVE scan + md-lint)"
+	@echo "✅ CI checks completed"
 
 ##@ Logs
 

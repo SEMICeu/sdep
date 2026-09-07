@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import json
 
 import pytest
 from app.api.common.routers import health as health_router
 from app.api.common.routers import ping as ping_router
-from app.api.domains.auth.v1 import get_openapi_json
-from app.api.domains.ca.v1 import get_openapi_json as get_ca_openapi_json
-from app.api.domains.rep.v1 import get_openapi_json as get_rep_openapi_json
-from app.api.domains.str.v1 import get_openapi_json as get_str_openapi_json
+from app.api.domain_registry import API_DOMAINS
+from app.main import app as root_app
 from app.main import lifespan, root
 from app.security.audit_retention import audit_log_cleanup_loop
 from app.security.headers import ApiSecurityHeadersMiddleware, SecurityHeadersMiddleware
@@ -18,23 +15,27 @@ from httpx import ASGITransport, AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_root_and_openapi_json_endpoint():
+async def test_root_returns_ok():
     assert await root() == "OK"
 
-    response = await get_openapi_json()
 
-    assert response.media_type == "application/json"
-    body = bytes(response.body)
-    parsed = json.loads(body)
-    assert "openapi" in parsed
-    assert body.startswith(b"{\n")
+@pytest.mark.asyncio
+async def test_every_domain_serves_its_openapi_document():
+    """Each domain publishes its contract, declaring its own mount prefix.
 
-    ca_response = await get_ca_openapi_json()
-    str_response = await get_str_openapi_json()
-    rep_response = await get_rep_openapi_json()
-    assert ca_response.media_type == "application/json"
-    assert str_response.media_type == "application/json"
-    assert rep_response.media_type == "application/json"
+    Without the `servers` entry Swagger UI resolves operations against the page origin and
+    calls them without the mount prefix, so it is part of what makes the document usable.
+    """
+    transport = ASGITransport(app=root_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        for domain in API_DOMAINS:
+            response = await client.get(domain.openapi_path)
+            schema = response.json()
+
+            assert response.status_code == 200, domain.label
+            assert "application/json" in response.headers["content-type"]
+            assert schema["servers"] == [{"url": domain.root_path}], domain.label
+            assert schema["paths"], domain.label
 
 
 @pytest.mark.asyncio

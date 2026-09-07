@@ -569,7 +569,7 @@
     }
   },
   "info": {
-    "description": "Endpoints for competent authorities to manage areas and to view activities. Status: beta.",
+    "description": "Endpoints for competent authorities to manage areas and to view activities. Status: beta. Changes from CA v1: adds four optional activity filters (`filterCreatedAtFrom`, `filterCreatedAtTo`, `filterPlatformId`, `filterAreaId`) on the activity list and count endpoints; no other changes.",
     "title": "SDEP - Competent Authority (CA) API",
     "version": "<frozen-version>"
   },

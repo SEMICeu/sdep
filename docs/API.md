@@ -1,18 +1,29 @@
 <h1>API</h1>
 
-This document describes principles and patterns for the SDEP API.
+This document describes the SDEP API.
 
 <h2>Table of Contents</h2>
 
 - [Principle](#principle)
 - [Patterns](#patterns)
+- [Domains](#domains)
+- [Surface](#surface)
+  - [Authentication](#authentication)
+  - [Competent Authority (CA)](#competent-authority-ca)
+  - [Short-term Rental Platform (STR)](#short-term-rental-platform-str)
+  - [Reporting (REP)](#reporting-rep)
+  - [Common](#common)
 - [Versioning](#versioning)
-  - [API Contract](#api-contract)
-  - [API Status](#api-status)
-  - [Compatibility](#compatibility)
-  - [CA Activity Filters (v2)](#ca-activity-filters-v2)
-  - [REP Activity Filters (v1)](#rep-activity-filters-v1)
-  - [Application](#application)
+  - [Contract](#contract)
+  - [Status Indicator](#status-indicator)
+  - [Actual](#actual)
+  - [Diff](#diff)
+  - [Operation Ids](#operation-ids)
+  - [Add New](#add-new)
+  - [Export](#export)
+- [Filtering](#filtering)
+  - [CA Activity (v2)](#ca-activity-v2)
+  - [REP Activity (v1)](#rep-activity-v1)
 - [HTTP Status Codes](#http-status-codes)
   - [Success](#success)
   - [Client Errors](#client-errors)
@@ -44,25 +55,126 @@ This document describes principles and patterns for the SDEP API.
 
 ## Patterns
 
-| #          | Decision                                           | Motivation/example                                                                                                     |
-| :--------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
-| **API 01** | Support OpenAPI 3.1.0                              | Swagger 2.0 is legacy - <https://swagger.io/specification/>                                                            |
-| **API 02** | All endpoints are self-explanatory/well-documented |                                                                                                                        |
-| **API 03** | Use nouns instead of verbs                         | Best practice - <https://logius-standaarden.github.io/API-Design-Rules/>                                               |
-| **API 04** | Use plurals for resources that affect collections  | Best practice - <https://logius-standaarden.github.io/API-Design-Rules/>                                               |
-| **API 05** | Consistent datamodel                               | Avoid code duplication, e.g. have unified `Activity`, `Area` and error responses                                       |
-| **API 06** | Consistent endpoints                               | Collection endpoints, explicit "bulk" qualification where needed: `POST /ca/areas` vs. `POST /str/activities/bulk`     |
-| **API 07** | Consistent pagination                              | Have `offset` and `limit` for all endpoints with (potential) many records                                              |
-| **API 08** | Syntax validation                                  | Example: `postal code`                                                                                                 |
-| **API 09** | Semantical validation                              | Example: `begin timestamp < end timestamp`                                                                             |
-| **API 10** | Integrity validation                               | Example: can only submit activities for existing areas                                                                 |
-| **API 11** | Bulk POST                                          | All STR activity submissions use `POST /str/activities/bulk` (up to 1000 items/batch)                                  |
-| **API 12** | Logical ordering => readability                    | For POST, request and response follow the same ordering, extra data in response (e.g. `createdAt`) is moved to the end |
-| **API 13** | Essentiality                                       | Example: in `/str/activities/bulk`, only `areaId`, but no `competentAuthorityId`                                       |
-| **API 14** | Essentiality/security                              | Example: in POST activities, no need to include `platformId`                                                           |
-| **API 15** | Consistent HTTP response codes                     | See [HTTP Status Codes](#http-status-codes) below                                                                      |
-| **API 16** | STR and CA: manage area change                     | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                         |
-| **API 17** | Unified response format                            | Example: `ActivityResponse` (for STR and CA, both contain `competentAuthorityName`')                                   |
+| #          | Decision                                                                                          | Motivation/example                                                                                                     |
+| :--------- | :------------------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------- |
+| **API 01** | Support OpenAPI 3.1.0                                                                             | Swagger 2.0 is legacy - <https://swagger.io/specification/>                                                            |
+| **API 02** | All endpoints are self-explanatory/well-documented                                                |                                                                                                                        |
+| **API 03** | Use noun instead of verbs                                                                         | Best practice, for example <https://logius-standaarden.github.io/API-Design-Rules/>                                    |
+| **API 04** | Use plural nouns for collections and query parameters (with pagination) for filtering collections | Best practice, for example <https://learn.microsoft.com/en-sg/azure/architecture/best-practices/api-design/>           |
+| **API 05** | Consistent datamodel                                                                              | Avoid code duplication, e.g. have unified `Activity`, `Area` and error responses                                       |
+| **API 06** | Consistent endpoints                                                                              | Collection endpoints, explicit "bulk" qualification where needed: `POST /ca/areas` vs. `POST /str/activities/bulk`     |
+| **API 07** | Consistent pagination                                                                             | Have `offset` and `limit` for all endpoints with (potential) many records                                              |
+| **API 08** | Syntax validation                                                                                 | Example: `postal code`                                                                                                 |
+| **API 09** | Semantical validation                                                                             | Example: `begin timestamp < end timestamp`                                                                             |
+| **API 10** | Integrity validation                                                                              | Example: can only submit activities for existing areas                                                                 |
+| **API 11** | Bulk POST                                                                                         | All STR activity submissions use `POST /str/activities/bulk` (up to 1000 items/batch)                                  |
+| **API 12** | Logical ordering => readability                                                                   | For POST, request and response follow the same ordering, extra data in response (e.g. `createdAt`) is moved to the end |
+| **API 13** | Essentiality                                                                                      | Example: in `/str/activities/bulk`, only `areaId`, but no `competentAuthorityId`                                       |
+| **API 14** | Essentiality/security                                                                             | Example: in POST activities, no need to include `platformId`                                                           |
+| **API 15** | Consistent HTTP response codes                                                                    | See [HTTP Status Codes](#http-status-codes) below                                                                      |
+| **API 16** | STR and CA: manage area change                                                                    | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                         |
+| **API 17** | Unified response format                                                                           | Example: `ActivityResponse` (for STR and CA, both contain `competentAuthorityName`')                                   |
+
+## Domains
+
+API-endpoints are exposed in the following domains:
+
+- Authentication
+- Competent authority (CA)
+- Short-term rental platform (STR)
+- Reporting & statistics (REP)
+- Common (ping & health)
+
+## Surface
+
+---
+
+### Authentication
+
+- `POST /api/auth/v1/token` - OAuth 2.0 token endpoint
+
+---
+
+### Competent Authority (CA)
+
+**Areas**
+
+**v1**
+
+- `POST /api/ca/v1/areas` - Submit a single area (multipart/form-data: file + optional areaId, areaName)
+- `GET /api/ca/v1/areas` - List own areas (pagination: offset, limit)
+- `GET /api/ca/v1/areas/count` - Count own areas
+- `GET /api/ca/v1/areas/{areaId}` - Download shapefile for own area
+- `DELETE /api/ca/v1/areas/{areaId}` - Delete (deactivate) an own area
+
+**v2 - unchanged**
+
+The area endpoints are mounted unchanged into v2, so every `/api/ca/v1/areas...` path above is also served at `/api/ca/v2/areas...`, with the same request, response, and authorization. Only the activity endpoints differ between the two versions.
+
+---
+
+**Activities**
+
+**v1**
+
+- `GET /api/ca/v1/activities` - Query rental activities (pagination: offset, limit)
+- `GET /api/ca/v1/activities/count` - Count activities
+
+**v2 - adds optional query filters**
+
+- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId; filters use AND semantics and are scoped to the authenticated CA; createdAt filters must be UTC)
+- `GET /api/ca/v2/activities/count` - Count activities with optional filters (same filter set)
+
+---
+
+### Short-term Rental Platform (STR)
+
+**Areas**
+
+**v1**
+
+- `GET /api/str/v1/areas` - List regulated areas (pagination: offset, limit)
+- `GET /api/str/v1/areas/count` - Count areas
+- `GET /api/str/v1/areas/{areaId}` - Download shapefile for area
+
+---
+
+**Activities**
+
+**v1**
+
+- `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
+
+---
+
+### Reporting (REP)
+
+**Activities**
+
+**v1**
+
+Read-only endpoints for the national statistics office (no write endpoints registered; POST/PUT/PATCH/DELETE return 405):
+
+- `GET /api/rep/v1/activities` - Query rental activities across all competent authorities and platforms (pagination: offset, limit - limit defaults to 1000, the maximum; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId, filterCompetentAuthorityId - AND semantics; createdAt filters must be UTC; invalid functional IDs or non-UTC datetimes → 400)
+- `GET /api/rep/v1/activities/count` - Count activities with optional filters (same filter set)
+
+---
+
+### Common
+
+- `GET /api/health` - Health check (unauthenticated, infrastructure use)
+- `GET /api/ping` - Ping endpoint (authenticated, requires valid bearer token)
+
+`GET /api/ping/docs` is a Swagger UI page for the ping endpoint, wired to the same
+bearer-token scheme as the versioned domains, so a token can be entered through Authorize and
+`/api/ping` exercised interactively. It is backed by `GET /api/ping/openapi.json`, a copy of
+the common contract narrowed to that one path. The endpoints keep their own paths: mounting a
+sub-app at `/api/ping` would make the endpoint itself redirect, so the docs routes are
+registered on the common app instead.
+
+`/api/health` has no docs page: it is declared with `include_in_schema=False` and so is
+deliberately absent from the OpenAPI contract. The landing page at `/api/docs` groups both
+under Common, linking the ping docs page and the health endpoint directly.
 
 ---
 
@@ -70,54 +182,134 @@ This document describes principles and patterns for the SDEP API.
 
 ---
 
-### API Contract
+### Contract
 
 The API version (contract) is embedded in the URL path (`/api/{domain}/v1/...`).
 
-A new version (e.g. v2) is introduced only when a **breaking change** to the contract is unavoidable - a removed or renamed field, a changed type, or altered semantics.
+A new API version (e.g. from v1 to v2) is introduced:
 
-Additive changes (new optional fields, new endpoints) do **not** require a new version.
+- **Mandatory**: when an unavoidable **breaking change** is made to the contract.
+- E.g. removing or renaming a field, changing a field's type, or altering its semantics.
+- **Optional**: when new functionality is introduced that is **not necessarily breaking**, is already exposed to consumers, but is still under development and subject to change.
+  - E.g. additional query filters in `ca/v2`
 
-When a new API version is released, the previous version (N-1) remains available for a deprecation period to give clients time to migrate. Only the current (N) and previous (N-1) versions are supported simultaneously.
+When a new API version is released, the previous version (N-1) remains available for a deprecation period to give clients time to migrate.
+
+- Only the current (N) and previous (N-1) versions are supported simultaneously.
 
 ---
 
-### API Status
+### Status Indicator
 
 Each API version has a status:
 
-- **stable** - supported for production integrations. Backward compatibility is guaranteed within the same API version.
-- **beta** - available for early integration and feedback, the contract may still change before it is promoted to stable.
+- **Stable** - supported for production integrations
+  - Application [backward compatibility](./ARCHITECTURE_TECH.md#application-versioning) is guaranteed within the same API version.
+- **Alpha**:
+  - Early-stage and unstable.
+  - Available for early integration and feedback.
+  - The contract is expected to change before it is promoted to beta or stable.
+- **Beta**:
+  - Rather stable and feature-complete.
+  - Available for early integration and feedback.
+  - The contract may still change before it is promoted to stable.
 
 A beta API can be available in production. Clients may integrate with it, but the contract may change.
 
-**Current versions in production:**
+The endpoints each version exposes are listed in [Surface](#surface), and the per-operation difference between consecutive versions is in [API Version Diff](API_DIFF.md).
+
+---
+
+### Actual
 
 | Domain | Version | Status | Notes                                               |
 | ------ | ------- | ------ | --------------------------------------------------- |
-| auth   | v1      | stable |                                                     |
+| auth   | v1      | stable | OAuth 2.0 token endpoint (client credentials)       |
 | ca     | v1      | stable | Areas + activities (no filters)                     |
 | ca     | v2      | beta   | Activities with optional query filters (new)        |
-| str    | v1      | stable |                                                     |
+| str    | v1      | stable | Areas (read-only) + bulk activity submission        |
 | rep    | v1      | beta   | Read-only reporting API for reporting offices (new) |
 
 ---
 
-### Compatibility
+### Diff
 
-Backward compatibility:
+The differences between consecutive API versions are generated from the committed OpenAPI snapshots and published in [API Version Diff](API_DIFF.md). The document is regenerated with `make api-diff-update` from `backend/` and is gated by the backend test suite, so it cannot drift from the contract.
 
-- Clients built against an older contract continue to work against a newer release of the same API version
-- This is the primary design goal: existing integrations must not break on a same-version update
+In short: CA v2 is CA v1 plus four optional activity filters. No path, schema, response, or authorization changes. See [CA Activity (v2)](#ca-activity-v2) for the parameters themselves.
 
-Forward compatibility:
+Each version also carries its own cross-version note in the OpenAPI `info.description`, so it is visible at the top of that version's Swagger UI without leaving the API.
 
-- An older server gracefully handling newer client payloads (e.g. by ignoring unknown fields)
-- Is a best-effort courtesy, not a guarantee across API versions
+Deprecation markers (`deprecated: true` on the superseded operations, and the `Deprecation` and `Sunset` response headers) are deliberately not set yet: v1 is stable and v2 is beta, so v1 is not being retired. They become correct once v2 is promoted to stable and a retirement date is set.
 
 ---
 
-### CA Activity Filters (v2)
+### Operation Ids
+
+Every operation carries an explicit `operationId`, which client code generators turn into a method name.
+
+- Operations that a new version redefines carry a `VN` suffix from v2 onward, for example `getActivityByCompetentAuthorityV2` and `countActivitiesV2`. This keeps the ids unique across the versions that co-exist
+- Operations that a new version mounts unchanged keep a single id across versions. The five area operations (`postArea`, `getOwnAreas`, `countOwnAreas`, `getOwnArea`, `deleteOwnArea`) are shared by CA v1 and CA v2 and are therefore not suffixed
+
+A consequence is that the generated version diff reports an `operationId` change for the redefined operations. That is intended, not drift.
+
+---
+
+### Add New
+
+Each domain is exposed as one or more independently-versioned FastAPI sub-applications,
+mounted side by side (e.g. `/api/ca/v1`, `/api/ca/v2`). A new version is additive:
+existing versions stay byte-compatible.
+
+Shared vs. version-specific code (CA domain as example):
+
+- Shared (one source of truth, used by every version):
+  - `app_factory.py` - `create_domain_app(domain, routers)` builds the sub-app (title,
+    common 500/503 responses, OpenAPI, exception handlers, bearer-token override,
+    `openapi.json` route)
+  - `domain_registry.py` - per-version metadata (label, title, description, status) and
+    the cross-version links that render the "Changes from ..." / "Superseded by ..." note
+    into the OpenAPI description
+  - `common/activity_handlers.py` - the endpoint business logic (list/count)
+  - `common/pagination.py` - the shared offset/limit query dependency
+  - `domains/ca/routers/areas.py` - the areas endpoints, mounted into every version
+  - `common/activity_examples.py` - response examples and error-response constants,
+    imported by every version
+  - `schemas/activity.py`, `services/activity.py`, `crud/activity.py` - the data
+    layers; newer behavior (e.g. filters) is added here and gated by the routers
+- Version-specific (one small file per version):
+  - `routers/activities_vN.py` - the route declarations and any version-only query
+    parameters (e.g. v2 adds the `filter*` inputs via an `activity_filters()` dependency)
+  - `vN.py` - a one-line call to the factory wiring the version's router
+
+Adding a version is therefore cheap: define a new `activities_vN.py`, a one-line
+`vN.py`, mount it in `main.py`, register the version in `domain_registry.py`, and add its
+`/docs` + `/openapi.json` paths to the audit skip-list and CSP allowlist.
+
+The contract of every version is frozen in `backend/tests/api/fixtures/`, and the
+difference between consecutive versions is generated into [API Version Diff](API_DIFF.md).
+Both are gated by the backend test suite: change an endpoint and the suite fails until
+`make api-snapshot-update` and `make api-diff-update` have been run and the diff reviewed.
+
+---
+
+### Export
+
+API PDF export for specific API versions:
+
+- [API auth_v1 pdf](./sdep_openapi_auth_v1.pdf)
+- [API ca_v1 pdf](./sdep_openapi_ca_v1.pdf)
+- [API str_v1 pdf](./sdep_openapi_str_v1.pdf)
+
+> Disclaimer: These PDFs were generated as part of the v1 freeze on 28 April 2026. While the /v1 API is frozen, implementation details may still differ in certain cases (see the [changelog](../CHANGELOG.md) for updates).
+
+---
+
+## Filtering
+
+---
+
+### CA Activity (v2)
 
 `GET /api/ca/v2/activities` and `GET /api/ca/v2/activities/count` accept optional query parameters to narrow results within the authenticated CA's scope:
 
@@ -134,7 +326,7 @@ If OR semantics are required, clients should implement them client-side by calli
 
 ---
 
-### REP Activity Filters (v1)
+### REP Activity (v1)
 
 `GET /api/rep/v1/activities` and `GET /api/rep/v1/activities/count` are read-only endpoints for reporting offices, such as a statistics office (in SDEP-NL, this is the Centraal Bureau voor de Statistiek). They return all current activities across all competent authorities and platforms, and accept the same optional query parameters as CA v2 plus one extra:
 
@@ -149,24 +341,6 @@ If OR semantics are required, clients should implement them client-side by calli
 All provided filters are combined with AND semantics. The `filterCreatedAtFrom` and `filterCreatedAtTo` values must be expressed in UTC (offset `Z` or `+00:00`); naive datetimes or other offsets return HTTP 400, following the API convention for invalid GET query parameters. An invalid `FunctionalId` format also returns HTTP 400. The REP API requires the `sdep_rep` and `sdep_read` roles and registers no write endpoints: POST, PUT, PATCH, and DELETE return HTTP 405.
 
 `GET /api/rep/v1/activities` returns at most 1000 records per request: the `limit` parameter defaults to 1000 (also the maximum). Use `offset` together with `GET /api/rep/v1/activities/count` to page through larger result sets.
-
----
-
-### Application
-
-The deployed application (serving the contract) follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`):
-
-- **MAJOR** - incompatible changes (e.g. architectural overhaul, removed internal behavior)
-- **MINOR** - backward-compatible new functionality
-- **PATCH** - backward-compatible bug fixes
-
-The application version is **independent** of the API version.
-
-An application major bump does not necessarily coincide with an API version bump, and vice versa.
-
-Internal refactors, dependency upgrades, or infrastructure changes may warrant a new application MAJOR while the API contract stays on v1.
-
----
 
 ## HTTP Status Codes
 
@@ -203,7 +377,7 @@ Internal refactors, dependency upgrades, or infrastructure changes may warrant a
 | 500         | Internal Server Error | Unexpected condition that prevented fulfilling the request (catch-all)   |
 | 503         | Service Unavailable   | Database or authorization server (e.g. Keycloak) temporarily unavailable |
 
-For the mapping between application exceptions and HTTP status codes, see [Status Codes and Exception Handling](ARCHITECTURE_TECH.md#status-codes-and-exception-handling) in the Architecture document.
+For the mapping between application exceptions and HTTP status codes, see [Exceptions](ARCHITECTURE_TECH.md#exceptions) in the Technical Architecture document.
 
 ---
 

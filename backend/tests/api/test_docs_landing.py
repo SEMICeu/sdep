@@ -2,7 +2,8 @@
 
 import pytest
 from app.api.common_app import app_common
-from app.api.domain_registry import API_DOMAINS
+from app.api.domain_registry import API_DOMAINS, OAS_VERSION
+from app.config import settings
 from httpx import ASGITransport, AsyncClient
 
 
@@ -49,6 +50,40 @@ class TestDocsLandingPage:
             )
 
     @pytest.mark.asyncio
+    async def test_docs_landing_contains_version_diff_links(self):
+        """Test landing page links the version diff for domains that have one."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/docs")
+
+        body = response.text
+        linked = [domain for domain in API_DOMAINS if domain.diff_url]
+        assert linked, "expected at least one domain to publish a version diff"
+        for domain in linked:
+            assert f'<a href="{domain.diff_url}">Version diff</a>' in body
+
+        for domain in API_DOMAINS:
+            if domain.diff_url is None:
+                assert domain.html.count("<a href=") == 2
+
+    @pytest.mark.asyncio
+    async def test_docs_landing_header_shows_version_and_oas_badges(self):
+        """Test the deployment and OAS badges appear once, in the page header."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/docs")
+
+        body = response.text
+        version_badge = f'<span class="badge">{settings.api_version_label}</span>'
+        oas_badge = f'<span class="badge badge-oas">OAS {OAS_VERSION}</span>'
+
+        assert body.count(version_badge) == 1
+        assert body.count(oas_badge) == 1
+        assert f"{version_badge}{oas_badge}</h1>" in body
+
+    @pytest.mark.asyncio
     async def test_docs_landing_contains_health_link(self):
         """Test landing page contains link to health endpoint."""
         async with AsyncClient(
@@ -57,6 +92,20 @@ class TestDocsLandingPage:
             response = await client.get("/docs")
 
         assert "/api/health" in response.text
+
+    @pytest.mark.asyncio
+    async def test_docs_landing_lists_ping_and_health_under_common(self):
+        """Test the version-independent endpoints share one Common section, ping first."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/docs")
+
+        body = response.text
+        assert "<h2>Common</h2>" in body
+        assert '<a href="/api/ping/docs">Ping</a>' in body
+        assert '<a href="/api/health">Health</a>' in body
+        assert body.index(">Ping</a>") < body.index(">Health</a>")
 
     @pytest.mark.asyncio
     async def test_docs_landing_contains_title(self):
@@ -68,3 +117,62 @@ class TestDocsLandingPage:
 
         assert "SDEP" in response.text
         assert "Single Digital Entry Point" in response.text
+
+
+class TestPingDocsPage:
+    """The ping endpoint gets its own Swagger UI, with an Authorize option."""
+
+    @pytest.mark.asyncio
+    async def test_ping_docs_page_is_served(self):
+        """Test GET /api/ping/docs returns the Swagger UI page."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/ping/docs")
+
+        assert response.status_code == 200
+        assert "swagger-ui" in response.text
+
+    @pytest.mark.asyncio
+    async def test_ping_docs_spec_covers_only_ping(self):
+        """The page documents the ping endpoint, not the whole common app."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/ping/openapi.json")
+
+        schema = response.json()
+
+        assert response.status_code == 200
+        assert list(schema["paths"]) == ["/ping"]
+
+    @pytest.mark.asyncio
+    async def test_ping_docs_spec_declares_the_mount_prefix(self):
+        """Without a servers entry Swagger UI calls /ping instead of /api/ping."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            schema = (await client.get("/ping/openapi.json")).json()
+
+        assert schema["servers"] == [{"url": "/api"}]
+
+    @pytest.mark.asyncio
+    async def test_ping_operation_declares_a_security_scheme(self):
+        """Without a declared scheme Swagger UI shows no Authorize button."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            schema = (await client.get("/ping/openapi.json")).json()
+
+        assert schema["paths"]["/ping"]["get"]["security"]
+        assert schema["components"]["securitySchemes"]
+
+    @pytest.mark.asyncio
+    async def test_ping_endpoint_still_answers_on_its_own_path(self):
+        """The docs page must not move or redirect the endpoint itself."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/ping", follow_redirects=False)
+
+        assert response.status_code == 401
