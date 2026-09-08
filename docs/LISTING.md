@@ -15,8 +15,8 @@ Status: PROPOSAL / DRAFT.
   - [Design Decisions](#design-decisions)
 - [Data](#data)
   - [`Listing.Request`](#listingrequest)
-  - [`ListingAcknowledgement.Request`](#listingacknowledgementrequest)
   - [`ListingScreening.Request`](#listingscreeningrequest)
+  - [`ListingAcknowledgement.Request`](#listingacknowledgementrequest)
   - [`Listing.Response`](#listingresponse)
 - [Implementation](#implementation)
   - [Schemas](#schemas)
@@ -350,19 +350,6 @@ Submitted by the platform (`POST /listings/bulk`).
 
 ---
 
-### `ListingAcknowledgement.Request`
-
-Submitted by the STR platform (`POST /listing-acknowledgements/bulk`), one item per flagged listing.
-
-| Field       | Description                                                    |
-| ----------- | -------------------------------------------------------------- |
-| `listingId` | The flagged listing (scoped to the authenticated platform)     |
-| `createdAt` | The version being acknowledged, see [Concurrency](#validation) |
-
-The acknowledgement carries no further data (see sequence footnote 6.[4]).
-
----
-
 ### `ListingScreening.Request`
 
 Submitted by the LSR (`POST /listing-screenings/bulk`), one item per screened listing. The LSR does not send the listing back, only the result.
@@ -373,6 +360,19 @@ Submitted by the LSR (`POST /listing-screenings/bulk`), one item per screened li
 | `listingId`  | The screened listing                                                                        |
 | `createdAt`  | The version that was screened, see [Concurrency](#validation)                               |
 | `flags`      | Zero or more [flag codes](#listingresponse); empty means `clear`, non-empty means `flagged` |
+
+---
+
+### `ListingAcknowledgement.Request`
+
+Submitted by the STR platform (`POST /listing-acknowledgements/bulk`), one item per flagged listing.
+
+| Field       | Description                                                    |
+| ----------- | -------------------------------------------------------------- |
+| `listingId` | The flagged listing (scoped to the authenticated platform)     |
+| `createdAt` | The version being acknowledged, see [Concurrency](#validation) |
+
+The acknowledgement carries no further data (see sequence footnote 6.[4]).
 
 ---
 
