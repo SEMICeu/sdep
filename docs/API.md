@@ -188,9 +188,9 @@ The API version (contract) is embedded in the URL path (`/api/{domain}/v1/...`).
 
 A new API version (e.g. from v1 to v2) is introduced:
 
-- **Mandatory**: when an unavoidable **breaking change** is made to the contract.
-- E.g. removing or renaming a field, changing a field's type, or altering its semantics.
-- **Optional**: when new functionality is introduced that is **not necessarily breaking**, is already exposed to consumers, but is still under development and subject to change.
+- **Breaking change/mandatory**: when an unavoidable breaking change is made to the contract.
+  - E.g. removing or renaming a field, changing a field's type, or altering its semantics.
+- **Release early/optional**: when new functionality is introduced that is not necessarily breaking, is already exposed to consumers, but is still under development and subject to change.
   - E.g. additional query filters in `ca/v2`
 
 When a new API version is released, the previous version (N-1) remains available for a deprecation period to give clients time to migrate.

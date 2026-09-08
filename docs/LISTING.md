@@ -163,15 +163,15 @@ For POST validations, see [Validation](#validation).
 - `filterCreatedAtTo`
 - `filterAreaId`
 
-Implementation notes:
+Implementation note:
 
 - The STR router does not declare `filterStatus`; the handler receives a fixed `status_scope=flagged`, the same way it receives the client scope.
-- A `filterStatus` can still be added in a backward compatible way (if needed in the future).
 
 Alternative: add `filterStatus` (`pending`, `clear`, `flagged`, `acknowledged`; optional, default all).
 
-- This would allow an STR to get the full (process-wise) status on its listings
-- Propose not to implement: an STR does not need this information
+- This would allow an STR to get the full (process-wise) status on its listings.
+- Propose not to implement: an STR does not need this information.
+- if needed in the future, `filterStatus` can still be added in a backward compatible way.
 
 ---
 
@@ -595,16 +595,16 @@ The EU Traveltech position paper (available on request) matches the above design
 
 Discussion:
 
-| Context                                                                 | Issue                                                                            | Proposal                                                    |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Listing screening                                                       | Match listing address in registration system                                     | Match addresses not fuzzy, but do match case-insensitively? |
-| The listing reappears in a subsequent screening and is flagged again    | The host gets double notified                                                    | This is a CA responsibiliy                                  |
-| The platform acknowledged a flagged listing and wants to inform host    | Do we want to insert an extra CA-acknowlegdement?                                |                                                             |
-| Release gradually via [API status indicator](./API.md#status-indicator) | Define the roadmap dates for alpha, beta, stable (freeze)                        |                                                             |
-| Flag codes                                                              | Do we need one, or "one or more flag codes                                       | Tend to one: as the first flag already "wins"/is relevant   |
-| API v2 makes it possible to [release early](./API.md#contract)          | Next to random checks, do we want to include other (incompatible) functionalites | **[1]**                                                     |
+| Context                                                                 | Issue                                                                            | Proposal                                              |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Listing screening                                                       | How to match a listing address in registration system                            | Literal, not fuzzy (but do match case-insensitively?) |
+| The listing reappears in a subsequent screening and is flagged again    | The host gets double notified, how to manage this                                | This is a CA responsibiliy                            |
+| The platform acknowledged a flagged listing and wants to inform host    | Do we want to insert an extra CA-acknowlegdement?                                |                                                       |
+| Release gradually via [API status indicator](./API.md#status-indicator) | Define the roadmap dates for alpha, beta, stable (freeze)                        |                                                       |
+| Flag codes                                                              | Do we need one, or "one or more [flag codes](#listingresponse)                   | One: the first flag already "wins" (is relevant only) |
+| API v2 makes it possible to [release early](./API.md#contract)          | Next to random checks, do we want to include other (incompatible) functionalites | See examples **[1]**                                  |
 
 [1] For example:
 
-- Expand the v2 (beta) CA GET filters (e.g. `createdFrom`, `createdTo`, ...) to align with the v2 (beta) STR GET filters (e.g. `areas`).
+- Align v2 (beta) STR GET filters to [v2 (beta) CA GET filters](https://sdep.gov.nl/api/ca/v2/docs#/ca/getActivityByCompetentAuthorityV2).
 - Address max length https://github.com/SEMICeu/sdep/issues/75, which will result in platforms receiving larger data fields.
