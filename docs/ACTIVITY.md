@@ -85,6 +85,8 @@ To be done:
 
 ## Process
 
+Activities are [versioned](./ARCHITECTURE_TECH.md#versioning).
+
 As discussed in the EU technical working group:
 
 - Activity data should only be sent by STR platforms after the stay completion.

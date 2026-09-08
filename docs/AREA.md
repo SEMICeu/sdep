@@ -48,6 +48,8 @@ See:
 
 Areas contain shapefiles, that represent the geospatial location.
 
+Areas are [versioned](./ARCHITECTURE_TECH.md#versioning).
+
 As discussed in the EU technical working group:
 
 - It is assumed that shapefiles are updated at the beginning of each month.
