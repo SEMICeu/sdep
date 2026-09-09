@@ -16,13 +16,12 @@ The following security considerations apply.
 - [Swagger UI](#swagger-ui)
 - [File Upload](#file-upload)
 - [File Download (Content-Disposition)](#file-download-content-disposition)
-- [Malware scanning](#malware-scanning)
+- [Malware Scanning](#malware-scanning)
 - [Secrets](#secrets)
 - [Security Headers](#security-headers)
 - [Middleware Ordering](#middleware-ordering)
 - [Security Headers, DNS, TLS](#security-headers-dns-tls)
 - [Rate Limiting (Throttling)](#rate-limiting-throttling)
-- [Rate Limiting (Throttling)](#rate-limiting-throttling-1)
 - [Dependency Version Pinning](#dependency-version-pinning)
 - [Non-Root Containers](#non-root-containers)
 - [Container Image Scans](#container-image-scans)
@@ -37,55 +36,55 @@ Confidential machine clients must be identified upfront. This is assumed to be h
 
 ## Authentication and Authorization
 
-For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials grant** (`grant_type=client_credentials`). This is the standard framework for trusted machine-to-machine (M2M) communication.
+For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials Grant** (`grant_type=client_credentials`).
 
-The Client Credentials Grant itself supports two types of **client authentication**:
+- OAuth 2.0 with the Client Credentials Grant is the standard framework for trusted machine-to-machine (M2M) communication.
+  - It uses one underlying **Client Credentials Flow**, designed for machine-to-machine communication without an end-user context.
+  - It supports two types of **Client Authentication**, to authenticate against a same "token endpoint".
+- On successful authentication, clients acquire a **Bearer Access Token**.
+  - The access token is used to invoke the actual (authorized) endpoints.
+  - The access token is short-lived, and should be refreshed frequently (programmatically).
+
+**Client authentication** types are:
 
 - **Client ID & Secret**
   - The client sends a static symmetric shared secret to an Authorization Server (`client_secret_post` / `client_secret_basic`).
-  - The reference implementation in this repository uses **Keycloak** as the authorization server.
 - **Client-Signed JWT**
   - The client generates a short-lived JSON Web Token (JWT) and signs it using its own private key (`private_key_jwt`).
   - An Authorization Server validates this request using the client's registered public key, offering a higher level of security since no shared secrets are transmitted over the wire.
 
-Both authentication types allow a confidential client (machine) to authenticate against the same `/token` endpoint, in order to acquire a **Bearer Access Token**.
+**Client-signed JWT** is regarded as the **most secure**:
 
-While they both target the **Client Credentials Grant Type**, it is important to distinguish between the **workflow** and the **authentication method**:
+- The OAuth 2.0 Security Best Current Practice (RFC 9700, section 2.5) recommends asymmetric client authentication (private-key JWT per RFC 7523) over shared secrets.
+  - The authorization server stores no symmetric key.
+  - There is no shared credential to leak.
+  - <https://datatracker.ietf.org/doc/html/rfc9700#section-2.5>
+- Client-signed JWTs avoid distributing long-lived shared secrets to API clients.
+- The client proves possession of its private key by signing a short-lived JWT for each token request.
+  - SDEP and Keycloak only need the corresponding public key to verify it.
+- Key rotation becomes explicit.
+  - Private key material stays outside SDEP configuration.
+- Interactive testing in the Swagger UI is supported.
+  - But, it requires a programmatic call to the `/token` endpoint first, in order to acquire a bearer token.
 
-- **The Flow (Grant Type):** There is only one underlying OAuth 2.0 flow being executed here - the **Client Credentials Flow**.
-  - This flow is designed for secure, machine-to-machine communication where no end-user context is required.
-- **The Authentication Methods:** The two approaches represent different mechanisms for the client to prove its identity *within* that flow:
-  - \*\*Client ID & Secret
-  - Client-Signed JWT
+The **Authorization Server** for the reference implementation in this repository is **Keycloak** .
 
 ---
 
 **Specification**
 
-- **Client Credentials grant** (RFC 6749, section 4.4) - <https://datatracker.ietf.org/doc/html/rfc6749#section-4.4>
+- **Client Credentials Grant** (RFC 6749, section 4.4) - <https://datatracker.ietf.org/doc/html/rfc6749#section-4.4>
 - **Client ID & Secret** (RFC 6749, section 2.3.1) - <https://datatracker.ietf.org/doc/html/rfc6749#section-2.3.1>
 - **Client-Signed JWT** (RFC 7523) - <https://datatracker.ietf.org/doc/html/rfc7523>
 
 ---
 
-**Evaluation**
-
-Client-signed JWT is regarded as the most secure of the two methods:
-
-- The OAuth 2.0 Security Best Current Practice (RFC 9700, section 2.5) recommends asymmetric client authentication (private-key JWT per RFC 7523) over shared secrets, because the authorization server stores no symmetric key and there is no shared credential to leak - <https://datatracker.ietf.org/doc/html/rfc9700#section-2.5>.
-- Client-signed JWTs avoid distributing long-lived shared secrets to API clients.
-- The client proves possession of its private key by signing a short-lived JWT for each token request, while SDEP and Keycloak only need the corresponding public key to verify it.
-- This also makes key rotation explicit and keeps private key material outside SDEP configuration.
-- Interactive testing in the Swagger UI is supported, though it requires interaction with the /token endpoint first to acquire a bearer token
-
----
-
 **Implementation**
 
-SDEP-NL supports both authentication methods (via the same `/token` endpoint), however:
+SDEP-NL supports both authentication methods, via the same `/token` endpoint:
 
-- Both in the SDEP-NL Test and **Pre-Production** environments
-- Only client-signed JWT in the SDEP-NL **Production** environment
+- Both methods are supported in the SDEP-NL **Test** and **Pre-Production** environments (**TST**, **PRE**)
+- Only client-signed JWT is supported in the SDEP-NL **Production** environment (**PRD**)
 
 ---
 
@@ -105,9 +104,9 @@ The Swagger UI **Authorize** button follows the application configuration `CLIEN
 
 ---
 
-**A note on 2FA**
+**A Note on 2FA**
 
-Because software, scripts, and servers cannot naturally approve push notifications or type one-time passcodes, M2M authentication inherently uses non-interactive, cryptographic credentials instead of human-style two-factor authentication (2FA).
+Software, scripts, and servers cannot approve push notifications or type one-time passcodes. M2M authentication therefore uses non-interactive, cryptographic credentials, instead of human-style two-factor authentication (2FA).
 
 ---
 
@@ -142,9 +141,9 @@ JWT Claims used by the application:
 
 ## Smaller Platforms
 
-Smaller platforms can opt for delegating SDEP API-invocation to third-parties.
+Smaller platforms can delegate SDEP API-invocation to a third party.
 
-In such case, the platform arranges data submission with their party; the party becomes registered in SDEP.
+In that case, the platform arranges data submission with that third party. The third party becomes registered in SDEP.
 
 ## Audit Log
 
@@ -160,19 +159,19 @@ Implementation approach as follows.
 
 ---
 
-**Middleware-based audit capture**
+**Middleware-Based Audit Capture**
 
 A Starlette `BaseHTTPMiddleware` intercepts each request/response cycle and creates an audit record for every relevant interaction.
 
 ---
 
-**Non-blocking audit writes**
+**Non-Blocking Audit Writes**
 
 Audit records are persisted asynchronously using `asyncio.create_task()`, so audit logging does not block or delay the application response path.
 
 ---
 
-**Primary output: `audit_log` database table**
+**Primary Output: `audit_log` Database Table**
 
 Audit records are written to the `audit_log` table in the application database.
 
@@ -182,13 +181,13 @@ Audit records are written to the `audit_log` table in the application database.
 
 ---
 
-**Secondary output: structured JSON to stdout**
+**Secondary Output: Structured JSON to Stdout**
 
 Each audit record is also emitted as a single-line structured JSON object to stdout.
 
 ---
 
-**Complementary access paths**
+**Complementary Access Paths**
 
 Together, the database table and stdout output provide complementary access paths:
 
@@ -198,7 +197,7 @@ Together, the database table and stdout output provide complementary access path
 
 ---
 
-**Deployment and log shipping are out of scope**
+**Deployment and Log Shipping Are Out of Scope**
 
 - This document defines how the application produces audit records and where it emits them.
 - (Kubernetes) deployment details and external log management configuration are outside the scope of this repo.
@@ -323,14 +322,14 @@ File uploads are protected by:
 - **Format:** only `.zip` files are accepted (validated by filename extension and ZIP magic bytes `PK\x03\x04`); non-zip uploads return `422`
 - **Size:** max 1 MiB (`MAX_FILE_SIZE = 1_048_576`); oversized uploads return `422`
 - **Malware scanning:** uploads are scanned with ClamAV before being accepted; infected files return `400`
-- **Filename sanitization at upload time:** the uploaded filename is sanitized before it is stored in the database, using the shared [`filename.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/filename.py) utility (`sanitize_upload_filename`). This prevents malicious filenames from being persisted, eliminating stored denial-of-service risks. Sanitization includes:
+- **Filename sanitization at upload time:** the uploaded filename is sanitized before it is stored in the database, using the shared [`filename.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/filename.py) utility (`sanitize_upload_filename`). Malicious filenames are never persisted. Sanitization:
   - Path separators are stripped (extracts basename from Unix `/` and Windows `\` paths)
   - Control characters (C0 range `\x00`-`\x1f`, CR, LF), double quotes, and backslashes are removed
   - Leading/trailing dots and whitespace are stripped; consecutive dots are collapsed
   - If the resulting base name (before `.zip`) is empty, the upload is rejected with `422`
   - Filenames exceeding 64 characters after sanitization are rejected with `422`
 
-Together with the download-time sanitization and RFC 5987 encoding described in the [File Download (Content-Disposition)](#file-download-content-disposition) section, this provides defense-in-depth: malicious filenames are rejected at upload, re-sanitized at download, and safely encoded in the response header.
+This works together with the download-time sanitization and RFC 5987 encoding, described in [File Download (Content-Disposition)](#file-download-content-disposition). Defense-in-depth: malicious filenames are rejected at upload, re-sanitized at download, and safely encoded in the response header.
 
 ## File Download (Content-Disposition)
 
@@ -338,13 +337,17 @@ Area file downloads construct the `Content-Disposition` header using the shared 
 
 ---
 
-**Defense-in-depth re-sanitization (`sanitize_download_filename`)**
+**Defense-in-Depth Re-Sanitization (`sanitize_download_filename`)**
 
-As a second line of defense, the download path re-sanitizes the stored filename before constructing the header. If re-sanitization strips all characters (e.g. a filename consisting entirely of control characters), the result would be an empty string. Rather than emitting an empty `Content-Disposition` filename, the function returns the literal string `"download"` as a safe fallback so the client always receives a usable filename. In practice this cannot occur because upload-time sanitization (see [File Upload](#file-upload)) already rejects such filenames - the fallback is a defensive guard only.
+As a second line of defense, the download path re-sanitizes the stored filename before constructing the header.
+
+- Re-sanitization can strip all characters, e.g. a filename consisting entirely of control characters
+- Rather than emitting an empty `Content-Disposition` filename, the function then returns the literal string `"download"`, so the client always receives a usable filename
+- In practice this cannot occur: upload-time sanitization (see [File Upload](#file-upload)) already rejects such filenames - the fallback is a defensive guard only
 
 ---
 
-**RFC 5987 encoding (`content_disposition_header`)**
+**RFC 5987 Encoding (`content_disposition_header`)**
 
 The header is encoded per [RFC 5987](https://datatracker.ietf.org/doc/html/rfc5987), which defines how to include non-ASCII characters in HTTP header field parameters. Both `filename=` and `filename*=` are emitted:
 
@@ -362,9 +365,9 @@ RFC 5987 solves three problems:
 - **Header injection prevention:** percent-encoding neutralizes characters that would otherwise break HTTP header syntax (CR, LF, `"`, `;`)
 - **Cross-browser compatibility:** the dual `filename=` / `filename*=` pattern ensures all clients receive a usable filename, regardless of their RFC 5987 support
 
-## Malware scanning
+## Malware Scanning
 
-The application is configured to use ClamAV for malware scanning of uploaded files. Use environment variables for configuration:
+The application uses ClamAV for malware scanning of uploaded files. Configuration is done via environment variables:
 
 | Environment variable          | Default | Description                                 |
 | :---------------------------- | :------ | :------------------------------------------ |
@@ -379,11 +382,9 @@ For local testing, Docker Compose starts ClamAV together with the rest of the st
 make up
 ```
 
-This uses `docker-compose.yml` through the top-level Makefile and loads `.env` plus `.env.extra` when that optional override file exists.
+This uses `docker-compose.yml` through the top-level Makefile, and loads `.env` plus `.env.extra` when that optional override file exists.
 
-The malware scan is tested automatically.
-
-However, to manually test malware detection, generate an EICAR test archive:
+The malware scan is tested automatically. To test malware detection manually, generate an EICAR test archive:
 
 ```sh
 scripts/generate-eicar-zip.sh
@@ -442,17 +443,13 @@ Although CI/CD-related aspects are outside the scope of this repo, additional te
 
 ## Rate Limiting (Throttling)
 
-Rate limiting (throttling) helps protect against brute-force attacks and abuse, particularly on unauthenticated endpoints such as `/token`, where an attacker could attempt credential stuffing at network speed.
+Rate limiting helps protect against brute-force attacks and abuse. The risk is highest on unauthenticated endpoints such as `/token`, where an attacker could attempt credential stuffing at network speed.
 
-Rate limiting is typically applied per client IP address and is often enforced at the deployment or infrastructure layer (for example through a Kubernetes Ingress controller, HAProxy load balancer, or Keycloak authorization server).
+Rate limiting is typically applied per client IP address, and is enforced at the deployment or infrastructure layer, e.g.:
 
-These deployment-specific concerns are outside the scope of this repository.
-
-## Rate Limiting (Throttling)
-
-Rate limiting (throttling) helps protect against brute-force attacks and abuse, particularly on unauthenticated endpoints such as /token, where an attacker could attempt credential stuffing at network speed.
-
-Rate limiting is typically applied per client IP address and is often enforced at the deployment or infrastructure layer (for example through a Kubernetes Ingress controller, or an HAProxy load balancer).
+- Kubernetes Gateway API
+- HAProxy load balancer
+- IAM (e.g. Keycloak) authorization server
 
 These deployment-specific concerns are outside the scope of this repository.
 
@@ -468,13 +465,13 @@ Dependencies are declared with flexible lower bounds (`>=`) in `pyproject.toml` 
 - Using `==` in `pyproject.toml` would duplicate what the lock file already does, while making legitimate upgrades harder and not covering transitive dependencies
 - Security remediations follow the same rule: the `>=` floor is raised to the version that fixes the CVE (for transitive packages via `[tool.uv]` `constraint-dependencies`), while `uv.lock` keeps pinning the exact shipped version
 
-**Docker base images**
+**Docker Base Images**
 
 - The Python base image is pinned to a minor version (`python:3.13-slim`) via `ARG PYTHON_IMAGE`
 - The `uv` installer is pinned to a specific release (`ghcr.io/astral-sh/uv:0.5.4`)
 - PostgreSQL, Keycloak and ClamAV versions are externalized via environment variables in `docker-compose.yml`
 
-**Keeping dependencies up to date**
+**Keeping Dependencies Up to Date**
 
 - Running `uv lock --upgrade` regenerates the lock file with the latest compatible versions
 - The lock file should be committed and reviewed as part of the normal change process
@@ -488,14 +485,23 @@ The Docker container runs as a non-root user (`app`), following the principle of
 To minimize exposure to Common Vulnerabilities and Exposures (CVEs), the reference implementation includes container image scanning as part of CI/CD:
 
 - Continuously monitor and remediate Critical and High severity CVEs.
-- Implement remediation according to a “comply (fix) or explain” policy.
+- Implement remediation according to a "comply (fix) or explain" policy.
 
 The reference implementation provides two CVE checks:
 
-- `make test-cve` builds the image, scans it with Trivy, and compares the findings with the CVE allowlist in `docs/CVE_EXPLAINS.md`. It fails when the scan reports a CVE the allowlist does not justify, when the allowlist still lists a CVE the scan no longer reports, when a listed package or severity differs from what the scan reports, or when the same CVE is listed twice.
-- `make test-cve-offline` scans nothing. It feeds prepared reports to the comparison script to confirm it still catches each of those cases, and checks that the identifiers in the allowlist have a plausible year. Because it needs no image, it is the fast check and runs in `make all`, while the image scan runs in `make ci-gate`.
+- `make test-cve` builds the image, scans it with Trivy, and compares the findings with the CVE allowlist in `docs/CVE_EXPLAINS.md`. It fails when:
+  - The scan reports a CVE the allowlist does not justify
+  - The allowlist still lists a CVE the scan no longer reports
+  - A listed package or severity differs from what the scan reports
+  - The same CVE is listed twice
+- `make test-cve-offline` scans nothing. It feeds prepared reports to the comparison script, to confirm it still catches each of those cases, and checks that the allowlist identifiers have a plausible year. It needs no image, so it is the fast check and runs in `make all`, while the image scan runs in `make ci-gate`.
 
-The image scan reads a vulnerability database that upstream rebuilds every few hours. Trivy caches that database locally and keeps it until its recorded next-update time, up to a day later, so a cached local scan and a fresh pipeline scan can report different CVEs and different severities for the same image. `make test-cve` therefore drops the cached database before every scan and downloads the current one, matching what the pipeline does. Set `TRIVY_SKIP_DB_REFRESH=1` to reuse the cached database when working offline or iterating quickly, accepting that the result may no longer match the pipeline.
+The image scan reads a vulnerability database that upstream rebuilds every few hours.
+
+- Trivy caches that database locally, and keeps it until its recorded next-update time (up to a day later)
+- So a cached local scan and a fresh pipeline scan can report different CVEs and severities for the same image
+- `make test-cve` therefore drops the cached database before every scan and downloads the current one, matching the pipeline
+- Set `TRIVY_SKIP_DB_REFRESH=1` to reuse the cached database when working offline or iterating quickly - the result may then no longer match the pipeline
 
 > **Note:** `docs/CVE_EXPLAINS.md` is intentionally not committed. Each EU member state implementing an SDEP is responsible for maintaining its own CVE allowlist and remediation process within its CI/CD pipeline.
 
@@ -511,7 +517,7 @@ SDEP interacts with IAM (e.g. Keycloak) in two distinct ways: **token issuance**
 
 ---
 
-**Token issuance (proxy to Keycloak)**
+**Token Issuance (Proxy to Keycloak)**
 
 When an external client needs a JWT, it calls SDEP's `/api/auth/v1/token` endpoint.
 
@@ -520,14 +526,15 @@ SDEP acts as a proxy:
 1. It takes either the client's `client_id` + `client_secret` (from HTTP Basic Auth or form body) or its `client_id` + `client_signed_jwt`
 2. It maps it to Keycloak's OAuth `private_key_jwt` request fields
 3. It forwards the token request to Keycloak's token endpoint at `/realms/sdep/protocol/openid-connect/token`
-4. It returns the resulting JWT.
-5. This is a synchronous request-response - every token request hits Keycloak directly.
+4. It returns the resulting JWT
+
+This is a synchronous request-response - every token request hits Keycloak directly.
 
 See [`auth.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/routers/auth.py).
 
 ---
 
-**Token validation (Client-signed JWT)**
+**Token Validation (Client-Signed JWT)**
 
 On every subsequent API call, the client sends the JWT as a `Bearer` token. SDEP verifies the token signature locally - without calling Keycloak on every request - using the JSON Web Key Set (JWKS) protocol:
 
@@ -540,7 +547,7 @@ See [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/co
 
 ---
 
-**Audience validation**
+**Audience Validation**
 
 A JWT can contain an `aud` (audience) claim that says *which application* the token was issued for. When an application checks `aud`, it rejects tokens that were meant for a different service - even if the signature is valid. This prevents a token issued for Service A from being reused against Service B.
 
@@ -553,7 +560,7 @@ Two different JWTs occur in SDEP, and `aud` is treated differently in each. Whic
 
 ---
 
-**Client assertion**
+**Client Assertion**
 
 With client-signed JWT (`private_key_jwt`), the client signs a short-lived assertion whose `aud` is the authorization server's token endpoint. SDEP does not inspect that assertion: it forwards it to Keycloak as `client_assertion`, and Keycloak validates the signature against the registered public key **and** the `aud` against its own token endpoint. An assertion signed for a different token endpoint is rejected with HTTP 401.
 
@@ -561,11 +568,14 @@ This audience binding is required by RFC 7523 and is what stops an intercepted a
 
 ---
 
-**Access token**
+**Access Token**
 
-The bearer token that SDEP itself verifies on each API call is **not** audience-checked. The reason is practical: Keycloak does not include an `aud` claim in the client credentials tokens it issues to SDEP clients by default. If SDEP started requiring `aud`, every existing client would be rejected until the Keycloak configuration is updated to include it.
+The bearer token that SDEP itself verifies on each API call is **not** audience-checked. The reason is practical:
 
-As SDEP is the only application in the Keycloak realm, the `aud` claim will always originate from SDEP itself. Therefore this has no security impact.
+- Keycloak does not include an `aud` claim in the client credentials tokens it issues to SDEP clients by default
+- If SDEP started requiring `aud`, every existing client would be rejected, until the Keycloak configuration is updated to include it
+
+SDEP is the only application in the Keycloak realm, so the `aud` claim always originates from SDEP itself. Therefore this has no security impact.
 
 The validation guarantees for the access token are therefore:
 
@@ -575,7 +585,7 @@ The validation guarantees for the access token are therefore:
 
 ---
 
-**JWKS key rotation (5-minute TTL)**
+**JWKS Key Rotation (5-Minute TTL)**
 
 `PyJWKClient` is configured with `cache_jwk_set=True` and `lifespan=300` (5 minutes). This ensures that when Keycloak rotates or revokes signing keys, SDEP picks up the changes within at most 5 minutes - without requiring a restart. The alternative (`@lru_cache`) would cache keys indefinitely, meaning rotated or revoked keys would never be refreshed until the process was restarted.
 
@@ -588,7 +598,7 @@ The validation guarantees for the access token are therefore:
 
 ---
 
-**Request authentication flow**
+**Request Authentication Flow**
 
 ```
 Client request with Bearer token
@@ -606,7 +616,7 @@ See [`auth_dependencies.py`](https://github.com/SEMICeu/sdep/blob/main/backend/a
 
 ## Audit Log (Details)
 
-**Audit fields**
+**Audit Fields**
 
 For each request that matters, capture:
 
@@ -625,11 +635,15 @@ For each request that matters, capture:
 
 ---
 
-**Role extraction - only from verified tokens**
+**Role Extraction - Only From Verified Tokens**
 
-The audit middleware reads `roles` from the JWT payload that the auth dependency (`verify_bearer_token`) stashes on `request.state.jwt_payload` after signature and expiry verification. Tokens that fail verification never reach `request.state`, so forged tokens cannot pollute the audit trail. The middleware does not re-decode the token, avoiding a duplicate signature check per audited request.
+The audit middleware reads `roles` from the JWT payload. The auth dependency (`verify_bearer_token`) stashes that payload on `request.state.jwt_payload`, after signature and expiry verification.
 
-The 401 vs 403 distinction is encoded in the `httpStatusCode` column; the `roles` column carries the verified role set when one is available and `null` otherwise. Audience validation remains disabled today as described above: `aud` is not enforced until Keycloak token configuration supports it.
+- Tokens that fail verification never reach `request.state`, so forged tokens cannot pollute the audit trail
+- The middleware does not re-decode the token, avoiding a duplicate signature check per audited request
+- The 401 vs 403 distinction is encoded in the `httpStatusCode` column
+- The `roles` column carries the verified role set when one is available, and `null` otherwise
+- Audience validation remains disabled, as described above: `aud` is not enforced until Keycloak token configuration supports it
 
 | Scenario                               | What happens                                                                              | `roles` in audit log      |
 | :------------------------------------- | :---------------------------------------------------------------------------------------- | :------------------------ |
@@ -640,7 +654,7 @@ The 401 vs 403 distinction is encoded in the `httpStatusCode` column; the `roles
 
 ---
 
-**Action mapping**
+**Action Mapping**
 
 The middleware derives a semantic action and resource type from the HTTP method and request path:
 
@@ -677,7 +691,7 @@ Unmatched paths fall back to action `unknown`.
 
 ---
 
-**Skip list**
+**Skip List**
 
 The following paths are **not** audited (high-frequency, low-value):
 
@@ -690,12 +704,12 @@ The following paths are **not** audited (high-frequency, low-value):
 
 ---
 
-**Retention of the database**
+**Retention of the Database**
 
 **For the database table**, expired audit log rows are automatically deleted by a background task that runs every hour.
 
 - The retention period is configurable via the `AUDITLOG_RETENTION` environment variable (default: **1 day**).
-- Deletion is batched (1.000 rows per batch) to avoid long-running transactions.
+- Deletion is batched (1,000 rows per batch) to avoid long-running transactions.
 
 The retention logic in `audit_retention.py` is split into two functions with distinct responsibilities:
 
@@ -704,11 +718,11 @@ The retention logic in `audit_retention.py` is split into two functions with dis
 
 | Function                                                   | Responsibility                                                                                                                                                                                                                                                               | Invocation                                                                                                                                                                                                  |
 | :--------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `delete_old_audit_logs(retention_days)`                    | **One-shot deletion.** Deletes all audit log rows older than `retention_days` in batches of 1.000. Returns the total number of deleted rows. This is a pure async function that runs to completion and then returns - it does not loop or sleep.                             | Called by `audit_log_cleanup_loop` on each cycle. Can also be called standalone in scripts, tests, or one-off maintenance tasks.                                                                            |
-| `audit_log_cleanup_loop(retention_days, interval_seconds)` | **Infinite scheduling loop.** Calls `delete_old_audit_logs` once, then sleeps for `interval_seconds` (default 3.600 s = 1 hour), and repeats indefinitely until the task is cancelled. Catches and logs any exceptions so that a single failed cycle does not kill the loop. | Created as an `asyncio.Task` inside the FastAPI `lifespan` context manager in `main.py`. The task starts when the application boots and is cancelled (via `task.cancel()`) when the application shuts down. |
+| `delete_old_audit_logs(retention_days)`                    | **One-shot deletion.** Deletes all audit log rows older than `retention_days` in batches of 1,000. Returns the total number of deleted rows. This is a pure async function that runs to completion and then returns - it does not loop or sleep.                             | Called by `audit_log_cleanup_loop` on each cycle. Can also be called standalone in scripts, tests, or one-off maintenance tasks.                                                                            |
+| `audit_log_cleanup_loop(retention_days, interval_seconds)` | **Infinite scheduling loop.** Calls `delete_old_audit_logs` once, then sleeps for `interval_seconds` (default 3,600 s = 1 hour), and repeats indefinitely until the task is cancelled. Catches and logs any exceptions so that a single failed cycle does not kill the loop. | Created as an `asyncio.Task` inside the FastAPI `lifespan` context manager in `main.py`. The task starts when the application boots and is cancelled (via `task.cancel()`) when the application shuts down. |
 
 ---
 
-**Retention of stdout**
+**Retention of Stdout**
 
 **For stdout**, retention is assumed to be part of the deployment environment (out of scope of this repo).

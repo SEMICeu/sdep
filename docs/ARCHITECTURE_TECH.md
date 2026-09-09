@@ -9,7 +9,7 @@ This document provides an overview of the SDEP (Single Digital Entry Point) tech
   - [Backend](#backend)
   - [Infrastructure](#infrastructure)
   - [Development Tools](#development-tools)
-- [Repository / Directory Structure](#repository-directory-structure)
+- [Repository and Directory Structure](#repository-and-directory-structure)
 - [API (versioning)](#api-versioning)
 - [Application (versioning)](#application-versioning)
 - [Backend](#backend-1)
@@ -89,7 +89,7 @@ https://sdep.gov.nl/api/docs.
 - **Pre-commit:** Hooks for code quality
 - **CI/CD:** Pipeline platform of choice (out of scope for this project)
 
-## Repository / Directory Structure
+## Repository and Directory Structure
 
 ```
 sdep-app/

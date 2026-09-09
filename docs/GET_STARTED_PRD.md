@@ -41,7 +41,7 @@ https://sdep.gov.nl/api/docs
 
 SDEP is an **API-first application** designed for **machine-to-machine (M2M) integrations**.
 
-For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials grant**.
+For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials Grant**.
 
 The Client Credentials Grant itself supports two types of **client authentication**, both on the same `/token` endpoint:
 

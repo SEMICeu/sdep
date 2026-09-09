@@ -45,13 +45,15 @@
     "MD047": true // single trailing newline at end of file
   },
   "globs": [
-    "README.md",
-    "CLAUDE.md",
+    "*.md",
     "docs/**/*.md"
   ],
+  // CHANGELOG.md and LICENSE.md are swept in by "*.md" but are not ours to reformat.
   "ignores": [
     "**/node_modules/**",
     "**/.venv/**",
-    "tmp/**"
+    "tmp/**",
+    "CHANGELOG.md",
+    "LICENSE.md"
   ]
 }

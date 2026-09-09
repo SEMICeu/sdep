@@ -1,128 +1,123 @@
 #
+# Client-id best practice (not applied in this local setup) - https://www.oauth.com/oauth2-servers/client-registration/client-id-secret
+# Client-id integers for best practice can e.g. be generated using "shuf -zer -n 12 {0..9}"
+#
 # Clients are provisioned idempotently using the naming convention: id = *sdep*
 #
 # Test data created by clients with id = "sdep-test" is automatically removed after automated test runs
 # Test data created by clients with id != "sdep-test" is preserved and remains unaffected by automated test runs
 #
-# Client ID best practice - https://www.oauth.com/oauth2-servers/client-registration/client-id-secret
-# E.g. id: "155968724319.sdep.gov.local"
-# Generate e.g. using "shuf -zer -n 12 {0..9}"
-#
 clients:
 
-  # 1. Test clients whose test data is automatically removed after automated test runs
+  # 1. Test clients (client id & secret) whose test data is automatically removed after automated test runs
 
-  # 1a. Competent authorities (CA) - client secret
-  #     (less secure, but available in SDEP-NL Test environments and
-  #     Pre-Production, to support interactive testing in Swagger UI)
+  # 1a. Competent authorities (CA)
   - id: "sdep-test-ca.01"
     secret: "sdep-test-ca.01"
-    name: "Test CA 01 (test automation, ephemeral data)"
-    description: "CA client with read-write access"
+    name: "Test CA-01 (client id & secret, ephemeral)"
+    description: "For test automation (ephemeral data)"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
   - id: "sdep-test-ca.02"
     secret: "sdep-test-ca.02"
-    name: "Test CA 02 (test automation, ephemeral data)"
-    description: "Second CA client used for cross-CA isolation tests"
+    name: "Test CA-02 (client id & secret, ephemeral)"
+    description: "For test automation of cross-CA isolation (ephemeral data)"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
 
-  # 1b. Short-term rental platforms (STR) - client secret
-  #     (less secure, but available in SDEP-NL Test environments and
-  #     Pre-Production, to support interactive testing in Swagger UI)
+  # 1b. Short-term rental platforms (STR)
   - id: "sdep-test-str.01"
     secret: "sdep-test-str.01"
-    name: "Test STR 01 (test automation, ephemeral data)"
-    description: "STR client with read-write access"
+    name: "Test STR-01 (client id & secret, ephemeral)"
+    description: "For test automation (ephemeral data)"
     service_account_roles:
       - sdep_str
       - sdep_read
       - sdep_write
 
-  # 1c. Reporting / statistics office (REP) - client secret
+  # 1c. Reporting / statistics office (REP)
   - id: "sdep-test-rep.01"
     secret: "sdep-test-rep.01"
-    name: "Test REP 01 (test automation, ephemeral data)"
-    description: "REP client with read-only access"
+    name: "Test REP-01 (client id & secret, ephemeral)"
+    description: "For test automation (ephemeral data)"
     service_account_roles:
       - sdep_rep
       - sdep_read
 
-  # 2. Test clients whose test data remains unaffected after automated test runs
+  # 2. Test clients (client id & secret) whose test data remains unaffected after automated test runs
 
-  # 2a. Competent authorities (CA) - client secret
+  # 2a. Competent authorities (CA)
   - id: "sdep-ca.01"
     secret: "sdep-ca.01"
-    name: "Test CA 01 (interactive usage, persistent data)"
-    description: "CA client with read-write access"
+    name: "Test CA-01 (client id & secret, persistent)"
+    description: "For interactive usage (persistent data)"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
-  - id: "833946726525.sdep.gov.local" # Best practice - https://www.oauth.com/oauth2-servers/client-registration/client-id-secret
+  - id: "833946726525.sdep.gov.local"
     secret: "833946726525"
-    name: "Test CA 02 (interactive usage, persistent data)"
-    description: "CA client with read-write access"
+    name: "Test CA-02 (client id & secret, persistent)"
+    description: "For interactive usage (persistent data)"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
 
-  # 2b. Short-term rental platforms (STR) - client secret
+  # 2b. Short-term rental platforms (STR)
   - id: "sdep-str.01"
     secret: "sdep-str.01"
-    name: "Test STR 01 (interactive usage, persistent data)"
-    description: "STR client with read-write access"
+    name: "Test STR-01 (client id & secret, persistent)"
+    description: "For interactive usage (persistent data)"
     service_account_roles:
       - sdep_str
       - sdep_read
       - sdep_write
-  - id: "381028359011.sdep.gov.local" # Best practice - https://www.oauth.com/oauth2-servers/client-registration/client-id-secret
+  - id: "381028359011.sdep.gov.local"
     secret: "381028359011"
-    name: "Test STR 02 (interactive usage, persistent data)"
-    description: "STR client with read-write access"
+    name: "Test STR-02 (client id & secret, persistent)"
+    description: "For interactive usage (persistent data)"
     service_account_roles:
       - sdep_str
       - sdep_read
       - sdep_write
 
-  # 2c. Reporting / statistics office (REP) - client secret
+  # 2c. Reporting / statistics office (REP)
   - id: "sdep-rep.01"
     secret: "sdep-rep.01"
-    name: "Test REP 01 (interactive usage, persistent data)"
-    description: "REP client with read-only access"
+    name: "Test REP-01 (client id & secret, persistent)"
+    description: "For interactive usage (persistent data)"
     service_account_roles:
       - sdep_rep
       - sdep_read
 
-  # 3. Test clients whose test data remains unaffected after automated test runs, deployed with predefined test data
+  # 3. Test clients (client id & secret) whose test data remains unaffected after automated test runs, deployed with predefined test data
 
-  # 3a. Competent authorities (CA) - client secret
+  # 3a. Competent authorities (CA)
   - id: "sdep-ca.0363"
     secret: "sdep-ca.0363"
-    name: "Gemeente Amsterdam"
-    description: "CA client with read-write access"
+    name: "Gemeente Amsterdam (CA, client id & secret)"
+    description: "For interactive usage (persistent, predefined test data)"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
   - id: "sdep-ca.0599"
     secret: "sdep-ca.0599"
-    name: "Gemeente Rotterdam"
-    description: "CA client with read-write access"
+    name: "Gemeente Rotterdam (CA, client id & secret)"
+    description: "For interactive usage (persistent, predefined test data)"
     service_account_roles:
       - sdep_ca
       - sdep_read
       - sdep_write
   - id: "sdep-ca.0518"
     secret: "sdep-ca.0518"
-    name: "Gemeente Den Haag"
-    description: "CA client with read-write access"
+    name: "Gemeente Den Haag (CA, client id & secret)"
+    description: "For interactive usage (persistent, predefined test data)"
     service_account_roles:
       - sdep_ca
       - sdep_read

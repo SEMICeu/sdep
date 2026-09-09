@@ -325,7 +325,7 @@ keycloak-down: ## Stop and remove keycloak (including volumes)
 	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
 	./keycloak/add-realm-roles.sh
 
-keycloak-generate-machine-clients: ## Generate machine clients (from default, adding client-signed JWT key pairs for CA, STR, REP)
+keycloak-generate-machine-clients: ## Generate machine clients (from keycloak/machine-clients.yaml, adding client-signed JWT key pairs for CA, STR, REP)
 	@uv run --script scripts/generate-keycloak-machine-clients.py \
 		--output-dir "$(KEYCLOAK_JWT_CLIENT_DIR)" \
 		--static-clients-file keycloak/machine-clients.yaml \
@@ -744,7 +744,10 @@ MARKDOWNLINT_VERSION := 0.18.1
 MARKDOWNLINT := npx --yes markdownlint-cli2@$(MARKDOWNLINT_VERSION) --config $(MARKDOWN_TOOLING)/.markdownlint-cli2.jsonc
 MARKDOWNLINT_FIX := $(MARKDOWNLINT) --fix
 MDFORMAT := uvx --from mdformat==1.0.0 --with mdformat-gfm==1.0.0 --with ./$(MARKDOWN_TOOLING)/mdformat-sdep mdformat --number
-MDFORMAT_FILES := README.md CLAUDE.md docs
+# Every top-level *.md plus docs/, minus the two we do not own the formatting of.
+# $(wildcard) skips a file that is absent in a clone (CLAUDE.md is unpublished); a literal
+# path would make mdformat fail. Keep in sync with "globs" in .markdownlint-cli2.jsonc.
+MDFORMAT_FILES := $(filter-out CHANGELOG.md LICENSE.md,$(wildcard *.md)) docs
 
 md-lint: ## Lint markdown
 	@echo "🔍 Linting Markdown..."

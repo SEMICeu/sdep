@@ -81,7 +81,7 @@ To be done:
 
 - Keycloak role `sdep_ama` plus `Role` enum entry (`Role` currently has CA, STR, REP, READ, WRITE)
 - Domain sub-app `/api/ama/v1` in `API_DOMAINS` (currently AUTH, CA v1/v2, STR, REP), implementing action 6 with the same read handler and filters as REP v1 (`createdAtFrom`, `createdAtTo`, `areaId`, `platformId`, `competentAuthorityId`)
-- Referential integrity: the bulk RI check verifies that `areaId` exists but ignores `Area.regulation`, so an activity against a `listing`-only area is accepted today; add `regulation` in (`activity`, `all`), shared with the [listings](./LISTING.md#bulk-validation-flow) check >> to be checked (v2)
+- Referential integrity: the bulk RI check verifies that `areaId` exists but ignores `Area.regulation`, so an activity against a `listing`-only area is accepted today; add `regulation` in (`activity`, `all`), shared with the [listings](./LISTING.md#validation) check >> to be checked (v2)
 
 ## Process
 

@@ -233,7 +233,7 @@ async def async_session(
 
     Uses nested transactions (savepoints) to isolate each test.
     After the test completes, all changes are rolled back.
-    This follows the AGENTS.md requirement to use transaction rollback instead of dropping tables.
+    Rolls back rather than dropping tables, so tests never destroy schema state.
     """
     # Create a connection for the test
     connection = await async_engine.connect()

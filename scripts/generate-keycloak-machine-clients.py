@@ -54,20 +54,20 @@ class JwtClientSpec:
 JWT_CLIENT_SPECS: tuple[JwtClientSpec, ...] = (
     JwtClientSpec(
         client_id="sdep-test-ca.jwt",
-        name="Test CA Signed JWT (test automation, ephemeral data)",
-        description="CA client using client_signed_jwt authentication with a PEM public key",
+        name="Test CA-JWT (client-signed JWT, ephemeral)",
+        description="For test automation (ephemeral data)",
         service_account_roles=("sdep_ca", "sdep_read", "sdep_write"),
     ),
     JwtClientSpec(
         client_id="sdep-test-str.jwt",
-        name="Test STR Signed JWT (test automation, ephemeral data)",
-        description="STR client using client_signed_jwt authentication with a PEM public key",
+        name="Test STR-JWT (client-signed JWT, ephemeral)",
+        description="For test automation (ephemeral data)",
         service_account_roles=("sdep_str", "sdep_read", "sdep_write"),
     ),
     JwtClientSpec(
         client_id="sdep-test-rep.jwt",
-        name="Test REP Signed JWT (test automation, ephemeral data)",
-        description="REP client using client_signed_jwt authentication with a PEM public key",
+        name="Test REP-JWT (client-signed JWT, ephemeral)",
+        description="For test automation (ephemeral data)",
         service_account_roles=("sdep_rep", "sdep_read"),
     ),
 )
