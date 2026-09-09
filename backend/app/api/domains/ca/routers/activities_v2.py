@@ -25,7 +25,7 @@ router = APIRouter(tags=["ca"])
 
 
 ACTIVITIES_DESCRIPTION = (
-    "Get activities for the currently authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results. Optional filters use AND semantics: every provided filter narrows the result set within the authenticated CA scope. `filterCreatedAtFrom` and `filterCreatedAtTo` form an inclusive `createdAt` range; `filterPlatformId` and `filterAreaId` are exact-match filters.\n\n"
+    "Get activities for the currently authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results. Optional filters use AND semantics: every provided filter narrows the result set within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters.\n\n"
     "**Each activity contains:**\n"
     "- `activityId`: Functional ID identifying this activity\n"
     "- `activityName`: Display name (optional) of the activity\n"
@@ -45,14 +45,14 @@ ACTIVITIES_DESCRIPTION = (
     "- `createdAt`: Timestamp when this activity version was created (UTC)"
 )
 
-COUNT_ACTIVITIES_DESCRIPTION = "Get activities count for the currently authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count within the authenticated CA scope. `filterCreatedAtFrom` and `filterCreatedAtTo` form an inclusive `createdAt` range; `filterPlatformId` and `filterAreaId` are exact-match filters."
+COUNT_ACTIVITIES_DESCRIPTION = "Get activities count for the currently authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters."
 
 
 async def activity_filters(
     created_at_from: Annotated[
         UtcDateTime | None,
         Query(
-            alias="filterCreatedAtFrom",
+            alias="createdAtFrom",
             description="Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
             examples=["2025-06-01T00:00:00Z"],
         ),
@@ -60,7 +60,7 @@ async def activity_filters(
     created_at_to: Annotated[
         UtcDateTime | None,
         Query(
-            alias="filterCreatedAtTo",
+            alias="createdAtTo",
             description="Filter activities whose createdAt timestamp is less than or equal to this UTC value",
             examples=["2025-06-30T23:59:59Z"],
         ),
@@ -68,7 +68,7 @@ async def activity_filters(
     platform_id: Annotated[
         OptionalFunctionalId,
         Query(
-            alias="filterPlatformId",
+            alias="platformId",
             description="Filter by platform functional ID",
             examples=["sdep-str01"],
         ),
@@ -76,7 +76,7 @@ async def activity_filters(
     area_id: Annotated[
         OptionalFunctionalId,
         Query(
-            alias="filterAreaId",
+            alias="areaId",
             description="Filter by area functional ID",
             examples=["959a7439-7cad-4009-96ec-353b44723db9"],
         ),
@@ -118,10 +118,10 @@ async def get_activities(
     - limit: Maximum number of records to return (default: no limit, max: 1000)
 
     Filter parameters (provided filters are combined with AND semantics):
-    - filterCreatedAtFrom: Minimum activity version creation timestamp, inclusive
-    - filterCreatedAtTo: Maximum activity version creation timestamp, inclusive
-    - filterPlatformId: Platform functional ID
-    - filterAreaId: Area functional ID
+    - createdAtFrom: Minimum activity version creation timestamp, inclusive
+    - createdAtTo: Maximum activity version creation timestamp, inclusive
+    - platformId: Platform functional ID
+    - areaId: Area functional ID
     """
     return await activity_handlers.list_activities(
         client=client,

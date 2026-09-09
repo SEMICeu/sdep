@@ -23,6 +23,7 @@ Status: PROPOSAL / DRAFT.
   - [Internal Data Model](#internal-data-model)
   - [Transitions](#transitions)
   - [Validation](#validation)
+  - [Concurrency](#concurrency)
   - [Remaining Work](#remaining-work)
 - [TravelTech](#traveltech)
 - [Technical Working Group](#technical-working-group)
@@ -68,7 +69,7 @@ Legend:
 - **STR** - Short-Term Rental Platform
 - **SDEP** - Single Digital Entrypoint
 - **CA** - Competent Authority
-- **Host** - Short-Term Rental Host
+- **Host** - Short-Term Rental [Host](./HOST.md)
 - **LMA** - Listing Monitoring Authority
 - **REP** - Reporting and Statistics
 - Blue is EU-harmonized, the rest is country-specific
@@ -110,7 +111,7 @@ Legend:
 - `pending` - submitted by the platform, awaiting screening
 - `clear` - screened, no flags raised
 - `flagged` - screened, [flag code(s)](#listingresponse) raised, not yet acknowledged
-- `acknowledged` - the platform confirmed receipt of the flag
+- `acknowledged` - the platform confirmed receipt of the flag (= **random check performed**)
 
 Remarks:
 
@@ -119,8 +120,7 @@ Remarks:
   - `pending`: the platform may correct the listing data (resubmission with the same `listingId`)
   - `clear`, `flagged`: SDEP may correct the screening (resubmission of the screening result); the state follows the new flag(s)
   - `acknowledged`: final, no corrections (the acknowledgement carries no data, SDEP cannot undo it)
-- A platform that (still) wants an already screened listing (`clear`, `flagged`, `acknowledged`) corrected submits it under a new (or empty > new) `listingId` (recurrence) = new random check
-- A resubmission with a new (or empty > new) `listingId` (recurrence in a new random check) starts a separate lifecycle.
+- A platform that (still) wants an already screened listing (`clear`, `flagged`, `acknowledged`) corrected, submits it under a new (or empty > new) `listingId` (this just becomes a new random check in a separate lifecycle)
 - Flags raised in the `flagged` state are retained after acknowledgement, so `acknowledged` does not erase the screening outcome.
 - The correction edges (`pending --> pending` for the platform, `clear|flagged --> clear|flagged` for SDEP) are left out of the diagram for readability.
 
@@ -144,12 +144,12 @@ For other motivation and design decisions, see [below](#design-decisions).
 
 **STR**
 
-| Action | Endpoint                                   | Description                                                                                |
-| ------ | ------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| 3.     | `str: POST /listings/bulk`                 | A platform submits a batch of randomly selected listings.                                  |
-| 5.     | `str: GET /listings`                       | A platform retrieves its listings that have been flagged by SDEP (`filterStatus=flagged`). |
-| 5.     | `str: GET /listings/count`                 | Count, to support pagination (as for activities).                                          |
-| 6.     | `str: POST /listing-acknowledgements/bulk` | A platform acknowledges a batch of flagged listings (= **random check performed**).        |
+| Action | Endpoint                                   | Description                                                                                                                |
+| ------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| 3.     | `str: POST /listings/bulk`                 | A platform submits a batch of randomly selected listings.                                                                  |
+| 5.     | `str: GET /listings`                       | A platform retrieves its listings that have been flagged by SDEP (fixed scope `flagged`: `acknowledgedAt` is always null). |
+| 5.     | `str: GET /listings/count`                 | Count, to support pagination (as for activities).                                                                          |
+| 6.     | `str: POST /listing-acknowledgements/bulk` | A platform acknowledges a batch of flagged listings (= **random check performed**).                                        |
 
 For data structures, see [Data](#data).
 
@@ -159,19 +159,19 @@ For POST validations, see [Validation](#validation).
 
 **Filters for `str: GET /listings`.**
 
-- `filterCreatedAtFrom`
-- `filterCreatedAtTo`
-- `filterAreaId`
+- `createdAtFrom`
+- `createdAtTo`
+- `areaId`
 
 Implementation note:
 
-- The STR router does not declare `filterStatus`; the handler receives a fixed `status_scope=flagged`, the same way it receives the client scope.
+- The STR router does not declare `status`; the handler receives a fixed `status_scope=flagged`, the same way it receives the client scope.
 
-Alternative: add `filterStatus` (`pending`, `clear`, `flagged`, `acknowledged`; optional, default all).
+Alternative (propose not to implement): add a query filter for `status` (`pending`, `clear`, `flagged`, `acknowledged`; optional, default all).
 
 - This would allow an STR to get the full (process-wise) status on its listings.
 - Propose not to implement: an STR does not need this information.
-- if needed in the future, `filterStatus` can still be added in a backward compatible way.
+- if needed in the future, `status` can still be added in a backward compatible way.
 
 ---
 
@@ -193,11 +193,11 @@ In either way, the screening implementation stays in SDEP.
 - This ensures that the data point between platforms and SDEP remains the listing/registration number.
 - Which conforms to the [EU Traveltech position paper](#traveltech).
 
-| Action | Endpoint                             | Description                                                                            |
-| ------ | ------------------------------------ | -------------------------------------------------------------------------------------- |
-| 4.     | `lsr: GET /listings`                 | The listing screener retrieves submitted listings for review (`filterStatus=pending`). |
-| 4.     | `lsr: GET /listings/count`           | Count, to support pagination.                                                          |
-| 4.     | `lsr: POST /listing-screenings/bulk` | The listing screener submits a batch of screening results with possible flags.         |
+| Action | Endpoint                             | Description                                                                                                             |
+| ------ | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| 4.     | `lsr: GET /listings`                 | The listing screener retrieves submitted listings for review (fixed scope `pending`: `flags` empty, `screenedAt` null). |
+| 4.     | `lsr: GET /listings/count`           | Count, to support pagination.                                                                                           |
+| 4.     | `lsr: POST /listing-screenings/bulk` | The listing screener submits a batch of screening results with possible flags.                                          |
 
 For data structures, see [Data](#data).
 
@@ -207,14 +207,14 @@ For POST validations, see [Validation](#validation).
 
 **Filters for `lsr: GET /listings`.**
 
-- `filterCreatedAtFrom`
-- `filterCreatedAtTo`
-- `filterAreaId`
-- `filterPlatformId`
+- `createdAtFrom`
+- `createdAtTo`
+- `areaId`
+- `platformId`
 
 Notes:
 
-- The additional `filterAreaId` and `filterPlatformId` can be used to group/process by area and/or by platform.
+- The query filters `areaId` and `platformId` can be used to group/process by area and/or by platform.
 
 ---
 
@@ -222,10 +222,10 @@ Notes:
 
 Competent authority (country-specific, SDEP-NL/reference):
 
-| Action | Endpoint                  | Description                                                                                                              |
-| ------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 8.     | `ca: GET /listings`       | A competent authority gets the acknowledged listings in its areas (`filterStatus=acknowledged`) for enforcing the hosts. |
-| 8.     | `ca: GET /listings/count` | Count, to support pagination.                                                                                            |
+| Action | Endpoint                  | Description                                                                                                                                                      |
+| ------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 8.     | `ca: GET /listings`       | A competent authority gets the acknowledged listings in its areas (fixed scope `acknowledged`: `flags` non-empty, `acknowledgedAt` set) for enforcing the hosts. |
+| 8.     | `ca: GET /listings/count` | Count, to support pagination.                                                                                                                                    |
 
 For data structures, see [Data](#data).
 
@@ -233,16 +233,16 @@ For data structures, see [Data](#data).
 
 **Filters for `ca: GET /listings`.**
 
-- `filterCreatedAtFrom`
-- `filterCreatedAtTo`
-- `filterAreaId`
-- `filterPlatformId`
-- `filterFlags`
+- `createdAtFrom`
+- `createdAtTo`
+- `areaId`
+- `platformId`
+- `flags`
 
 Notes:
 
-- The additional `filterFlags` can be used to group/process by flags
-- For example: first `filterFlags=UDS` (undeclared short-term rental), then `EXP` (expired)
+- The query filter `flags` can be used to group/process by flags
+- For example: first `flags=UDS` (undeclared short-term rental), then `EXP` (expired)
 
 ---
 
@@ -261,16 +261,16 @@ For data structures, see [Data](#data).
 
 **Filters for `lma: GET /listings`.**
 
-- `filterCreatedAtFrom`
-- `filterCreatedAtTo`
-- `filterAreaId`
-- `filterPlatformId`
-- `filterFlags`
-- `filterStatus`
+- `createdAtFrom`
+- `createdAtTo`
+- `areaId`
+- `platformId`
+- `flags`
+- `status`
 
 Notes:
 
-- The additional `filterStatus` allows for full-monitoring
+- The query filter `status` allows for full-monitoring
 
 *Will be implemented as second step.*
 
@@ -291,16 +291,16 @@ For data structures, see [Data](#data).
 
 **Filters for `rep: GET /listings`.**
 
-- `filterCreatedAtFrom`
-- `filterCreatedAtTo`
-- `filterAreaId`
-- `filterPlatformId`
-- `filterFlags`
-- `filterStatus`
+- `createdAtFrom`
+- `createdAtTo`
+- `areaId`
+- `platformId`
+- `flags`
+- `status`
 
 Notes:
 
-- The additional `filterStatus` allows for full-reporting
+- The query filter `status` allows for full-reporting
 
 *Will be implemented as second step.*
 
@@ -310,16 +310,17 @@ Notes:
 
 A listing is **one thing with a lifecycle** (see [States](#states)): reading it is always `GET /listings`, and every arrow in the state diagram is one `POST`.
 
-| Decision                                                    | Motivation                                                                                                                                                             |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| One read endpoint for everyone: `GET /listings`             | A listing keeps its `listingId` while it moves through the states. The state is fixed per audience (STR, CA, ...).                                                     |
-| One `POST` per state change, named after what is sent       | `/listings`, `/listing-screenings`, `/listing-acknowledgements` say what the caller sends, not what the listing becomes.                                               |
-| The LSR always sends a screening result, not only "flagged" | The `pending -> clear` step needs a write too.                                                                                                                         |
-| A `/bulk` on every write                                    | One invalid item must not fail the batch, and the caller must know which item failed and why. Same as `POST /activities/bulk`.                                         |
-| Filters keep the existing names                             | `filterStatus`, `filterFlags`, `filterCreatedAtFrom`, ... as the activity endpoints. Rejected: `?status=`, `?flags=`.                                                  |
-| Filters are declared per audience, never refused at runtime | Each audience has its own API and OpenAPI document; a filter it may not use is simply not declared there.                                                              |
-| Data scope comes from the bearer token, not from a filter   | A platform sees its own listings, a competent authority its own areas, LSR/LMA/REP everything - decided by `client_id`. A caller cannot widen its scope with a filter. |
-| API names are not database names                            | Three `POST` lists outside, one `Listing` table inside, where every `POST` adds a version of the same listing. See [Implementation](#implementation).                  |
+| Decision                                                    | Motivation                                                                                                                                                                                  |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One read endpoint for everyone: `GET /listings`             | A listing keeps its `listingId` while it moves through the states. The state is fixed per audience (STR, CA, ...).                                                                          |
+| One `Listing.Response` for every audience                   | Scope narrows which listings, never which fields; no field is audience-confidential (as `Activity.Response`). Audience-only data would get its own schema.                                  |
+| One `POST` per state change, named after what is sent       | `/listings`, `/listing-screenings`, `/listing-acknowledgements` say what the caller sends, not what the listing becomes.                                                                    |
+| The LSR always sends a screening result, not only "flagged" | The `pending -> clear` step needs a write too.                                                                                                                                              |
+| A `/bulk` on every write                                    | One invalid item must not fail the batch, and the caller must know which item failed and why. Same as `POST /activities/bulk`.                                                              |
+| Filters are named after the field they filter on            | `?status=flagged`, `?flags=UDS,EXP`, `?createdAtFrom=...`: the query parameter name is the response field name (ranges add `From`/`To`). Same convention as the (CA v2) activity endpoints. |
+| Filters are declared per audience, never refused at runtime | Each audience has its own API and OpenAPI document; a filter it may not use is simply not declared there.                                                                                   |
+| Data scope comes from the bearer token, not from a filter   | A platform sees its own listings, a competent authority its own areas, LSR/LMA/REP everything - decided by `client_id`. A caller cannot widen its scope with a filter.                      |
+| API names are not database names                            | Three `POST` lists outside, one `Listing` table inside, where every `POST` adds a version of the same listing. See [Implementation](#implementation).                                       |
 
 ## Data
 
@@ -331,20 +332,20 @@ Schemas describe the **resource**; bulk/list schemas describe the **transport en
 
 Submitted by the platform (`POST /listings/bulk`).
 
-| Field                       | Description                                                                                             |
-| --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `listingId`                 | Functional ID identifying the listing (versioned = optionally supplied, else auto-generated **[1][2]**) |
-| `listingName`               | Display name (optional)                                                                                 |
-| `areaId`                    | Functional ID referencing the area where the listing is posted                                          |
-| `url`                       | References the listing online                                                                           |
-| `address`                   | Listing address (same composite as activities)                                                          |
-| `declaredAsShortTermRental` | Host self-declaration (yes/no)                                                                          |
-| `registrationNumber`        | Listing registration number (optional)                                                                  |
+| Field                       | Description                                                                                           |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `listingId`                 | Functional ID identifying the listing (optionally supplied/versioned, else auto-generated **[1][2]**) |
+| `listingName`               | Display name (optional)                                                                               |
+| `areaId`                    | Functional ID referencing the area where the listing is posted                                        |
+| `url`                       | References the listing online                                                                         |
+| `address`                   | Listing address (same composite as activities)                                                        |
+| `declaredAsShortTermRental` | Host self-declaration (yes/no)                                                                        |
+| `registrationNumber`        | Listing registration number (optional)                                                                |
 
 [1] This allows the listing to be submitted as either:
 
 - A correction (same id): allowed in `pending` only, creates a new version that stays `pending`
-- A recurrence in a new random check (new id)
+- A recurrence of the listing in a new random check (new id)
 
 [2] `listingId` is unique per platform (as `activityId`), not globally.
 
@@ -352,25 +353,25 @@ Submitted by the platform (`POST /listings/bulk`).
 
 ### `ListingScreening.Request`
 
-Submitted by the LSR (`POST /listing-screenings/bulk`), one item per screened listing. The LSR does not send the listing back, only the result.
+Submitted by the LSR (`POST /listing-screenings/bulk`), one bulk item per screened listing. The LSR does not POST the listing back, just the id with the result (same as `areaId` in `str: POST /activities/bulk`)
 
 | Field        | Description                                                                                 |
 | ------------ | ------------------------------------------------------------------------------------------- |
 | `platformId` | The submitting platform (`listingId` is only unique within a platform)                      |
 | `listingId`  | The screened listing                                                                        |
-| `createdAt`  | The version that was screened, see [Concurrency](#validation)                               |
+| `createdAt`  | The version that was screened, see [Concurrency](#concurrency)                              |
 | `flags`      | Zero or more [flag codes](#listingresponse); empty means `clear`, non-empty means `flagged` |
 
 ---
 
 ### `ListingAcknowledgement.Request`
 
-Submitted by the STR platform (`POST /listing-acknowledgements/bulk`), one item per flagged listing.
+Submitted by the STR platform (`POST /listing-acknowledgements/bulk`), one bulk item per flagged listing.
 
-| Field       | Description                                                    |
-| ----------- | -------------------------------------------------------------- |
-| `listingId` | The flagged listing (scoped to the authenticated platform)     |
-| `createdAt` | The version being acknowledged, see [Concurrency](#validation) |
+| Field       | Description                                                     |
+| ----------- | --------------------------------------------------------------- |
+| `listingId` | The flagged listing (scoped to the authenticated platform)      |
+| `createdAt` | The version being acknowledged, see [Concurrency](#concurrency) |
 
 The acknowledgement carries no further data (see sequence footnote 6.[4]).
 
@@ -380,19 +381,21 @@ The acknowledgement carries no further data (see sequence footnote 6.[4]).
 
 Returned by every `GET /listings`, and embedded in every OK item of the [three bulk responses](#schemas). Comprises the request fields, enriched with:
 
-| Field                    | Description                                                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `status`                 | Lifecycle status: `pending`, `clear`, `flagged`, `acknowledged`                                               |
-| `flags`                  | **Flag codes** raised by screening (empty until screened, non-empty when screened as (`status` is) `flagged`) |
-| `submittedAt`            | Timestamp of the platform's submission (UTC); unchanged by screening and acknowledgement                      |
-| `screenedAt`             | Timestamp of the screening (optional, UTC)                                                                    |
-| `acknowledgedAt`         | Timestamp of the acknowledgement (optional, UTC)                                                              |
-| `areaName`               | Display name of the area (optional)                                                                           |
-| `competentAuthorityId`   | Functional ID of the competent authority that owns the area                                                   |
-| `competentAuthorityName` | Display name of the competent authority (optional)                                                            |
-| `platformId`             | Functional ID of the submitting platform                                                                      |
-| `platformName`           | Display name of the platform (optional)                                                                       |
-| `createdAt`              | Timestamp when this listing version was created (UTC)                                                         |
+| Field                    | Description                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `status`                 | Lifecycle status: `pending`, `clear`, `flagged`, `acknowledged`                                        |
+| `flags`                  | **Flag codes** raised by screening (empty until screened, non-empty when screened/status is `flagged`) |
+| `submittedAt`            | Timestamp of the platform's submission (UTC); unchanged by screening and acknowledgement               |
+| `screenedAt`             | Timestamp of the screening (optional, UTC)                                                             |
+| `acknowledgedAt`         | Timestamp of the acknowledgement (optional, UTC)                                                       |
+| `areaName`               | Display name of the area (optional)                                                                    |
+| `competentAuthorityId`   | Functional ID of the competent authority that owns the area                                            |
+| `competentAuthorityName` | Display name of the competent authority (optional)                                                     |
+| `platformId`             | Functional ID of the submitting platform                                                               |
+| `platformName`           | Display name of the platform (optional)                                                                |
+| `createdAt`              | Timestamp when this listing version was created (UTC)                                                  |
+
+This schema is the same for every audience. Which fields carry a value, follows from the listing's state (see the fixed scopes per audience under [Endpoints](#endpoints-new)).
 
 ---
 
@@ -425,11 +428,15 @@ Returned by every `GET /listings`, and embedded in every OK item of the [three b
 Dotted titles, similar to the existing OpenAPI specification (`model_config = ConfigDict(title="Activity.Request")`):
 
 ```text
-Listing.Request | .Response | .BulkRequest | .BulkResultItem | .BulkResponse | .ListResponse | .CountResponse
-Listing.Status | Listing.Flag                                                   (enums)
-ListingScreening.Request | .BulkRequest | .BulkResultItem | .BulkResponse
-ListingAcknowledgement.Request | .BulkRequest | .BulkResultItem | .BulkResponse
+Listing                 .Request | .Response | .BulkRequest | .BulkResultItem | .BulkResponse | .ListResponse | .CountResponse
+ListingScreening        .Request | .BulkRequest | .BulkResultItem | .BulkResponse
+ListingAcknowledgement  .Request | .BulkRequest | .BulkResultItem | .BulkResponse
 ```
+
+Two enums back the fields inside these schemas, as `Activity.Status` does for activities (`app/enums.py`):
+
+- `Listing.Status` - type of the `status` field in `Listing.Response` (`pending`, `clear`, `flagged`, `acknowledged`)
+- `Listing.Flag` - type of each item in `flags`, in `Listing.Response` and `ListingScreening.Request` (the seven [flag codes](#listingresponse))
 
 The three bulk responses and what an OK item embeds:
 
@@ -479,7 +486,7 @@ Every new version gets a new `createdAt` (the version timestamp). The actor time
 
 | Transition                                   | Actor | Precondition (current version)        | In new version                     |
 | -------------------------------------------- | ----- | ------------------------------------- | ---------------------------------- |
-| `POST /listings/bulk` (new `listingId`)      | STR   | none                                  | `pending`, `submittedAt`           |
+| `POST /listings/bulk`                        | STR   | none                                  | `pending`, `submittedAt`           |
 | `POST /listings/bulk` (correction)           | STR   | `pending`                             | `pending`, `submittedAt`           |
 | `POST /listing-screenings/bulk`              | LSR   | `pending`; version matches            | `clear` or `flagged`, `screenedAt` |
 | `POST /listing-screenings/bulk` (correction) | LSR   | `clear` or `flagged`; version matches | `clear` or `flagged`, `screenedAt` |
@@ -487,7 +494,7 @@ Every new version gets a new `createdAt` (the version timestamp). The actor time
 
 There is no "acknowledgement (correction)": it carries no data. A accidentally retried acknowledgement carries the `flagged` version's `createdAt`, which is no longer current, and is refused with `conflict_error`; the platform treats that as "already acknowledged".
 
-A failed precondition is a per-item NOK (`conflict_error`), see [Concurrency](#validation).
+A failed precondition is a per-item NOK (`conflict_error`), see [Concurrency](#concurrency).
 
 Motivation:
 
@@ -527,7 +534,7 @@ For `POST /listing-screenings/bulk`:
 
 - Step 1 - `platformId` and `listingId` match the functional ID format, `createdAt` is a UTC timestamp, every code in `flags` is a known [flag code](#listingresponse) (`value_error`)
 - Step 2 - the listing exists for `platformId` + `listingId` (`not_found_error`)
-- Step 3 - `createdAt` is the current version (`conflict_error`), see [Concurrency](#validation)
+- Step 3 - `createdAt` is the current version (`conflict_error`), see [Concurrency](#concurrency)
 - Step 3 - state precondition: `pending` (initial screening), `clear` or `flagged` (correction); `acknowledged` is refused (`conflict_error`), see [Transitions](#transitions)
 
 For `POST /listing-acknowledgements/bulk`:
@@ -541,7 +548,7 @@ For `POST /listing-acknowledgements/bulk`:
 
 ---
 
-**Concurrency**
+### Concurrency
 
 The screening window is external and asynchronous, so no database lock can cover it. A platform may correct a listing (new `pending` version) while the LSR is screening the previous version, and the LSR may re-screen while a platform is acknowledging. The flags of one version must never land on another.
 
@@ -549,7 +556,7 @@ Optimistic concurrency, using the version timestamp that every response already 
 
 - `ListingScreening.Request` and `ListingAcknowledgement.Request` carry the `createdAt` of the version they refer to
 - Step 3 locks the current version and compares; mismatch = per-item NOK with `type: conflict_error`, `loc: ["createdAt"]`
-- No retry path is needed (a retried acknowledgement is refused as no longer current, see [Transitions](#transitions)): the corrected listing is still `pending` and appears in the LSR's next `GET /listings?filterStatus=pending` with its new data; the re-screened listing is `flagged` again and appears in the platform's next `GET /listings`
+- No retry path is needed (a retried acknowledgement is refused as no longer current, see [Transitions](#transitions)): the corrected listing is still `pending` and appears in the LSR's next `GET /listings` (fixed `pending` scope) with its new data; the re-screened listing is `flagged` again and appears in the platform's next `GET /listings`
 
 Example bulk result item:
 

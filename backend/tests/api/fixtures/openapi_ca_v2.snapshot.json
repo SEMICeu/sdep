@@ -569,7 +569,7 @@
     }
   },
   "info": {
-    "description": "Endpoints for competent authorities to manage areas and to view activities. Status: beta. Changes from CA v1: adds four optional activity filters (`filterCreatedAtFrom`, `filterCreatedAtTo`, `filterPlatformId`, `filterAreaId`) on the activity list and count endpoints; no other changes.",
+    "description": "Endpoints for competent authorities to manage areas and to view activities. Status: beta. Changes from CA v1: adds four optional activity filters (`createdAtFrom`, `createdAtTo`, `platformId`, `areaId`) on the activity list and count endpoints; no other changes.",
     "title": "SDEP - Competent Authority (CA) API",
     "version": "<frozen-version>"
   },
@@ -577,7 +577,7 @@
   "paths": {
     "/activities": {
       "get": {
-        "description": "Get activities for the currently authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results. Optional filters use AND semantics: every provided filter narrows the result set within the authenticated CA scope. `filterCreatedAtFrom` and `filterCreatedAtTo` form an inclusive `createdAt` range; `filterPlatformId` and `filterAreaId` are exact-match filters.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `areaName`: Display name (optional) of the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
+        "description": "Get activities for the currently authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results. Optional filters use AND semantics: every provided filter narrows the result set within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `areaName`: Display name (optional) of the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
         "operationId": "getActivityByCompetentAuthorityV2",
         "parameters": [
           {
@@ -616,7 +616,7 @@
           {
             "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
             "in": "query",
-            "name": "filterCreatedAtFrom",
+            "name": "createdAtFrom",
             "required": false,
             "schema": {
               "anyOf": [
@@ -632,13 +632,13 @@
               "examples": [
                 "2025-06-01T00:00:00Z"
               ],
-              "title": "Filtercreatedatfrom"
+              "title": "Createdatfrom"
             }
           },
           {
             "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
             "in": "query",
-            "name": "filterCreatedAtTo",
+            "name": "createdAtTo",
             "required": false,
             "schema": {
               "anyOf": [
@@ -654,13 +654,13 @@
               "examples": [
                 "2025-06-30T23:59:59Z"
               ],
-              "title": "Filtercreatedatto"
+              "title": "Createdatto"
             }
           },
           {
             "description": "Filter by platform functional ID",
             "in": "query",
-            "name": "filterPlatformId",
+            "name": "platformId",
             "required": false,
             "schema": {
               "anyOf": [
@@ -678,13 +678,13 @@
               "examples": [
                 "sdep-str01"
               ],
-              "title": "Filterplatformid"
+              "title": "Platformid"
             }
           },
           {
             "description": "Filter by area functional ID",
             "in": "query",
-            "name": "filterAreaId",
+            "name": "areaId",
             "required": false,
             "schema": {
               "anyOf": [
@@ -702,7 +702,7 @@
               "examples": [
                 "959a7439-7cad-4009-96ec-353b44723db9"
               ],
-              "title": "Filterareaid"
+              "title": "Areaid"
             }
           }
         ],
@@ -796,13 +796,13 @@
     },
     "/activities/count": {
       "get": {
-        "description": "Get activities count for the currently authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count within the authenticated CA scope. `filterCreatedAtFrom` and `filterCreatedAtTo` form an inclusive `createdAt` range; `filterPlatformId` and `filterAreaId` are exact-match filters.",
+        "description": "Get activities count for the currently authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters.",
         "operationId": "countActivitiesV2",
         "parameters": [
           {
             "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
             "in": "query",
-            "name": "filterCreatedAtFrom",
+            "name": "createdAtFrom",
             "required": false,
             "schema": {
               "anyOf": [
@@ -818,13 +818,13 @@
               "examples": [
                 "2025-06-01T00:00:00Z"
               ],
-              "title": "Filtercreatedatfrom"
+              "title": "Createdatfrom"
             }
           },
           {
             "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
             "in": "query",
-            "name": "filterCreatedAtTo",
+            "name": "createdAtTo",
             "required": false,
             "schema": {
               "anyOf": [
@@ -840,13 +840,13 @@
               "examples": [
                 "2025-06-30T23:59:59Z"
               ],
-              "title": "Filtercreatedatto"
+              "title": "Createdatto"
             }
           },
           {
             "description": "Filter by platform functional ID",
             "in": "query",
-            "name": "filterPlatformId",
+            "name": "platformId",
             "required": false,
             "schema": {
               "anyOf": [
@@ -864,13 +864,13 @@
               "examples": [
                 "sdep-str01"
               ],
-              "title": "Filterplatformid"
+              "title": "Platformid"
             }
           },
           {
             "description": "Filter by area functional ID",
             "in": "query",
-            "name": "filterAreaId",
+            "name": "areaId",
             "required": false,
             "schema": {
               "anyOf": [
@@ -888,7 +888,7 @@
               "examples": [
                 "959a7439-7cad-4009-96ec-353b44723db9"
               ],
-              "title": "Filterareaid"
+              "title": "Areaid"
             }
           }
         ],

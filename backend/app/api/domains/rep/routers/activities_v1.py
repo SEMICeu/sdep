@@ -24,7 +24,7 @@ from app.schemas.common import OptionalFunctionalId, UtcDateTime
 router = APIRouter(tags=["rep"])
 
 ACTIVITIES_DESCRIPTION = (
-    "Get all current activities across all competent authorities and platforms, for statistical analysis. Returns at most 1000 activities per request (the default and maximum `limit`), including current records whose lifecycle `status` is `cancelled`. Use the `offset` and `limit` pagination parameters to page through results. Optional filters use AND semantics: every provided filter narrows the result set. `filterCreatedAtFrom` and `filterCreatedAtTo` form an inclusive `createdAt` range; `filterPlatformId`, `filterAreaId` and `filterCompetentAuthorityId` are exact-match filters.\n\n"
+    "Get all current activities across all competent authorities and platforms, for statistical analysis. Returns at most 1000 activities per request (the default and maximum `limit`), including current records whose lifecycle `status` is `cancelled`. Use the `offset` and `limit` pagination parameters to page through results. Optional filters use AND semantics: every provided filter narrows the result set. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId`, `areaId` and `competentAuthorityId` are exact-match filters.\n\n"
     "**Each activity contains:**\n"
     "- `activityId`: Functional ID identifying this activity\n"
     "- `activityName`: Display name (optional) of the activity\n"
@@ -44,14 +44,14 @@ ACTIVITIES_DESCRIPTION = (
     "- `createdAt`: Timestamp when this activity version was created (UTC)"
 )
 
-COUNT_ACTIVITIES_DESCRIPTION = "Get the count of all current activities across all competent authorities and platforms (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count. `filterCreatedAtFrom` and `filterCreatedAtTo` form an inclusive `createdAt` range; `filterPlatformId`, `filterAreaId` and `filterCompetentAuthorityId` are exact-match filters."
+COUNT_ACTIVITIES_DESCRIPTION = "Get the count of all current activities across all competent authorities and platforms (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId`, `areaId` and `competentAuthorityId` are exact-match filters."
 
 
 async def activity_filters(
     created_at_from: Annotated[
         UtcDateTime | None,
         Query(
-            alias="filterCreatedAtFrom",
+            alias="createdAtFrom",
             description="Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
             examples=["2025-06-01T00:00:00Z"],
         ),
@@ -59,7 +59,7 @@ async def activity_filters(
     created_at_to: Annotated[
         UtcDateTime | None,
         Query(
-            alias="filterCreatedAtTo",
+            alias="createdAtTo",
             description="Filter activities whose createdAt timestamp is less than or equal to this UTC value",
             examples=["2025-06-30T23:59:59Z"],
         ),
@@ -67,7 +67,7 @@ async def activity_filters(
     platform_id: Annotated[
         OptionalFunctionalId,
         Query(
-            alias="filterPlatformId",
+            alias="platformId",
             description="Filter by platform functional ID",
             examples=["sdep-str01"],
         ),
@@ -75,7 +75,7 @@ async def activity_filters(
     area_id: Annotated[
         OptionalFunctionalId,
         Query(
-            alias="filterAreaId",
+            alias="areaId",
             description="Filter by area functional ID",
             examples=["959a7439-7cad-4009-96ec-353b44723db9"],
         ),
@@ -83,7 +83,7 @@ async def activity_filters(
     competent_authority_id: Annotated[
         OptionalFunctionalId,
         Query(
-            alias="filterCompetentAuthorityId",
+            alias="competentAuthorityId",
             description="Filter by competent authority functional ID",
             examples=["c4ac8ccf-a281-5789-bad7-28dfac20ca7f"],
         ),
@@ -125,11 +125,11 @@ async def get_activities(
     - limit: Maximum number of records to return (default: 1000, max: 1000)
 
     Filter parameters (provided filters are combined with AND semantics):
-    - filterCreatedAtFrom: Minimum activity version creation timestamp, inclusive
-    - filterCreatedAtTo: Maximum activity version creation timestamp, inclusive
-    - filterPlatformId: Platform functional ID
-    - filterAreaId: Area functional ID
-    - filterCompetentAuthorityId: Competent authority functional ID
+    - createdAtFrom: Minimum activity version creation timestamp, inclusive
+    - createdAtTo: Maximum activity version creation timestamp, inclusive
+    - platformId: Platform functional ID
+    - areaId: Area functional ID
+    - competentAuthorityId: Competent authority functional ID
     """
     return await activity_handlers.list_activities(
         client=None,

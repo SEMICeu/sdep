@@ -533,7 +533,8 @@ test-ca: .ensure-up .get-client-credentials # Helper - Test only CA endpoints
 	fi && \
 	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
 	uv run --script tests/test_ca_areas.py 2>&1 | tee $$OUTPUT_FILE && \
-	uv run --script tests/test_ca_activities.py 2>&1 | tee $$OUTPUT_FILE && \
+	API_VERSION=v1 uv run --script tests/test_ca_activities.py 2>&1 | tee $$OUTPUT_FILE && \
+	API_VERSION=v2 uv run --script tests/test_ca_activities.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ CA endpoints tested!"
 
 test-str: .ensure-up .get-client-credentials # Helper - Test only STR endpoints

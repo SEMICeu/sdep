@@ -23,10 +23,10 @@ For the versioning rules behind these differences, see [API](API.md).
 **`GET /activities`**
 
 - Renamed `operationId` from `getActivityByCompetentAuthority` to `getActivityByCompetentAuthorityV2`
-- Added optional query parameter `filterAreaId` (string)
-- Added optional query parameter `filterCreatedAtFrom` (string, date-time)
-- Added optional query parameter `filterCreatedAtTo` (string, date-time)
-- Added optional query parameter `filterPlatformId` (string)
+- Added optional query parameter `areaId` (string)
+- Added optional query parameter `createdAtFrom` (string, date-time)
+- Added optional query parameter `createdAtTo` (string, date-time)
+- Added optional query parameter `platformId` (string)
 - Updated the endpoint description
 
 ---
@@ -34,10 +34,10 @@ For the versioning rules behind these differences, see [API](API.md).
 **`GET /activities/count`**
 
 - Renamed `operationId` from `countActivities` to `countActivitiesV2`
-- Added optional query parameter `filterAreaId` (string)
-- Added optional query parameter `filterCreatedAtFrom` (string, date-time)
-- Added optional query parameter `filterCreatedAtTo` (string, date-time)
-- Added optional query parameter `filterPlatformId` (string)
+- Added optional query parameter `areaId` (string)
+- Added optional query parameter `createdAtFrom` (string, date-time)
+- Added optional query parameter `createdAtTo` (string, date-time)
+- Added optional query parameter `platformId` (string)
 - Updated the endpoint description
 
 ---
@@ -45,4 +45,4 @@ For the versioning rules behind these differences, see [API](API.md).
 ### API Description
 
 - CA v1: Endpoints for competent authorities to manage areas and to view activities. Status: stable. Superseded by CA v2 (beta).
-- CA v2: Endpoints for competent authorities to manage areas and to view activities. Status: beta. Changes from CA v1: adds four optional activity filters (`filterCreatedAtFrom`, `filterCreatedAtTo`, `filterPlatformId`, `filterAreaId`) on the activity list and count endpoints; no other changes.
+- CA v2: Endpoints for competent authorities to manage areas and to view activities. Status: beta. Changes from CA v1: adds four optional activity filters (`createdAtFrom`, `createdAtTo`, `platformId`, `areaId`) on the activity list and count endpoints; no other changes.

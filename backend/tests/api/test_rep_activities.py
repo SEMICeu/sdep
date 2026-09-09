@@ -309,10 +309,10 @@ class TestREPActivitiesAPI:
 
         query = (
             "/activities"
-            "?filterCreatedAtFrom=2026-05-21T00:00:00Z"
-            "&filterCreatedAtTo=2026-05-22T00:00:00Z"
-            "&filterPlatformId=str01"
-            "&filterAreaId=550e8400-e29b-41d4-a716-446655440001"
+            "?createdAtFrom=2026-05-21T00:00:00Z"
+            "&createdAtTo=2026-05-22T00:00:00Z"
+            "&platformId=str01"
+            "&areaId=550e8400-e29b-41d4-a716-446655440001"
         )
         async with AsyncClient(
             transport=ASGITransport(app=app_rep_v1), base_url="http://test"
@@ -334,7 +334,7 @@ class TestREPActivitiesAPI:
             transport=ASGITransport(app=app_rep_v1), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/activities?filterCompetentAuthorityId=0518",
+                "/activities?competentAuthorityId=0518",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -349,9 +349,9 @@ class TestREPActivitiesAPI:
     @pytest.mark.parametrize(
         ("query_param", "value"),
         [
-            ("filterPlatformId", "invalid id"),
-            ("filterAreaId", "invalid/id"),
-            ("filterCompetentAuthorityId", "invalid id"),
+            ("platformId", "invalid id"),
+            ("areaId", "invalid/id"),
+            ("competentAuthorityId", "invalid id"),
         ],
     )
     async def test_get_activities_rejects_invalid_functional_id_filters(
@@ -376,10 +376,10 @@ class TestREPActivitiesAPI:
     @pytest.mark.parametrize(
         ("query_param", "value"),
         [
-            ("filterCreatedAtFrom", "2026-05-21T00:00:00"),
-            ("filterCreatedAtFrom", "2026-05-21T00:00:00%2B02:00"),
-            ("filterCreatedAtTo", "2026-05-21T00:00:00"),
-            ("filterCreatedAtTo", "2026-05-21T00:00:00%2B02:00"),
+            ("createdAtFrom", "2026-05-21T00:00:00"),
+            ("createdAtFrom", "2026-05-21T00:00:00%2B02:00"),
+            ("createdAtTo", "2026-05-21T00:00:00"),
+            ("createdAtTo", "2026-05-21T00:00:00%2B02:00"),
         ],
     )
     async def test_get_activities_rejects_non_utc_created_at_filters(
@@ -440,11 +440,11 @@ class TestREPActivitiesAPI:
             transport=ASGITransport(app=app_rep_v1), base_url="http://test"
         ) as client:
             response_match = await client.get(
-                "/activities/count?filterCompetentAuthorityId=0363&filterPlatformId=str01",
+                "/activities/count?competentAuthorityId=0363&platformId=str01",
                 headers={"Authorization": "Bearer test_token"},
             )
             response_no_match = await client.get(
-                "/activities/count?filterCompetentAuthorityId=0363&filterPlatformId=str02",
+                "/activities/count?competentAuthorityId=0363&platformId=str02",
                 headers={"Authorization": "Bearer test_token"},
             )
 

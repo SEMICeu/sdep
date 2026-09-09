@@ -202,30 +202,36 @@ Test CA (Competent Authority) endpoints.
 
 **`test_ca_activities.py`**
 
-**Tests (v1 - `GET /api/ca/v1/activities`):**
+`make test-ca` runs this script twice, with `API_VERSION=v1` and `API_VERSION=v2`. Tests 6-10 discover a sample activity (`?limit=1`) and derive the filter values from it, so no IDs are hard-coded; with no data they pass with a note.
 
-- **Test 1:** Count activities (`GET /ca/v1/activities/count`)
+**Tests:**
+
+- **Test 1:** Count activities (`GET /ca/{API_VERSION}/activities/count`)
 - **Test 2:** Get all activities
 - **Test 3:** Pagination (offset=0, limit=1)
 - **Test 4:** Verify response structure (activityId, activityName, status, platformId, platformName, url, registrationNumber, address, temporal, areaId)
-- **Test 5:** Verify pagination consistency (offset and limit produce different results)
+- **Test 5:** GET by `url` query parameter (not declared in any version; endpoint must still respond)
+- **Test 6:** Filter by `areaId`
+- **Test 7:** Filter by `platformId`
+- **Test 8:** Filter by `createdAtFrom` / `createdAtTo` (both equal to the sample's `createdAt`)
+- **Test 9:** Non-matching `areaId` filter
+- **Test 10:** `/count` with filter equals the length of the filtered list
+- **Test 11:** Pagination consistency (offset and limit work correctly)
 
-**Tests (v2 - `GET /api/ca/v2/activities`, with filters):**
+Tests 6-10 behave per version, matching the "filters are declared per audience" rule:
 
-- **Test 6:** Filter by `filterAreaId`
-- **Test 7:** Filter by `filterPlatformId`
-- **Test 8:** Filter by `filterCreatedAtFrom` / `filterCreatedAtTo` date range
-- **Test 9:** GET with non-matching filter (should return empty list)
+- `v1` - filters are not declared: the query parameter must be ignored, so the filtered count equals the unfiltered count (Test 10 is not applicable and passes with a note)
+- `v2` - filters are declared: every returned activity matches the filter and the sample is among them; a non-matching filter returns an empty list
 
 **Endpoints:**
 
-- `GET /ca/v1/activities/count`
-- `GET /ca/v1/activities`
-- `GET /ca/v1/activities?offset={offset}&limit={limit}`
-- `GET /ca/v2/activities?filterAreaId={areaId}`
-- `GET /ca/v2/activities?filterPlatformId={platformId}`
-- `GET /ca/v2/activities?filterCreatedAtFrom={datetime}&filterCreatedAtTo={datetime}`
-- `GET /ca/v2/activities/count?filterAreaId={areaId}`
+- `GET /ca/{API_VERSION}/activities/count`
+- `GET /ca/{API_VERSION}/activities`
+- `GET /ca/{API_VERSION}/activities?offset={offset}&limit={limit}`
+- `GET /ca/v2/activities?areaId={areaId}`
+- `GET /ca/v2/activities?platformId={platformId}`
+- `GET /ca/v2/activities?createdAtFrom={datetime}&createdAtTo={datetime}`
+- `GET /ca/v2/activities/count?areaId={areaId}`
 
 ---
 
@@ -316,12 +322,25 @@ Test REP (reporting / statistics office) endpoints.
 - **Test 4:** Verify response structure contains the required REP fields (temporal, numberOfGuests, countryOfGuests, registrationNumber, competentAuthorityId)
 - **Test 5:** POST is rejected with `405 Method Not Allowed` (read-only API)
 - **Test 6:** Role isolation - a CA token gets `403 Forbidden` on the REP API. Requires `CA1_CLIENT_ID`/`CA1_CLIENT_SECRET`; skipped otherwise.
+- **Test 7:** Filter by `areaId`
+- **Test 8:** Filter by `platformId`
+- **Test 9:** Filter by `competentAuthorityId`
+- **Test 10:** Filter by `createdAtFrom` / `createdAtTo` (both equal to the sample's `createdAt`)
+- **Test 11:** Non-matching `areaId` filter returns an empty list
+- **Test 12:** `/count` with filter equals the length of the filtered list
+
+Tests 7-12 discover a sample activity (`?limit=1`) and derive the filter values from it; with no data they pass with a note. Every returned activity must match the filter and the sample must be among them.
 
 **Endpoints:**
 
 - `GET /rep/v1/activities/count`
 - `GET /rep/v1/activities`
 - `GET /rep/v1/activities?offset={offset}&limit={limit}`
+- `GET /rep/v1/activities?areaId={areaId}`
+- `GET /rep/v1/activities?platformId={platformId}`
+- `GET /rep/v1/activities?competentAuthorityId={competentAuthorityId}`
+- `GET /rep/v1/activities?createdAtFrom={datetime}&createdAtTo={datetime}`
+- `GET /rep/v1/activities/count?areaId={areaId}`
 
 **Authentication:** Requires REP client credentials (token loaded from `./tmp/.bearer_token`)
 

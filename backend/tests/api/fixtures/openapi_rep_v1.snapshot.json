@@ -388,7 +388,7 @@
   "paths": {
     "/activities": {
       "get": {
-        "description": "Get all current activities across all competent authorities and platforms, for statistical analysis. Returns at most 1000 activities per request (the default and maximum `limit`), including current records whose lifecycle `status` is `cancelled`. Use the `offset` and `limit` pagination parameters to page through results. Optional filters use AND semantics: every provided filter narrows the result set. `filterCreatedAtFrom` and `filterCreatedAtTo` form an inclusive `createdAt` range; `filterPlatformId`, `filterAreaId` and `filterCompetentAuthorityId` are exact-match filters.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `areaName`: Display name (optional) of the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
+        "description": "Get all current activities across all competent authorities and platforms, for statistical analysis. Returns at most 1000 activities per request (the default and maximum `limit`), including current records whose lifecycle `status` is `cancelled`. Use the `offset` and `limit` pagination parameters to page through results. Optional filters use AND semantics: every provided filter narrows the result set. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId`, `areaId` and `competentAuthorityId` are exact-match filters.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `areaName`: Display name (optional) of the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
         "operationId": "getAllActivities",
         "parameters": [
           {
@@ -421,7 +421,7 @@
           {
             "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
             "in": "query",
-            "name": "filterCreatedAtFrom",
+            "name": "createdAtFrom",
             "required": false,
             "schema": {
               "anyOf": [
@@ -437,13 +437,13 @@
               "examples": [
                 "2025-06-01T00:00:00Z"
               ],
-              "title": "Filtercreatedatfrom"
+              "title": "Createdatfrom"
             }
           },
           {
             "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
             "in": "query",
-            "name": "filterCreatedAtTo",
+            "name": "createdAtTo",
             "required": false,
             "schema": {
               "anyOf": [
@@ -459,13 +459,13 @@
               "examples": [
                 "2025-06-30T23:59:59Z"
               ],
-              "title": "Filtercreatedatto"
+              "title": "Createdatto"
             }
           },
           {
             "description": "Filter by platform functional ID",
             "in": "query",
-            "name": "filterPlatformId",
+            "name": "platformId",
             "required": false,
             "schema": {
               "anyOf": [
@@ -483,13 +483,13 @@
               "examples": [
                 "sdep-str01"
               ],
-              "title": "Filterplatformid"
+              "title": "Platformid"
             }
           },
           {
             "description": "Filter by area functional ID",
             "in": "query",
-            "name": "filterAreaId",
+            "name": "areaId",
             "required": false,
             "schema": {
               "anyOf": [
@@ -507,13 +507,13 @@
               "examples": [
                 "959a7439-7cad-4009-96ec-353b44723db9"
               ],
-              "title": "Filterareaid"
+              "title": "Areaid"
             }
           },
           {
             "description": "Filter by competent authority functional ID",
             "in": "query",
-            "name": "filterCompetentAuthorityId",
+            "name": "competentAuthorityId",
             "required": false,
             "schema": {
               "anyOf": [
@@ -531,7 +531,7 @@
               "examples": [
                 "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
               ],
-              "title": "Filtercompetentauthorityid"
+              "title": "Competentauthorityid"
             }
           }
         ],
@@ -625,13 +625,13 @@
     },
     "/activities/count": {
       "get": {
-        "description": "Get the count of all current activities across all competent authorities and platforms (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count. `filterCreatedAtFrom` and `filterCreatedAtTo` form an inclusive `createdAt` range; `filterPlatformId`, `filterAreaId` and `filterCompetentAuthorityId` are exact-match filters.",
+        "description": "Get the count of all current activities across all competent authorities and platforms (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId`, `areaId` and `competentAuthorityId` are exact-match filters.",
         "operationId": "countAllActivities",
         "parameters": [
           {
             "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
             "in": "query",
-            "name": "filterCreatedAtFrom",
+            "name": "createdAtFrom",
             "required": false,
             "schema": {
               "anyOf": [
@@ -647,13 +647,13 @@
               "examples": [
                 "2025-06-01T00:00:00Z"
               ],
-              "title": "Filtercreatedatfrom"
+              "title": "Createdatfrom"
             }
           },
           {
             "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
             "in": "query",
-            "name": "filterCreatedAtTo",
+            "name": "createdAtTo",
             "required": false,
             "schema": {
               "anyOf": [
@@ -669,13 +669,13 @@
               "examples": [
                 "2025-06-30T23:59:59Z"
               ],
-              "title": "Filtercreatedatto"
+              "title": "Createdatto"
             }
           },
           {
             "description": "Filter by platform functional ID",
             "in": "query",
-            "name": "filterPlatformId",
+            "name": "platformId",
             "required": false,
             "schema": {
               "anyOf": [
@@ -693,13 +693,13 @@
               "examples": [
                 "sdep-str01"
               ],
-              "title": "Filterplatformid"
+              "title": "Platformid"
             }
           },
           {
             "description": "Filter by area functional ID",
             "in": "query",
-            "name": "filterAreaId",
+            "name": "areaId",
             "required": false,
             "schema": {
               "anyOf": [
@@ -717,13 +717,13 @@
               "examples": [
                 "959a7439-7cad-4009-96ec-353b44723db9"
               ],
-              "title": "Filterareaid"
+              "title": "Areaid"
             }
           },
           {
             "description": "Filter by competent authority functional ID",
             "in": "query",
-            "name": "filterCompetentAuthorityId",
+            "name": "competentAuthorityId",
             "required": false,
             "schema": {
               "anyOf": [
@@ -741,7 +741,7 @@
               "examples": [
                 "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
               ],
-              "title": "Filtercompetentauthorityid"
+              "title": "Competentauthorityid"
             }
           }
         ],

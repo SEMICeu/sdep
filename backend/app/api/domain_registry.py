@@ -139,8 +139,8 @@ CA_V2 = ApiDomain(
     scope="country-specific",
     supersedes_path="/api/ca/v1",
     changes=(
-        "adds four optional activity filters (`filterCreatedAtFrom`, `filterCreatedAtTo`, "
-        "`filterPlatformId`, `filterAreaId`) on the activity list and count endpoints; "
+        "adds four optional activity filters (`createdAtFrom`, `createdAtTo`, "
+        "`platformId`, `areaId`) on the activity list and count endpoints; "
         "no other changes."
     ),
     diff_url=VERSION_DIFF_URL,

@@ -381,7 +381,7 @@ def _activities(parameters: list[dict[str, Any]] | None = None) -> dict[str, Any
 
 
 OPTIONAL_FILTER = {
-    "name": "filterAreaId",
+    "name": "areaId",
     "in": "query",
     "required": False,
     "schema": {"anyOf": [{"type": "string"}, {"type": "null"}]},
@@ -401,7 +401,7 @@ class TestDiffOperation:
         new = _activities([OPTIONAL_FILTER])["/activities"]["get"]
 
         assert _diff_operation(old, new) == [
-            "Added optional query parameter `filterAreaId` (string)"
+            "Added optional query parameter `areaId` (string)"
         ]
 
     def test_removed_parameter_is_reported(self) -> None:
@@ -409,14 +409,14 @@ class TestDiffOperation:
         new = _activities()["/activities"]["get"]
 
         assert _diff_operation(old, new) == [
-            "Removed optional query parameter `filterAreaId` (string)"
+            "Removed optional query parameter `areaId` (string)"
         ]
 
     def test_parameter_becoming_required_is_reported(self) -> None:
         old = _activities([OPTIONAL_FILTER])["/activities"]["get"]
         new = _activities([{**OPTIONAL_FILTER, "required": True}])["/activities"]["get"]
 
-        assert _diff_operation(old, new) == ["Made parameter `filterAreaId` required"]
+        assert _diff_operation(old, new) == ["Made parameter `areaId` required"]
 
     def test_changed_response_is_reported(self) -> None:
         old = _activities()["/activities"]["get"]

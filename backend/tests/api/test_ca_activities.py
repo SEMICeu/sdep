@@ -310,10 +310,10 @@ class TestCAActivitiesAPI:
 
         query = (
             "/activities"
-            "?filterCreatedAtFrom=2026-05-21T00:00:00Z"
-            "&filterCreatedAtTo=2026-05-22T00:00:00Z"
-            "&filterPlatformId=str01"
-            "&filterAreaId=550e8400-e29b-41d4-a716-446655440011"
+            "?createdAtFrom=2026-05-21T00:00:00Z"
+            "&createdAtTo=2026-05-22T00:00:00Z"
+            "&platformId=str01"
+            "&areaId=550e8400-e29b-41d4-a716-446655440011"
         )
         async with AsyncClient(
             transport=ASGITransport(app=app_ca_v2), base_url="http://test"
@@ -336,12 +336,12 @@ class TestCAActivitiesAPI:
             ]
         }
 
-        assert "filterCompetentAuthorityId" not in parameters
+        assert "competentAuthorityId" not in parameters
 
     async def test_get_activities_v2_ignores_competent_authority_filter_param(
         self, async_session: AsyncSession, setup_overrides, test_data
     ):
-        """v2 silently drops the REP-only filterCompetentAuthorityId query param.
+        """v2 silently drops the REP-only competentAuthorityId query param.
 
         The authenticated CA is 0363; if the param were honored, filtering by
         0518 would intersect to an empty result. Ignoring it returns the full
@@ -351,7 +351,7 @@ class TestCAActivitiesAPI:
             transport=ASGITransport(app=app_ca_v2), base_url="http://test"
         ) as client:
             response = await client.get(
-                "/activities?filterCompetentAuthorityId=0518",
+                "/activities?competentAuthorityId=0518",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -372,16 +372,16 @@ class TestCAActivitiesAPI:
             ]
         }
 
-        assert "filterPlatformId" not in parameters
-        assert "filterAreaId" not in parameters
-        assert "filterCreatedAtFrom" not in parameters
-        assert "filterCreatedAtTo" not in parameters
+        assert "platformId" not in parameters
+        assert "areaId" not in parameters
+        assert "createdAtFrom" not in parameters
+        assert "createdAtTo" not in parameters
 
     @pytest.mark.parametrize(
         ("query_param", "value"),
         [
-            ("filterPlatformId", "invalid id"),
-            ("filterAreaId", "invalid/id"),
+            ("platformId", "invalid id"),
+            ("areaId", "invalid/id"),
         ],
     )
     async def test_get_activities_rejects_invalid_functional_id_filters(
@@ -654,11 +654,11 @@ class TestCAActivitiesAPI:
             transport=ASGITransport(app=app_ca_v2), base_url="http://test"
         ) as client:
             response = await client.get(
-                f"/activities/count?filterCreatedAtFrom=2000-01-01T00:00:00Z&filterPlatformId=str01&filterAreaId={area_id}",
+                f"/activities/count?createdAtFrom=2000-01-01T00:00:00Z&platformId=str01&areaId={area_id}",
                 headers={"Authorization": "Bearer test_token"},
             )
             empty_response = await client.get(
-                f"/activities/count?filterCreatedAtTo=2000-01-01T00:00:00Z&filterPlatformId=str01&filterAreaId={area_id}",
+                f"/activities/count?createdAtTo=2000-01-01T00:00:00Z&platformId=str01&areaId={area_id}",
                 headers={"Authorization": "Bearer test_token"},
             )
 
@@ -670,10 +670,10 @@ class TestCAActivitiesAPI:
     @pytest.mark.parametrize(
         ("query_param", "value"),
         [
-            ("filterCreatedAtFrom", "2026-05-21T00:00:00"),
-            ("filterCreatedAtFrom", "2026-05-21T00:00:00%2B02:00"),
-            ("filterCreatedAtTo", "2026-05-21T00:00:00"),
-            ("filterCreatedAtTo", "2026-05-21T00:00:00%2B02:00"),
+            ("createdAtFrom", "2026-05-21T00:00:00"),
+            ("createdAtFrom", "2026-05-21T00:00:00%2B02:00"),
+            ("createdAtTo", "2026-05-21T00:00:00"),
+            ("createdAtTo", "2026-05-21T00:00:00%2B02:00"),
         ],
     )
     async def test_count_activities_rejects_non_utc_created_at_filters(
@@ -698,8 +698,8 @@ class TestCAActivitiesAPI:
     @pytest.mark.parametrize(
         ("query_param", "value"),
         [
-            ("filterPlatformId", "invalid id"),
-            ("filterAreaId", "invalid/id"),
+            ("platformId", "invalid id"),
+            ("areaId", "invalid/id"),
         ],
     )
     async def test_count_activities_rejects_invalid_functional_id_filters(

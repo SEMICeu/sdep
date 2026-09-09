@@ -264,6 +264,7 @@ sdep-app/
 │   ├── MIGRATION_ADDRESS_INSPIRE.md            # Address field migration guide (INSPIRE/STR-AP)
 │   ├── PERFORMANCE_TESTS.md                    # Performance test documentation
 │   ├── SECURITY.md                             # Security documentation
+│   ├── STR Regulation QA rev.pdf               # Q&A on STR Regulation random checks (Article 7)
 │   ├── WOW.md                                  # Ways of working
 │   ├── sdep_openapi_auth_v1.pdf                # OpenAPI auth v1 PDF export
 │   ├── sdep_openapi_ca_v1.pdf                  # OpenAPI CA v1 PDF export
@@ -423,7 +424,7 @@ GET /api/ca/v2/activities (bearer token, optional filter query params)
   │
   ├── API Layer (activities_v2.py)
   │   ├── verify_bearer_token() → auth checks (roles, claims)
-  │   ├── activity_filters() → parse filterCreatedAtFrom/To, filterPlatformId, filterAreaId
+  │   ├── activity_filters() → parse createdAtFrom/To, platformId, areaId
   │   │     └── invalid functional ID format → 400
   │   └── get_async_db_read_only → read-only session
   │

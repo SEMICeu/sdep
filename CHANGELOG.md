@@ -2,11 +2,17 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+# 1.5.0
+
+- Removed the redundant filter prefix in the CA v2 and REP v1 (impacts the beta contract for both, no impact on STR v1)
+- Test CA v1 and v2 (beta) instead of only v1
+- Fine-tuned the functional design proposal for [listing regulation](./docs/LISTING.md) aka. random checks
+
 # 1.4.3
 
 - Split EU-harmonized and country-specific on the `/apis/docs` (main) page
-- Fine-tuned the functional design proposal for [listing regulation](./docs/LISTING.md) aka. random checks
 - Hardened the local keycloak startup for development purposes
+- Fine-tuned the functional design proposal for [listing regulation](./docs/LISTING.md) aka. random checks
 
 # 1.4.2
 

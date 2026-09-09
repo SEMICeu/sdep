@@ -59,7 +59,7 @@ class TestServedDescriptions:
             "Status: beta. Changes from CA v1: adds four optional activity filters"
             in description
         )
-        assert "`filterCreatedAtFrom`" in description
+        assert "`createdAtFrom`" in description
         assert description.endswith("no other changes.")
 
 

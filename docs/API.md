@@ -122,7 +122,7 @@ The area endpoints are mounted unchanged into v2, so every `/api/ca/v1/areas...`
 
 **v2 - adds optional query filters**
 
-- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId; filters use AND semantics and are scoped to the authenticated CA; createdAt filters must be UTC)
+- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit; filters: createdAtFrom, createdAtTo, platformId, areaId; filters use AND semantics and are scoped to the authenticated CA; createdAt filters must be UTC)
 - `GET /api/ca/v2/activities/count` - Count activities with optional filters (same filter set)
 
 ---
@@ -155,7 +155,7 @@ The area endpoints are mounted unchanged into v2, so every `/api/ca/v1/areas...`
 
 Read-only endpoints for the national statistics office (no write endpoints registered; POST/PUT/PATCH/DELETE return 405):
 
-- `GET /api/rep/v1/activities` - Query rental activities across all competent authorities and platforms (pagination: offset, limit - limit defaults to 1000, the maximum; filters: filterCreatedAtFrom, filterCreatedAtTo, filterPlatformId, filterAreaId, filterCompetentAuthorityId - AND semantics; createdAt filters must be UTC; invalid functional IDs or non-UTC datetimes → 400)
+- `GET /api/rep/v1/activities` - Query rental activities across all competent authorities and platforms (pagination: offset, limit - limit defaults to 1000, the maximum; filters: createdAtFrom, createdAtTo, platformId, areaId, competentAuthorityId - AND semantics; createdAt filters must be UTC; invalid functional IDs or non-UTC datetimes → 400)
 - `GET /api/rep/v1/activities/count` - Count activities with optional filters (same filter set)
 
 ---
@@ -314,14 +314,14 @@ API PDF export for specific API versions:
 
 `GET /api/ca/v2/activities` and `GET /api/ca/v2/activities/count` accept optional query parameters to narrow results within the authenticated CA's scope:
 
-| Parameter             | Type         | Description                                          |
-| --------------------- | ------------ | ---------------------------------------------------- |
-| `filterCreatedAtFrom` | datetime     | Inclusive lower bound on `createdAt` (ISO 8601, UTC) |
-| `filterCreatedAtTo`   | datetime     | Inclusive upper bound on `createdAt` (ISO 8601, UTC) |
-| `filterPlatformId`    | FunctionalId | Exact-match filter on `platformId`                   |
-| `filterAreaId`        | FunctionalId | Exact-match filter on `areaId`                       |
+| Parameter       | Type         | Description                                          |
+| --------------- | ------------ | ---------------------------------------------------- |
+| `createdAtFrom` | datetime     | Inclusive lower bound on `createdAt` (ISO 8601, UTC) |
+| `createdAtTo`   | datetime     | Inclusive upper bound on `createdAt` (ISO 8601, UTC) |
+| `platformId`    | FunctionalId | Exact-match filter on `platformId`                   |
+| `areaId`        | FunctionalId | Exact-match filter on `areaId`                       |
 
-All provided filters are combined with AND semantics. Omitting a filter means no constraint on that dimension. The `filterCreatedAtFrom` and `filterCreatedAtTo` values must be expressed in UTC (offset `Z` or `+00:00`); naive datetimes or other offsets return HTTP 400, following the API convention for invalid GET query parameters. An invalid `FunctionalId` format also returns HTTP 400.
+All provided filters are combined with AND semantics. Omitting a filter means no constraint on that dimension. The `createdAtFrom` and `createdAtTo` values must be expressed in UTC (offset `Z` or `+00:00`); naive datetimes or other offsets return HTTP 400, following the API convention for invalid GET query parameters. An invalid `FunctionalId` format also returns HTTP 400.
 
 If OR semantics are required, clients should implement them client-side by calling this endpoint multiple times and combining the results.
 
@@ -331,15 +331,15 @@ If OR semantics are required, clients should implement them client-side by calli
 
 `GET /api/rep/v1/activities` and `GET /api/rep/v1/activities/count` are read-only endpoints for reporting offices, such as a statistics office (in SDEP-NL, this is the Centraal Bureau voor de Statistiek). They return all current activities across all competent authorities and platforms, and accept the same optional query parameters as CA v2 plus one extra:
 
-| Parameter                    | Type         | Description                                          |
-| ---------------------------- | ------------ | ---------------------------------------------------- |
-| `filterCreatedAtFrom`        | datetime     | Inclusive lower bound on `createdAt` (ISO 8601, UTC) |
-| `filterCreatedAtTo`          | datetime     | Inclusive upper bound on `createdAt` (ISO 8601, UTC) |
-| `filterPlatformId`           | FunctionalId | Exact-match filter on `platformId`                   |
-| `filterAreaId`               | FunctionalId | Exact-match filter on `areaId`                       |
-| `filterCompetentAuthorityId` | FunctionalId | Exact-match filter on `competentAuthorityId`         |
+| Parameter              | Type         | Description                                          |
+| ---------------------- | ------------ | ---------------------------------------------------- |
+| `createdAtFrom`        | datetime     | Inclusive lower bound on `createdAt` (ISO 8601, UTC) |
+| `createdAtTo`          | datetime     | Inclusive upper bound on `createdAt` (ISO 8601, UTC) |
+| `platformId`           | FunctionalId | Exact-match filter on `platformId`                   |
+| `areaId`               | FunctionalId | Exact-match filter on `areaId`                       |
+| `competentAuthorityId` | FunctionalId | Exact-match filter on `competentAuthorityId`         |
 
-All provided filters are combined with AND semantics. The `filterCreatedAtFrom` and `filterCreatedAtTo` values must be expressed in UTC (offset `Z` or `+00:00`); naive datetimes or other offsets return HTTP 400, following the API convention for invalid GET query parameters. An invalid `FunctionalId` format also returns HTTP 400. The REP API requires the `sdep_rep` and `sdep_read` roles and registers no write endpoints: POST, PUT, PATCH, and DELETE return HTTP 405.
+All provided filters are combined with AND semantics. The `createdAtFrom` and `createdAtTo` values must be expressed in UTC (offset `Z` or `+00:00`); naive datetimes or other offsets return HTTP 400, following the API convention for invalid GET query parameters. An invalid `FunctionalId` format also returns HTTP 400. The REP API requires the `sdep_rep` and `sdep_read` roles and registers no write endpoints: POST, PUT, PATCH, and DELETE return HTTP 405.
 
 `GET /api/rep/v1/activities` returns at most 1000 records per request: the `limit` parameter defaults to 1000 (also the maximum). Use `offset` together with `GET /api/rep/v1/activities/count` to page through larger result sets.
 
