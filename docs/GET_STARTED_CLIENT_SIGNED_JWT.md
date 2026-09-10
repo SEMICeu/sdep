@@ -11,6 +11,7 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
 - [Step 1: Configure Keypair (as admin)](#step-1-configure-keypair-as-admin)
   - [1a. Local](#1a-local)
   - [1b. PRE, PRD](#1b-pre-prd)
+  - [3a. PRE,PRD](#3a-preprd)
 - [Step 2: Configure Environment (as admin)](#step-2-configure-environment-as-admin)
   - [2a. Local](#2a-local)
   - [2b. PRE, PRD](#2b-pre-prd)
@@ -24,9 +25,12 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
   - [6a. CA examples](#6a-ca-examples)
   - [6b. STR examples](#6b-str-examples)
   - [6c. REP examples](#6c-rep-examples)
-- [Step 7: Rotate Keys (admin)](#step-7-rotate-keys-admin)
+- [Step 7: Authenticate (in Swagger)](#step-7-authenticate-in-swagger)
   - [7a. Local](#7a-local)
-  - [7b. PRE, PRD](#7b-pre-prd)
+  - [7b. PRD](#7b-prd)
+- [Step 8: Rotate Keys (admin)](#step-8-rotate-keys-admin)
+  - [8a. Local](#8a-local)
+  - [8b. PRE, PRD](#8b-pre-prd)
 
 ## Introduction
 
@@ -192,7 +196,7 @@ Send the complete content of ` your.public.pem` to team SDEP, including the PEM 
 
 ---
 
-Receive **token request values** from team SDEP (these will be used in step 2b):
+Receive credentials (**token request values**) from team SDEP (these will be used in step 2b):
 
 | Token request value          | Purpose                                         | Shorthand in JWT |
 | ---------------------------- | ----------------------------------------------- | ---------------- |
@@ -203,6 +207,8 @@ Receive **token request values** from team SDEP (these will be used in step 2b):
 | `CLIENT_SIGNED_JWT_AUDIENCE` | Client-signed JWT payload: audience **[1]**     | `aud`            |
 
 [1] This identifies the intended recipient of the JWT (the authorization server, e.g. Keycloak)
+
+### 3a. PRE,PRD
 
 ## Step 2: Configure Environment (as admin)
 
@@ -222,7 +228,7 @@ Restart the backend, to effectuate the setting:
 make backend-restart
 ```
 
-**Result**: client-signed JWT stays exclusively enabled, and becomes visible in the **Swagger UI** Authorize dialog.
+**Result**: client-signed JWT stays exclusively enabled, and becomes visible in the **Swagger UI** Authorize dialog (see later on in [step 7](#7a-local)).
 
 ---
 
@@ -250,13 +256,15 @@ export KID="$CLIENT_ID"
 
 ### 2b. PRE, PRD
 
-Create export based on the private key file you created earlier (step 1b):
+Make sure operating system variable are set, for example as follows.
+
+Create an export based on the private key file you created earlier in [step 1b](#1a-local):
 
 ```bash
 export KEY_FILE=" your.private.pem";  echo KEY_FILE $KEY_FILE
 ```
 
-Create exports based on the values you received from team SDEP (step 1b):
+Create exports based on the values you received from team SDEP in [step 1b](#1a-local):
 
 ```bash
 export SDEP_BASE_URL="..."; echo SDEP_BASE_URL $SDEP_BASE_URL
@@ -539,11 +547,27 @@ Remarks:
 - `limit` defaults to 1000, which is also the maximum - page with `offset` and `/activities/count`
 - Optional filters (AND semantics): `createdAtFrom`, `createdAtTo`, `platformId`, `areaId`, `competentAuthorityId`
 
-## Step 7: Rotate Keys (admin)
+## Step 7: Authenticate (in Swagger)
+
+The programmatically acquired client-signed JWT ([step 3](#step-3-create-a-client-signed-jwt-as-machine)) can also be used to authenticate in the Swagger UI (only for local or PRD).
+
+### 7a. Local
+
+Make sure your environment is prepared for client-signed JWT in [step 2](#2a-local).
+
+In Swagger, select Authorize and paste the bearer token.
+
+### 7b. PRD
+
+In Swagger, select Authorize and paste the bearer token.
+
+...
+
+## Step 8: Rotate Keys (admin)
 
 ---
 
-### 7a. Local
+### 8a. Local
 
 Delete the generated private key and rerun local setup:
 
@@ -555,7 +579,7 @@ make keycloak-configure
 
 ---
 
-### 7b. PRE, PRD
+### 8b. PRE, PRD
 
 Rotate a key by coordinating the public-key update with SDEP:
 
