@@ -31,9 +31,9 @@ The SDEP repository contains:
 
 The reference implementation is deployed in the **SDEP-NL Production (PRD)** environment, enabling integration partners to exchange data with the Netherlands.
 
-The NL-specific API specification and reference implementation can also serve as a blueprint for other national deployments.
-
 https://sdep.gov.nl/api/docs
+
+The NL-specific API specification and reference implementation can also serve as a blueprint for other national deployments.
 
 ---
 
@@ -93,9 +93,7 @@ Also include in the email:
 
 ### Receive credentials
 
-From team SDEP-NL, you will receive:
-
-- **Token request values**: to support **client-signed JWT**
+From team SDEP-NL, you will receive connection info for only the **client-signed JWT** authentication method.
 
 See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for applying these to the SDEP API.
 

@@ -303,6 +303,8 @@ export KEY_FILE="tmp/$CLIENT_ID.private.pem"
 export KID="$CLIENT_ID"
 ```
 
+---
+
 ### 4b. PRE
 
 You will receive public key-id and connection details from team SDEP.
@@ -675,6 +677,8 @@ Remarks:
 - Optional filters (AND semantics): `createdAtFrom`, `createdAtTo`, `platformId`, `areaId`, `competentAuthorityId`
 
 ## Step 9: Authenticate (as admin, in Swagger)
+
+---
 
 ### 9a. Local
 

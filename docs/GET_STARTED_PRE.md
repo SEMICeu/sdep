@@ -34,11 +34,11 @@ The SDEP repository contains:
 
 The reference implementation is deployed in the **SDEP-NL Pre-Production (PRE)** environment, enabling integration partners to perform end-to-end testing before moving to production, or before moving to their own national implementation.
 
-In PRE, only **anonymized data** should be used; a daily cleanup removes any residual test data.
+https://pre-sdep.minvro.nl/api/docs
 
 The NL-specific API specification and reference implementation can also serve as a blueprint for other national deployments.
 
-https://pre-sdep.minvro.nl/api/docs
+In PRE, only **anonymized data** should be used; a daily cleanup removes any residual test data.
 
 ---
 
@@ -107,7 +107,7 @@ Also include in the email:
 
 ### Receive credentials
 
-From team SDEP-NL, you will receive:
+From team SDEP-NL, you will receive connection info for both authenticaton methods:
 
 - **Client ID & secret**: to support **client-secret authentication**
 - **Token request values**: to support **client-signed JWT**
