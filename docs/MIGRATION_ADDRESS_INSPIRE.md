@@ -21,8 +21,6 @@ Some maximum length constraints have been widened to accommodate EU-wide address
 
 ## JSON Payload: Before and After
 
----
-
 ### Before
 
 ```json

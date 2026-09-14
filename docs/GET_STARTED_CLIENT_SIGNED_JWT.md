@@ -93,8 +93,6 @@ The following actions are performed by **team SDEP** (e.g. SDEP-NL), and are fur
 
 ## Step 1: Configure Environment (as admin)
 
----
-
 ### 1a. Local
 
 In your `.env.extra`, set client-secret authentication to **false**:
@@ -128,8 +126,6 @@ N/A.
 N/A.
 
 ## Step 2: Configure Keypair (as admin)
-
----
 
 ### 2a. Local
 
@@ -248,8 +244,6 @@ diff <(openssl pkey -in your.private.pem -pubout) your.public.pem \
 Same as PRE.
 
 ## Step 3: Send Keypair (as admin)
-
----
 
 ### 3a. Local
 
@@ -400,8 +394,6 @@ Same as Local.
 
 ## Step 6: Authenticate (as machine)
 
----
-
 ### 6a. Local
 
 Use the client-signed JWT within 60 seconds, and only once, to invoke the `/token` endpoint:
@@ -444,8 +436,6 @@ Same as Local.
 
 ## Step 7: Ping (as machine)
 
----
-
 ### 7a. Local
 
 Verify the token with the role-agnostic ping endpoint:
@@ -473,8 +463,6 @@ Same as Local.
 Same as Local.
 
 ## Step 8: Invoke the SDEP API (as machine)
-
----
 
 ### 8a. Local
 
@@ -678,8 +666,6 @@ Remarks:
 
 ## Step 9: Authenticate (as admin, in Swagger)
 
----
-
 ### 9a. Local
 
 Make sure your environment is prepared for client-signed JWT (see [step 1](#1a-local)).
@@ -699,8 +685,6 @@ N/A - in PRE, Swagger authorization is always performed using client ID & secret
 In Swagger UI, select **Authorize** and paste the Bearer token you programmatically obtained in [step 5](#step-5-create-a-client-signed-jwt-as-machine).
 
 ## Step 10: Rotate Keys (admin)
-
----
 
 ### 10a. Local
 

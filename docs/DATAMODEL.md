@@ -223,8 +223,6 @@ Standard attribute pattern:
 
 ## Composites
 
----
-
 ### Address
 
 **Purpose:** Structured address information for rental activities (INSPIRE/STR-AP format)

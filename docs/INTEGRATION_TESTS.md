@@ -32,8 +32,6 @@ See [../Makefile](../Makefile).
 
 ## Configuration
 
----
-
 ### Credentials
 
 Default test clients are configured in Keycloak. The current integration test
@@ -97,8 +95,6 @@ Note that two of the four deletes match on the functional id (`area_id` / `activ
 `clean-testrun.sql` never removes `audit_log` rows. An empty entity count alongside a populated audit log is the normal result of a clean-up, not a defect.
 
 ## Coverage
-
----
 
 ### `test-smoke`
 
@@ -510,8 +506,6 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 ---
 
 ## Helper Scripts
-
----
 
 ### `test_auth_client_bootstrap.py`
 

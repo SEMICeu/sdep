@@ -58,8 +58,6 @@ https://sdep.gov.nl/api/docs.
 
 ## Technology Stack
 
----
-
 ### Backend
 
 - **Python:** 3.13+
@@ -441,8 +439,6 @@ GET /api/ca/v2/activities (bearer token, optional filter query params)
 ```
 
 ## Data
-
----
 
 ### ID Management
 

@@ -87,8 +87,6 @@ API-endpoints are exposed in the following domains:
 
 ## Surface
 
----
-
 ### Authentication
 
 - `POST /api/auth/v1/token` - OAuth 2.0 token endpoint
@@ -179,8 +177,6 @@ under Common, linking the ping docs page and the health endpoint directly.
 ---
 
 ## Versioning
-
----
 
 ### Contract
 
@@ -308,8 +304,6 @@ API PDF export for specific API versions:
 
 ## Filtering
 
----
-
 ### CA Activity (v2)
 
 `GET /api/ca/v2/activities` and `GET /api/ca/v2/activities/count` accept optional query parameters to narrow results within the authenticated CA's scope:
@@ -344,8 +338,6 @@ All provided filters are combined with AND semantics. The `createdAtFrom` and `c
 `GET /api/rep/v1/activities` returns at most 1000 records per request: the `limit` parameter defaults to 1000 (also the maximum). Use `offset` together with `GET /api/rep/v1/activities/count` to page through larger result sets.
 
 ## HTTP Status Codes
-
----
 
 ### Success
 
@@ -396,8 +388,6 @@ This is intentional and behaves identically across the CA, STR, and REP APIs.
 ---
 
 ## OpenAPI vs Swagger UI
-
----
 
 ### OpenAPI
 

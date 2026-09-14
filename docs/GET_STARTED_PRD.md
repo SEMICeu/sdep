@@ -12,12 +12,10 @@ Welcome to the **SDEP-NL Production (PRD) environment**. As an **integration par
 - [Get Access](#get-access)
   - [Generate keypair](#generate-keypair)
   - [Contact team SDEP-NL](#contact-team-sdep-nl)
-  - [Receive credentials](#receive-credentials)
+  - [Receive Connection Info](#receive-connection-info)
 - [Ask questions](#ask-questions)
 
 ## Introduction
-
----
 
 ### SDEP
 
@@ -91,7 +89,7 @@ Also include in the email:
 
 ---
 
-### Receive credentials
+### Receive Connection Info
 
 From team SDEP-NL, you will receive connection info for only the **client-signed JWT** authentication method.
 

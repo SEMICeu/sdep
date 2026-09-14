@@ -172,8 +172,6 @@ Industry-standard benchmarks for API response times:
 
 ## Database Tuning
 
----
-
 ### Connection Pool Chain
 
 Requests flow through two connection pools before reaching PostgreSQL:

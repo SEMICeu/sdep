@@ -28,8 +28,6 @@ make
 
 ## Testing Strategy
 
----
-
 ### Unit Tests (`backend/tests/`)
 
 - pytest with parallel execution (`-n auto`)
