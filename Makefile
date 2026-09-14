@@ -295,7 +295,8 @@ dbgate-status: ## Show dbgate status and database connection details
 
 keycloak-up: postgres-up ## Start keycloak + generate machine clients + configure
 	@echo "🚀 Starting Keycloak..."
-	$(DOCKER_COMPOSE) up -d keycloak
+	# --build: rebuild when keycloak/Dockerfile changed; a cache hit otherwise (<1s)
+	$(DOCKER_COMPOSE) up -d --build keycloak
 	@echo "✅ Keycloak started!"
 	@echo "🔄 Configuring Keycloak..."
 	@$(MAKE) --no-print-directory keycloak-configure

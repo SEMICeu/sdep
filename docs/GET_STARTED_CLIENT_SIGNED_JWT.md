@@ -7,43 +7,63 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
 
 <h2>Table of Contents</h2>
 
-- [Introduction](#introduction)
-- [Step 1: Configure Keypair (as admin)](#step-1-configure-keypair-as-admin)
+- [Overview](#overview)
+- [Step 1: Configure Environment (as admin)](#step-1-configure-environment-as-admin)
   - [1a. Local](#1a-local)
-  - [1b. PRE, PRD](#1b-pre-prd)
-  - [3a. PRE,PRD](#3a-preprd)
-- [Step 2: Configure Environment (as admin)](#step-2-configure-environment-as-admin)
+  - [1b. PRE](#1b-pre)
+  - [1c. PRD](#1c-prd)
+- [Step 2: Configure Keypair (as admin)](#step-2-configure-keypair-as-admin)
   - [2a. Local](#2a-local)
-  - [2b. PRE, PRD](#2b-pre-prd)
-- [Step 3: Create a Client-Signed JWT (as machine)](#step-3-create-a-client-signed-jwt-as-machine)
-  - [3a. Local PRE, PRD](#3a-local-pre-prd)
-- [Step 4: Authenticate (as machine)](#step-4-authenticate-as-machine)
-  - [4a. Local PRE, PRD](#4a-local-pre-prd)
-- [Step 5: Ping (as machine)](#step-5-ping-as-machine)
-  - [5a. Local PRE, PRD](#5a-local-pre-prd)
-- [Step 6: Invoke the SDEP API (as machine)](#step-6-invoke-the-sdep-api-as-machine)
-  - [6a. CA examples](#6a-ca-examples)
-  - [6b. STR examples](#6b-str-examples)
-  - [6c. REP examples](#6c-rep-examples)
-- [Step 7: Authenticate (in Swagger)](#step-7-authenticate-in-swagger)
+  - [2b. PRE](#2b-pre)
+  - [2c. PRD](#2c-prd)
+- [Step 3: Send Keypair (as admin)](#step-3-send-keypair-as-admin)
+  - [3a. Local](#3a-local)
+  - [3b. PRE](#3b-pre)
+  - [3c. PRD](#3c-prd)
+- [Step 4: Receive Connection Info (as admin)](#step-4-receive-connection-info-as-admin)
+  - [4a. Local](#4a-local)
+  - [4b. PRE](#4b-pre)
+  - [4c. PRD](#4c-prd)
+- [Step 5: Create a Client-Signed JWT (as machine)](#step-5-create-a-client-signed-jwt-as-machine)
+  - [5a. Local](#5a-local)
+  - [5b. PRE](#5b-pre)
+  - [5c. PRD](#5c-prd)
+- [Step 6: Authenticate (as machine)](#step-6-authenticate-as-machine)
+  - [6a. Local](#6a-local)
+  - [6b. PRE](#6b-pre)
+  - [6c. PRD](#6c-prd)
+- [Step 7: Ping (as machine)](#step-7-ping-as-machine)
   - [7a. Local](#7a-local)
-  - [7b. PRD](#7b-prd)
-- [Step 8: Rotate Keys (admin)](#step-8-rotate-keys-admin)
+  - [7b. PRE](#7b-pre)
+  - [7c. PRD](#7c-prd)
+- [Step 8: Invoke the SDEP API (as machine)](#step-8-invoke-the-sdep-api-as-machine)
   - [8a. Local](#8a-local)
-  - [8b. PRE, PRD](#8b-pre-prd)
+  - [8b. PRE](#8b-pre)
+  - [8c. PRD](#8c-prd)
+  - [8d. Examples (CA)](#8d-examples-ca)
+  - [8e. Examples (STR)](#8e-examples-str)
+  - [8f. Examples (REP)](#8f-examples-rep)
+- [Step 9: Authenticate (as admin, in Swagger)](#step-9-authenticate-as-admin-in-swagger)
+  - [9a. Local](#9a-local)
+  - [9b. PRE](#9b-pre)
+  - [9c. PRD](#9c-prd)
+- [Step 10: Rotate Keys (admin)](#step-10-rotate-keys-admin)
+  - [10a. Local](#10a-local)
+  - [10b. PRE](#10b-pre)
+  - [10c. PRD](#10c-prd)
 
-## Introduction
+## Overview
 
 SDEP supports **OAuth 2.0** with the **Client Credentials Grant**.
 
-The Client Credentials Grant itself supports **two authentication types**:
+The Client Credentials Grant itself supports **two client authentication methods**:
 
-- **Client ID & secret**
-- **Client-signed JWT**
+- **Client ID & secret**: the client sends a shared secret (to SDEP)
+- **Client-signed JWT**: the client signs a JWT with its private key (and send it to SDEP), after registering its public key once (at SDEP, `private_key_jwt`, RFC 7523)
 
-For SDEP, both authentication types operate on the same `/token` endpoint.
+For SDEP, both authentication methods operate on the same `/token` endpoint.
 
-- See [Authentication and Authorization](./SECURITY.md#authentication-and-authorization) for more info on both authentication types.
+- See [Authentication and Authorization](./SECURITY.md#authentication-and-authorization) for more info on both authentication methods.
 - This document focuses on **client-signed JWT**.
 
 ---
@@ -52,29 +72,66 @@ Client-signed JWT authentication uses a private/public key pair to get authentic
 
 The following actions are performed by the **client**, and are further explained in the sections below:
 
-- Create a **private/public key pair**
-- Keep the **private key** for yourself
-- Submit the **public key** to team SDEP
-- Receive **token request values** from team SDEP
-- Program:
-  - Create a **signed JWT** from the private key and the token request values
+- As admin:
+  - Create a **private/public key pair**
+  - Keep the **private key** for yourself
+  - Submit the **public key** to team SDEP
+  - Receive **connection info** (such as the public key ID) from team SDEP
+- As machine (program):
+  - Create a **signed JWT** from the private key and the connection info
   - **Authenticate** at the SDEP `/token` endpoint, using the signed JWT
   - Receive a `Bearer` token from the `/token` endpoint
-  - Invoke the functional (authenticated) SDEP API endpoints, using the `Bearer` token in the HTTP `Authorization` header
+  - Invoke the functional (authenticated) SDEP API endpoints, using the received `Bearer` token in the HTTP `Authorization` header
   - **Re-authenticate** before the `Bearer` token expires (5 minutes), or on the first `401`
-- Rotate the private/public key pair according to your own security guidelines
+- Rotate the private/public key pair according to own security guidelines
 
 The following actions are performed by **team SDEP** (e.g. SDEP-NL), and are further explained in the sections below:
 
 - Receive a request for SDEP access from the client (incl. public key)
-- Create a Keycloak machine client (with required roles) containing the public key (identified by `kid` = key-id)
-- Hand out the token request values (incl. `kid`) back to the client
+- Create a Keycloak machine client (with required roles), containing the public key (identified by public key ID = `kid`)
+- Hand out the connection info (incl. `kid`) back to the client
 
-## Step 1: Configure Keypair (as admin)
+## Step 1: Configure Environment (as admin)
 
 ---
 
 ### 1a. Local
+
+In your `.env.extra`, set client-secret authentication to **false**:
+
+```bash
+CLIENT_SECRET_AUTH_ENABLED=false
+```
+
+Restart the backend for the change to take effect:
+
+```bash
+make backend-restart
+```
+
+Result:
+
+- Only client-signed JWT authentication remains enabled
+- In Swagger UI, authorization is performed exclusively using a Bearer token
+- See [step 9](#9a-local) for follow-up
+
+---
+
+### 1b. PRE
+
+N/A.
+
+---
+
+### 1c. PRD
+
+N/A.
+
+## Step 2: Configure Keypair (as admin)
+
+---
+
+### 2a. Local
 
 In your local development environment, configuring a keypair is automated by any of these `make` commands:
 
@@ -84,7 +141,7 @@ make up # Idempotent
         └── keycloak-generate-machine-clients
 ```
 
-These commands use `scripts/generate-keycloak-machine-clients.py`, which configures a client-signed JWT test client for each of the supported SDEP roles:
+These commands use `scripts/generate-keycloak-machine-clients.py`, which configures a **client-signed JWT test client** for each of the supported SDEP roles:
 
 ```
 ┌───────────────────┬─────────────────────────────────┐
@@ -98,7 +155,7 @@ These commands use `scripts/generate-keycloak-machine-clients.py`, which configu
 └───────────────────┴─────────────────────────────────┘
 ```
 
-The generated configuration is as follows.
+Generated configuration is as follows:
 
 ---
 
@@ -110,7 +167,7 @@ Config:
 - `./tmp/sdep-test-rep.jwt.private.pem`
 - `./tmp/sdep-test-ca.jwt.private.pem`
 
-This is used later on to authenticate at the local SDEP `/token` endpoint.
+These will be used to authenticate at the local SDEP `/token` endpoint.
 
 ---
 
@@ -122,7 +179,7 @@ Config:
 - `./tmp/sdep-test-rep.jwt.public.yaml`
 - `./tmp/sdep-test-str.jwt.public.yaml`
 
-This is used to extend the default `keycloak/machine-clients.yaml`:
+These are used to extend the default `keycloak/machine-clients.yaml`:
 
 ---
 
@@ -132,7 +189,7 @@ Config:
 
 - `tmp/machine-clients-extended.yaml`
 
-This extends the default `keycloak/machine-clients.yaml`, and is fed into keycloak.
+This is the extended `keycloak/machine-clients.yaml`, and is fed into Keycloak.
 
 ---
 
@@ -152,7 +209,7 @@ make keycloak-show-client-public-key CLIENT_ID=sdep-test-str.jwt # sdep-test-ca.
 
 ---
 
-### 1b. PRE, PRD
+### 2b. PRE
 
 As admin, on the client system, generate a keypair:
 
@@ -182,9 +239,27 @@ diff <(openssl pkey -in your.private.pem -pubout) your.public.pem \
   && echo "✅ pair matches" || echo "❌ pair does NOT match"
 ```
 
+> Always keep the private key exclusively in your possession.
+
 ---
 
-Send the complete content of ` your.public.pem` to team SDEP, including the PEM markers:
+### 2c. PRD
+
+Same as PRE.
+
+## Step 3: Send Keypair (as admin)
+
+---
+
+### 3a. Local
+
+N/A.
+
+---
+
+### 3b. PRE
+
+Send the complete content the ` your.public.pem` you created in [step 2b.](#2b-pre) to team SDEP, including the PEM markers:
 
 ```text
 -----BEGIN PUBLIC KEY-----
@@ -196,43 +271,21 @@ Send the complete content of ` your.public.pem` to team SDEP, including the PEM 
 
 ---
 
-Receive credentials (**token request values**) from team SDEP (these will be used in step 2b):
+### 3c. PRD
 
-| Token request value          | Purpose                                         | Shorthand in JWT |
-| ---------------------------- | ----------------------------------------------- | ---------------- |
-| `SDEP_BASE_URL`              | SDEP API base URL                               |                  |
-| `SDEP_TOKEN_URL`             | SDEP API token endpoint (to authenticate)       |                  |
-| `CLIENT_ID`                  | Client-signed JWT payload: issuer and subject   | `iss`, `sub`     |
-| `KID`                        | Client-signed JWT header: public key identifier | `kid`            |
-| `CLIENT_SIGNED_JWT_AUDIENCE` | Client-signed JWT payload: audience **[1]**     | `aud`            |
+Same as PRE.
 
-[1] This identifies the intended recipient of the JWT (the authorization server, e.g. Keycloak)
+## Step 4: Receive Connection Info (as admin)
 
-### 3a. PRE,PRD
-
-## Step 2: Configure Environment (as admin)
+Info comprises the public key ID to use (`kid`), as well as other connection details.
 
 ---
 
-### 2a. Local
+### 4a. Local
 
-In your `.env.extra`, set client-secret authentication to **false**:
+Public key ID and connection details are predefined.
 
-```bash
-CLIENT_SECRET_AUTH_ENABLED=false
-```
-
-Restart the backend, to effectuate the setting:
-
-```bash
-make backend-restart
-```
-
-**Result**: client-signed JWT stays exclusively enabled, and becomes visible in the **Swagger UI** Authorize dialog (see later on in [step 7](#7a-local)).
-
----
-
-To prepare for authentication by the client, create exports based on predefined values in `.env`:
+Create exports based on `.env`:
 
 ```bash
 set -a && source .env && set +a
@@ -242,9 +295,7 @@ export SDEP_TOKEN_URL="${SDEP_BASE_URL%/}/api/auth/v1/token"
 export CLIENT_SIGNED_JWT_AUDIENCE="${BACKEND_KC_BASE_URL%/}/realms/sdep/protocol/openid-connect/token"
 ```
 
----
-
-And create exports based on client-signed JWT test clients in `tmp/machine-clients-extended.yaml`:
+And create exports based on either client-signed JWT test client as confiured in [step 2a.](#2a-local):
 
 ```bash
 export CLIENT_ID=sdep-test-str.jwt # sdep-test-ca.jwt, sdep-test-rep.jwt
@@ -252,37 +303,65 @@ export KEY_FILE="tmp/$CLIENT_ID.private.pem"
 export KID="$CLIENT_ID"
 ```
 
+### 4b. PRE
+
+You will receive public key-id and connection details from team SDEP.
+
+Based on this, equip your client environment.
+
+For example as follows.
+
 ---
 
-### 2b. PRE, PRD
+**Private key**
 
-Make sure operating system variable are set, for example as follows.
-
-Create an export based on the private key file you created earlier in [step 1b](#1a-local):
+Create an export based on the private key file that you created in [step 2b](#2b-pre):
 
 ```bash
 export KEY_FILE=" your.private.pem";  echo KEY_FILE $KEY_FILE
 ```
 
-Create exports based on the values you received from team SDEP in [step 1b](#1a-local):
+---
+
+**Public key and connection**
+
+Create exports based on the values from team SDEP:
 
 ```bash
-export SDEP_BASE_URL="..."; echo SDEP_BASE_URL $SDEP_BASE_URL
-export SDEP_TOKEN_URL="..."; echo SDEP_TOKEN_URL $SDEP_TOKEN_URL
-export CLIENT_ID="..."; echo CLIENT_ID $CLIENT_ID
-export KID="..."; echo KID $KID
-export CLIENT_SIGNED_JWT_AUDIENCE="..."; echo CLIENT_SIGNED_JWT_AUDIENCE $CLIENT_SIGNED_JWT_AUDIENCE
+export SDEP_BASE_URL="as_received";               echo SDEP_BASE_URL $SDEP_BASE_URL
+export SDEP_TOKEN_URL"as_received";               echo SDEP_TOKEN_URL $SDEP_TOKEN_URL
+export CLIENT_ID="as_received";                   echo CLIENT_ID $CLIENT_ID
+export KID="as_received";                         echo KID $KID
+export CLIENT_SIGNED_JWT_AUDIENCE="as_received";  echo CLIENT_SIGNED_JWT_AUDIENCE $CLIENT_SIGNED_JWT_AUDIENCE
 ```
 
-## Step 3: Create a Client-Signed JWT (as machine)
+Explanation:
+
+| Value                        | Purpose                                         | Wiill appear in JWT as |
+| ---------------------------- | ----------------------------------------------- | ---------------------- |
+| `SDEP_BASE_URL`              | SDEP API base URL                               |                        |
+| `SDEP_TOKEN_URL`             | SDEP API token endpoint (to authenticate)       |                        |
+| `CLIENT_ID`                  | Client-signed JWT payload: issuer and subject   | `iss`, `sub`           |
+| `KID`                        | Client-signed JWT header: public key identifier | `kid`                  |
+| `CLIENT_SIGNED_JWT_AUDIENCE` | Client-signed JWT payload: audience **[1]**     | `aud`                  |
+
+[1] This identifies the intended recipient of the JWT (the authorization server, e.g. Keycloak)
 
 ---
 
-### 3a. Local PRE, PRD
+### 4c. PRD
+
+Same as PRE.
+
+## Step 5: Create a Client-Signed JWT (as machine)
 
 To prepare for authentication.
 
-For one-time usage (defined by the authorization serverm, repeat for each new authentication in step 4.) and only valid for 60 seconds (defined by the invoked `create-client-signed-jwt.py`).
+---
+
+### 5a. Local
+
+For one-time usage (defined by the authorization server, repeat for each new authentication in [step 6a](#6a-local)) and only valid for 60 seconds (defined by the invoked `create-client-signed-jwt.py`).
 
 Programmatically, by example:
 
@@ -305,11 +384,23 @@ Details:
 - SDEP maps `client_signed_jwt` to the authorization server's standard OAuth `private_key_jwt` request fields
 - The script sets the required claims (`iss`, `sub`, `aud`, `iat`, `exp`, `jti`) and the `RS256`/`kid` header
 
-## Step 4: Authenticate (as machine)
+---
+
+### 5b. PRE
+
+Same as Local.
 
 ---
 
-### 4a. Local PRE, PRD
+### 5c. PRD
+
+Same as Local.
+
+## Step 6: Authenticate (as machine)
+
+---
+
+### 6a. Local
 
 Use the client-signed JWT within 60 seconds, and only once, to invoke the `/token` endpoint:
 
@@ -337,11 +428,23 @@ Remarks:
 - The access token expires after **5 minutes**.
 - Automate this step when your client needs long-running access.
 
-## Step 5: Ping (as machine)
+---
+
+### 6b. PRE
+
+Same as Local.
 
 ---
 
-### 5a. Local PRE, PRD
+### 6c. PRD
+
+Same as Local.
+
+## Step 7: Ping (as machine)
+
+---
+
+### 7a. Local
 
 Verify the token with the role-agnostic ping endpoint:
 
@@ -355,15 +458,43 @@ A valid token returns `{"status": "OK"}`.
 
 Reuse the same `ACCESS_TOKEN` for as many calls as needed, until it expires after 5 minutes.
 
-## Step 6: Invoke the SDEP API (as machine)
+---
+
+### 7b. PRE
+
+Same as Local.
 
 ---
 
-### 6a. CA examples
+### 7c. PRD
 
-*Only for competent authorities.*
+Same as Local.
 
-Local, PRE, PRD:
+## Step 8: Invoke the SDEP API (as machine)
+
+---
+
+### 8a. Local
+
+See examples below, assume client environment is already set.
+
+---
+
+### 8b. PRE
+
+Same as Local.
+
+---
+
+### 8c. PRD
+
+Same as Local.
+
+---
+
+### 8d. Examples (CA)
+
+*Only when having the Competent Authority role (CA).*
 
 ```bash
 # Count the own areas
@@ -412,8 +543,6 @@ Remarks:
 
 `/api/ca/v2` serves the same area endpoints as v1, unchanged. Only the activity endpoints differ: they add four optional filters.
 
-Local, PRE, PRD:
-
 ```bash
 # Count the own activities created in June 2025
 curl -sS -G "$SDEP_BASE_URL/api/ca/v2/activities/count" \
@@ -449,9 +578,9 @@ Remarks:
 
 ---
 
-### 6b. STR examples
+### 8e. Examples (STR)
 
-Local, PRE, PRD:
+*Only when having the platform role (STR).*
 
 ```bash
 # Count the areas
@@ -486,11 +615,9 @@ Example response:
 
 ---
 
-### 6c. REP examples
+### 8f. Examples (REP)
 
-*Only for reporting and statistics offices.*
-
-Local, PRE, PRD:
+*Only when having "reporting and statistics offices" role (REP).*
 
 ```bash
 # Count all activities
@@ -547,27 +674,31 @@ Remarks:
 - `limit` defaults to 1000, which is also the maximum - page with `offset` and `/activities/count`
 - Optional filters (AND semantics): `createdAtFrom`, `createdAtTo`, `platformId`, `areaId`, `competentAuthorityId`
 
-## Step 7: Authenticate (in Swagger)
+## Step 9: Authenticate (as admin, in Swagger)
 
-The programmatically acquired client-signed JWT ([step 3](#step-3-create-a-client-signed-jwt-as-machine)) can also be used to authenticate in the Swagger UI (only for local or PRD).
+### 9a. Local
 
-### 7a. Local
+Make sure your environment is prepared for client-signed JWT (see [step 1](#1a-local)).
 
-Make sure your environment is prepared for client-signed JWT in [step 2](#2a-local).
-
-In Swagger, select Authorize and paste the bearer token.
-
-### 7b. PRD
-
-In Swagger, select Authorize and paste the bearer token.
-
-...
-
-## Step 8: Rotate Keys (admin)
+In Swagger UI, select **Authorize** and paste the Bearer token you programmatically obtained in [step 5](#step-5-create-a-client-signed-jwt-as-machine).
 
 ---
 
-### 8a. Local
+### 9b. PRE
+
+N/A - in PRE, Swagger authorization is always performed using client ID & secret.
+
+---
+
+### 9c. PRD
+
+In Swagger UI, select **Authorize** and paste the Bearer token you programmatically obtained in [step 5](#step-5-create-a-client-signed-jwt-as-machine).
+
+## Step 10: Rotate Keys (admin)
+
+---
+
+### 10a. Local
 
 Delete the generated private key and rerun local setup:
 
@@ -579,7 +710,7 @@ make keycloak-configure
 
 ---
 
-### 8b. PRE, PRD
+### 10b. PRE
 
 Rotate a key by coordinating the public-key update with SDEP:
 
@@ -588,3 +719,9 @@ Rotate a key by coordinating the public-key update with SDEP:
 3. Wait for SDEP to assign and confirm the new `kid`.
 4. Start signing new client-signed JWTs with the new private key and `kid`.
 5. Keep the old private key only until SDEP confirms it is no longer accepted.
+
+---
+
+### 10c. PRD
+
+Same as PRE.

@@ -610,6 +610,7 @@ Discussion:
 | Release gradually via [API status indicator](./API.md#status-indicator) | Define the roadmap dates for alpha, beta, stable (freeze)                        |                                                       |
 | Flag codes                                                              | Do we need one, or "one or more [flag codes](#listingresponse)                   | One: the first flag already "wins" (is relevant only) |
 | API v2 makes it possible to [release early](./API.md#contract)          | Next to random checks, do we want to include other (incompatible) functionalites | See examples **[1]**                                  |
+| Listing issues already identified on Github                             | See Github label analyze `(random checks)`                                       |                                                       |
 
 [1] For example:
 
