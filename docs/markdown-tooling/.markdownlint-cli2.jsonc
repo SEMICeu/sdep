@@ -44,14 +44,19 @@
     "MD032": true, // blank lines around lists
     "MD047": true // single trailing newline at end of file
   },
+  // Every *.md in the repo, minus tool output and third-party trees (see "ignores").
+  // mdformat reads "ignores" too, via mdformat-excludes.sh: keep one quoted glob per line.
   "globs": [
-    "*.md",
-    "docs/**/*.md"
+    "**/*.md"
   ],
-  // CHANGELOG.md and LICENSE.md are swept in by "*.md" but are not ours to reformat.
+  // CHANGELOG.md and LICENSE.md are ours but not ours to reformat; .claude/ holds
+  // skill files with YAML front matter, which the formatter does not understand.
   "ignores": [
     "**/node_modules/**",
     "**/.venv/**",
+    "**/.pytest_cache/**",
+    "**/.git/**",
+    ".claude/**",
     "tmp/**",
     "CHANGELOG.md",
     "LICENSE.md"
