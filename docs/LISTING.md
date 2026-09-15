@@ -27,6 +27,8 @@ Status: PROPOSAL / DRAFT.
   - [Remaining Work](#remaining-work)
 - [TravelTech](#traveltech)
 - [Technical Working Group](#technical-working-group)
+  - [Discussed and agreed](#discussed-and-agreed)
+  - [Not yet discussed](#not-yet-discussed)
 
 ## Goal
 
@@ -600,34 +602,43 @@ The EU Traveltech position paper (available on request) matches the above design
 
 ## Technical Working Group
 
-Discussion, in order of prio (high > low):
+### Discussed and agreed
 
-| Context                                                             | Issue                                                                | Proposal                                              |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------- |
-| API v2 makes it possible to [release early](./API.md#contract)      | Next to random checks, do we want to **include other Github issues** | See **[1] Overview**                                  |
-| Random check - issues already identified on Github                  | Github label analyze `(random checks)`                               | See **[2] Overview**                                  |
-| Random check - address screening                                    | How to match a listing address within a registration system          | Literal, not fuzzy (but do match case-insensitively?) |
-| API v2 - release [gradually](./API.md#status-indicator)             | Define roadmap for alpha, beta, stable (freeze)                      |                                                       |
-| Random check - a listing is flagged again in a subsequent screening | The host gets double notified, how to manage this                    | This is a CA responsibiliy                            |
-| Random check - platform acknowledges flag and wants to inform host  | Do we want to insert an extra CA-acknowlegdement?                    |                                                       |
-| Random check - flag codes                                           | Do we need one, or one or more [flag codes](#listingresponse)        | One: the first flag already "wins" (is relevant only) |
+| Context                                                        | Issue                                                                | Proposal             | Verdict            |
+| -------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------- | ------------------ |
+| API v2 makes it possible to [release early](./API.md#contract) | Next to random checks, do we want to **include other Github issues** | See **[1] Overview** | GO, except for #92 |
 
-**[1] Overview** - https://github.com/SEMICeu/sdep/issues, with possible impact on STR contract:
+**[1] Overview** - ref. https://github.com/SEMICeu/sdep/issues
 
-| #   | Description                                                             | Benefit                                                           | Technical impact on STR contract (platforms)               |
-| --- | ----------------------------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------- |
-| 75  | Increase `fullAddress` by 10                                            | Readability (allow comma's and spaces)                            | Minor: may receive larger data                             |
-| 80  | Increase `Activity.url` to 2048                                         | Usability (leverage max url length in browsers)                   | None: only CAs may receive larger data                     |
-| 81  | Only accept UTC timestamps                                              | Consistency                                                       | Minor: may need to convert to UTC                          |
-| 83  | GET max. 1000 records                                                   | Security (avoid server overload by a hugh GET)                    | Minor: may need to paginate                                |
-| 84  | Only accept activities for area's with activity regulation              | Privacy (avoid activities for areas with listing regulation only) | Minor: may need to limit the supply                        |
-| 89  | Increase `registrationNumber` from 12 to ?                              | Usability (support legacy numbers)                                | None: only CAs may receive larger data; business decision? |
-| 92  | Expand query filters (createdAtFrom, createdAtFrom, platformId, areaId) | Usability, consistency (same as CA)                               | None                                                       |
+| Issue# | Description                                                             | Benefit                                                           | Technical impact on STR contract (platforms)    | Verdict         |
+| ------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------- | --------------- |
+| 75     | Increase `fullAddress` by 10                                            | Readability (allow comma's and spaces)                            | None: only CA clients may receive larger data   | GO              |
+| 80     | Increase `Activity.url` to 2048                                         | Usability (leverage max url length in browsers)                   | None: only CA clients may receive larger data   | GO              |
+| 81     | Only accept UTC timestamps                                              | Consistency                                                       | Minor: STR clients may need to convert to UTC   | GO              |
+| 83     | GET max. 1000 records                                                   | Security (avoid server overload by a hugh GET)                    | Minor: STR clients may need to paginate         | GO              |
+| 84     | Only accept activities for area's with activity regulation              | Privacy (avoid activities for areas with listing regulation only) | Minor: STR clients may need to limit the supply | GO              |
+| 89     | Increase `registrationNumber` from 12 to ?                              | Usability (support legacy numbers)                                | None: only CA clients may receive larger data   | GO              |
+| 92     | Expand query filters (createdAtFrom, createdAtFrom, platformId, areaId) | Usability, consistency (same as CA)                               | None                                            | **[2] On hold** |
 
-**[2] Overview** https://github.com/SEMICeu/sdep/issues:
+**[2] On hold**, there is no platform demand for this use case yet.
 
-| #   | Description                                 | Proposal        |
-| --- | ------------------------------------------- | --------------- |
-| 67  | CA request for additional information       |                 |
-| 70  | License numbers OR self-declared exemptions |                 |
-| 72  | Include address in POST listing             | Do && mandatory |
+---
+
+### Not yet discussed
+
+| Context                                                             | Issue                                                         | Proposal                                              | Verdict |
+| ------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------- | ------- |
+| Random check - issues already identified on Github                  | Github label analyze `(random checks)`                        | See **[3] Overview**                                  |         |
+| Random check - address screening                                    | How to match a listing address within a registration system   | Literal, not fuzzy (but do match case-insensitively?) |         |
+| API v2 - release [gradually](./API.md#status-indicator)             | Define roadmap for alpha, beta, stable (freeze)               |                                                       |         |
+| Random check - a listing is flagged again in a subsequent screening | The host gets double notified, how to manage this             | This is a CA responsibiliy                            |         |
+| Random check - platform acknowledges flag and wants to inform host  | Do we want to insert an extra CA-acknowlegdement?             |                                                       |         |
+| Random check - flag codes                                           | Do we need one, or one or more [flag codes](#listingresponse) | One: the first flag already "wins" (is relevant only) |         |
+
+**[3] Overview** https://github.com/SEMICeu/sdep/issues:
+
+| Issue# | Description                                 | Proposal        |
+| ------ | ------------------------------------------- | --------------- |
+| 67     | CA request for additional information       |                 |
+| 70     | License numbers OR self-declared exemptions |                 |
+| 72     | Include address in POST listing             | Do && mandatory |
