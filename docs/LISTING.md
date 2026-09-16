@@ -628,7 +628,7 @@ The EU Traveltech position paper (available on request) matches the above design
 
 | Context                                                             | Issue                                                         | Proposal                                              | Verdict |
 | ------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------- | ------- |
-| Random check - issues already identified on Github                  | Github label analyze `(random checks)`                        | See **[3] Overview**                                  |         |
+| Random check - issues already identified on Github                  | Various (reported by member states & platforms)               | See **[3] Overview**                                  |         |
 | Random check - address screening                                    | How to match a listing address within a registration system   | Literal, not fuzzy (but do match case-insensitively?) |         |
 | API v2 - release [gradually](./API.md#status-indicator)             | Define roadmap for alpha, beta, stable (freeze)               |                                                       |         |
 | Random check - a listing is flagged again in a subsequent screening | The host gets double notified, how to manage this             | This is a CA responsibiliy                            |         |
@@ -637,8 +637,8 @@ The EU Traveltech position paper (available on request) matches the above design
 
 **[3] Overview** https://github.com/SEMICeu/sdep/issues:
 
-| Issue# | Description                                 | Proposal        |
-| ------ | ------------------------------------------- | --------------- |
-| 67     | CA request for additional information       |                 |
-| 70     | License numbers OR self-declared exemptions |                 |
-| 72     | Include address in POST listing             | Do && mandatory |
+| Issue# | Description                                 | Proposal                                         |
+| ------ | ------------------------------------------- | ------------------------------------------------ |
+| 67     | CA request for additional information       |                                                  |
+| 70     | License numbers OR self-declared exemptions |                                                  |
+| 72     | Include address in POST listing             | DO (address is mandatory when posting a listing) |
