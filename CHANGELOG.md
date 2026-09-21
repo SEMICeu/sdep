@@ -6,12 +6,12 @@
 
 # 1.6.0
 
-- Added STR `v2` (beta, EU GitHub issues 81, 83, 84)
+- Added STR `v2` (beta, EU GitHub issues 75, 80, 81, 83, 84)
   - Activity timestamps must be UTC (offset `Z` or `+00:00`); naive and date-only values are rejected
   - Activities are rejected for areas that are regulated for listing only, per item (`regulation_error`)
   - `GET /areas` returns at most 1000 areas per call (`limit` defaults to 1000, the maximum)
   - Impact on API contract: new STR `/v2` endpoints; STR `v1` behavior unchanged
-  - Widened `url` to 2048 and `fullAddress` to 328 characters (EU GitHub issues 75, 80)
+  - Widened `url` to 2048 and `fullAddress` to 328 characters
   - No impact on STR `v1` (POST request maximums are relaxed, backward compatible)
   - Impact on CA and REP `v1`: responses may carry longer values, so clients that size their own storage from the documented maximums should widen it
 - Enhanced CA `v2`:
