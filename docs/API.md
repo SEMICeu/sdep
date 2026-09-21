@@ -18,6 +18,7 @@ This document describes the SDEP API.
   - [Status Indicator](#status-indicator)
   - [Actual](#actual)
   - [Diff](#diff)
+  - [Deprecation](#deprecation)
   - [Operation Ids](#operation-ids)
   - [Add New](#add-new)
   - [Export](#export)
@@ -107,7 +108,7 @@ API-endpoints are exposed in the following domains:
 
 **v2 - unchanged**
 
-The area endpoints are mounted unchanged into v2, so every `/api/ca/v1/areas...` path above is also served at `/api/ca/v2/areas...`, with the same request, response, and authorization. Only the activity endpoints differ between the two versions.
+Every `/api/ca/v1/areas...` path above is also served at `/api/ca/v2/areas...`, with the same request, response, and authorization. Two things differ in v2: `GET /api/ca/v2/areas` returns at most 1000 areas per call (`limit` defaults to 1000, the maximum), and the activity endpoints below.
 
 ---
 
@@ -120,7 +121,7 @@ The area endpoints are mounted unchanged into v2, so every `/api/ca/v1/areas...`
 
 **v2 - adds optional query filters**
 
-- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit; filters: createdAtFrom, createdAtTo, platformId, areaId; filters use AND semantics and are scoped to the authenticated CA; createdAt filters must be UTC)
+- `GET /api/ca/v2/activities` - Query rental activities with optional filters (pagination: offset, limit - limit defaults to 1000, the maximum; filters: createdAtFrom, createdAtTo, platformId, areaId; filters use AND semantics and are scoped to the authenticated CA; createdAt filters must be UTC)
 - `GET /api/ca/v2/activities/count` - Count activities with optional filters (same filter set)
 
 ---
@@ -135,13 +136,22 @@ The area endpoints are mounted unchanged into v2, so every `/api/ca/v1/areas...`
 - `GET /api/str/v1/areas/count` - Count areas
 - `GET /api/str/v1/areas/{areaId}` - Download shapefile for area
 
+**v2 - mandatory pagination**
+
+- `GET /api/str/v2/areas` - List regulated areas, at most 1000 per call (pagination: offset, limit - limit defaults to 1000, the maximum)
+- `GET /api/str/v2/areas/count` and `GET /api/str/v2/areas/{areaId}` - unchanged, mounted from v1
+
 ---
 
 **Activities**
 
 **v1**
 
-- `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body)
+- `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body); `url` up to 2048 and `fullAddress` up to 328 characters (widened, backward compatible)
+
+**v2 - stricter input**
+
+- `POST /api/str/v2/activities/bulk` - As v1, plus: `startDatetime` and `endDatetime` must be UTC (offset `Z` or `+00:00`, no naive or date-only values), and activities are rejected for areas that are regulated for listing only (`regulation` is `listing`), per item with `regulation_error`
 
 ---
 
@@ -199,8 +209,6 @@ When a new API version is released, the previous version (N-1) remains available
 
 Each API version has a status:
 
-- **Stable** - supported for production integrations
-  - Application [backward compatibility](./ARCHITECTURE_TECH.md#application-versioning) is guaranteed within the same API version.
 - **Alpha**:
   - Early-stage and unstable.
   - Available for early integration and feedback.
@@ -209,6 +217,8 @@ Each API version has a status:
   - Rather stable and feature-complete.
   - Available for early integration and feedback.
   - The contract may still change before it is promoted to stable.
+- **Stable** - supported for production integrations
+  - Application [backward compatibility](./ARCHITECTURE_TECH.md#application-versioning) is guaranteed within the same API version.
 
 A beta API can be available in production. Clients may integrate with it, but the contract may change.
 
@@ -222,9 +232,10 @@ The endpoints each version exposes are listed in [Surface](#surface), and the pe
 | ------ | ------- | ------ | --------------------------------------------------- |
 | auth   | v1      | stable | OAuth 2.0 token endpoint (client credentials)       |
 | ca     | v1      | stable | Areas + activities (no filters)                     |
-| ca     | v2      | beta   | Activities with optional query filters (new)        |
+| ca     | v2      | beta   | Activities with optional query filters, limit 1000  |
 | str    | v1      | stable | Areas (read-only) + bulk activity submission        |
-| rep    | v1      | beta   | Read-only reporting API for reporting offices (new) |
+| str    | v2      | beta   | UTC-only timestamps, regulation check, limit 1000   |
+| rep    | v1      | alpha  | Read-only reporting API for reporting offices (new) |
 
 ---
 
@@ -232,11 +243,53 @@ The endpoints each version exposes are listed in [Surface](#surface), and the pe
 
 The differences between consecutive API versions are generated from the committed OpenAPI snapshots and published in [API Version Diff](API_DIFF.md). The document is regenerated with `make api-diff-update` from `backend/` and is gated by the backend test suite, so it cannot drift from the contract.
 
-In short: CA v2 is CA v1 plus four optional activity filters. No path, schema, response, or authorization changes. See [CA Activity (v2)](#ca-activity-v2) for the parameters themselves.
+In short: CA v2 is CA v1 plus four optional activity filters, a `limit` that defaults to 1000, and documented field maximums on the activity response. STR v2 is STR v1 with UTC-only timestamps, the activity regulation check and a `limit` that defaults to 1000. No path or authorization changes. See [CA Activity (v2)](#ca-activity-v2) for the filter parameters.
 
 Each version also carries its own cross-version note in the OpenAPI `info.description`, so it is visible at the top of that version's Swagger UI without leaving the API.
 
-Deprecation markers (`deprecated: true` on the superseded operations, and the `Deprecation` and `Sunset` response headers) are deliberately not set yet: v1 is stable and v2 is beta, so v1 is not being retired. They become correct once v2 is promoted to stable and a retirement date is set.
+---
+
+### Deprecation
+
+Deprecation retires an API version: it stays available and unchanged, but it is closed for new integrations and has an end date.
+
+**Lifecycle**
+
+| Step | Version N-1 | Version N | Trigger                                           |
+| ---- | ----------- | --------- | ------------------------------------------------- |
+| 1    | stable      | beta      | The new version is released alongside the old one |
+| 2    | stable      | stable    | The new version is promoted                       |
+| 3    | deprecated  | stable    | A sunset date is set and announced                |
+| 4    | removed     | stable    | The sunset date has passed                        |
+
+Rules:
+
+- A version is only deprecated once its successor is stable. Clients are never asked to migrate onto a contract that may still change.
+- A deprecated version keeps its contract. Deprecation announces intent, it does not change behavior.
+- The deprecation period follows the measured use of that version, not a fixed default. The audit log records the request path, so it shows how much a version is still called.
+- Removal is a separate, later step.
+
+**Signals**
+
+All signals derive from the version's status in the domain registry (`backend/app/api/domain_registry.py`), so deprecating a version is a metadata change and not an endpoint change:
+
+| Signal                                              | Where                                            | Audience                                                 |
+| --------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
+| Status badge and `Status: deprecated.` note         | Docs landing page and OpenAPI `info.description` | People reading the documentation                         |
+| `deprecated: true` per operation                    | The version's `openapi.json`                     | Client generators, Swagger UI, the [PDF export](#export) |
+| `Deprecation`, `Sunset` and `Link` response headers | Every response of the deprecated version         | Running clients, without reading documentation           |
+
+Remarks:
+
+- The operation flag is applied per sub-application while the OpenAPI document is generated, never on a router. Routers are shared between versions (e.g. the CA area endpoints, see [Operation Ids](#operation-ids)), so a flag on a router would deprecate the successor as well.
+- `Deprecation` carries the date the version became deprecated ([RFC 9745](https://www.rfc-editor.org/rfc/rfc9745.html)), `Sunset` the date it is removed ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594.html)), and `Link` points at the successor with `rel="successor-version"` ([RFC 5829](https://www.rfc-editor.org/rfc/rfc5829.html)).
+- The [Diff](#diff) reports the flag flip between two versions, so a deprecation shows up in the generated version comparison.
+
+**Removal**
+
+- The sub-application is unmounted and its version-specific routers are deleted. Shared code stays for the remaining versions.
+- The removed paths then return a routing-level [404](#client-errors). No separate "gone" handling is added.
+- The version also leaves the [Actual](#actual) table, the audit skip-list, and the CSP allowlist.
 
 ---
 
@@ -245,7 +298,7 @@ Deprecation markers (`deprecated: true` on the superseded operations, and the `D
 Every operation carries an explicit `operationId`, which client code generators turn into a method name.
 
 - Operations that a new version redefines carry a `VN` suffix from v2 onward, for example `getActivityByCompetentAuthorityV2` and `countActivitiesV2`. This keeps the ids unique across the versions that co-exist
-- Operations that a new version mounts unchanged keep a single id across versions. The five area operations (`postArea`, `getOwnAreas`, `countOwnAreas`, `getOwnArea`, `deleteOwnArea`) are shared by CA v1 and CA v2 and are therefore not suffixed
+- Operations that a new version mounts unchanged keep a single id across versions. Four area operations (`postArea`, `countOwnAreas`, `getOwnArea`, `deleteOwnArea`) are shared by CA v1 and CA v2 and are therefore not suffixed; `getOwnAreas` is redefined in v2 (pagination default) and becomes `getOwnAreasV2`. STR v2 likewise redefines `getAreasV2` and `postActivitiesBulkV2` and shares `countAreas` and `getArea`
 
 A consequence is that the generated version diff reports an `operationId` change for the redefined operations. That is intended, not drift.
 

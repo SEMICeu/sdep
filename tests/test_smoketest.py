@@ -31,6 +31,8 @@ ENDPOINTS = (
     "/api/ca/v1/docs",
     "/api/str/v1/openapi.json",
     "/api/str/v1/docs",
+    "/api/str/v2/openapi.json",
+    "/api/str/v2/docs",
 )
 
 

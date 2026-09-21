@@ -6,11 +6,16 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation, model_serializer
 
-from app.schemas.activity import ActivityRequest, ActivityResponse  # noqa: TC001
+from app.schemas.activity import (  # noqa: TC001
+    ActivityRequest,
+    ActivityRequestV2,
+    ActivityResponse,
+)
 from app.schemas.error import ErrorResponse  # noqa: TC001
 
 __all__ = [
     "ActivityBulkRequest",
+    "ActivityBulkRequestV2",
     "ActivityBulkResponse",
     "ActivityBulkResultItem",
 ]
@@ -31,6 +36,25 @@ class ActivityBulkRequest(BaseModel):
     )
 
     activities: list[SkipValidation[ActivityRequest]] = Field(
+        ...,
+        min_length=1,
+        max_length=1000,
+        description="Array of activity objects to process (1-1000 items per batch)",
+    )
+
+
+class ActivityBulkRequestV2(BaseModel):
+    """Bulk activity request schema for STR v2 (items typed as ActivityRequestV2).
+
+    Same SkipValidation pattern as ActivityBulkRequest; the service validates
+    each item with the model the router passes as `item_model`.
+    """
+
+    model_config = ConfigDict(
+        title="Activity.BulkRequestV2",
+    )
+
+    activities: list[SkipValidation[ActivityRequestV2]] = Field(
         ...,
         min_length=1,
         max_length=1000,

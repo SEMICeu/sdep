@@ -194,7 +194,7 @@ Standard attribute pattern:
 | **status**             | string          | required, lifecycle status; `finished` by default when omitted, or `cancelled`                                                  |
 | **platform**           | reference       | required, references single Platform                                                                                            |
 | **area**               | reference       | required, references single Area                                                                                                |
-| **url**                | string          | required, length \<= 128, e.g. http://example.com/my-advertisement                                                              |
+| **url**                | string          | required, length \<= 2048, e.g. http://example.com/my-advertisement                                                             |
 | **address**            | reference       | required, references single Address as composite                                                                                |
 | **registrationNumber** | string          | required, length \<= 32                                                                                                         |
 | **numberOfGuests**     | int             | required, min 1, max 1024                                                                                                       |
@@ -220,6 +220,7 @@ Standard attribute pattern:
   - This allows STRs to make corrections
   - Vice versa is (yet) also allowed
 - Each activity must reference an existing area (activity regulation)
+- For `url`, max length is 2048: a chosen pragmatic cap, not a browser limit. The often-quoted 2048 traces back to Internet Explorer (2083); current browsers accept far longer URLs and [RFC 9110, section 4.1](https://www.rfc-editor.org/rfc/rfc9110#section-4.1) asks for support of at least 8000 octets. 2048 covers listing URLs with query parameters without inviting abuse, see [LISTING.md](./LISTING.md#technical-working-group) note [4]
 
 ## Composites
 
@@ -235,7 +236,7 @@ Standard attribute pattern:
 | **locatorDesignatorAddition** | string | optional, length \<= 128, e.g. "5h"                                 |
 | **postCode**                  | string | required, length \<= 10, no spaces, alphanumeric, e.g. 2500EA       |
 | **postName**                  | string | required, length \<= 80, e.g. Den Haag                              |
-| **fullAddress**               | string | required, length \<= 318, e.g. "Turfmarkt 147a-5h, 2500EA Den Haag" |
+| **fullAddress**               | string | required, length \<= 328, e.g. "Turfmarkt 147a-5h, 2500EA Den Haag" |
 
 **Class Constraints:**
 
@@ -243,7 +244,7 @@ Standard attribute pattern:
 
 **Clarifications:**
 
-- For `fullAddress`, max length is 318 (= 80 + 10 (unsigned int 32 bit) + 10 + 128 + 10 + 80)
+- For `fullAddress`, max length is 328: the sum of the other address field maximums (318 = 80 + 10 (unsigned int 32 bit) + 10 + 128 + 10 + 80) plus 5 separators of ", " (10)
 
 ---
 

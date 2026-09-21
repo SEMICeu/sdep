@@ -47,6 +47,12 @@ def compact_json(data: Any) -> str:
     return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
 
 
+# API_VERSION selects the STR version under test. Auth and the CA helpers (fixture
+# areas, activity count) are pinned to their stable v1, they are not under test here.
+AUTH_API_VERSION = "v1"
+CA_API_VERSION = "v1"
+
+
 def iso_utc_in_hours(hours: int) -> str:
     return (datetime.now(UTC) + timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -59,9 +65,9 @@ def load_bearer_token() -> str:
     return ""
 
 
-def auth_token(client: httpx.Client, base_url: str, api_version: str, client_id: str, client_secret: str) -> str:
+def auth_token(client: httpx.Client, base_url: str, client_id: str, client_secret: str) -> str:
     response = client.post(
-        f"{base_url}/api/auth/{api_version}/token",
+        f"{base_url}/api/auth/{AUTH_API_VERSION}/token",
         data={
             "grant_type": "client_credentials",
             "client_id": client_id,
@@ -79,14 +85,12 @@ def auth_token(client: httpx.Client, base_url: str, api_version: str, client_id:
 def create_fixture_areas(
     client: httpx.Client,
     base_url: str,
-    api_version: str,
     count: int,
     prefix: str,
 ) -> list[str]:
     ca_token = auth_token(
         client,
         base_url,
-        api_version,
         env("CA1_CLIENT_ID"),
         env("CA1_CLIENT_SECRET"),
     )
@@ -100,7 +104,7 @@ def create_fixture_areas(
     for area_id in area_ids:
         with SHAPEFILE_PATH.open("rb") as shapefile:
             response = client.post(
-                f"{base_url}/api/ca/{api_version}/areas",
+                f"{base_url}/api/ca/{CA_API_VERSION}/areas",
                 headers={"Authorization": f"Bearer {ca_token}"},
                 data={"areaId": area_id},
                 files={"file": ("Amsterdam.zip", shapefile, "application/zip")},
@@ -140,9 +144,9 @@ def post_bulk(
     return response.status_code, body
 
 
-def ca_count(client: httpx.Client, base_url: str, api_version: str, ca_bearer: str) -> int | None:
+def ca_count(client: httpx.Client, base_url: str, ca_bearer: str) -> int | None:
     response = client.get(
-        f"{base_url}/api/ca/{api_version}/activities/count",
+        f"{base_url}/api/ca/{CA_API_VERSION}/activities/count",
         headers={"Authorization": f"Bearer {ca_bearer}"},
     )
     try:
@@ -217,14 +221,15 @@ def main() -> int:
         area_id_1, area_id_2, area_id_3 = create_fixture_areas(
             client,
             base_url,
-            api_version,
             3,
             "sdep-test-bulk-areas",
         )
         print(f"Using fixture area IDs: {area_id_1}, {area_id_2}, {area_id_3}")
         print()
 
-        timestamp = int(time.time())
+        # Version tag + milliseconds: the v1 and v2 runs of this script can fall in
+        # the same second, and an equal activityId would version the earlier record.
+        timestamp = f"{api_version}-{int(time.time() * 1000)}"
         start_time = iso_utc_in_hours(0)
         end_time = iso_utc_in_hours(1)
 
@@ -403,7 +408,6 @@ def main() -> int:
             ca_bearer = auth_token(
                 client,
                 base_url,
-                api_version,
                 env("CA1_CLIENT_ID"),
                 env("CA1_CLIENT_SECRET"),
             )
@@ -411,7 +415,7 @@ def main() -> int:
                 print(f"Test 5 failed: could not authenticate as CA ({env('CA1_CLIENT_ID')})")
                 stats.failed += 1
             else:
-                count_before = ca_count(client, base_url, api_version, ca_bearer)
+                count_before = ca_count(client, base_url, ca_bearer)
                 if count_before is None:
                     print("Test 5 failed: could not fetch CA activity count (empty response)")
                     stats.failed += 1
@@ -440,7 +444,7 @@ def main() -> int:
                         f"body={compact_json(insert_body)}"
                     )
 
-                    count_after_insert = ca_count(client, base_url, api_version, ca_bearer)
+                    count_after_insert = ca_count(client, base_url, ca_bearer)
                     print(f"CA activity count AFTER  insert:  {count_after_insert}")
 
                     payload_cancel = {
@@ -466,7 +470,7 @@ def main() -> int:
                         f"body={compact_json(cancel_body)}"
                     )
 
-                    count_after_cancel = ca_count(client, base_url, api_version, ca_bearer)
+                    count_after_cancel = ca_count(client, base_url, ca_bearer)
                     print(f"CA activity count AFTER  cancel:  {count_after_cancel}")
                     print()
 
@@ -503,6 +507,47 @@ def main() -> int:
                     )
         else:
             print("Skipping Test 5 (requires STR BEARER_TOKEN)")
+        print()
+
+        print("Test 6: POST activity with a naive startDatetime (v1 accepts, v2 rejects)")
+        print("------------------------------------------------")
+        stats.total += 1
+        if bearer_token:
+            naive_start = start_time.rstrip("Z")
+            payload = {
+                "activities": [
+                    activity(
+                        f"sdep-test-bulk-naive-{timestamp}",
+                        "bulk-naive",
+                        "REGBULK006",
+                        area_id_1,
+                        naive_start,
+                        end_time,
+                    )
+                ]
+            }
+            status_code, body = post_bulk(client, base_url, api_version, bearer_token, payload)
+            print(f"Response: {compact_json(body)[:500]}")
+            print(f"HTTP Status: {status_code}")
+            print()
+            if api_version == "v1":
+                mark(
+                    stats,
+                    status_code == 201,
+                    "Test 6 passed: v1 accepted the naive timestamp (201)",
+                    f"Test 6 failed: v1 should accept a naive timestamp, got {status_code}",
+                )
+            else:
+                errors = (body.get("results") or [{}])[0].get("errors", {}).get("detail", [])
+                utc_error = any("UTC" in error.get("msg", "") for error in errors)
+                mark(
+                    stats,
+                    status_code == 422 and utc_error,
+                    "Test 6 passed: v2 rejected the naive timestamp (422, UTC required)",
+                    f"Test 6 failed: v2 should reject a naive timestamp with a UTC error, got {status_code}",
+                )
+        else:
+            print("Skipping Test 6 (requires authentication)")
         print()
 
     print("=======================================")

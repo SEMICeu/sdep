@@ -155,6 +155,7 @@ ignore = [
 "**/tests/**" = ["S101"]  # Allow assert statements in tests
 "app/api/common/routers/*.py" = ["N803"]  # Path parameters must match URL (e.g., areaId)
 "app/api/domains/ca/routers/*.py" = ["N803"]  # Path/form parameters must match the CA API contract
+"app/api/domains/str/routers/*.py" = ["N803"]  # Path parameters must match the STR API contract (e.g., areaId)
 
 [tool.ruff.format]
 quote-style = "double"

@@ -5,6 +5,9 @@ authority) and the REP endpoint (unscoped, across all competent authorities). Th
 is selected by the ``client`` argument: a ``Client`` scopes the read, ``None`` makes it
 unscoped. ``client`` is keyword-only with no default, so an unscoped read can only be
 triggered by explicitly passing ``client=None``.
+
+``list_model`` and ``item_model`` select the response schemas. CA v1 passes its
+frozen variants from ``app.schemas.activity_v1``; every other version uses the base.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,14 +22,16 @@ from app.schemas.activity import (
 from app.services import activity
 
 
-async def list_activities(
+async def list_activities[ListResponseT: ActivityListResponse](
     *,
     client: Client | None,
     session: AsyncSession,
     offset: int = 0,
     limit: int | None = None,
     filters: ActivityFilters | None = None,
-) -> ActivityListResponse:
+    list_model: type[ListResponseT],
+    item_model: type[ActivityResponse] = ActivityResponse,
+) -> ListResponseT:
     activity_objects = await activity.get_activity_list(
         session,
         client_id=client.id if client is not None else None,
@@ -35,10 +40,9 @@ async def list_activities(
         filters=filters,
     )
 
-    return ActivityListResponse(
+    return list_model(
         activities=[
-            ActivityResponse.model_validate(activity_obj)
-            for activity_obj in activity_objects
+            item_model.model_validate(activity_obj) for activity_obj in activity_objects
         ]
     )
 

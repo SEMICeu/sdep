@@ -610,17 +610,19 @@ The EU Traveltech position paper (available on request) matches the above design
 
 **[1] Overview** - ref. https://github.com/SEMICeu/sdep/issues
 
-| Issue# | Description                                                             | Benefit                                                           | Technical impact on STR contract (platforms)    | Verdict         |
-| ------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------- | --------------- |
-| 75     | Increase `fullAddress` by 10                                            | Readability (allow comma's and spaces)                            | None: only CA clients may receive larger data   | GO              |
-| 80     | Increase `Activity.url` to 2048                                         | Usability (leverage max url length in browsers)                   | None: only CA clients may receive larger data   | GO              |
-| 81     | Only accept UTC timestamps                                              | Consistency                                                       | Minor: STR clients may need to convert to UTC   | GO              |
-| 83     | GET max. 1000 records                                                   | Security (avoid server overload by a hugh GET)                    | Minor: STR clients may need to paginate         | GO              |
-| 84     | Only accept activities for area's with activity regulation              | Privacy (avoid activities for areas with listing regulation only) | Minor: STR clients may need to limit the supply | GO              |
-| 89     | Increase `registrationNumber` from 12 to ?                              | Usability (support legacy numbers)                                | None: only CA clients may receive larger data   | GO              |
-| 92     | Expand query filters (createdAtFrom, createdAtFrom, platformId, areaId) | Usability, consistency (same as CA)                               | None                                            | **[2] On hold** |
+| Issue# | Description                                                             | Benefit                                                           | Technical impact on STR contract (platforms)     | Verdict         |
+| ------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------ | --------------- |
+| 75     | Increase `fullAddress` by 10                                            | Readability (allow comma's and spaces)                            | Minor: relaxed in v1; CA/REP receive larger data | GO              |
+| 80     | Increase `Activity.url` to 2048                                         | Usability (pragmatic cap, not a browser limit) **[2]**            | Minor: relaxed in v1; CA/REP receive larger data | GO              |
+| 81     | Only accept UTC timestamps                                              | Consistency                                                       | Minor: STR clients may need to convert to UTC    | GO              |
+| 83     | GET max. 1000 records                                                   | Security (avoid server overload by a hugh GET)                    | Minor: STR clients may need to paginate          | GO              |
+| 84     | Only accept activities for area's with activity regulation              | Privacy (avoid activities for areas with listing regulation only) | Minor: STR clients may need to limit the supply  | GO              |
+| 89     | Increase `registrationNumber` from 12 to ?                              | Usability (support legacy numbers)                                | None: only CA clients may receive larger data    | GO              |
+| 92     | Expand query filters (createdAtFrom, createdAtFrom, platformId, areaId) | Usability, consistency (same as CA)                               | None                                             | **[3] On hold** |
 
-**[2] On hold**, there is no platform demand for this use case yet.
+**[2] Not a browser limit**, the often-quoted 2048 traces back to Internet Explorer's 2083-character maximum ([Microsoft support article](https://support.microsoft.com/en-us/topic/maximum-url-length-is-2-083-characters-in-internet-explorer-174e7c8a-6666-f4e0-6fd6-908b53c12246)), while the HTTP standard asks senders and recipients to support URIs of at least 8000 octets ([RFC 9110, section 4.1](https://www.rfc-editor.org/rfc/rfc9110#section-4.1)); 2048 is kept as a pragmatic cap that covers listing URLs with query parameters.
+
+**[3] On hold**, there is no platform demand for this use case yet.
 
 ---
 
@@ -628,14 +630,14 @@ The EU Traveltech position paper (available on request) matches the above design
 
 | Context                                                             | Issue                                                         | Proposal                                              | Verdict |
 | ------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------- | ------- |
-| Random check - issues already identified on Github                  | Various (reported by member states & platforms)               | See **[3] Overview**                                  |         |
+| Random check - issues already identified on Github                  | Various (reported by member states & platforms)               | See **[4] Overview**                                  |         |
 | Random check - address screening                                    | How to match a listing address within a registration system   | Literal, not fuzzy (but do match case-insensitively?) |         |
 | API v2 - release [gradually](./API.md#status-indicator)             | Define roadmap for alpha, beta, stable (freeze)               |                                                       |         |
 | Random check - a listing is flagged again in a subsequent screening | The host gets double notified, how to manage this             | This is a CA responsibiliy                            |         |
 | Random check - platform acknowledges flag and wants to inform host  | Do we want to insert an extra CA-acknowlegdement?             |                                                       |         |
 | Random check - flag codes                                           | Do we need one, or one or more [flag codes](#listingresponse) | One: the first flag already "wins" (is relevant only) |         |
 
-**[3] Overview** https://github.com/SEMICeu/sdep/issues:
+**[4] Overview** https://github.com/SEMICeu/sdep/issues:
 
 | Issue# | Description                                 | Proposal                                         |
 | ------ | ------------------------------------------- | ------------------------------------------------ |

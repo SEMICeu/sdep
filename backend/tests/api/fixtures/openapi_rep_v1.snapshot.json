@@ -121,10 +121,12 @@
             "title": "Competentauthorityname"
           },
           "countryOfGuests": {
-            "description": "Array of country codes of guests (each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
+            "description": "Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
             "items": {
               "type": "string"
             },
+            "maxItems": 1024,
+            "minItems": 1,
             "title": "Countryofguests",
             "type": "array"
           },
@@ -136,6 +138,8 @@
           },
           "numberOfGuests": {
             "description": "Number of guests (1-1024)",
+            "maximum": 1024.0,
+            "minimum": 1.0,
             "title": "Numberofguests",
             "type": "integer"
           },
@@ -165,7 +169,8 @@
             "title": "Platformname"
           },
           "registrationNumber": {
-            "description": "Registration number of the address",
+            "description": "Registration number of the address (max 32 chars)",
+            "maxLength": 32,
             "title": "Registrationnumber",
             "type": "string"
           },
@@ -182,7 +187,8 @@
             "description": "Temporal composite (`startDatetime`, `endDatetime`)"
           },
           "url": {
-            "description": "URL of the originating listing/advertisement",
+            "description": "URL of the originating listing/advertisement (max 2048 chars)",
+            "maxLength": 2048,
             "title": "Url",
             "type": "string"
           }
@@ -217,58 +223,65 @@
         "description": "Address composite schema for activity responses (INSPIRE/STR-AP field names).",
         "properties": {
           "fullAddress": {
-            "description": "Full address as a single string",
+            "description": "Full address as a single string (max 328 chars)",
+            "maxLength": 328,
             "title": "Fulladdress",
             "type": "string"
           },
           "locatorDesignatorAddition": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Additional qualifier (optional)",
+            "description": "Additional qualifier (optional, max 128 chars)",
             "title": "Locatordesignatoraddition"
           },
           "locatorDesignatorLetter": {
             "anyOf": [
               {
+                "maxLength": 10,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Letter/character suffix (optional)",
+            "description": "Letter/character suffix (optional, max 10 chars)",
             "title": "Locatordesignatorletter"
           },
           "locatorDesignatorNumber": {
             "anyOf": [
               {
+                "minimum": 0.0,
                 "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Numeric house number component (optional)",
+            "description": "Numeric house number component (optional, >= 0 when provided)",
             "title": "Locatordesignatornumber"
           },
           "postCode": {
-            "description": "Postal code",
+            "description": "Postal code (max 10 chars)",
+            "maxLength": 10,
             "title": "Postcode",
             "type": "string"
           },
           "postName": {
-            "description": "City / town / village",
+            "description": "City / town / village (max 80 chars)",
+            "maxLength": 80,
             "title": "Postname",
             "type": "string"
           },
           "thoroughfare": {
-            "description": "Street / public space name",
+            "description": "Street / public space name (max 80 chars)",
+            "maxLength": 80,
             "title": "Thoroughfare",
             "type": "string"
           }
@@ -380,7 +393,7 @@
     }
   },
   "info": {
-    "description": "Read-only endpoints for the national statistics office to view all registered activity data. Status: beta.",
+    "description": "Read-only endpoints for the national statistics office to view all registered activity data. Status: alpha.",
     "title": "SDEP - Reporting (REP) API",
     "version": "<frozen-version>"
   },

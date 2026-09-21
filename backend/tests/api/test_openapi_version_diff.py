@@ -21,7 +21,7 @@ from tests.api.test_openapi_schema_frozen import snapshot_path
 DIFF_PATH = Path(__file__).resolve().parents[3] / "docs" / "API_DIFF.md"
 
 # Consecutive version pairs to document. One line per additional pair (e.g. a future str_v2).
-VERSION_PAIRS: tuple[tuple[str, str], ...] = (("ca_v1", "ca_v2"),)
+VERSION_PAIRS: tuple[tuple[str, str], ...] = (("ca_v1", "ca_v2"), ("str_v1", "str_v2"))
 
 HTTP_METHODS = frozenset(
     {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
@@ -119,12 +119,9 @@ def _diff_operation(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
         if bool(old_parameter.get("required")) != bool(new_parameter.get("required")):
             state = "required" if new_parameter.get("required") else "optional"
             changes.append(f"Made parameter `{name}` {state}")
-        if old_parameter.get("schema") != new_parameter.get("schema"):
-            changes.append(
-                f"Changed the type of parameter `{name}` from "
-                f"`{_type_label(old_parameter.get('schema', {}))}` to "
-                f"`{_type_label(new_parameter.get('schema', {}))}`"
-            )
+        changes += _diff_parameter_schema(
+            name, old_parameter.get("schema", {}), new_parameter.get("schema", {})
+        )
 
     if old.get("requestBody") != new.get("requestBody"):
         changes.append("Changed the request body")
@@ -149,6 +146,149 @@ def _diff_operation(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
 
     if old.get("description") != new.get("description"):
         changes.append("Updated the endpoint description")
+
+    return changes
+
+
+# Property keys that carry a contract rule; a change in one of these is spelled out
+# with its old and new value. Everything else on a property counts as "updated".
+_CONSTRAINT_KEYS = (
+    "type",
+    "format",
+    "$ref",
+    "maxLength",
+    "minLength",
+    "maximum",
+    "minimum",
+    "exclusiveMaximum",
+    "exclusiveMinimum",
+    "maxItems",
+    "minItems",
+    "pattern",
+    "enum",
+    "default",
+)
+
+
+def _value_label(value: Any) -> str:
+    if isinstance(value, str) and value.startswith("#/components/schemas/"):
+        return f"`{value.rsplit('/', 1)[-1]}`"
+    if isinstance(value, float) and value.is_integer():
+        return f"`{int(value)}`"
+    return f"`{value}`"
+
+
+def _unwrap_optional(schema: dict[str, Any]) -> dict[str, Any]:
+    """Merge the single non-null ``anyOf`` branch of an optional property into it.
+
+    Optional fields are generated as ``anyOf: [T, null]``, which would hide a changed
+    constraint on ``T`` behind "updated anyOf".
+    """
+    variants = [v for v in schema.get("anyOf", []) if v.get("type") != "null"]
+    if len(variants) != 1:
+        return schema
+    merged = {k: v for k, v in schema.items() if k != "anyOf"}
+    return variants[0] | merged
+
+
+def _is_nullable(schema: dict[str, Any]) -> bool:
+    return any(v.get("type") == "null" for v in schema.get("anyOf", []))
+
+
+def _diff_parameter_schema(
+    name: str, old: dict[str, Any], new: dict[str, Any]
+) -> list[str]:
+    """Type change first, then the constraint details of a parameter schema."""
+    if old == new:
+        return []
+    changes: list[str] = []
+    old_type, new_type = _type_label(old), _type_label(new)
+    if old_type != new_type:
+        changes.append(
+            f"Changed the type of parameter `{name}` from `{old_type}` to `{new_type}`"
+        )
+    details = _property_changes(old, new)
+    if _is_nullable(old) != _is_nullable(new):
+        details.append(
+            "now accepts null" if _is_nullable(new) else "no longer accepts null"
+        )
+    if details:
+        changes.append(f"Changed parameter `{name}`: {', '.join(details)}")
+    return changes
+
+
+def _diff_property(name: str, old: dict[str, Any], new: dict[str, Any]) -> list[str]:
+    """Human-readable changes of one property, constraint keys first."""
+    changes = _property_changes(old, new)
+    return [f"Property `{name}`: {', '.join(changes)}"] if changes else []
+
+
+def _property_changes(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
+    """Constraint, description and other key changes between two (unwrapped) schemas."""
+    old, new = _unwrap_optional(old), _unwrap_optional(new)
+    changes: list[str] = []
+    for key in _CONSTRAINT_KEYS:
+        if key not in old and key in new:
+            changes.append(f"added `{key}` {_value_label(new[key])}")
+        elif key in old and key not in new:
+            changes.append(f"removed `{key}` {_value_label(old[key])}")
+        elif key in old and old[key] != new[key]:
+            changes.append(
+                f"changed `{key}` from {_value_label(old[key])} to {_value_label(new[key])}"
+            )
+
+    if old.get("description") != new.get("description"):
+        changes.append("updated the description")
+
+    rest_old = {
+        k: v for k, v in old.items() if k not in (*_CONSTRAINT_KEYS, "description")
+    }
+    rest_new = {
+        k: v for k, v in new.items() if k not in (*_CONSTRAINT_KEYS, "description")
+    }
+    for key in sorted(set(rest_old) | set(rest_new)):
+        if rest_old.get(key) != rest_new.get(key):
+            changes.append(f"updated `{key}`")
+
+    return changes
+
+
+def _diff_schema(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
+    """What changed inside one component schema, one line per property."""
+    changes: list[str] = []
+    old_props = old.get("properties", {})
+    new_props = new.get("properties", {})
+
+    for name in sorted(set(new_props) - set(old_props)):
+        changes.append(f"Added property `{name}` ({_type_label(new_props[name])})")
+    for name in sorted(set(old_props) - set(new_props)):
+        changes.append(f"Removed property `{name}`")
+    for name in sorted(set(old_props) & set(new_props)):
+        changes += _diff_property(name, old_props[name], new_props[name])
+
+    old_required = set(old.get("required", []))
+    new_required = set(new.get("required", []))
+    for name in sorted(new_required - old_required):
+        changes.append(f"Property `{name}` became required")
+    for name in sorted(old_required - new_required):
+        changes.append(f"Property `{name}` became optional")
+
+    if old.get("description") != new.get("description"):
+        changes.append("Updated the schema description")
+
+    rest_old = {
+        k: v
+        for k, v in old.items()
+        if k not in ("properties", "required", "description")
+    }
+    rest_new = {
+        k: v
+        for k, v in new.items()
+        if k not in ("properties", "required", "description")
+    }
+    for key in sorted(set(rest_old) | set(rest_new)):
+        if rest_old.get(key) != rest_new.get(key):
+            changes.append(f"Updated `{key}`")
 
     return changes
 
@@ -279,8 +419,12 @@ def _render_body(
             lines.append(f"- Added `{name}`")
         for name in schemas["removed"]:
             lines.append(f"- Removed `{name}`")
+        old_schemas = old["components"]["schemas"]
+        new_schemas = new["components"]["schemas"]
         for name in schemas["modified"]:
             lines.append(f"- Changed `{name}`")
+            for change in _diff_schema(old_schemas[name], new_schemas[name]):
+                lines.append(f"  - {change}")
         lines.append("")
 
     old_description = old.get("info", {}).get("description", "")
@@ -429,6 +573,48 @@ class TestDiffOperation:
             "Changed the `200` response",
         ]
 
+    def test_parameter_default_and_nullability_changes_are_spelled_out(self) -> None:
+        """A same-type schema change must not read as "from integer to integer"."""
+        old_limit = {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+                "anyOf": [{"type": "integer", "maximum": 1000}, {"type": "null"}]
+            },
+        }
+        new_limit = {
+            "name": "limit",
+            "in": "query",
+            "schema": {"type": "integer", "maximum": 1000, "default": 1000},
+        }
+        old = _activities([old_limit])["/activities"]["get"]
+        new = _activities([new_limit])["/activities"]["get"]
+
+        assert _diff_operation(old, new) == [
+            "Changed parameter `limit`: added `default` `1000`, no longer accepts null"
+        ]
+
+    def test_parameter_type_change_is_reported_with_details(self) -> None:
+        old = _activities(
+            [{"name": "areaId", "in": "query", "schema": {"type": "integer"}}]
+        )
+        new = _activities(
+            [
+                {
+                    "name": "areaId",
+                    "in": "query",
+                    "schema": {"type": "string", "maxLength": 64},
+                }
+            ]
+        )
+
+        assert _diff_operation(
+            old["/activities"]["get"], new["/activities"]["get"]
+        ) == [
+            "Changed the type of parameter `areaId` from `integer` to `string`",
+            "Changed parameter `areaId`: changed `type` from `integer` to `string`, added `maxLength` `64`",
+        ]
+
     def test_renamed_operation_id_is_reported(self) -> None:
         old = _activities()["/activities"]["get"]
         new = _activities()["/activities"]["get"] | {"operationId": "getActivitiesV2"}
@@ -459,6 +645,72 @@ class TestDiffDocument:
         rendered = "\n".join(_render_body(old, new, "v1", "v2"))
 
         assert "- Changed `Activity`" in rendered
+        assert "  - Updated `title`" in rendered
+
+    def test_changed_component_schema_spells_out_property_changes(self) -> None:
+        old = {
+            "type": "object",
+            "description": "Activity",
+            "required": ["url"],
+            "properties": {
+                "url": {"type": "string", "description": "URL"},
+                "name": {"type": "string", "maxLength": 64},
+                "gone": {"type": "string"},
+                "area": {"$ref": "#/components/schemas/AreaA"},
+            },
+        }
+        new = {
+            "type": "object",
+            "description": "Activity, documented",
+            "required": ["url", "name"],
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "description": "URL (max 2048 chars)",
+                },
+                "name": {"type": "string", "maxLength": 128, "examples": ["x"]},
+                "added": {"type": "integer"},
+                "area": {"$ref": "#/components/schemas/AreaB"},
+            },
+        }
+
+        assert _diff_schema(old, new) == [
+            "Added property `added` (integer)",
+            "Removed property `gone`",
+            "Property `area`: changed `$ref` from `AreaA` to `AreaB`",
+            "Property `name`: changed `maxLength` from `64` to `128`, updated `examples`",
+            "Property `url`: added `maxLength` `2048`, updated the description",
+            "Property `name` became required",
+            "Updated the schema description",
+        ]
+
+    def test_optional_property_constraints_are_unwrapped(self) -> None:
+        old = {
+            "properties": {
+                "letter": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                "guests": {"type": "integer"},
+            }
+        }
+        new = {
+            "properties": {
+                "letter": {
+                    "anyOf": [{"type": "string", "maxLength": 10}, {"type": "null"}]
+                },
+                "guests": {"type": "integer", "maximum": 1024.0},
+            }
+        }
+
+        assert _diff_schema(old, new) == [
+            "Property `guests`: added `maximum` `1024`",
+            "Property `letter`: added `maxLength` `10`",
+        ]
+
+    def test_property_constraint_removal_is_reported(self) -> None:
+        old = {"properties": {"url": {"type": "string", "maxLength": 128}}}
+        new = {"properties": {"url": {"type": "string"}}}
+
+        assert _diff_schema(old, new) == ["Property `url`: removed `maxLength` `128`"]
 
     def test_identical_specs_render_only_the_summary(self) -> None:
         spec = _spec(_activities([OPTIONAL_FILTER]), {"Activity": {"type": "object"}})

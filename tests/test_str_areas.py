@@ -37,6 +37,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 BEARER_TOKEN_FILE = Path(os.getenv("TOKEN_FILE", "tmp/.bearer_token"))
 SHAPEFILE_PATH = REPO_ROOT / "test-data" / "shapefiles" / "Amsterdam.zip"
 
+# API_VERSION selects the STR version under test. Auth and the CA helpers (fixture
+# areas, activity count) are pinned to their stable v1, they are not under test here.
+AUTH_API_VERSION = "v1"
+CA_API_VERSION = "v1"
+
 FIXTURE_COUNT = 5
 
 
@@ -69,9 +74,9 @@ def load_bearer_token() -> str:
     return ""
 
 
-def auth_token(client: httpx.Client, base_url: str, api_version: str, client_id: str, client_secret: str) -> str:
+def auth_token(client: httpx.Client, base_url: str, client_id: str, client_secret: str) -> str:
     response = client.post(
-        f"{base_url}/api/auth/{api_version}/token",
+        f"{base_url}/api/auth/{AUTH_API_VERSION}/token",
         data={
             "grant_type": "client_credentials",
             "client_id": client_id,
@@ -88,7 +93,6 @@ def auth_token(client: httpx.Client, base_url: str, api_version: str, client_id:
 def create_fixture_areas(
     client: httpx.Client,
     base_url: str,
-    api_version: str,
     count: int,
     prefix: str,
 ) -> list[str]:
@@ -97,7 +101,6 @@ def create_fixture_areas(
     ca_token = auth_token(
         client,
         base_url,
-        api_version,
         env("CA1_CLIENT_ID"),
         env("CA1_CLIENT_SECRET"),
     )
@@ -111,7 +114,7 @@ def create_fixture_areas(
     for area_id in area_ids:
         with SHAPEFILE_PATH.open("rb") as shapefile:
             response = client.post(
-                f"{base_url}/api/ca/{api_version}/areas",
+                f"{base_url}/api/ca/{CA_API_VERSION}/areas",
                 headers={"Authorization": f"Bearer {ca_token}"},
                 data={"areaId": area_id},
                 files={"file": ("Amsterdam.zip", shapefile, "application/zip")},
@@ -150,7 +153,7 @@ def main() -> int:
         # --- Setup: create fixture areas so tests work on an empty DB ---
         print(f"Creating {FIXTURE_COUNT} fixture areas for STR tests...")
         fixture_ids = create_fixture_areas(
-            client, base_url, api_version, FIXTURE_COUNT, "sdep-test-str-areas"
+            client, base_url, FIXTURE_COUNT, "sdep-test-str-areas"
         )
         fixture_area_1 = fixture_ids[0]
         fixture_area_2 = fixture_ids[1]
@@ -397,6 +400,28 @@ def main() -> int:
                 mark(stats, False, "", f"Test 8 failed: Unexpected HTTP status {response.status_code}")
         else:
             print("Skipping Test 8 (no third area ID available)")
+        print()
+
+        print("Test 9: GET /areas declares the limit default (v1: none, v2: 1000)")
+        print("------------------------------------------------")
+        stats.total += 1
+        response = client.get(f"{base_url}/api/str/{api_version}/openapi.json")
+        declared = None
+        try:
+            for parameter in response.json()["paths"]["/areas"]["get"]["parameters"]:
+                if parameter.get("name") == "limit":
+                    declared = parameter.get("schema", {}).get("default")
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+        expected_default = 1000 if api_version != "v1" else None
+        print(f"Declared limit default: {declared}")
+        print()
+        mark(
+            stats,
+            response.status_code == 200 and declared == expected_default,
+            f"Test 9 passed: limit default is {declared}",
+            f"Test 9 failed: expected limit default {expected_default}, got {declared} (HTTP {response.status_code})",
+        )
         print()
 
     print("=======================================")

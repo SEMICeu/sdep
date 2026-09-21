@@ -2,6 +2,29 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
+*For a complete overview, see also the [API](./docs/API.md) and the actual [API differences](./docs/API_DIFF.md).*
+
+# 1.6.0
+
+- Added STR `v2` (beta, EU GitHub issues 81, 83, 84)
+  - Activity timestamps must be UTC (offset `Z` or `+00:00`); naive and date-only values are rejected
+  - Activities are rejected for areas that are regulated for listing only, per item (`regulation_error`)
+  - `GET /areas` returns at most 1000 areas per call (`limit` defaults to 1000, the maximum)
+  - Impact on API contract: new STR `/v2` endpoints; STR `v1` behavior unchanged
+  - Widened `url` to 2048 and `fullAddress` to 328 characters (EU GitHub issues 75, 80)
+  - No impact on STR `v1` (POST request maximums are relaxed, backward compatible)
+  - Impact on CA and REP `v1`: responses may carry longer values, so clients that size their own storage from the documented maximums should widen it
+- Enhanced CA `v2`:
+  - `GET /areas` and `GET /activities` return at most 1000 records per call (`limit` defaults to 1000, the maximum)
+- Downgraded REP `v1` from `beta` to `alpha`
+  - Awaiting feedback from the reporting/statistics offices
+- Improved local development:
+  - `make up` now reloads on `app/` only, so the watcher no longer includes `.venv` (so to avoid possible `OS file watch limit reached`)
+- Fixed a crash in STR `v1` bulk submissions when one timestamp has a timezone and the other has not
+  - Example: `"startDatetime": "2025-06-01"` (a date only, no timezone) together with `"endDatetime": "2025-06-07T11:00:00+02:00"` (with timezone)
+  - Python cannot compare such a pair, so the start-before-end check crashed and the whole batch got a 500 instead of a per-item result
+  - Now a timestamp without timezone is read as UTC before any check, which is how the database already stored it; nothing changes for platforms that send a timezone
+
 # 1.5.0
 
 - Removed the redundant filter prefix in the CA v2 and REP v1 (impacts the beta contract for both, no impact on STR v1)

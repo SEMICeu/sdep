@@ -27,6 +27,7 @@ from app.schemas.address import (  # noqa: TC001
 from app.schemas.common import FunctionalId, OptionalFunctionalId  # noqa: TC001
 from app.schemas.temporal import (  # noqa: TC001
     CommonTemporalRequest,
+    CommonTemporalRequestV2,
     CommonTemporalResponse,
 )
 
@@ -61,6 +62,7 @@ __all__ = [
     "ActivityFilters",
     "ActivityListResponse",
     "ActivityRequest",
+    "ActivityRequestV2",
     "ActivityResponse",
 ]
 
@@ -134,11 +136,12 @@ class ActivityRequest(BaseModel):
         ],
     )  # Functional ID reference
 
+    # 2048 is a chosen pragmatic cap, not a browser limit. See docs/DATAMODEL.md, Activity.
     url: str = Field(
         ...,
         min_length=1,
-        max_length=128,
-        description="URL of the originating listing/advertisement (max 128 chars)",
+        max_length=2048,
+        description="URL of the originating listing/advertisement (max 2048 chars)",
         examples=["http://example.com/amsterdam-myhouse-1"],
     )  # Attribute
 
@@ -199,6 +202,24 @@ class ActivityRequest(BaseModel):
         return self.activity_id
 
 
+class ActivityRequestV2(ActivityRequest):
+    """Activity request schema for STR v2.
+
+    Differs from v1 in the temporal composite only: timestamps must be UTC.
+    Everything else is inherited.
+    """
+
+    model_config = ConfigDict(
+        title="Activity.RequestV2",
+        populate_by_name=True,
+    )
+
+    temporal: CommonTemporalRequestV2 = Field(
+        ...,
+        description="Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00`",
+    )  # Composite
+
+
 class ActivityBulkCreate(ActivityRequest):
     """Validated activity payload enriched with technical IDs for bulk insert."""
 
@@ -218,6 +239,8 @@ class ActivityFilters:
     competent_authority_id: str | None = None
 
 
+# Field maximums mirror ActivityRequest, so clients can size their storage from the
+# response contract. CA v1 keeps the undocumented variant, see app/schemas/activity_v1.py.
 class ActivityResponse(BaseModel):
     """Activity response schema."""
 
@@ -282,7 +305,9 @@ class ActivityResponse(BaseModel):
         description="Display name (optional) of the competent authority",
     )  # Attribute
     url: str = Field(
-        ..., description="URL of the originating listing/advertisement"
+        ...,
+        max_length=2048,
+        description="URL of the originating listing/advertisement (max 2048 chars)",
     )  # Attribute
     address: CommonAddressResponse = Field(
         ...,
@@ -291,17 +316,22 @@ class ActivityResponse(BaseModel):
     registration_number: str = Field(
         ...,
         serialization_alias="registrationNumber",
-        description="Registration number of the address",
+        max_length=32,
+        description="Registration number of the address (max 32 chars)",
     )  # Attribute
     number_of_guests: int = Field(
         ...,
         serialization_alias="numberOfGuests",
+        ge=1,
+        le=1024,
         description="Number of guests (1-1024)",
     )  # Attribute
     country_of_guests: list[CountryAlpha3OrNA] = Field(
         ...,
         serialization_alias="countryOfGuests",
-        description="Array of country codes of guests (each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
+        min_length=1,
+        max_length=1024,
+        description="Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
     )  # Attribute
     temporal: CommonTemporalResponse = Field(
         ..., description="Temporal composite (`startDatetime`, `endDatetime`)"

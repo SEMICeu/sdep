@@ -39,12 +39,10 @@ from app.api.common.filename import (
     sanitize_download_filename,
     sanitize_upload_filename,
 )
-from app.api.common.pagination import PaginationDependency
 from app.api.common.security import Role
 from app.db.config import get_async_db, get_async_db_read_only
 from app.schemas.area import (
     AreaCountResponse,
-    AreaListResponse,
     AreaResponse,
     OptionalRegulation,
 )
@@ -235,97 +233,6 @@ async def post_area(
 
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
-        content=response.model_dump(by_alias=True, mode="json"),
-    )
-
-
-@router.get(
-    "/areas",
-    summary="Get areas for the currently authenticated competent authority",
-    description="""Get all areas owned by the currently authenticated competent authority. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.
-
-**Scoping:**
-- Only returns areas belonging to the currently authenticated competent authority (based on JWT client_id)
-
-**Each area contains:**
-- `areaId`: Functional ID identifying this area
-- `areaName`: Display name (optional) of the area
-- `regulation`: Regulation type: 'listing', 'activity', or 'all'
-- `filename`: Name of the area shapefile (e.g., 'area.zip')
-- `competentAuthorityId`: Functional ID of the competent authority that owns the area
-- `competentAuthorityName`: Display name (optional) of the competent authority
-- `createdAt`: Timestamp when this area version was created (UTC)
-
-**Pagination:**
-- `offset`: Number of records to skip (default: 0)
-- `limit`: Maximum number of records to return (default: unlimited)
-
-""",
-    operation_id="getOwnAreas",
-    response_model=AreaListResponse,
-    status_code=status.HTTP_200_OK,
-    responses={
-        "200": {
-            "description": "List of areas owned by the authenticated competent authority",
-            "model": AreaListResponse,
-            "content": {
-                "application/json": {
-                    "example": {
-                        "areas": [
-                            {
-                                "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
-                                "areaName": "Amsterdam",
-                                "regulation": "all",
-                                "filename": "Amsterdam.zip",
-                                "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
-                                "competentAuthorityName": "Amsterdam (inclusief Weesp)",
-                                "createdAt": "2025-01-01T00:00:00Z",
-                            },
-                        ],
-                    }
-                }
-            },
-        },
-        "400": {
-            "model": ErrorResponse,
-            "description": "Bad request - invalid query parameters",
-        },
-        "401": {
-            "model": ErrorResponse,
-            "description": "Unauthorized - missing or invalid token",
-        },
-        "403": {
-            "description": "Forbidden - insufficient permissions",
-        },
-    },
-    dependencies=[Depends(RequireRoles(Role.CA, Role.READ))],
-)
-async def get_own_areas(
-    client: ClientDependency,
-    pagination: PaginationDependency,
-    session: AsyncSession = Depends(get_async_db_read_only),
-) -> Response:
-    """
-    Get areas for the currently authenticated competent authority.
-
-    Authorization:
-    - Requires valid bearer token with "sdep_ca" and "sdep_read" roles in realm_access
-    - Competent authority ID extracted from token's "client_id" claim
-    """
-    # Get areas for this CA
-    area_objects = await area_service.get_areas_by_client_id(
-        session,
-        client_id=client.id,
-        offset=pagination.offset,
-        limit=pagination.limit,
-    )
-
-    areas = [AreaResponse.model_validate(area_obj) for area_obj in area_objects]
-
-    response = AreaListResponse(areas=areas)
-
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
         content=response.model_dump(by_alias=True, mode="json"),
     )
 

@@ -54,7 +54,7 @@ clients:
   - id: "sdep-ca.01"
     secret: "sdep-ca.01"
     name: "Test CA-01 (client id & secret, persistent)"
-    description: "For interactive usage (persistent data)"
+    description: "For interactive testing (persistent data)"
     service_account_roles:
       - sdep_ca
       - sdep_read
@@ -62,7 +62,7 @@ clients:
   - id: "833946726525.sdep.gov.local"
     secret: "833946726525"
     name: "Test CA-02 (client id & secret, persistent)"
-    description: "For interactive usage (persistent data)"
+    description: "For interactive testing (persistent data)"
     service_account_roles:
       - sdep_ca
       - sdep_read
@@ -72,7 +72,7 @@ clients:
   - id: "sdep-str.01"
     secret: "sdep-str.01"
     name: "Test STR-01 (client id & secret, persistent)"
-    description: "For interactive usage (persistent data)"
+    description: "For interactive testing (persistent data)"
     service_account_roles:
       - sdep_str
       - sdep_read
@@ -80,7 +80,7 @@ clients:
   - id: "381028359011.sdep.gov.local"
     secret: "381028359011"
     name: "Test STR-02 (client id & secret, persistent)"
-    description: "For interactive usage (persistent data)"
+    description: "For interactive testing (persistent data)"
     service_account_roles:
       - sdep_str
       - sdep_read
@@ -90,7 +90,7 @@ clients:
   - id: "sdep-rep.01"
     secret: "sdep-rep.01"
     name: "Test REP-01 (client id & secret, persistent)"
-    description: "For interactive usage (persistent data)"
+    description: "For interactive testing (persistent data)"
     service_account_roles:
       - sdep_rep
       - sdep_read
@@ -101,7 +101,7 @@ clients:
   - id: "sdep-ca.0363"
     secret: "sdep-ca.0363"
     name: "Gemeente Amsterdam (CA, client id & secret)"
-    description: "For interactive usage (persistent, predefined test data)"
+    description: "For interactive testing (persistent, predefined test data)"
     service_account_roles:
       - sdep_ca
       - sdep_read
@@ -109,7 +109,7 @@ clients:
   - id: "sdep-ca.0599"
     secret: "sdep-ca.0599"
     name: "Gemeente Rotterdam (CA, client id & secret)"
-    description: "For interactive usage (persistent, predefined test data)"
+    description: "For interactive testing (persistent, predefined test data)"
     service_account_roles:
       - sdep_ca
       - sdep_read
@@ -117,7 +117,7 @@ clients:
   - id: "sdep-ca.0518"
     secret: "sdep-ca.0518"
     name: "Gemeente Den Haag (CA, client id & secret)"
-    description: "For interactive usage (persistent, predefined test data)"
+    description: "For interactive testing (persistent, predefined test data)"
     service_account_roles:
       - sdep_ca
       - sdep_read

@@ -48,10 +48,9 @@ class TestActivityBulkService:
     ):
         session = cast("AsyncSession", object())
         monkeypatch.setattr(activity_bulk, "ValidationError", _FakeValidationError)
+        fake_adapter = _FakeAdapter(_FakeValidationError("broken payload"))
         monkeypatch.setattr(
-            activity_bulk,
-            "_activity_request_adapter",
-            _FakeAdapter(_FakeValidationError("broken payload")),
+            activity_bulk, "_item_adapter", lambda item_model: fake_adapter
         )
         monkeypatch.setattr(
             activity_bulk.platform_crud,
@@ -466,3 +465,67 @@ class TestActivityBulkService:
         assert response.results[0].errors is not None
         assert "deactivated" in response.results[0].errors.detail[0].msg
         assert response.results[1].status == "OK"
+
+
+@pytest.mark.asyncio
+async def test_create_activities_bulk_rejects_listing_only_area_when_required(
+    monkeypatch,
+):
+    """The regulation check marks the item NOK instead of 'not found'."""
+    from app.enums import Regulation
+    from app.schemas.activity import ActivityRequestV2
+
+    session = cast("AsyncSession", object())
+    listing_area = SimpleNamespace(id=1, regulation=Regulation.listing)
+    monkeypatch.setattr(
+        activity_bulk.platform_crud,
+        "get_by_client_id",
+        AsyncMock(return_value=SimpleNamespace(id=1, platform_name="Platform")),
+    )
+    monkeypatch.setattr(
+        activity_bulk.area_crud,
+        "get_area_ca_map",
+        AsyncMock(return_value={"area-listing": listing_area}),
+    )
+    bulk_create = AsyncMock()
+    monkeypatch.setattr(activity_bulk.activity_crud, "bulk_create", bulk_create)
+
+    response = await activity_bulk.create_activities_bulk(
+        session=session,
+        activities_raw=[
+            {
+                "activityId": "a-1",
+                "areaId": "area-listing",
+                "url": "http://example.com/1",
+                "address": {
+                    "thoroughfare": "T",
+                    "postCode": "1234AB",
+                    "postName": "P",
+                    "fullAddress": "T 1, 1234AB P",
+                },
+                "registrationNumber": "REG",
+                "numberOfGuests": 1,
+                "countryOfGuests": ["NLD"],
+                "temporal": {
+                    "startDatetime": "2025-06-01T14:00:00Z",
+                    "endDatetime": "2025-06-02T11:00:00Z",
+                },
+            }
+        ],
+        client_id="platform-1",
+        platform_name="Platform",
+        item_model=ActivityRequestV2,
+        require_activity_regulation=True,
+    )
+
+    assert response.failed == 1
+    assert response.results[0].errors == ErrorResponse(
+        detail=[
+            ErrorDetail(
+                msg="Area with areaId 'area-listing' is regulated for listing only",
+                type="regulation_error",
+                loc=["areaId"],
+            )
+        ]
+    )
+    bulk_create.assert_not_awaited()

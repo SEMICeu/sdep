@@ -130,6 +130,7 @@ async def docs_landing_page():
     .status {{ display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 4px; background: #e5e7eb; color: #374151; font-size: 0.85em; font-weight: 600; }}
     .status-stable {{ background: #dcfce7; color: #166534; }}
     .status-beta {{ background: #fef3c7; color: #92400e; }}
+    .status-alpha {{ background: #fee2e2; color: #991b1b; }}
     /* Deployment and OAS badges, mirroring the ones Swagger UI shows beside each API title. */
     .badge {{ display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 4px; background: #e5e7eb; color: #374151; font-size: 0.75rem; font-weight: 600; vertical-align: middle; }}
     .badge-oas {{ background: #dcfce7; color: #166534; }}

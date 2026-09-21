@@ -101,10 +101,10 @@ This migration aligns SDEP with these standards, enabling:
 
 A new required `fullAddress` string field has been added to the Address composite.
 
-- **Type:** `string`, required, max length 318 characters (= 80 + 10 + 10 + 128 + 10 + 80, the sum of the other address field maximums).
+- **Type:** `string`, required, max length 328 characters (= 80 + 10 + 10 + 128 + 10 + 80, the sum of the other address field maximums, plus 10 for five ", " separators; 318 before).
 - **Semantics:** client-supplied, free-form rendering of the complete address. The server does not derive or normalize the value; it stores whatever the submitting platform provides, up to the length limit.
 - **Example:** `"Turfmarkt 147a-5h, 2500EA Den Haag"`.
-- **Migration:** Alembic revision `001_initial` includes the column as `NOT NULL` with `VARCHAR(318)`.
+- **Migration:** Alembic revision `001_initial` includes the column as `NOT NULL` with `VARCHAR(318)`; revision `007` widens it to `VARCHAR(328)`.
 
 ---
 

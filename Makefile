@@ -552,8 +552,10 @@ test-str: .ensure-up .get-client-credentials # Helper - Test only STR endpoints
 		exit 1; \
 	fi && \
 	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
-	uv run --script tests/test_str_areas.py 2>&1 | tee $$OUTPUT_FILE && \
-	uv run --script tests/test_str_activities_bulk.py 2>&1 | tee $$OUTPUT_FILE && \
+	API_VERSION=v1 uv run --script tests/test_str_areas.py 2>&1 | tee $$OUTPUT_FILE && \
+	API_VERSION=v2 uv run --script tests/test_str_areas.py 2>&1 | tee $$OUTPUT_FILE && \
+	API_VERSION=v1 uv run --script tests/test_str_activities_bulk.py 2>&1 | tee $$OUTPUT_FILE && \
+	API_VERSION=v2 uv run --script tests/test_str_activities_bulk.py 2>&1 | tee $$OUTPUT_FILE && \
 	echo "✅ STR endpoints tested!"
 
 test-rep: .ensure-up .get-client-credentials # Helper - Test only REP endpoints

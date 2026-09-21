@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from html import escape
 from typing import Literal
 
-ApiStatus = Literal["stable", "beta"]
+# Lifecycle, see docs/API.md "Status Indicator": alpha -> beta -> stable.
+ApiStatus = Literal["stable", "beta", "alpha"]
 # EU-harmonized: common to every SDEP implementation. Country-specific: guidance only,
 # may differ per Member State (this one is SDEP-NL).
 ApiScope = Literal["eu-harmonized", "country-specific"]
@@ -141,7 +142,9 @@ CA_V2 = ApiDomain(
     changes=(
         "adds four optional activity filters (`createdAtFrom`, `createdAtTo`, "
         "`platformId`, `areaId`) on the activity list and count endpoints; "
-        "no other changes."
+        "`GET /areas` and `GET /activities` return at most 1000 records per call "
+        "(`limit` defaults to 1000); the activity response documents the field "
+        "maximums (e.g. `url` 2048, `fullAddress` 328); no other changes."
     ),
     diff_url=VERSION_DIFF_URL,
 )
@@ -155,6 +158,26 @@ STR_V1 = ApiDomain(
     ),
     status="stable",
     scope="eu-harmonized",
+    superseded_by_path="/api/str/v2",
+)
+
+STR_V2 = ApiDomain(
+    label="STR v2",
+    root_path="/api/str/v2",
+    title="SDEP - Short-Term Rental Platform (STR) API",
+    description=(
+        "Endpoints for short-term rental platforms to view areas and to submit activities."
+    ),
+    status="beta",
+    scope="eu-harmonized",
+    supersedes_path="/api/str/v1",
+    changes=(
+        "activity timestamps must be UTC (offset `Z` or `+00:00`, no date-only values); "
+        "activities are rejected per item (`regulation_error`) for areas that are "
+        "regulated for listing only; `GET /areas` returns at most 1000 areas per call "
+        "(`limit` defaults to 1000); no other changes."
+    ),
+    diff_url=VERSION_DIFF_URL,
 )
 
 REP_V1 = ApiDomain(
@@ -165,11 +188,11 @@ REP_V1 = ApiDomain(
         "Read-only endpoints for the national statistics office to view all "
         "registered activity data."
     ),
-    status="beta",
+    status="alpha",
     scope="country-specific",
 )
 
-API_DOMAINS = (AUTH_V1, CA_V1, CA_V2, STR_V1, REP_V1)
+API_DOMAINS = (AUTH_V1, CA_V1, CA_V2, STR_V1, STR_V2, REP_V1)
 
 
 def _resolve(root_path: str | None) -> ApiDomain | None:

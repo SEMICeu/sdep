@@ -3,7 +3,8 @@
 Implements the Application-First Validation flow for bulk activity creation:
 
 1. Pydantic Check - validate each item individually, mark failures as NOK
-2. Referential Integrity Check - single SELECT for area IDs, Python dict lookup
+2. Referential Integrity Check - single SELECT for area IDs, Python dict lookup;
+   STR v2 also rejects areas that are regulated for listing only
 3. Bulk Insert - single multi-row INSERT for all valid items
 4. Feedback - per-item OK/NOK response preserving original order
 
@@ -14,6 +15,7 @@ Transaction Management Architecture:
 - CRUD layer only flushes (session.flush()), never commits
 """
 
+import functools
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -25,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import activity as activity_crud
 from app.crud import area as area_crud
 from app.crud import platform as platform_crud
+from app.enums import Regulation
 from app.exceptions.business import InvalidOperationError
 from app.schemas.activity import (
     ActivityBulkCreate,
@@ -36,8 +39,11 @@ from app.schemas.error import ErrorDetail, ErrorResponse
 
 logger = logging.getLogger(__name__)
 
-# TypeAdapter for per-item validation (Validation flow Step 1)
-_activity_request_adapter = TypeAdapter(ActivityRequest)
+
+@functools.cache
+def _item_adapter(item_model: type[ActivityRequest]) -> TypeAdapter[ActivityRequest]:
+    """TypeAdapter per item model, built once (Validation flow Step 1)."""
+    return TypeAdapter(item_model)
 
 
 async def create_activities_bulk(
@@ -45,6 +51,9 @@ async def create_activities_bulk(
     activities_raw: list[dict[str, Any]],
     client_id: str,
     platform_name: str,
+    *,
+    item_model: type[ActivityRequest] = ActivityRequest,
+    require_activity_regulation: bool = False,
 ) -> ActivityBulkResponse:
     """
     Create activities in bulk using Application-First Validation.
@@ -54,10 +63,14 @@ async def create_activities_bulk(
         activities_raw: List of raw activity dicts from the request
         client_id: Private platform client ID from JWT token
         platform_name: Platform name from JWT token (client_name claim)
+        item_model: Per-item request schema; the API version selects it
+        require_activity_regulation: Reject items whose area is not regulated
+            for activities (STR v2); v1 accepts them
 
     Returns:
         ActivityBulkResponse with per-item OK/NOK results
     """
+    item_adapter = _item_adapter(item_model)
     total = len(activities_raw)
     # results[i] will hold the result for the item at index i
     results: list[ActivityBulkResultItem | None] = [None] * total
@@ -74,7 +87,7 @@ async def create_activities_bulk(
         client_supplied_ids[i] = raw.get("activityId")
 
         try:
-            activity_req = _activity_request_adapter.validate_python(raw)
+            activity_req = item_adapter.validate_python(raw)
         except ValidationError as e:
             # Show all validation errors so the client can fix in one go
             pydantic_errors = e.errors()
@@ -166,6 +179,8 @@ async def create_activities_bulk(
     valid_indexes = [i for i in valid_indexes if results[i] is None]
 
     # ── Step 2: Referential Integrity check (single query) ──────────────
+    # The lookup stays unfiltered on regulation, so a listing-only area gets
+    # its own message instead of "not found".
     unique_area_ids = list({validated_items[i].area_id for i in valid_indexes})
     area_ca_map = await area_crud.get_area_ca_map(session, unique_area_ids)
 
@@ -184,6 +199,24 @@ async def create_activities_bulk(
                         ErrorDetail(
                             msg=f"Area with areaId '{area_id_str}' not found",
                             type="not_found_error",
+                            loc=["areaId"],
+                        )
+                    ]
+                ),
+            )
+        elif require_activity_regulation and not area_ca_map[
+            area_id_str
+        ].regulation.covers(Regulation.activity):
+            results[i] = ActivityBulkResultItem(
+                activityIndex=i,
+                activityId=client_supplied_ids[i],
+                status="NOK",
+                activity=None,
+                errors=ErrorResponse(
+                    detail=[
+                        ErrorDetail(
+                            msg=f"Area with areaId '{area_id_str}' is regulated for listing only",
+                            type="regulation_error",
                             loc=["areaId"],
                         )
                     ]

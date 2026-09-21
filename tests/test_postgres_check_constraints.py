@@ -30,7 +30,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 
-EXPECTED_ALEMBIC_REVISION = "006"
+EXPECTED_ALEMBIC_REVISION = "007"
 
 metadata = MetaData()
 

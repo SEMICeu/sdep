@@ -2,10 +2,10 @@
 
 from app.api.app_factory import create_domain_app
 from app.api.domain_registry import CA_V1
-from app.api.domains.ca.routers import activities_v1, areas
+from app.api.domains.ca.routers import activities_v1, areas, areas_list_v1
 
 app_ca_v1, verify_bearer_token = create_domain_app(
-    CA_V1, [activities_v1.router, areas.router]
+    CA_V1, [activities_v1.router, areas_list_v1.router, areas.router]
 )
 
 __all__ = ["app_ca_v1", "verify_bearer_token"]

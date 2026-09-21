@@ -72,11 +72,13 @@ class CommonAddressRequest(BaseModel):
         examples=["Amsterdam"],
     )  # Attribute
 
+    # 328 = sum of the other address field maximums (318) + 5 separators of ", ".
+    # See docs/DATAMODEL.md, Address.
     full_address: str = Field(
         ...,
         alias="fullAddress",
-        max_length=318,
-        description="Full address as a single string (required, max 318 chars)",
+        max_length=328,
+        description="Full address as a single string (required, max 328 chars)",
         examples=["Turfmarkt 147a-5h, 2500EA Den Haag"],
     )  # Attribute
 
@@ -103,6 +105,8 @@ class CommonAddressRequest(BaseModel):
         return v
 
 
+# Field maximums mirror CommonAddressRequest, so clients can size their storage from
+# the response contract. CA v1 keeps the undocumented variant, see app/schemas/activity_v1.py.
 class CommonAddressResponse(BaseModel):
     """Address composite schema for activity responses (INSPIRE/STR-AP field names)."""
 
@@ -113,31 +117,41 @@ class CommonAddressResponse(BaseModel):
     )
 
     thoroughfare: str = Field(
-        ..., description="Street / public space name"
+        ..., max_length=80, description="Street / public space name (max 80 chars)"
     )  # Attribute
     locator_designator_number: int | None = Field(
         None,
         serialization_alias="locatorDesignatorNumber",
-        description="Numeric house number component (optional)",
+        ge=0,
+        description="Numeric house number component (optional, >= 0 when provided)",
     )  # Attribute
     locator_designator_letter: str | None = Field(
         None,
         serialization_alias="locatorDesignatorLetter",
-        description="Letter/character suffix (optional)",
+        max_length=10,
+        description="Letter/character suffix (optional, max 10 chars)",
     )  # Attribute
     locator_designator_addition: str | None = Field(
         None,
         serialization_alias="locatorDesignatorAddition",
-        description="Additional qualifier (optional)",
+        max_length=128,
+        description="Additional qualifier (optional, max 128 chars)",
     )  # Attribute
     post_code: str = Field(
-        ..., serialization_alias="postCode", description="Postal code"
+        ...,
+        serialization_alias="postCode",
+        max_length=10,
+        description="Postal code (max 10 chars)",
     )  # Attribute
     post_name: str = Field(
-        ..., serialization_alias="postName", description="City / town / village"
+        ...,
+        serialization_alias="postName",
+        max_length=80,
+        description="City / town / village (max 80 chars)",
     )  # Attribute
     full_address: str = Field(
         ...,
         serialization_alias="fullAddress",
-        description="Full address as a single string",
+        max_length=328,
+        description="Full address as a single string (max 328 chars)",
     )  # Attribute

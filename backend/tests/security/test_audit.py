@@ -310,6 +310,8 @@ class TestAuditMiddleware:
             "/api/ca/v2/docs",
             "/api/str/v1/openapi.json",
             "/api/str/v1/docs",
+            "/api/str/v2/openapi.json",
+            "/api/str/v2/docs",
             "/api/rep/v1/openapi.json",
             "/api/rep/v1/docs",
             "/api/openapi.json",

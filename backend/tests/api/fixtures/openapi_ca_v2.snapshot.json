@@ -121,10 +121,12 @@
             "title": "Competentauthorityname"
           },
           "countryOfGuests": {
-            "description": "Array of country codes of guests (each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
+            "description": "Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
             "items": {
               "type": "string"
             },
+            "maxItems": 1024,
+            "minItems": 1,
             "title": "Countryofguests",
             "type": "array"
           },
@@ -136,6 +138,8 @@
           },
           "numberOfGuests": {
             "description": "Number of guests (1-1024)",
+            "maximum": 1024.0,
+            "minimum": 1.0,
             "title": "Numberofguests",
             "type": "integer"
           },
@@ -165,7 +169,8 @@
             "title": "Platformname"
           },
           "registrationNumber": {
-            "description": "Registration number of the address",
+            "description": "Registration number of the address (max 32 chars)",
+            "maxLength": 32,
             "title": "Registrationnumber",
             "type": "string"
           },
@@ -182,7 +187,8 @@
             "description": "Temporal composite (`startDatetime`, `endDatetime`)"
           },
           "url": {
-            "description": "URL of the originating listing/advertisement",
+            "description": "URL of the originating listing/advertisement (max 2048 chars)",
+            "maxLength": 2048,
             "title": "Url",
             "type": "string"
           }
@@ -396,58 +402,65 @@
         "description": "Address composite schema for activity responses (INSPIRE/STR-AP field names).",
         "properties": {
           "fullAddress": {
-            "description": "Full address as a single string",
+            "description": "Full address as a single string (max 328 chars)",
+            "maxLength": 328,
             "title": "Fulladdress",
             "type": "string"
           },
           "locatorDesignatorAddition": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Additional qualifier (optional)",
+            "description": "Additional qualifier (optional, max 128 chars)",
             "title": "Locatordesignatoraddition"
           },
           "locatorDesignatorLetter": {
             "anyOf": [
               {
+                "maxLength": 10,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Letter/character suffix (optional)",
+            "description": "Letter/character suffix (optional, max 10 chars)",
             "title": "Locatordesignatorletter"
           },
           "locatorDesignatorNumber": {
             "anyOf": [
               {
+                "minimum": 0.0,
                 "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Numeric house number component (optional)",
+            "description": "Numeric house number component (optional, >= 0 when provided)",
             "title": "Locatordesignatornumber"
           },
           "postCode": {
-            "description": "Postal code",
+            "description": "Postal code (max 10 chars)",
+            "maxLength": 10,
             "title": "Postcode",
             "type": "string"
           },
           "postName": {
-            "description": "City / town / village",
+            "description": "City / town / village (max 80 chars)",
+            "maxLength": 80,
             "title": "Postname",
             "type": "string"
           },
           "thoroughfare": {
-            "description": "Street / public space name",
+            "description": "Street / public space name (max 80 chars)",
+            "maxLength": 80,
             "title": "Thoroughfare",
             "type": "string"
           }
@@ -569,7 +582,7 @@
     }
   },
   "info": {
-    "description": "Endpoints for competent authorities to manage areas and to view activities. Status: beta. Changes from CA v1: adds four optional activity filters (`createdAtFrom`, `createdAtTo`, `platformId`, `areaId`) on the activity list and count endpoints; no other changes.",
+    "description": "Endpoints for competent authorities to manage areas and to view activities. Status: beta. Changes from CA v1: adds four optional activity filters (`createdAtFrom`, `createdAtTo`, `platformId`, `areaId`) on the activity list and count endpoints; `GET /areas` and `GET /activities` return at most 1000 records per call (`limit` defaults to 1000); the activity response documents the field maximums (e.g. `url` 2048, `fullAddress` 328); no other changes.",
     "title": "SDEP - Competent Authority (CA) API",
     "version": "<frozen-version>"
   },
@@ -577,7 +590,7 @@
   "paths": {
     "/activities": {
       "get": {
-        "description": "Get activities for the currently authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results. Optional filters use AND semantics: every provided filter narrows the result set within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `areaName`: Display name (optional) of the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
+        "description": "Get activities for the currently authenticated competent authority, maximum 1000 per page, including current records whose lifecycle `status` is `cancelled`. `limit` defaults to 1000 (the maximum); use `offset` and `limit` to page through the result set, and `GET /activities/count` for the total. Optional filters use AND semantics: every provided filter narrows the result set within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `areaName`: Display name (optional) of the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
         "operationId": "getActivityByCompetentAuthorityV2",
         "parameters": [
           {
@@ -594,23 +607,17 @@
             }
           },
           {
-            "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "maximum": 1000,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
-              "title": "Limit"
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
             }
           },
           {
@@ -936,8 +943,8 @@
     },
     "/areas": {
       "get": {
-        "description": "Get all areas owned by the currently authenticated competent authority. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.\n\n**Scoping:**\n- Only returns areas belonging to the currently authenticated competent authority (based on JWT client_id)\n\n**Each area contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type: 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID of the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)\n\n**Pagination:**\n- `offset`: Number of records to skip (default: 0)\n- `limit`: Maximum number of records to return (default: unlimited)",
-        "operationId": "getOwnAreas",
+        "description": "Get all areas owned by the currently authenticated competent authority, maximum 1000 per page. `limit` defaults to 1000 (the maximum); use `offset` and `limit` to page through the result set, and `GET /areas/count` for the total.\n\n**Scoping:**\n- Only returns areas belonging to the currently authenticated competent authority (based on JWT client_id)\n\n**Each area contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type: 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID of the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)\n\n**Pagination:**\n- `offset`: Number of records to skip (default: 0)\n- `limit`: Maximum number of records to return (default: 1000, max: 1000)",
+        "operationId": "getOwnAreasV2",
         "parameters": [
           {
             "description": "Number of records to skip (default: 0)",
@@ -953,23 +960,17 @@
             }
           },
           {
-            "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "maximum": 1000,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
-              "title": "Limit"
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
             }
           }
         ],

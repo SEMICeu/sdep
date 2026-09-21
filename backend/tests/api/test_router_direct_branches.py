@@ -11,10 +11,13 @@ import pytest
 from app.api.common import activity_handlers
 from app.api.common.auth_dependencies import Client, NamedClient
 from app.api.common.pagination import PaginationParams
-from app.api.common.routers import str_activities_bulk, str_areas
 from app.api.domains.ca.routers import activities_v1 as ca_activities
 from app.api.domains.ca.routers import areas as ca_areas
+from app.api.domains.ca.routers import areas_list_v1 as ca_areas_list
 from app.api.domains.rep.routers import activities_v1 as rep_activities
+from app.api.domains.str.routers import activities_bulk_v1 as str_activities_bulk
+from app.api.domains.str.routers import areas as str_areas
+from app.api.domains.str.routers import areas_list_v1 as str_areas_list
 from app.models.address import Address
 from app.models.temporal import Temporal
 from app.schemas.activity import ActivityFilters
@@ -285,7 +288,7 @@ async def test_ca_areas_direct_branches(monkeypatch):
             ]
         ),
     )
-    own_areas = await ca_areas.get_own_areas(
+    own_areas = await ca_areas_list.get_own_areas(
         client=Client(id="ca-1", name="CA"),
         pagination=PaginationParams(offset=0, limit=None),
         session=session,
@@ -395,7 +398,7 @@ async def test_str_activities_bulk_direct_branches(monkeypatch):
 async def test_str_areas_direct_branches(monkeypatch):
     session = cast("AsyncSession", object())
     monkeypatch.setattr(
-        str_areas.area,
+        str_areas_list.area,
         "get_areas",
         AsyncMock(
             return_value=[
@@ -413,7 +416,7 @@ async def test_str_areas_direct_branches(monkeypatch):
             ]
         ),
     )
-    areas = await str_areas.get_areas(
+    areas = await str_areas_list.get_areas(
         pagination=PaginationParams(offset=0, limit=None),
         session=session,
     )

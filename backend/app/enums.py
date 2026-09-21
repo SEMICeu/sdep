@@ -1,5 +1,7 @@
 """Shared enumerations."""
 
+from __future__ import annotations
+
 from enum import Enum
 
 
@@ -9,6 +11,10 @@ class Regulation(str, Enum):
     listing = "listing"
     activity = "activity"
     all = "all"
+
+    def covers(self, required: Regulation) -> bool:
+        """True when this regulation asks for `required` data; `all` covers both."""
+        return self in (required, Regulation.all)
 
     @classmethod
     def __get_pydantic_json_schema__(cls, core_schema, handler):

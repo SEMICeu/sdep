@@ -14,7 +14,10 @@ from pathlib import Path
 
 import pytest
 from app.api.domains.ca.v1 import app_ca_v1
+from app.api.domains.ca.v2 import app_ca_v2
+from app.api.domains.rep.v1 import app_rep_v1
 from app.api.domains.str.v1 import app_str_v1
+from app.api.domains.str.v2 import app_str_v2
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 AREA_SQL = REPO_ROOT / "test-data" / "02-area-generated.sql"
@@ -88,7 +91,12 @@ def valid_area_ids() -> set[str]:
 
 @pytest.fixture(scope="module")
 def openapi_specs() -> list[dict]:
-    return [app_ca_v1.openapi(), app_str_v1.openapi()]
+    # Every version that carries activity examples, so a new version cannot ship
+    # examples that do not resolve against the seed data.
+    return [
+        app.openapi()
+        for app in (app_ca_v1, app_ca_v2, app_str_v1, app_str_v2, app_rep_v1)
+    ]
 
 
 def test_openapi_area_ids_resolve_against_seed_sql(

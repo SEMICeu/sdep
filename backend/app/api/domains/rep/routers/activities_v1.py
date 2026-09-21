@@ -137,6 +137,7 @@ async def get_activities(
         offset=pagination.offset,
         limit=pagination.limit,
         filters=filters,
+        list_model=ActivityListResponse,
     )
 
 

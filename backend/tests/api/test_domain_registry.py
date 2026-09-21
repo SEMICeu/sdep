@@ -7,6 +7,7 @@ from app.api.domain_registry import (
     CA_V2,
     OAS_VERSION,
     REP_V1,
+    STR_V2,
     ApiDomain,
 )
 from app.api.domains.ca.v1 import app_ca_v1
@@ -69,7 +70,7 @@ class TestVersionDiffLink:
     def test_only_the_superseding_version_links_the_diff(self) -> None:
         linked = [domain.label for domain in API_DOMAINS if domain.diff_url]
 
-        assert linked == [CA_V2.label]
+        assert linked == [CA_V2.label, STR_V2.label]
 
     def test_superseded_version_does_not_link_the_diff(self) -> None:
         assert CA_V1.diff_url is None
@@ -101,7 +102,7 @@ class TestScopes:
         }
 
         assert by_scope == {
-            "eu-harmonized": {"Auth v1", "STR v1"},
+            "eu-harmonized": {"Auth v1", "STR v1", "STR v2"},
             "country-specific": {"CA v1", "CA v2", "REP v1"},
         }
 

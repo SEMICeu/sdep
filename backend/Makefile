@@ -101,7 +101,9 @@ _start: clean-stale
 	fi
 	@echo "🚀 Starting backend..."
 	@echo "API docs running at http://localhost:8000/api/docs"
-	uv run uvicorn app.main:app --reload --no-server-header
+	# Watch app/ only. Watching backend/ includes .venv and exhausts the kernel's
+	# inotify watch limit (fs.inotify.max_user_watches, 65536 by default).
+	uv run uvicorn app.main:app --reload --reload-dir app --no-server-header
 	@echo "✅ Backend started!"
 
 up: _start ## Start backend
@@ -110,7 +112,7 @@ dev: _start ## Start backend (alias for up)
 
 down: ## Stop backend
 	@echo "🛑 Stopping backend..."
-	@PID=$$(pgrep -f "uvicorn app.main:app --reload$$" 2>/dev/null | head -1); \
+	@PID=$$(pgrep -f "uvicorn app.main:app --reload" 2>/dev/null | head -1); \
 	if [ -n "$$PID" ]; then \
 		kill -TERM $$PID 2>/dev/null && echo "✅ API server stopped!" || echo "Failed to stop API server"; \
 	else \

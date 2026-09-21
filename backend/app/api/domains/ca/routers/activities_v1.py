@@ -1,4 +1,8 @@
-"""Competent authority activity endpoints for API v1."""
+"""Competent authority activity endpoints for API v1.
+
+Uses the frozen response schemas from app.schemas.activity_v1, so the stable
+v1 contract does not pick up the documented field maximums of the base schemas.
+"""
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +16,8 @@ from app.api.common.auth_dependencies import ClientDependency, RequireRoles
 from app.api.common.pagination import PaginationDependency
 from app.api.common.security import Role
 from app.db.config import get_async_db_read_only
-from app.schemas.activity import ActivityCountResponse, ActivityListResponse
+from app.schemas.activity import ActivityCountResponse
+from app.schemas.activity_v1 import ActivityListResponse, ActivityResponse
 
 router = APIRouter(tags=["ca"])
 
@@ -71,6 +76,8 @@ async def get_activities(
         session=session,
         offset=pagination.offset,
         limit=pagination.limit,
+        list_model=ActivityListResponse,
+        item_model=ActivityResponse,
     )
 
 

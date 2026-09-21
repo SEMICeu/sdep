@@ -91,207 +91,219 @@ https://sdep.gov.nl/api/docs.
 
 ```
 sdep-app/
-├── backend/                                    # Python FastAPI application
-│   ├── app/                                    # Application code
-│   │   ├── api/                                # API layer (routers, endpoints)
-│   │   │   ├── app_factory.py                  # Domain sub-app factory (shared setup for all domains)
-│   │   │   ├── common/                         # Shared API components (routers, openapi, security)
-│   │   │   │   ├── routers/                    # API routers
-│   │   │   │   │   ├── auth.py                 # Authentication router
-│   │   │   │   │   ├── health.py               # Health check router
-│   │   │   │   │   ├── ping.py                 # Ping endpoint
-│   │   │   │   │   ├── str_activities_bulk.py  # STR bulk activity endpoints
-│   │   │   │   │   └── str_areas.py            # STR area endpoints
-│   │   │   │   ├── activity_examples.py        # Shared OpenAPI activity response examples
-│   │   │   │   ├── activity_handlers.py        # Shared activity logic (CA v1/v2 and REP)
-│   │   │   │   ├── auth_dependencies.py        # Shared auth/role dependencies
+├── backend/                                           # Python FastAPI application
+│   ├── app/                                           # Application code
+│   │   ├── api/                                       # API layer (routers, endpoints)
+│   │   │   ├── app_factory.py                         # Domain sub-app factory (shared setup for all domains)
+│   │   │   ├── common/                                # Shared API components (routers, openapi, security)
+│   │   │   │   ├── routers/                           # API routers
+│   │   │   │   │   ├── auth.py                        # Authentication router
+│   │   │   │   │   ├── health.py                      # Health check router
+│   │   │   │   │   └── ping.py                        # Ping endpoint
+│   │   │   │   ├── activity_examples.py               # Shared OpenAPI activity response examples
+│   │   │   │   ├── activity_handlers.py               # Shared activity logic (CA v1/v2 and REP)
+│   │   │   │   ├── auth_dependencies.py               # Shared auth/role dependencies
 │   │   │   │   ├── exception_handlers.py
-│   │   │   │   ├── filename.py                 # Download filename sanitization
+│   │   │   │   ├── filename.py                        # Download filename sanitization
 │   │   │   │   ├── openapi.py
-│   │   │   │   ├── pagination.py                # Shared pagination helpers
+│   │   │   │   ├── pagination.py                      # Shared pagination helpers
 │   │   │   │   └── security.py
-│   │   │   ├── common_app.py                   # Version-independent sub-app (health, ping)
-│   │   │   ├── domain_registry.py              # Centralized API domain metadata (label, paths, status)
-│   │   │   └── domains/                        # Per-domain versioned sub-apps
+│   │   │   ├── common_app.py                          # Version-independent sub-app (health, ping)
+│   │   │   ├── domain_registry.py                     # Centralized API domain metadata (label, paths, status)
+│   │   │   └── domains/                               # Per-domain versioned sub-apps
 │   │   │       ├── auth/
-│   │   │       │   └── v1.py                   # Auth domain sub-app
+│   │   │       │   └── v1.py                          # Auth domain sub-app
 │   │   │       ├── ca/
-│   │   │       │   ├── v1.py                   # CA domain sub-app v1
-│   │   │       │   ├── v2.py                   # CA domain sub-app v2
+│   │   │       │   ├── v1.py                          # CA domain sub-app v1
+│   │   │       │   ├── v2.py                          # CA domain sub-app v2
 │   │   │       │   └── routers/
-│   │   │       │       ├── activities_v1.py    # CA activity endpoints v1
-│   │   │       │       ├── activities_v2.py    # CA activity endpoints v2 (with filters)
-│   │   │       │       └── areas.py            # CA area endpoints
+│   │   │       │       ├── activities_v1.py           # CA activity endpoints v1 (frozen response schemas)
+│   │   │       │       ├── activities_v2.py           # CA activity endpoints v2 (filters, limit default 1000)
+│   │   │       │       ├── areas.py                   # CA area endpoints shared by v1 and v2 (post, count, get, delete)
+│   │   │       │       ├── areas_docs.py              # Shared OpenAPI text and examples for the areas list
+│   │   │       │       ├── areas_list_v1.py           # CA areas list v1 (unlimited by default)
+│   │   │       │       └── areas_list_v2.py           # CA areas list v2 (limit default 1000)
 │   │   │       ├── rep/
-│   │   │       │   ├── v1.py                   # REP domain sub-app
+│   │   │       │   ├── v1.py                          # REP domain sub-app
 │   │   │       │   └── routers/
-│   │   │       │       └── activities_v1.py    # REP activity endpoints (read-only)
+│   │   │       │       └── activities_v1.py           # REP activity endpoints (read-only)
 │   │   │       └── str/
-│   │   │           └── v1.py                   # STR domain sub-app
-│   │   ├── crud/                               # Database operations (CRUD)
+│   │   │           ├── v1.py                          # STR domain sub-app v1
+│   │   │           ├── v2.py                          # STR domain sub-app v2
+│   │   │           └── routers/
+│   │   │               ├── activities_bulk_docs.py    # Shared OpenAPI text and examples for the bulk endpoint
+│   │   │               ├── activities_bulk_shared.py  # HTTP status mapping of the bulk result
+│   │   │               ├── activities_bulk_v1.py      # STR bulk activity endpoint v1
+│   │   │               ├── activities_bulk_v2.py      # STR bulk activity endpoint v2 (UTC-only, regulation check)
+│   │   │               ├── areas.py                   # STR area endpoints shared by v1 and v2 (count, get)
+│   │   │               ├── areas_docs.py              # Shared OpenAPI text and examples for the areas list
+│   │   │               ├── areas_list_v1.py           # STR areas list v1 (unlimited by default)
+│   │   │               └── areas_list_v2.py           # STR areas list v2 (limit default 1000)
+│   │   ├── crud/                                      # Database operations (CRUD)
 │   │   │   ├── activity.py
 │   │   │   ├── area.py
 │   │   │   ├── competent_authority.py
 │   │   │   └── platform.py
-│   │   ├── db/                                 # Database configuration
-│   │   │   └── config.py                       # Database session management
-│   │   ├── exceptions/                         # Custom exceptions
-│   │   │   ├── auth.py                         # Authentication exceptions
-│   │   │   ├── base.py                         # Base exception classes
-│   │   │   ├── business.py                     # Business logic exceptions
-│   │   │   ├── handlers.py                     # Exception handlers
-│   │   │   ├── infrastructure.py               # Infrastructure exceptions (DB, auth server)
-│   │   │   └── validation.py                   # Validation exceptions
-│   │   ├── models/                             # SQLAlchemy ORM models
+│   │   ├── db/                                        # Database configuration
+│   │   │   └── config.py                              # Database session management
+│   │   ├── exceptions/                                # Custom exceptions
+│   │   │   ├── auth.py                                # Authentication exceptions
+│   │   │   ├── base.py                                # Base exception classes
+│   │   │   ├── business.py                            # Business logic exceptions
+│   │   │   ├── handlers.py                            # Exception handlers
+│   │   │   ├── infrastructure.py                      # Infrastructure exceptions (DB, auth server)
+│   │   │   └── validation.py                          # Validation exceptions
+│   │   ├── models/                                    # SQLAlchemy ORM models
 │   │   │   ├── activity.py
 │   │   │   ├── address.py
 │   │   │   ├── area.py
-│   │   │   ├── audit_log.py                    # Audit log record
+│   │   │   ├── audit_log.py                           # Audit log record
 │   │   │   ├── competent_authority.py
 │   │   │   ├── platform.py
 │   │   │   ├── temporal.py
-│   │   │   └── types.py                        # Dialect-aware TypeDecorators (e.g. StringArray)
-│   │   ├── schemas/                            # Pydantic schemas (request/response)
+│   │   │   └── types.py                               # Dialect-aware TypeDecorators (e.g. StringArray)
+│   │   ├── schemas/                                   # Pydantic schemas (request/response)
 │   │   │   ├── activity.py
 │   │   │   ├── activity_bulk.py
+│   │   │   ├── activity_v1.py                         # Frozen CA v1 response schemas (deleted with CA v1)
 │   │   │   ├── address.py
 │   │   │   ├── area.py
 │   │   │   ├── auth.py
-│   │   │   ├── common.py                       # Shared types: FunctionalId, validate_client_id()
+│   │   │   ├── common.py                              # Shared types: FunctionalId, UtcDateTime, validate_client_id()
 │   │   │   ├── error.py
 │   │   │   ├── health.py
 │   │   │   └── temporal.py
-│   │   ├── security/                           # Security utilities
-│   │   │   ├── audit.py                        # Audit logging middleware
-│   │   │   ├── audit_retention.py              # Background audit log cleanup
-│   │   │   ├── headers.py                      # Security headers
-│   │   │   └── malware_scan.py                 # ClamAV malware scanning
-│   │   ├── services/                           # Business logic layer
+│   │   ├── security/                                  # Security utilities
+│   │   │   ├── audit.py                               # Audit logging middleware
+│   │   │   ├── audit_retention.py                     # Background audit log cleanup
+│   │   │   ├── headers.py                             # Security headers
+│   │   │   └── malware_scan.py                        # ClamAV malware scanning
+│   │   ├── services/                                  # Business logic layer
 │   │   │   ├── activity.py
 │   │   │   ├── activity_bulk.py
 │   │   │   └── area.py
-│   │   ├── config.py                           # Application configuration
-│   │   ├── enums.py                            # Shared enumerations (e.g. Regulation)
-│   │   └── main.py                             # Application entry point
-│   ├── alembic/                                # Database migrations
-│   │   ├── env.py                              # Alembic environment config
-│   │   └── versions/                           # Migration scripts
-│   │       ├── 001_initial.py                  # Initial migration
-│   │       └── *.py                            # Additional migrations on top
-│   ├── scripts/                                # Backend helper scripts
-│   │   └── wait_for_postgres.py                # Block until the database accepts connections
-│   ├── tests/                                  # Unit tests (mirrors app/ structure)
-│   │   ├── api/                                # API layer tests
-│   │   ├── crud/                               # CRUD layer tests
-│   │   ├── fixtures/                           # Test fixtures and factories
-│   │   ├── security/                           # Security tests
-│   │   ├── services/                           # Service layer tests
-│   │   └── conftest.py                         # pytest configuration
-│   ├── alembic.ini                             # Alembic configuration
-│   ├── Dockerfile                              # Backend container image
-│   ├── Makefile                                # Backend-specific make targets
-│   ├── pyproject.toml                          # Python project configuration (uv)
-│   └── uv.lock                                 # Locked dependencies
+│   │   ├── config.py                                  # Application configuration
+│   │   ├── enums.py                                   # Shared enumerations (e.g. Regulation)
+│   │   └── main.py                                    # Application entry point
+│   ├── alembic/                                       # Database migrations
+│   │   ├── env.py                                     # Alembic environment config
+│   │   └── versions/                                  # Migration scripts
+│   │       ├── 001_initial.py                         # Initial migration
+│   │       └── *.py                                   # Additional migrations on top
+│   ├── scripts/                                       # Backend helper scripts
+│   │   └── wait_for_postgres.py                       # Block until the database accepts connections
+│   ├── tests/                                         # Unit tests (mirrors app/ structure)
+│   │   ├── api/                                       # API layer tests
+│   │   ├── crud/                                      # CRUD layer tests
+│   │   ├── fixtures/                                  # Test fixtures and factories
+│   │   ├── security/                                  # Security tests
+│   │   ├── services/                                  # Service layer tests
+│   │   └── conftest.py                                # pytest configuration
+│   ├── alembic.ini                                    # Alembic configuration
+│   ├── Dockerfile                                     # Backend container image
+│   ├── Makefile                                       # Backend-specific make targets
+│   ├── pyproject.toml                                 # Python project configuration (uv)
+│   └── uv.lock                                        # Locked dependencies
 │
-├── tests/                                      # Integration tests + performance tests
-│   ├── lib/                                    # Test library utilities
-│   │   └── create_fixture_areas.py             # Area fixture creation
-│   ├── malware/                                # Malware scanning tests
-│   │   └── test_malware_scan.py                # ClamAV malware scan test
-│   ├── performance/                            # Performance tests (Locust)
-│   │   └── locustfile.py                       # Bulk activity load test
-│   ├── test_auth_client_bootstrap.py           # Bearer token acquisition utility (client secret)
-│   ├── test_auth_client_jwt.py                 # Test client-signed JWT (private_key_jwt) + roles
-│   ├── test_auth_client_secret.py              # Test client-secret authentication
-│   ├── test_auth_headers.py                    # Security headers compliance
-│   ├── test_auth_unauthorized.py               # Test unauthorized access rejection
-│   ├── test_ca_activities.py                   # Test CA activity endpoints
-│   ├── test_ca_areas.py                        # Test CA area submission
-│   ├── test_client_id_regex.py                 # Test client ID regex validation
-│   ├── test_cve_ids.py                         # Guard against corrupted (year-rewritten) CVE ids
-│   ├── test_health_ping.py                     # Health check tests
-│   ├── test_postgres_check_constraints.py      # Test database check constraints
-│   ├── test_rep_activities.py                  # Test REP activity endpoints
-│   ├── test_smoketest.py                       # Smoke test audit-excluded endpoints
-│   ├── test_str_activities_bulk.py             # Test STR bulk activity submission
-│   ├── test_str_areas.py                       # Test STR area query endpoints
-│   └── test_trivy_allowlist.py                 # Test CVE allowlist policy validation
+├── tests/                                             # Integration tests + performance tests
+│   ├── lib/                                           # Test library utilities
+│   │   └── create_fixture_areas.py                    # Area fixture creation
+│   ├── malware/                                       # Malware scanning tests
+│   │   └── test_malware_scan.py                       # ClamAV malware scan test
+│   ├── performance/                                   # Performance tests (Locust)
+│   │   └── locustfile.py                              # Bulk activity load test
+│   ├── test_auth_client_bootstrap.py                  # Bearer token acquisition utility (client secret)
+│   ├── test_auth_client_jwt.py                        # Test client-signed JWT (private_key_jwt) + roles
+│   ├── test_auth_client_secret.py                     # Test client-secret authentication
+│   ├── test_auth_headers.py                           # Security headers compliance
+│   ├── test_auth_unauthorized.py                      # Test unauthorized access rejection
+│   ├── test_ca_activities.py                          # Test CA activity endpoints
+│   ├── test_ca_areas.py                               # Test CA area submission
+│   ├── test_client_id_regex.py                        # Test client ID regex validation
+│   ├── test_cve_ids.py                                # Guard against corrupted (year-rewritten) CVE ids
+│   ├── test_health_ping.py                            # Health check tests
+│   ├── test_postgres_check_constraints.py             # Test database check constraints
+│   ├── test_rep_activities.py                         # Test REP activity endpoints
+│   ├── test_smoketest.py                              # Smoke test audit-excluded endpoints
+│   ├── test_str_activities_bulk.py                    # Test STR bulk activity submission
+│   ├── test_str_areas.py                              # Test STR area query endpoints
+│   └── test_trivy_allowlist.py                        # Test CVE allowlist policy validation
 │
-├── keycloak/                                   # Keycloak config
-│   ├── Dockerfile                              # Optimized image (build-time options baked in)
-│   ├── add-realm-admin.sh                      # Create realm admin user
-│   ├── add-realm-machine-clients.sh            # Configure OAuth 2.0 machine clients
-│   ├── add-realm-roles.sh                      # Configure roles
-│   ├── add-realm.sh                            # Initialize realm
-│   ├── get-client-secret.sh                    # Retrieve client secret
-│   ├── machine-clients.yaml                    # Machine client definitions (CA, STR, REP)
-│   ├── realm.yaml                              # Realm configuration
-│   ├── roles.yaml                              # Role definitions
-│   └── wait.sh                                 # Wait for Keycloak startup
+├── keycloak/                                          # Keycloak config
+│   ├── Dockerfile                                     # Optimized image (build-time options baked in)
+│   ├── add-realm-admin.sh                             # Create realm admin user
+│   ├── add-realm-machine-clients.sh                   # Configure OAuth 2.0 machine clients
+│   ├── add-realm-roles.sh                             # Configure roles
+│   ├── add-realm.sh                                   # Initialize realm
+│   ├── get-client-secret.sh                           # Retrieve client secret
+│   ├── machine-clients.yaml                           # Machine client definitions (CA, STR, REP)
+│   ├── realm.yaml                                     # Realm configuration
+│   ├── roles.yaml                                     # Role definitions
+│   └── wait.sh                                        # Wait for Keycloak startup
 │
-├── postgres/                                   # PostgreSQL initialization
-│   ├── clean-app.sql                           # Database cleanup
-│   ├── clean-testrun.sql                       # Test run cleanup
-│   ├── count-app.sql                           # Row count queries
-│   ├── init-keycloak.sql                       # Keycloak database setup
-│   └── init-app.sql                            # SDEP database setup
+├── postgres/                                          # PostgreSQL initialization
+│   ├── clean-app.sql                                  # Database cleanup
+│   ├── clean-testrun.sql                              # Test run cleanup
+│   ├── count-app.sql                                  # Row count queries
+│   ├── init-keycloak.sql                              # Keycloak database setup
+│   └── init-app.sql                                   # SDEP database setup
 │
-├── test-data/                                  # Test data for integration tests
-│   ├── shapefiles/                             # Shapefile test data (zipped)
-│   ├── 01-competent-authority.sql              # Competent authority fixtures
-│   ├── 02-area-generated.sql                   # Generated area data
-│   └── postgres-prep-area-sql.sh               # Area data generator script
+├── test-data/                                         # Test data for integration tests
+│   ├── shapefiles/                                    # Shapefile test data (zipped)
+│   ├── 01-competent-authority.sql                     # Competent authority fixtures
+│   ├── 02-area-generated.sql                          # Generated area data
+│   └── postgres-prep-area-sql.sh                      # Area data generator script
 │
-├── docs/                                       # Documentation
-│   ├── ACTIVITY.md                             # Activity functional design
-│   ├── API.md                                  # API documentation
-│   ├── API_DIFF.md                             # Generated diff between consecutive API versions
-│   ├── ARCHITECTURE_FUNC.md                    # Functional architecture
-│   ├── ARCHITECTURE_TECH.md                    # Architecture overview (this file)
-│   ├── AREA.md                                 # Area functional design
-│   ├── DATABASE_DIALECTS.md                    # SQLite/PostgreSQL compatibility
-│   ├── DATAMODEL.md                            # Data Model documentation
-│   ├── DEFINITIONS.md                          # Informal definitions of SDEP concepts
-│   ├── DEVELOPMENT.md                          # Workflow, testing, configuration
-│   ├── GET_STARTED_CLIENT_SIGNED_JWT.md        # Getting started with client-signed JWT (private_key_jwt)
-│   ├── GET_STARTED_PRD.md                      # Getting started with the production (PRD) environment
-│   ├── GET_STARTED_PRE.md                      # Getting started with the pre-production (PRE) environment
-│   ├── HOST.md                                 # Host role (out of scope for SDEP)
-│   ├── INTEGRATION_TESTS.md                    # Integration test documentation
-│   ├── LISTING.md                              # Listing functional design (proposal)
-│   ├── MIGRATION_ADDRESS_INSPIRE.md            # Address field migration guide (INSPIRE/STR-AP)
-│   ├── PERFORMANCE_TESTS.md                    # Performance test documentation
-│   ├── SECURITY.md                             # Security documentation
-│   ├── STR Regulation QA rev.pdf               # Q&A on STR Regulation random checks (Article 7)
-│   ├── WOW.md                                  # Ways of working
-│   ├── sdep_openapi_auth_v1.pdf                # OpenAPI auth v1 PDF export
-│   ├── sdep_openapi_ca_v1.pdf                  # OpenAPI CA v1 PDF export
-│   ├── sdep_openapi_str_v1.pdf                 # OpenAPI STR v1 PDF export
-│   ├── diagrams/                               # Architecture diagrams
+├── docs/                                              # Documentation
+│   ├── ACTIVITY.md                                    # Activity functional design
+│   ├── API.md                                         # API documentation
+│   ├── API_DIFF.md                                    # Generated diff between consecutive API versions
+│   ├── ARCHITECTURE_FUNC.md                           # Functional architecture
+│   ├── ARCHITECTURE_TECH.md                           # Architecture overview (this file)
+│   ├── AREA.md                                        # Area functional design
+│   ├── DATABASE_DIALECTS.md                           # SQLite/PostgreSQL compatibility
+│   ├── DATAMODEL.md                                   # Data Model documentation
+│   ├── DEFINITIONS.md                                 # Informal definitions of SDEP concepts
+│   ├── DEVELOPMENT.md                                 # Workflow, testing, configuration
+│   ├── GET_STARTED_CLIENT_SIGNED_JWT.md               # Getting started with client-signed JWT (private_key_jwt)
+│   ├── GET_STARTED_PRD.md                             # Getting started with the production (PRD) environment
+│   ├── GET_STARTED_PRE.md                             # Getting started with the pre-production (PRE) environment
+│   ├── HOST.md                                        # Host role (out of scope for SDEP)
+│   ├── INTEGRATION_TESTS.md                           # Integration test documentation
+│   ├── LISTING.md                                     # Listing functional design (proposal)
+│   ├── MIGRATION_ADDRESS_INSPIRE.md                   # Address field migration guide (INSPIRE/STR-AP)
+│   ├── PERFORMANCE_TESTS.md                           # Performance test documentation
+│   ├── SECURITY.md                                    # Security documentation
+│   ├── STR Regulation QA rev.pdf                      # Q&A on STR Regulation random checks (Article 7)
+│   ├── WOW.md                                         # Ways of working
+│   ├── sdep_openapi_auth_v1.pdf                       # OpenAPI auth v1 PDF export
+│   ├── sdep_openapi_ca_v1.pdf                         # OpenAPI CA v1 PDF export
+│   ├── sdep_openapi_str_v1.pdf                        # OpenAPI STR v1 PDF export
+│   ├── diagrams/                                      # Architecture diagrams
 │   │   └── ARCHITECTURE_FUNC.png
-│   └── markdown-tooling/                       # Markdown format/lint tooling (see `make md-format`, `make md-lint`)
-│       ├── markdownlint-rules/                 # Custom markdownlint rules
-│       └── mdformat-sdep/                      # mdformat plugin enforcing the project style rules
+│   └── markdown-tooling/                              # Markdown format/lint tooling (see `make md-format`, `make md-lint`)
+│       ├── markdownlint-rules/                        # Custom markdownlint rules
+│       └── mdformat-sdep/                             # mdformat plugin enforcing the project style rules
 │
-├── scripts/                                    # Utility scripts
-│   ├── check_cve_allowlist.py                  # Reconcile Trivy report vs CVE_EXPLAINS.md allowlist (policy gate)
-│   ├── create-client-signed-jwt.py             # Create a client-signed JWT assertion (portable, standalone)
-│   ├── generate-eicar-zip.sh                   # Generate EICAR test archive (malware scan test)
-│   ├── generate-keycloak-machine-clients.py    # Generate client-signed JWT test clients (CA, STR, REP)
-│   ├── run-tests.sh                            # Integration test runner
-│   ├── run-tests-perf.sh                       # Performance test runner (Locust)
-│   ├── run-trivy-scan.sh                       # Run Trivy and emit the JSON report (scan only)
-│   ├── show-keycloak-client-jwks.py            # Show a client's public key (JWKS) stored in Keycloak
-│   └── validate-client-key-pair.py             # Verify a private key matches the configured public key
+├── scripts/                                           # Utility scripts
+│   ├── check_cve_allowlist.py                         # Reconcile Trivy report vs CVE_EXPLAINS.md allowlist (policy gate)
+│   ├── create-client-signed-jwt.py                    # Create a client-signed JWT assertion (portable, standalone)
+│   ├── generate-eicar-zip.sh                          # Generate EICAR test archive (malware scan test)
+│   ├── generate-keycloak-machine-clients.py           # Generate client-signed JWT test clients (CA, STR, REP)
+│   ├── run-tests.sh                                   # Integration test runner
+│   ├── run-tests-perf.sh                              # Performance test runner (Locust)
+│   ├── run-trivy-scan.sh                              # Run Trivy and emit the JSON report (scan only)
+│   ├── show-keycloak-client-jwks.py                   # Show a client's public key (JWKS) stored in Keycloak
+│   └── validate-client-key-pair.py                    # Verify a private key matches the configured public key
 │
-├── .env                                        # Environment variables
-├── .env.extra.example                          # Template for `.env.extra`, the optional local override file
-├── .gitignore                                  # Git ignore rules
-├── CHANGELOG.md                                # Changelog
-├── docker-compose.yml                          # Multi-container orchestration
-├── LICENSE.md                                  # EUPL License
-├── Makefile                                    # Root-level make targets
-└── README.md                                   # Quick start guide
+├── .env                                               # Environment variables
+├── .env.extra.example                                 # Template for `.env.extra`, the optional local override file
+├── .gitignore                                         # Git ignore rules
+├── CHANGELOG.md                                       # Changelog
+├── docker-compose.yml                                 # Multi-container orchestration
+├── LICENSE.md                                         # EUPL License
+├── Makefile                                           # Root-level make targets
+└── README.md                                          # Quick start guide
 ```
 
 ## API (versioning)
@@ -302,7 +314,7 @@ See separate [API design document](API.md).
 
 Backward compatibility:
 
-- Clients built against an older contract continue to work against a newer release of the same API version
+- Clients that are built against an older contract, continue to work against a newer release of the same API version
 - This is the primary design goal: existing integrations must not break on a same-version update
 
 Forward compatibility:
@@ -380,7 +392,7 @@ For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.m
 ```
 POST /api/str/v1/activities/bulk (JSON body with activities array)
   │
-  ├── API Layer (str_activities_bulk.py)
+  ├── API Layer (str/routers/activities_bulk_v1.py, v2: activities_bulk_v2.py)
   │   ├── verify_bearer_token() → auth checks (roles, claims)
   │   ├── ActivityBulkRequest (Pydantic) → validates wrapper (min 1, max 1000)
   │   └── get_async_db → auto-commit/rollback transaction
@@ -390,6 +402,7 @@ POST /api/str/v1/activities/bulk (JSON body with activities array)
   │   ├── Platform resolution (once per batch, version on name change only)
   │   ├── Intra-batch dedup (last-wins)
   │   ├── Step 2: RI check → single SELECT for area IDs → Python dict
+  │   │     └── STR v2: area must be regulated for activities, else NOK (regulation_error)
   │   ├── Activity versioning → batch UPDATE (mark-as-ended)
   │   ├── Step 3: Bulk INSERT (single multi-row INSERT)
   │   └── Step 4: Build per-item OK/NOK feedback
@@ -927,20 +940,22 @@ These public owner IDs are returned as `platformId` and `competentAuthorityId` i
 
 The JWT token's `client_id` claim is stored separately in the private `client_id` column on `Platform` and `CompetentAuthority`. Service and CRUD code use this private value for lookup, ownership scoping, versioning, and deactivation checks.
 
-| Endpoint                           | Router                   | JWT claim used for scoping  | Public owner ID exposed in responses |
-| ---------------------------------- | ------------------------ | --------------------------- | ------------------------------------ |
-| `POST /api/ca/v1/areas`            | `areas.py`               | `client_id`                 | `competentAuthorityId`               |
-| `GET /api/ca/v1/areas`             | `areas.py`               | `client_id`                 | `competentAuthorityId`               |
-| `GET /api/ca/v1/areas/count`       | `areas.py`               | `client_id`                 | n/a                                  |
-| `GET /api/ca/v1/areas/{areaId}`    | `areas.py`               | `client_id`                 | n/a                                  |
-| `DELETE /api/ca/v1/areas/{areaId}` | `areas.py`               | `client_id`                 | n/a                                  |
-| `GET /api/ca/v1/activities`        | `activities_v1.py`       | `client_id`                 | `competentAuthorityId`, `platformId` |
-| `GET /api/ca/v1/activities/count`  | `activities_v1.py`       | `client_id`                 | n/a                                  |
-| `GET /api/ca/v2/activities`        | `activities_v2.py`       | `client_id`                 | `competentAuthorityId`, `platformId` |
-| `GET /api/ca/v2/activities/count`  | `activities_v2.py`       | `client_id`                 | n/a                                  |
-| `POST /api/str/v1/activities/bulk` | `str_activities_bulk.py` | `client_id`                 | `competentAuthorityId`, `platformId` |
-| `GET /api/rep/v1/activities`       | `rep/activities_v1.py`   | none (roles only, unscoped) | `competentAuthorityId`, `platformId` |
-| `GET /api/rep/v1/activities/count` | `rep/activities_v1.py`   | none (roles only, unscoped) | n/a                                  |
+| Endpoint                           | Router                      | JWT claim used for scoping  | Public owner ID exposed in responses |
+| ---------------------------------- | --------------------------- | --------------------------- | ------------------------------------ |
+| `POST /api/ca/v1/areas`            | `areas.py`                  | `client_id`                 | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas`             | `areas_list_v1.py`          | `client_id`                 | `competentAuthorityId`               |
+| `GET /api/ca/v2/areas`             | `areas_list_v2.py`          | `client_id`                 | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas/count`       | `areas.py`                  | `client_id`                 | n/a                                  |
+| `GET /api/ca/v1/areas/{areaId}`    | `areas.py`                  | `client_id`                 | n/a                                  |
+| `DELETE /api/ca/v1/areas/{areaId}` | `areas.py`                  | `client_id`                 | n/a                                  |
+| `GET /api/ca/v1/activities`        | `activities_v1.py`          | `client_id`                 | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v1/activities/count`  | `activities_v1.py`          | `client_id`                 | n/a                                  |
+| `GET /api/ca/v2/activities`        | `activities_v2.py`          | `client_id`                 | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v2/activities/count`  | `activities_v2.py`          | `client_id`                 | n/a                                  |
+| `POST /api/str/v1/activities/bulk` | `str/activities_bulk_v1.py` | `client_id`                 | `competentAuthorityId`, `platformId` |
+| `POST /api/str/v2/activities/bulk` | `str/activities_bulk_v2.py` | `client_id`                 | `competentAuthorityId`, `platformId` |
+| `GET /api/rep/v1/activities`       | `rep/activities_v1.py`      | none (roles only, unscoped) | `competentAuthorityId`, `platformId` |
+| `GET /api/rep/v1/activities/count` | `rep/activities_v1.py`      | none (roles only, unscoped) | n/a                                  |
 
 The private `client_id` is never serialized in public API responses, OpenAPI examples, or public documentation as an owner ID.
 

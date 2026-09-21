@@ -126,8 +126,8 @@ class Activity(Base):
     )  # Reference - foreign key to Area
 
     url: Mapped[str] = mapped_column(
-        String(128), nullable=False
-    )  # Required, for example "http://example.com/my-advertisement"
+        String(2048), nullable=False
+    )  # Required, max 2048 (chosen cap, see docs/DATAMODEL.md), e.g. "http://example.com/my-advertisement"
 
     # Composite attributes - Address (INSPIRE/STR-AP field names)
     address_thoroughfare: Mapped[str] = mapped_column(String(80), nullable=False)
@@ -142,7 +142,9 @@ class Activity(Base):
     )
     address_post_code: Mapped[str] = mapped_column(String(10), nullable=False)
     address_post_name: Mapped[str] = mapped_column(String(80), nullable=False)
-    address_full_address: Mapped[str] = mapped_column(String(318), nullable=False)
+    address_full_address: Mapped[str] = mapped_column(
+        String(328), nullable=False
+    )  # 318 (sum of the other address fields) + 5 separators of ", "
 
     registration_number: Mapped[str] = mapped_column(
         String(32), nullable=False
