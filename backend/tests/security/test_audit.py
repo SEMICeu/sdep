@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import jwt
 import pytest
+from app.api.domain_registry import API_DOMAINS
 from app.main import app
 from app.security.audit import SKIP_PATHS, AuditLogMiddleware, _resolve_action
 from fastapi import FastAPI, HTTPException, Response, status
@@ -67,8 +68,24 @@ class TestActionMapping:
             ("GET", "/api/str/v1/areas/xyz-456", "read", "area"),
             ("GET", "/api/ca/v1/activities", "list", "activity"),
             ("GET", "/api/ca/v1/activities/count", "count", "activity"),
-            ("GET", "/api/rep/v1/activities", "list", "activity"),
-            ("GET", "/api/rep/v1/activities/count", "count", "activity"),
+            ("GET", "/api/sta/v1/activities", "list", "activity"),
+            ("GET", "/api/sta/v1/activities/count", "count", "activity"),
+            ("GET", "/api/ama/v1/activities", "list", "activity"),
+            ("GET", "/api/ama/v1/activities/count", "count", "activity"),
+            ("POST", "/api/str/v2/listings/bulk", "create_bulk", "listing"),
+            ("POST", "/api/lsa/v2/listing-screenings/bulk", "screen_bulk", "listing"),
+            (
+                "POST",
+                "/api/str/v2/listing-acknowledgements/bulk",
+                "acknowledge_bulk",
+                "listing",
+            ),
+            ("GET", "/api/str/v2/listings", "list", "listing"),
+            ("GET", "/api/str/v2/listings/count", "count", "listing"),
+            ("GET", "/api/lsa/v2/listings", "list", "listing"),
+            ("GET", "/api/ca/v2/listings/count", "count", "listing"),
+            ("GET", "/api/lma/v2/listings", "list", "listing"),
+            ("GET", "/api/sta/v2/listings/count", "count", "listing"),
             ("POST", "/api/auth/v1/token", "token", "auth"),
             ("GET", "/api/ping", "ping", "system"),
         ],
@@ -295,27 +312,28 @@ class TestAuditMiddleware:
                 assert "statusCode" in record
                 assert "durationMs" in record
 
-    async def test_skip_paths_are_complete(self):
-        """Test that skip paths match the documented set."""
-        expected = {
+    async def test_audit_skipped_for_every_domain_docs_and_openapi(self):
+        """Every domain version in API_DOMAINS has its docs and OpenAPI unaudited."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            with patch(
+                "app.security.audit._write_audit_record", new_callable=AsyncMock
+            ) as mock_write:
+                for domain in API_DOMAINS:
+                    await client.get(domain.docs_path)
+                    await client.get(domain.openapi_path)
+                await asyncio.sleep(0.1)
+                mock_write.assert_not_called()
+
+    async def test_skip_paths_keep_the_fixed_pages(self):
+        """The fixed pages stay skipped next to the derived domain paths."""
+        fixed = {
             "/",
             "/favicon.ico",
             "/api/docs",
             "/api/health",
-            "/api/auth/v1/openapi.json",
-            "/api/auth/v1/docs",
-            "/api/ca/v1/openapi.json",
-            "/api/ca/v1/docs",
-            "/api/ca/v2/openapi.json",
-            "/api/ca/v2/docs",
-            "/api/str/v1/openapi.json",
-            "/api/str/v1/docs",
-            "/api/str/v2/openapi.json",
-            "/api/str/v2/docs",
-            "/api/rep/v1/openapi.json",
-            "/api/rep/v1/docs",
             "/api/openapi.json",
             "/api/ping/openapi.json",
             "/api/ping/docs",
         }
-        assert expected == SKIP_PATHS
+        assert fixed <= SKIP_PATHS

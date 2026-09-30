@@ -15,7 +15,7 @@ from pydantic import (
 )
 
 from app.enums import Regulation
-from app.schemas.common import FunctionalId  # noqa: TC001
+from app.schemas.common import FunctionalId
 
 
 def empty_string_to_none(v: str | None) -> str | None:

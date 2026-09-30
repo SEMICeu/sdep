@@ -1,0 +1,2329 @@
+{
+  "components": {
+    "schemas": {
+      "ActivityCountResponse": {
+        "description": "Count of activities response schema.",
+        "properties": {
+          "count": {
+            "description": "Total number of activity records",
+            "examples": [
+              42
+            ],
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "Activity.CountResponse",
+        "type": "object"
+      },
+      "ActivityListResponse": {
+        "description": "List of activities for GET responses.",
+        "properties": {
+          "activities": {
+            "description": "List of activities",
+            "items": {
+              "$ref": "#/components/schemas/ActivityResponse"
+            },
+            "title": "Activities",
+            "type": "array"
+          }
+        },
+        "required": [
+          "activities"
+        ],
+        "title": "Activity.ListResponse",
+        "type": "object"
+      },
+      "ActivityResponse": {
+        "description": "Activity response schema.",
+        "properties": {
+          "activityId": {
+            "description": "Functional ID identifying this activity",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000",
+              "550E8400-E29B-41D4-A716-446655440000"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Activityid",
+            "type": "string"
+          },
+          "activityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the activity",
+            "title": "Activityname"
+          },
+          "address": {
+            "$ref": "#/components/schemas/CommonAddressResponse",
+            "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
+          },
+          "areaId": {
+            "description": "Functional ID referencing the area where this activity took place",
+            "examples": [
+              "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+              "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Areaid",
+            "type": "string"
+          },
+          "areaName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the area where this activity took place",
+            "title": "Areaname"
+          },
+          "competentAuthorityId": {
+            "description": "Functional ID referencing the competent authority that owns the area",
+            "examples": [
+              "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+              "a30df3a7-7e38-534c-b9c0-7666bad077d2"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Competentauthorityid",
+            "type": "string"
+          },
+          "competentAuthorityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the competent authority",
+            "title": "Competentauthorityname"
+          },
+          "countryOfGuests": {
+            "description": "Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Countryofguests",
+            "type": "array"
+          },
+          "createdAt": {
+            "description": "Timestamp when this activity version was created (UTC)",
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "numberOfGuests": {
+            "description": "Number of guests (1-1024)",
+            "maximum": 1024.0,
+            "minimum": 1.0,
+            "title": "Numberofguests",
+            "type": "integer"
+          },
+          "platformId": {
+            "description": "Functional ID referencing the platform that owns the activity",
+            "examples": [
+              "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+              "227e07d4-37c4-4ceb-aa16-80346d258f6b"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Platformid",
+            "type": "string"
+          },
+          "platformName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the platform",
+            "title": "Platformname"
+          },
+          "registrationNumber": {
+            "description": "Registration number of the address (max 32 chars)",
+            "maxLength": 32,
+            "title": "Registrationnumber",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ActivityStatus",
+            "description": "Lifecycle status of the activity: `finished` or `cancelled`.",
+            "examples": [
+              "finished",
+              "cancelled"
+            ]
+          },
+          "temporal": {
+            "$ref": "#/components/schemas/CommonTemporalResponse",
+            "description": "Temporal composite (`startDatetime`, `endDatetime`)"
+          },
+          "url": {
+            "description": "URL of the originating listing/advertisement (max 2048 chars)",
+            "maxLength": 2048,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activityId",
+          "status",
+          "areaId",
+          "competentAuthorityId",
+          "url",
+          "address",
+          "registrationNumber",
+          "numberOfGuests",
+          "countryOfGuests",
+          "temporal",
+          "platformId",
+          "createdAt"
+        ],
+        "title": "Activity.Response",
+        "type": "object"
+      },
+      "ActivityStatus": {
+        "description": "Lifecycle status for an activity record.",
+        "enum": [
+          "finished",
+          "cancelled"
+        ],
+        "title": "Activity.Status",
+        "type": "string"
+      },
+      "AreaCountResponse": {
+        "description": "Count of areas response schema.",
+        "properties": {
+          "count": {
+            "description": "Total number of areas in context of the current SDEP/member state",
+            "examples": [
+              42
+            ],
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "Area.CountResponse",
+        "type": "object"
+      },
+      "AreaListResponse": {
+        "description": "List of areas response schema.",
+        "properties": {
+          "areas": {
+            "description": "List of areas in context of the current SDEP/member state",
+            "items": {
+              "$ref": "#/components/schemas/AreaResponse"
+            },
+            "title": "Areas",
+            "type": "array"
+          }
+        },
+        "required": [
+          "areas"
+        ],
+        "title": "Area.ListResponse",
+        "type": "object"
+      },
+      "AreaResponse": {
+        "description": "Area response schema.",
+        "properties": {
+          "areaId": {
+            "description": "Functional ID identifying this area",
+            "examples": [
+              "58ff0814-3aa1-5019-9afb-3cd9f398602c"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Areaid",
+            "type": "string"
+          },
+          "areaName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the area",
+            "examples": [
+              "Amsterdam"
+            ],
+            "title": "Areaname"
+          },
+          "competentAuthorityId": {
+            "description": "Functional ID of the competent authority that owns the area",
+            "examples": [
+              "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Competentauthorityid",
+            "type": "string"
+          },
+          "competentAuthorityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the competent authority",
+            "examples": [
+              "Amsterdam (inclusief Weesp)"
+            ],
+            "title": "Competentauthorityname"
+          },
+          "createdAt": {
+            "description": "Timestamp when this area version was created (UTC)",
+            "examples": [
+              "2025-01-01T00:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "filename": {
+            "description": "Name of the area shapefile (e.g., 'area.zip')",
+            "examples": [
+              "Amsterdam.zip"
+            ],
+            "maxLength": 64,
+            "title": "Filename",
+            "type": "string"
+          },
+          "regulation": {
+            "$ref": "#/components/schemas/Regulation",
+            "default": "all",
+            "description": "Regulation type of the area - 'listing', 'activity', or 'all'",
+            "examples": [
+              "all"
+            ]
+          }
+        },
+        "required": [
+          "areaId",
+          "filename",
+          "competentAuthorityId",
+          "createdAt"
+        ],
+        "title": "Area.Response",
+        "type": "object"
+      },
+      "CommonAddressResponse": {
+        "description": "Address composite schema for activity responses (INSPIRE/STR-AP field names).",
+        "properties": {
+          "fullAddress": {
+            "description": "Full address as a single string (max 328 chars)",
+            "maxLength": 328,
+            "title": "Fulladdress",
+            "type": "string"
+          },
+          "locatorDesignatorAddition": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Additional qualifier (optional, max 128 chars)",
+            "title": "Locatordesignatoraddition"
+          },
+          "locatorDesignatorLetter": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Letter/character suffix (optional, max 10 chars)",
+            "title": "Locatordesignatorletter"
+          },
+          "locatorDesignatorNumber": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Numeric house number component (optional, >= 0 when provided)",
+            "title": "Locatordesignatornumber"
+          },
+          "postCode": {
+            "description": "Postal code (max 10 chars)",
+            "maxLength": 10,
+            "title": "Postcode",
+            "type": "string"
+          },
+          "postName": {
+            "description": "City / town / village (max 80 chars)",
+            "maxLength": 80,
+            "title": "Postname",
+            "type": "string"
+          },
+          "thoroughfare": {
+            "description": "Street / public space name (max 80 chars)",
+            "maxLength": 80,
+            "title": "Thoroughfare",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thoroughfare",
+          "postCode",
+          "postName",
+          "fullAddress"
+        ],
+        "title": "Common.AddressResponse",
+        "type": "object"
+      },
+      "CommonTemporalResponse": {
+        "description": "Temporal composite schema for activity responses.",
+        "properties": {
+          "endDatetime": {
+            "description": "End date and time of the rental activity",
+            "format": "date-time",
+            "title": "Enddatetime",
+            "type": "string"
+          },
+          "startDatetime": {
+            "description": "Start date and time of the rental activity",
+            "format": "date-time",
+            "title": "Startdatetime",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startDatetime",
+          "endDatetime"
+        ],
+        "title": "Common.TemporalResponse",
+        "type": "object"
+      },
+      "CompetentAuthorityCountResponse": {
+        "description": "Count of competent authorities response schema.",
+        "properties": {
+          "count": {
+            "description": "Total number of competent authorities in context of the current SDEP/member state",
+            "examples": [
+              42
+            ],
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "CompetentAuthority.CountResponse",
+        "type": "object"
+      },
+      "CompetentAuthorityListResponse": {
+        "description": "List of competent authorities response schema.",
+        "properties": {
+          "competentAuthorities": {
+            "description": "List of competent authorities in context of the current SDEP/member state",
+            "items": {
+              "$ref": "#/components/schemas/CompetentAuthorityResponse"
+            },
+            "title": "Competentauthorities",
+            "type": "array"
+          }
+        },
+        "required": [
+          "competentAuthorities"
+        ],
+        "title": "CompetentAuthority.ListResponse",
+        "type": "object"
+      },
+      "CompetentAuthorityResponse": {
+        "description": "Competent authority response schema. The private client_id is never exposed.",
+        "properties": {
+          "competentAuthorityId": {
+            "description": "Functional ID identifying this competent authority",
+            "examples": [
+              "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Competentauthorityid",
+            "type": "string"
+          },
+          "competentAuthorityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the competent authority",
+            "examples": [
+              "Amsterdam (inclusief Weesp)"
+            ],
+            "title": "Competentauthorityname"
+          },
+          "createdAt": {
+            "description": "Timestamp when this competent authority version was created (UTC)",
+            "examples": [
+              "2025-01-01T00:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "competentAuthorityId",
+          "createdAt"
+        ],
+        "title": "CompetentAuthority.Response",
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "description": "Detail of a single error.",
+        "properties": {
+          "loc": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Location of the error (e.g. ['body', 'fieldName'])",
+            "title": "Loc"
+          },
+          "msg": {
+            "description": "Human-readable error message",
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "description": "Error type identifier",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "msg",
+          "type"
+        ],
+        "title": "Error.Detail",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "Standardized error response format.",
+        "properties": {
+          "detail": {
+            "description": "List of error details",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "Error.Response",
+        "type": "object"
+      },
+      "ListingCountResponse": {
+        "description": "Count of listings response schema.",
+        "properties": {
+          "count": {
+            "description": "Total number of listing records",
+            "examples": [
+              42
+            ],
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "Listing.CountResponse",
+        "type": "object"
+      },
+      "ListingFlag": {
+        "description": "Flag code raised by listing screening, see docs/LISTING_FUNC.md.",
+        "enum": [
+          "ABS",
+          "UNK",
+          "EXP",
+          "MIS",
+          "NPR",
+          "UNX",
+          "UDS"
+        ],
+        "title": "Listing.Flag",
+        "type": "string"
+      },
+      "ListingListResponse": {
+        "description": "List of listings for GET responses.",
+        "properties": {
+          "listings": {
+            "description": "List of listings",
+            "items": {
+              "$ref": "#/components/schemas/ListingResponse"
+            },
+            "title": "Listings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "listings"
+        ],
+        "title": "Listing.ListResponse",
+        "type": "object"
+      },
+      "ListingResponse": {
+        "description": "Listing response schema, the same for every audience.",
+        "properties": {
+          "acknowledgedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Timestamp of the acknowledgement (UTC); null until acknowledged",
+            "title": "Acknowledgedat"
+          },
+          "address": {
+            "$ref": "#/components/schemas/CommonAddressResponse",
+            "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
+          },
+          "areaId": {
+            "description": "Functional ID referencing the area where the listing is posted",
+            "examples": [
+              "58ff0814-3aa1-5019-9afb-3cd9f398602c"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Areaid",
+            "type": "string"
+          },
+          "areaName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the area",
+            "title": "Areaname"
+          },
+          "competentAuthorityId": {
+            "description": "Functional ID referencing the competent authority that owns the area",
+            "examples": [
+              "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Competentauthorityid",
+            "type": "string"
+          },
+          "competentAuthorityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the competent authority",
+            "title": "Competentauthorityname"
+          },
+          "createdAt": {
+            "description": "Timestamp when this listing version was created (UTC); the version token for screening and acknowledgement",
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "declaredAsShortTermRental": {
+            "description": "Host self-declaration: `true` when the host declared the listing as a short-term rental",
+            "title": "Declaredasshorttermrental",
+            "type": "boolean"
+          },
+          "flags": {
+            "description": "Flag codes raised by the screening (empty until screened; non-empty when `flagged` or `acknowledged`)",
+            "examples": [
+              [
+                "UNK"
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ListingFlag"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "listingId": {
+            "description": "Functional ID identifying this listing",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Listingid",
+            "type": "string"
+          },
+          "listingName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the listing",
+            "title": "Listingname"
+          },
+          "platformId": {
+            "description": "Functional ID referencing the platform that submitted the listing",
+            "examples": [
+              "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Platformid",
+            "type": "string"
+          },
+          "platformName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the platform",
+            "title": "Platformname"
+          },
+          "registrationNumber": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Registration number shown on the listing (optional, max 32 chars)",
+            "title": "Registrationnumber"
+          },
+          "screenedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Timestamp of the screening (UTC); null until screened",
+            "title": "Screenedat"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ListingStatus",
+            "description": "Lifecycle status: `pending`, `clear`, `flagged` or `acknowledged`",
+            "examples": [
+              "flagged"
+            ]
+          },
+          "submittedAt": {
+            "description": "Timestamp of the platform's submission (UTC); unchanged by screening and acknowledgement",
+            "format": "date-time",
+            "title": "Submittedat",
+            "type": "string"
+          },
+          "url": {
+            "description": "URL referencing the listing online (max 2048 chars)",
+            "maxLength": 2048,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "listingId",
+          "status",
+          "flags",
+          "areaId",
+          "competentAuthorityId",
+          "url",
+          "address",
+          "declaredAsShortTermRental",
+          "submittedAt",
+          "platformId",
+          "createdAt"
+        ],
+        "title": "Listing.Response",
+        "type": "object"
+      },
+      "ListingStatus": {
+        "description": "Lifecycle status for a listing (random check) record.",
+        "enum": [
+          "pending",
+          "clear",
+          "flagged",
+          "acknowledged"
+        ],
+        "title": "Listing.Status",
+        "type": "string"
+      },
+      "PlatformCountResponse": {
+        "description": "Count of platforms response schema.",
+        "properties": {
+          "count": {
+            "description": "Total number of platforms in context of the current SDEP/member state",
+            "examples": [
+              12
+            ],
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "Platform.CountResponse",
+        "type": "object"
+      },
+      "PlatformListResponse": {
+        "description": "List of platforms response schema.",
+        "properties": {
+          "platforms": {
+            "description": "List of platforms in context of the current SDEP/member state",
+            "items": {
+              "$ref": "#/components/schemas/PlatformResponse"
+            },
+            "title": "Platforms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "platforms"
+        ],
+        "title": "Platform.ListResponse",
+        "type": "object"
+      },
+      "PlatformResponse": {
+        "description": "Platform response schema. The private client_id is never exposed.",
+        "properties": {
+          "createdAt": {
+            "description": "Timestamp when this platform version was created (UTC)",
+            "examples": [
+              "2025-01-01T00:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "platformId": {
+            "description": "Functional ID identifying this platform",
+            "examples": [
+              "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Platformid",
+            "type": "string"
+          },
+          "platformName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the platform",
+            "examples": [
+              "Example.com"
+            ],
+            "title": "Platformname"
+          }
+        },
+        "required": [
+          "platformId",
+          "createdAt"
+        ],
+        "title": "Platform.Response",
+        "type": "object"
+      },
+      "Regulation": {
+        "description": "Regulation type for an area: 'listing', 'activity', or 'all' (covers both).",
+        "enum": [
+          "listing",
+          "activity",
+          "all"
+        ],
+        "title": "Common.Regulation",
+        "type": "string"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2ClientCredentials": {
+        "flows": {
+          "clientCredentials": {
+            "scopes": {},
+            "tokenUrl": "<token-url>"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "email": "nationaalcoordinatorsdep@minbzk.nl",
+      "name": "Nationaal Coordinator SDEP",
+      "url": "https://minvro.nl/"
+    },
+    "description": "Read-only endpoints for the statistics authority to view all registered activity data, all listings (random checks), platforms, competent authorities and areas. Status: alpha. Changes from STA v1: adds `GET /listings` and `GET /listings/count` (all listings in every lifecycle status, random checks); no other changes.",
+    "title": "SDEP - Statistics Authority (STA) API",
+    "version": "<frozen-version>"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/activities": {
+      "get": {
+        "description": "Get all current activities across all competent authorities and platforms, for statistical analysis. Returns at most 1000 activities per request (the default and maximum `limit`), including current records whose lifecycle `status` is `cancelled`. Use the `offset` and `limit` pagination parameters to page through results. Optional filters use AND semantics: every provided filter narrows the result set. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId`, `areaId` and `competentAuthorityId` are exact-match filters.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `areaName`: Display name (optional) of the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
+        "operationId": "getAllActivities",
+        "parameters": [
+          {
+            "description": "Number of records to skip (default: 0)",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of records to skip (default: 0)",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
+              "examples": [
+                "2025-06-01T00:00:00Z"
+              ],
+              "title": "Createdatfrom"
+            }
+          },
+          {
+            "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
+              "examples": [
+                "2025-06-30T23:59:59Z"
+              ],
+              "title": "Createdatto"
+            }
+          },
+          {
+            "description": "Filter by platform functional ID",
+            "in": "query",
+            "name": "platformId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by platform functional ID",
+              "examples": [
+                "sdep-str01"
+              ],
+              "title": "Platformid"
+            }
+          },
+          {
+            "description": "Filter by area functional ID",
+            "in": "query",
+            "name": "areaId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area functional ID",
+              "examples": [
+                "959a7439-7cad-4009-96ec-353b44723db9"
+              ],
+              "title": "Areaid"
+            }
+          },
+          {
+            "description": "Filter by competent authority functional ID",
+            "in": "query",
+            "name": "competentAuthorityId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by competent authority functional ID",
+              "examples": [
+                "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+              ],
+              "title": "Competentauthorityid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "activities": [
+                    {
+                      "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                      "activityName": "Amsterdam Summer Rental",
+                      "address": {
+                        "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                        "locatorDesignatorNumber": 263,
+                        "postCode": "1016GV",
+                        "postName": "Amsterdam",
+                        "thoroughfare": "Prinsengracht"
+                      },
+                      "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                      "areaName": "Amsterdam",
+                      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                      "competentAuthorityName": "Gemeente Amsterdam",
+                      "countryOfGuests": [
+                        "NLD",
+                        "DEU",
+                        "BEL",
+                        "N/A"
+                      ],
+                      "createdAt": "2025-06-01T12:00:00Z",
+                      "numberOfGuests": 4,
+                      "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                      "platformName": "Test STR 01 (interactive usage, persistent)",
+                      "registrationNumber": "REG0001",
+                      "status": "finished",
+                      "temporal": {
+                        "endDatetime": "2025-06-07T11:00:00Z",
+                        "startDatetime": "2025-06-01T14:00:00Z"
+                      },
+                      "url": "http://example.com/amsterdam-myhouse-1"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request - invalid query parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get all activities across all competent authorities and platforms",
+        "tags": [
+          "sta"
+        ]
+      }
+    },
+    "/activities/count": {
+      "get": {
+        "description": "Get the count of all current activities across all competent authorities and platforms (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId`, `areaId` and `competentAuthorityId` are exact-match filters.",
+        "operationId": "countAllActivities",
+        "parameters": [
+          {
+            "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
+              "examples": [
+                "2025-06-01T00:00:00Z"
+              ],
+              "title": "Createdatfrom"
+            }
+          },
+          {
+            "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
+              "examples": [
+                "2025-06-30T23:59:59Z"
+              ],
+              "title": "Createdatto"
+            }
+          },
+          {
+            "description": "Filter by platform functional ID",
+            "in": "query",
+            "name": "platformId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by platform functional ID",
+              "examples": [
+                "sdep-str01"
+              ],
+              "title": "Platformid"
+            }
+          },
+          {
+            "description": "Filter by area functional ID",
+            "in": "query",
+            "name": "areaId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area functional ID",
+              "examples": [
+                "959a7439-7cad-4009-96ec-353b44723db9"
+              ],
+              "title": "Areaid"
+            }
+          },
+          {
+            "description": "Filter by competent authority functional ID",
+            "in": "query",
+            "name": "competentAuthorityId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by competent authority functional ID",
+              "examples": [
+                "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+              ],
+              "title": "Competentauthorityid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get the count of all activities across all competent authorities and platforms (optional, to support pagination)",
+        "tags": [
+          "sta"
+        ]
+      }
+    },
+    "/areas": {
+      "get": {
+        "description": "Get all areas, maximum 1000 per page. `limit` defaults to 1000 (the maximum); use `offset` and `limit` to page through the result set, and `GET /areas/count` for the total.\n\n**Each area contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)",
+        "operationId": "getAreas",
+        "parameters": [
+          {
+            "description": "Number of records to skip (default: 0)",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of records to skip (default: 0)",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "areas": [
+                    {
+                      "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                      "areaName": "Amsterdam",
+                      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                      "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                      "createdAt": "2025-01-01T00:00:00Z",
+                      "filename": "Amsterdam.zip",
+                      "regulation": "all"
+                    },
+                    {
+                      "areaId": "974e2c23-b666-5044-a05c-9479a4c293a1",
+                      "areaName": "Rotterdam",
+                      "competentAuthorityId": "a30df3a7-7e38-534c-b9c0-7666bad077d2",
+                      "competentAuthorityName": "Rotterdam",
+                      "createdAt": "2025-01-01T00:00:00Z",
+                      "filename": "Rotterdam.zip",
+                      "regulation": "all"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/AreaListResponse"
+                }
+              }
+            },
+            "description": "List of areas"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request - invalid query parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get all areas",
+        "tags": [
+          "sta"
+        ]
+      }
+    },
+    "/areas/count": {
+      "get": {
+        "description": "Get areas count (optional, to support pagination).",
+        "operationId": "countAreas",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AreaCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get areas count (optional, to support pagination)",
+        "tags": [
+          "sta"
+        ]
+      }
+    },
+    "/competent-authorities": {
+      "get": {
+        "description": "Get all current competent authorities. Returns at most 1000 records per request (the default and maximum `limit`). Use the `offset` and `limit` pagination parameters to page through results, and the `/count` endpoint for the total. Use `competentAuthorityId` as the `competentAuthorityId` filter of the activity and listing reads.\n\n**Each competent authority contains:**\n- `competentAuthorityId`: Functional ID identifying this competent authority\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this competent authority version was created (UTC)",
+        "operationId": "getCompetentAuthorities",
+        "parameters": [
+          {
+            "description": "Number of records to skip (default: 0)",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of records to skip (default: 0)",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "competentAuthorities": [
+                    {
+                      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                      "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                      "createdAt": "2025-01-01T00:00:00Z"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/CompetentAuthorityListResponse"
+                }
+              }
+            },
+            "description": "List of competent authorities"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request - invalid query parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get all competent authorities",
+        "tags": [
+          "sta"
+        ]
+      }
+    },
+    "/competent-authorities/count": {
+      "get": {
+        "description": "Get competent authorities count (optional, to support pagination)",
+        "operationId": "countCompetentAuthorities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompetentAuthorityCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get competent authorities count (optional, to support pagination)",
+        "tags": [
+          "sta"
+        ]
+      }
+    },
+    "/listings": {
+      "get": {
+        "description": "Get all current listings across all platforms and competent authorities, in every lifecycle status, for reporting purposes. Returns at most 1000 listings per request (the default and maximum `limit`). Use the `offset` and `limit` pagination parameters to page through results. Optional filters use AND semantics: every provided filter narrows the result set. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; the other filters are exact-match, except `flags` which matches any of the given codes. The `status` filter narrows to one lifecycle status.\n\n**Each listing contains:**\n- `listingId`: Functional ID identifying this listing\n- `listingName`: Display name (optional) of the listing\n- `status`: Lifecycle status: `pending`, `clear`, `flagged` or `acknowledged`\n- `flags`: Flag codes raised by the screening (`ABS`, `UNK`, `EXP`, `MIS`, `NPR`, `UNX`, `UDS`); empty until screened\n- `areaId`: Functional ID referencing the area where the listing is posted\n- `areaName`: Display name (optional) of the area\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL referencing the listing online\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `declaredAsShortTermRental`: Host self-declaration\n- `registrationNumber`: Registration number shown on the listing (optional)\n- `submittedAt`: Timestamp of the platform's submission (UTC)\n- `screenedAt`: Timestamp of the screening (UTC, null until screened)\n- `acknowledgedAt`: Timestamp of the acknowledgement (UTC, null until acknowledged)\n- `platformId`: Functional ID referencing the platform that submitted the listing\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this listing version was created (UTC); the version token for screening and acknowledgement",
+        "operationId": "getAllListings",
+        "parameters": [
+          {
+            "description": "Number of records to skip (default: 0)",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of records to skip (default: 0)",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Filter listings whose createdAt timestamp is greater than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter listings whose createdAt timestamp is greater than or equal to this UTC value",
+              "examples": [
+                "2026-09-01T00:00:00Z"
+              ],
+              "title": "Createdatfrom"
+            }
+          },
+          {
+            "description": "Filter listings whose createdAt timestamp is less than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter listings whose createdAt timestamp is less than or equal to this UTC value",
+              "examples": [
+                "2026-09-30T23:59:59Z"
+              ],
+              "title": "Createdatto"
+            }
+          },
+          {
+            "description": "Filter by area functional ID",
+            "in": "query",
+            "name": "areaId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area functional ID",
+              "examples": [
+                "58ff0814-3aa1-5019-9afb-3cd9f398602c"
+              ],
+              "title": "Areaid"
+            }
+          },
+          {
+            "description": "Filter by competent authority functional ID",
+            "in": "query",
+            "name": "competentAuthorityId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by competent authority functional ID",
+              "examples": [
+                "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+              ],
+              "title": "Competentauthorityid"
+            }
+          },
+          {
+            "description": "Filter by platform functional ID",
+            "in": "query",
+            "name": "platformId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by platform functional ID",
+              "examples": [
+                "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21"
+              ],
+              "title": "Platformid"
+            }
+          },
+          {
+            "description": "Filter by flag codes, comma-separated; a listing matches when it carries any of them (`ABS`, `UNK`, `EXP`, `MIS`, `NPR`, `UNX`, `UDS`)",
+            "in": "query",
+            "name": "flags",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by flag codes, comma-separated; a listing matches when it carries any of them (`ABS`, `UNK`, `EXP`, `MIS`, `NPR`, `UNX`, `UDS`)",
+              "examples": [
+                "UDS,EXP"
+              ],
+              "title": "Flags"
+            }
+          },
+          {
+            "description": "Filter by lifecycle status (`pending`, `clear`, `flagged`, `acknowledged`)",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ListingStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by lifecycle status (`pending`, `clear`, `flagged`, `acknowledged`)",
+              "examples": [
+                "flagged"
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "listings": [
+                    {
+                      "acknowledgedAt": "2026-09-09T10:00:00Z",
+                      "address": {
+                        "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                        "locatorDesignatorNumber": 263,
+                        "postCode": "1016GV",
+                        "postName": "Amsterdam",
+                        "thoroughfare": "Prinsengracht"
+                      },
+                      "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                      "areaName": "Amsterdam",
+                      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                      "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                      "createdAt": "2026-09-09T10:00:00Z",
+                      "declaredAsShortTermRental": true,
+                      "flags": [
+                        "UNK"
+                      ],
+                      "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                      "listingName": "Amsterdam Canal Apartment",
+                      "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                      "platformName": "Test STR 01",
+                      "registrationNumber": "REG0001",
+                      "screenedAt": "2026-09-08T06:00:00Z",
+                      "status": "acknowledged",
+                      "submittedAt": "2026-09-07T08:00:00Z",
+                      "url": "http://example.com/amsterdam-canal-apartment"
+                    },
+                    {
+                      "address": {
+                        "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                        "locatorDesignatorNumber": 263,
+                        "postCode": "1016GV",
+                        "postName": "Amsterdam",
+                        "thoroughfare": "Prinsengracht"
+                      },
+                      "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                      "areaName": "Amsterdam",
+                      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                      "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                      "createdAt": "2026-09-07T08:00:00Z",
+                      "declaredAsShortTermRental": true,
+                      "flags": [],
+                      "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                      "listingName": "Amsterdam Canal Apartment",
+                      "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                      "platformName": "Test STR 01",
+                      "registrationNumber": "REG0001",
+                      "status": "pending",
+                      "submittedAt": "2026-09-07T08:00:00Z",
+                      "url": "http://example.com/amsterdam-canal-apartment"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ListingListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request - invalid query parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get all listings across all platforms and competent authorities",
+        "tags": [
+          "sta"
+        ]
+      }
+    },
+    "/listings/count": {
+      "get": {
+        "description": "Get the count of all current listings across all platforms and competent authorities (optional, to support pagination). Optional filters use AND semantics: every provided filter narrows the result set. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; the other filters are exact-match, except `flags` which matches any of the given codes.",
+        "operationId": "countAllListings",
+        "parameters": [
+          {
+            "description": "Filter listings whose createdAt timestamp is greater than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter listings whose createdAt timestamp is greater than or equal to this UTC value",
+              "examples": [
+                "2026-09-01T00:00:00Z"
+              ],
+              "title": "Createdatfrom"
+            }
+          },
+          {
+            "description": "Filter listings whose createdAt timestamp is less than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter listings whose createdAt timestamp is less than or equal to this UTC value",
+              "examples": [
+                "2026-09-30T23:59:59Z"
+              ],
+              "title": "Createdatto"
+            }
+          },
+          {
+            "description": "Filter by area functional ID",
+            "in": "query",
+            "name": "areaId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area functional ID",
+              "examples": [
+                "58ff0814-3aa1-5019-9afb-3cd9f398602c"
+              ],
+              "title": "Areaid"
+            }
+          },
+          {
+            "description": "Filter by competent authority functional ID",
+            "in": "query",
+            "name": "competentAuthorityId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by competent authority functional ID",
+              "examples": [
+                "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+              ],
+              "title": "Competentauthorityid"
+            }
+          },
+          {
+            "description": "Filter by platform functional ID",
+            "in": "query",
+            "name": "platformId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by platform functional ID",
+              "examples": [
+                "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21"
+              ],
+              "title": "Platformid"
+            }
+          },
+          {
+            "description": "Filter by flag codes, comma-separated; a listing matches when it carries any of them (`ABS`, `UNK`, `EXP`, `MIS`, `NPR`, `UNX`, `UDS`)",
+            "in": "query",
+            "name": "flags",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by flag codes, comma-separated; a listing matches when it carries any of them (`ABS`, `UNK`, `EXP`, `MIS`, `NPR`, `UNX`, `UDS`)",
+              "examples": [
+                "UDS,EXP"
+              ],
+              "title": "Flags"
+            }
+          },
+          {
+            "description": "Filter by lifecycle status (`pending`, `clear`, `flagged`, `acknowledged`)",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ListingStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by lifecycle status (`pending`, `clear`, `flagged`, `acknowledged`)",
+              "examples": [
+                "flagged"
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request - invalid query parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get the count of all listings across all platforms and competent authorities (optional, to support pagination)",
+        "tags": [
+          "sta"
+        ]
+      }
+    },
+    "/platforms": {
+      "get": {
+        "description": "Get all current platforms. Returns at most 1000 records per request (the default and maximum `limit`). Use the `offset` and `limit` pagination parameters to page through results, and the `/count` endpoint for the total. Use `platformId` as the `platformId` filter of the activity and listing reads.\n\n**Each platform contains:**\n- `platformId`: Functional ID identifying this platform\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this platform version was created (UTC)",
+        "operationId": "getPlatforms",
+        "parameters": [
+          {
+            "description": "Number of records to skip (default: 0)",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of records to skip (default: 0)",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "platforms": [
+                    {
+                      "createdAt": "2025-01-01T00:00:00Z",
+                      "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                      "platformName": "Test STR 01"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformListResponse"
+                }
+              }
+            },
+            "description": "List of platforms"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request - invalid query parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get all platforms",
+        "tags": [
+          "sta"
+        ]
+      }
+    },
+    "/platforms/count": {
+      "get": {
+        "description": "Get platforms count (optional, to support pagination)",
+        "operationId": "countPlatforms",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get platforms count (optional, to support pagination)",
+        "tags": [
+          "sta"
+        ]
+      }
+    }
+  }
+}

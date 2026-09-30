@@ -61,14 +61,14 @@ def test_failure_message_is_repeated_under_its_nodeid() -> None:
     report = _StubReport(
         "tests/api/test_openapi_version_diff.py::test_version_diff_is_current",
         _StubLongrepr(
-            "Failed: docs/API_DIFF.md is out of date. Run `make api-diff-update`."
+            "Failed: docs/API_DIFF_TECH.md is out of date. Run `make api-diff-update`."
         ),
     )
 
     assert _summarize([report]) == [
         "failure messages",
         "tests/api/test_openapi_version_diff.py::test_version_diff_is_current",
-        "    Failed: docs/API_DIFF.md is out of date. Run `make api-diff-update`.",
+        "    Failed: docs/API_DIFF_TECH.md is out of date. Run `make api-diff-update`.",
     ]
 
 

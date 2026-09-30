@@ -342,3 +342,20 @@ class TestPlatformCRUD:
         await async_session.refresh(created)
 
         assert created.ended_at is not None
+
+
+@pytest.mark.database
+class TestPlatformLookupByFunctionalIds:
+    async def test_get_current_by_platform_ids(self, async_session: AsyncSession):
+        assert await platform.get_current_by_platform_ids(async_session, []) == {}
+        current = await PlatformFactory.create_async(
+            async_session, platform_id="p-current"
+        )
+        await PlatformFactory.create_async(
+            async_session, platform_id="p-ended", ended_at=datetime(2026, 1, 1)
+        )
+        found = await platform.get_current_by_platform_ids(
+            async_session, ["p-current", "p-ended", "p-missing"]
+        )
+        assert set(found) == {"p-current"}
+        assert found["p-current"].id == current.id

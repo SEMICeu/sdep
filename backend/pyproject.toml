@@ -6,14 +6,14 @@ authors = [
     {name = "ICTU"}
 ]
 license = {text = "MIT"}
-requires-python = ">=3.13,<3.14"  # Pin to 3.13 until psycopg2-binary has wheels for 3.14
+requires-python = ">=3.14,<3.15"  # Upper bound: 3.15 is untested, lift it after a test run
 keywords = ["fastapi", "pydantic", "sqlalchemy", "alembic"]
 
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Information Technology",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Framework :: FastAPI",
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
 ]
@@ -26,11 +26,11 @@ dependencies = [
     # Database dependencies
     "sqlalchemy>=2.0.36",
     "alembic>=1.14.0",
-    "psycopg2-binary>=2.9.10",
-    "asyncpg>=0.30.0",
+    "psycopg[binary]>=3.2.10",
+    "asyncpg>=0.31.0",
     "greenlet>=3.1.1",
     # Data validation and settings
-    "pydantic>=2.10.3",
+    "pydantic>=2.12.0",
     "pydantic-settings>=2.7.0",
     "email-validator>=2.2.0",
     "pydantic-extra-types[pycountry]>=2.0.0",
@@ -57,6 +57,7 @@ dev = [
     "httpx>=0.28.1",
     "ruff>=0.10.4",
     "pyright>=1.1.409",
+    "ty>=0.0.81",
     "pre-commit>=4.0.1",
     "factory-boy>=3.3.1",
     "faker>=33.1.0",
@@ -75,6 +76,7 @@ dev = [
     "httpx>=0.28.1",
     "ruff>=0.10.4",
     "pyright>=1.1.409",
+    "ty>=0.0.81",
     "pre-commit>=4.0.1",
     "factory-boy>=3.3.1",
     "faker>=33.1.0",
@@ -92,6 +94,9 @@ dev = [
 # therefore expressed as a `>=` floor at the version that fixes the CVE - never
 # `==`, which would duplicate the lock, block future fixes, and not cover
 # transitive packages.
+#   anyio>=4.14.2        - CVE-2026-63374: IDNA 2003 host name check in connect_tcp()/TLSStream.wrap();
+#                          CVE-2026-64847: process-pool workers block on an undrained stderr pipe.
+#                          Both fixed in 4.14.2.
 #   idna>=3.15           - CVE-2026-45409 (GHSA-65pc-fj4g-8rjx): DoS in idna.encode(), fixed in 3.15.
 #   starlette>=1.3.1     - CVE-2026-48710 (BadHost): improper Host-header validation, fixed in 1.0.1.
 #                          Also fixes CVE-2026-54282 and CVE-2026-54283 in request URL/form handling.
@@ -103,8 +108,8 @@ dev = [
 #                          SDEP never calls the PKCS7 APIs - cryptography is pulled in only as
 #                          the JWT signature backend - so both flaws are unreachable and this
 #                          floor is defense-in-depth.
-# All three are transitive dependencies only; declared here, not as direct project dependencies.
-constraint-dependencies = ["idna>=3.15", "starlette>=1.3.1", "cryptography>=50.0.0"]
+# All four are transitive dependencies only; declared here, not as direct project dependencies.
+constraint-dependencies = ["anyio>=4.14.2", "idna>=3.15", "starlette>=1.3.1", "cryptography>=50.0.0"]
 
 [tool.uv.sources]
 # Ensure we use the restructured backend source
@@ -112,7 +117,7 @@ app = { workspace = true }
 
 [tool.ruff]
 line-length = 88
-target-version = "py313"
+target-version = "py314"
 src = ["backend"]
 exclude = [
     ".git",
@@ -144,6 +149,10 @@ ignore = [
     "E501",  # line too long
     "E712",  # avoid equality comparisons to False - needed for SQLAlchemy boolean queries
     "RUF012", # mutable class attributes
+    # Python 3.14 defers annotations, so ruff sees annotation-only imports as type-only.
+    # FastAPI, Pydantic and SQLAlchemy still read them at runtime: keep them as real imports.
+    "TC001",
+    "TC002",
     "TC003", # datetime is needed at runtime for models
     "B008",  # function call in argument defaults - standard FastAPI Depends() pattern
 ]
@@ -164,7 +173,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.ty.environment]
-python-version = "3.13"
+python-version = "3.14"
 
 # Ignore rules that produce false positives for Pydantic/FastAPI patterns
 [tool.ty.rules]
@@ -173,7 +182,7 @@ invalid-assignment = "ignore"     # FastAPI openapi override
 unused-ignore-comment = "ignore"  # Alembic generated code has type: ignore comments
 
 [tool.pyright]
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 typeCheckingMode = "basic"
 include = ["app"]
 exclude = [
@@ -227,6 +236,8 @@ filterwarnings = [
 
 env = [
     "API_MODE=internal",
+    # pytest only: the suite needs alpha on; the local stack still follows .env
+    "API_ALPHA_ENABLED=true",
 ]
 
 [tool.coverage.run]

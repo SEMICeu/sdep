@@ -1,8 +1,8 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.13,<3.14"
+# requires-python = ">=3.14,<3.15"
 # dependencies = [
-#     "psycopg2-binary>=2.9.10",
+#     "psycopg[binary]>=3.2.10",
 #     "sqlalchemy>=2.0.36",
 # ]
 # ///
@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import (
     URL,
+    Boolean,
     Column,
     DateTime,
     Integer,
@@ -30,9 +31,26 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 
-EXPECTED_ALEMBIC_REVISION = "007"
+EXPECTED_ALEMBIC_REVISION = "008"
 
 metadata = MetaData()
+
+# The enum columns need their PostgreSQL type: psycopg (v3) binds typed parameters,
+# and the server does not cast VARCHAR to an enum. Values: see alembic/versions.
+regulation_enum = postgresql.ENUM(
+    "listing", "activity", "all", name="regulation", create_type=False
+)
+activity_status_enum = postgresql.ENUM(
+    "finished", "cancelled", name="activitystatus", create_type=False
+)
+listing_status_enum = postgresql.ENUM(
+    "pending",
+    "clear",
+    "flagged",
+    "acknowledged",
+    name="listingstatus",
+    create_type=False,
+)
 
 alembic_version = Table(
     "alembic_version",
@@ -64,7 +82,7 @@ area = Table(
     Column("id", Integer),
     Column("area_id", String),
     Column("area_name", String),
-    Column("regulation", String),
+    Column("regulation", regulation_enum),
     Column("competent_authority_id", Integer),
     Column("filename", String),
     Column("filedata", LargeBinary),
@@ -76,7 +94,7 @@ activity = Table(
     metadata,
     Column("activity_id", String),
     Column("activity_name", String),
-    Column("status", String),
+    Column("status", activity_status_enum),
     Column("platform_id", Integer),
     Column("area_id", Integer),
     Column("url", String),
@@ -91,6 +109,27 @@ activity = Table(
     Column("country_of_guests", postgresql.ARRAY(String)),
     Column("temporal_start_date_time", DateTime(timezone=True)),
     Column("temporal_end_date_time", DateTime(timezone=True)),
+)
+
+listing = Table(
+    "listing",
+    metadata,
+    Column("listing_id", String),
+    Column("listing_name", String),
+    Column("status", listing_status_enum),
+    Column("platform_id", Integer),
+    Column("area_id", Integer),
+    Column("url", String),
+    Column("address_thoroughfare", String),
+    Column("address_locator_designator_number", Integer),
+    Column("address_locator_designator_letter", String),
+    Column("address_post_code", String),
+    Column("address_post_name", String),
+    Column("address_full_address", String),
+    Column("declared_as_short_term_rental", Boolean),
+    Column("registration_number", String),
+    Column("flags", postgresql.ARRAY(String)),
+    Column("submitted_at", DateTime(timezone=True)),
 )
 
 
@@ -111,7 +150,7 @@ def env(name: str, default: str | None = None) -> str:
 
 def database_url() -> URL:
     return URL.create(
-        "postgresql+psycopg2",
+        "postgresql+psycopg",
         database=env("POSTGRES_DB_NAME"),
         host=env("POSTGRES_HOST", "localhost"),
         password=env("POSTGRES_DB_PASSWORD"),
@@ -167,7 +206,12 @@ def main() -> int:
 
         # This test commits its seed rows, so clean up any left over from an
         # earlier run to keep it idempotent against a persistent database
-        # (FK order: activity -> area -> platform/competent_authority).
+        # (FK order: activity/listing -> area -> platform/competent_authority).
+        connection.execute(
+            delete(listing).where(
+                listing.c.listing_id == "sdep-test-listing-check-constraints"
+            )
+        )
         connection.execute(
             delete(area).where(
                 area.c.area_id == "sdep-test-area-check-constraints"
@@ -311,6 +355,45 @@ def main() -> int:
                 stats,
                 name,
                 insert(activity).values(base_activity | overrides),
+            )
+
+        base_listing = {
+            "listing_id": "sdep-test-listing-check-constraints",
+            "listing_name": "Invalid Listing",
+            "status": "pending",
+            "platform_id": platform_id,
+            "area_id": area_id,
+            "url": "http://example.com/listing",
+            "address_thoroughfare": "Test Street",
+            "address_locator_designator_number": 1,
+            "address_locator_designator_letter": "A",
+            "address_post_code": "1234AB",
+            "address_post_name": "Test City",
+            "address_full_address": "Test Street 1, 1234AB Test City",
+            "declared_as_short_term_rental": True,
+            "registration_number": "REG-1",
+            "flags": [],
+            "submitted_at": "2026-09-07T08:00:00+00:00",
+        }
+        invalid_listing_cases = [
+            ("Invalid listingId", {"listing_id": "invalid listing id"}),
+            (
+                "Non-alphabetic listing locatorDesignatorLetter",
+                {"address_locator_designator_letter": "A1"},
+            ),
+            ("Pending listing with flags", {"flags": ["UNK"]}),
+            ("Flagged listing without flags", {"status": "flagged"}),
+            (
+                "Acknowledged listing without flags",
+                {"status": "acknowledged", "flags": []},
+            ),
+        ]
+        for name, overrides in invalid_listing_cases:
+            expect_integrity_error(
+                connection,
+                stats,
+                name,
+                insert(listing).values(base_listing | overrides),
             )
 
     print()

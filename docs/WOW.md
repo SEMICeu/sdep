@@ -1,4 +1,4 @@
-<h1>Way of Working (WoW)</h1>
+<h1>Way of working (WoW)</h1>
 
 ## Partnering
 
@@ -9,13 +9,13 @@
 - Use GitHub tags for initial versioning
 - Use API versioning later (once competent authorities and platforms are connected)
 
-## Issue Management
+## Issue management
 
 - **Anyone** can enter new issues
 - **Team SDEP (NL)** assigns (exactly one) **label** to the issue and puts it into the SDEP **project**
 - **Anyone** can enter comments in (closed) issues
 
-## Issue Labels
+## Issue labels
 
 Each issue is assigned exactly one label:
 
@@ -31,13 +31,13 @@ Each issue is assigned exactly one label:
 
 [1] Unless commented otherwise: This label is added 72h after discussion/agreement, after which it will be implemented.
 
-## Work in Progress
+## Work in progress
 
 - **Team SDEP (NL)** maintains work in progress on **Kanban boards** in **milestones**
 - **Collaborators** can see the project's Kanban boards
 - https://github.com/orgs/SEMICeu/projects/3/views/1?groupedBy%5BcolumnId%5D=Milestone
 
-## Work Completed
+## Work completed
 
 - Change log - https://github.com/SEMICeu/sdep/blob/main/CHANGELOG.md
 - Closed issues - https://github.com/SEMICeu/sdep/issues?q=is%3Aissue%20state%3Aclosed

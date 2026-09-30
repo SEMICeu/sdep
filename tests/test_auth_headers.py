@@ -179,7 +179,7 @@ def test_sensitive_endpoint_caching(
 
     # Soft checks: they count toward the total and may pass, but a miss is NOT a
     # failure (some endpoints may not need strict caching). Preserves the original
-    # behaviour where total can exceed passed+failed.
+    # behavior where total can exceed passed+failed.
     stats.total += 1
     if "no-store" in headers.get("Cache-Control", "").lower():
         print("  Cache-Control contains 'no-store' OK")

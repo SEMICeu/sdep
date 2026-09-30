@@ -6,6 +6,17 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+from app.api.domain_registry import API_DOMAINS
+
+# Every domain gets no-cache headers, e.g. "/api/str/" for "/api/str/v2".
+SENSITIVE_PREFIXES = tuple(
+    sorted({domain.root_path.rsplit("/", 1)[0] + "/" for domain in API_DOMAINS})
+)
+# Swagger UI pages get the relaxed docs CSP: every domain version, plus ping.
+SWAGGER_DOCS_PATHS = frozenset(
+    {"/api/ping/docs"} | {domain.docs_path for domain in API_DOMAINS}
+)
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
@@ -30,8 +41,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         csp_policy: str | None = None,
         csp_policy_landing: str | None = None,
         csp_policy_docs: str | None = None,
+        api_version: str | None = None,
     ):
         super().__init__(app)
+        self.api_version = api_version
         self.enable_hsts = enable_hsts
         self.hsts_max_age = hsts_max_age
         self.enable_csp = enable_csp
@@ -42,6 +55,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Add security headers to the response."""
         response = await call_next(request)
+
+        # Full semantic version of the release on every response (NLgov
+        # `/core/version-header`); the contract major stays in the path.
+        if self.api_version:
+            response.headers["API-Version"] = self.api_version
 
         # Clickjacking protection
         response.headers["X-Frame-Options"] = "DENY"
@@ -105,25 +123,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
     def _is_sensitive_endpoint(self, path: str) -> bool:
-        sensitive_patterns = [
-            "/api/auth/",
-            "/api/ca/",
-            "/api/str/",
-            "/api/rep/",
-        ]
-        return any(path.startswith(pattern) for pattern in sensitive_patterns)
+        return path.startswith(SENSITIVE_PREFIXES)
 
     def _is_swagger_docs_endpoint(self, path: str) -> bool:
-        swagger_docs_paths = [
-            "/api/auth/v1/docs",
-            "/api/ca/v1/docs",
-            "/api/ca/v2/docs",
-            "/api/str/v1/docs",
-            "/api/str/v2/docs",
-            "/api/rep/v1/docs",
-            "/api/ping/docs",
-        ]
-        return path in swagger_docs_paths
+        return path in SWAGGER_DOCS_PATHS
 
     def _is_docs_landing_endpoint(self, path: str) -> bool:
         return path == "/api/docs"

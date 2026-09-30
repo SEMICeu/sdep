@@ -2,21 +2,21 @@
 
 This document covers the development workflow, testing strategy, and key configuration files for the SDEP application.
 
-For architecture and request flow, see [Technical Architecture](./ARCHITECTURE_TECH.md). \
-For database dialect compatibility, see [Database Dialects](./DATABASE_DIALECTS.md).
+For architecture and request flow, see [Technical architecture](./ARCHITECTURE_TECH.md). \
+For database dialect compatibility, see [Database dialects](./DATABASE_DIALECTS.md).
 
 <h2>Table of Contents</h2>
 
-- [Development Workflow](#development-workflow)
-- [Testing Strategy](#testing-strategy)
-  - [Unit Tests](#unit-tests-backendtests)
-  - [Integration Tests](#integration-tests-tests)
-  - [Performance Tests](#performance-tests-testsperformance)
-- [Key Configuration Files](#key-configuration-files)
+- [Development workflow](#development-workflow)
+- [Testing strategy](#testing-strategy)
+  - [Unit tests](#unit-tests-backendtests)
+  - [Integration tests](#integration-tests-tests)
+  - [Performance tests](#performance-tests-testsperformance)
+- [Key configuration files](#key-configuration-files)
 
 ---
 
-## Development Workflow
+## Development workflow
 
 See makefile help
 
@@ -26,9 +26,9 @@ make
 
 ---
 
-## Testing Strategy
+## Testing strategy
 
-### Unit Tests (`backend/tests/`)
+### Unit tests (`backend/tests/`)
 
 - pytest with parallel execution (`-n auto`)
 - Async test support
@@ -38,7 +38,7 @@ make
 
 ---
 
-### Integration Tests (`tests/`)
+### Integration tests (`tests/`)
 
 - Shell scripts using curl
 - Test OAuth 2.0 flows
@@ -46,22 +46,23 @@ make
 - Test security headers (OWASP compliance)
 - Test validation (Pydantic + business logic)
 - **Run:** `make test`
-- See [Integration Tests](INTEGRATION_TESTS.md) for detailed test documentation
+- See [Integration tests](INTEGRATION_TESTS.md) for detailed test documentation
 
 ---
 
-### Performance Tests (`tests/performance/`)
+### Performance tests (`tests/performance/`)
 
 - Locust-based load testing for the bulk activity endpoint (`POST /api/str/v1/activities/bulk`)
 - Measures throughput (activities/sec), extrapolates capacity (activities/day), compares against configurable target
 - Uses isolated test data (`sdep-test-perf-*` prefix) by default; optionally keeps data in database (`KEEP_TEST_DATA=true`)
 - Configurable: `PERF_ACTIVITIES_TARGET` (total target volume), `PERF_USERS` (concurrent users to reach target), `PERF_MAX_DURATION_SECONDS`, `PERF_BATCH_SIZE`, `KEEP_TEST_DATA`
 - **Run:** `make test-perf` (or e.g. `make test-perf PERF_USERS=5 PERF_ACTIVITIES_TARGET=1000000 PERF_MAX_DURATION_SECONDS=10`)
-- See [Performance Tests](PERFORMANCE_TESTS.md) for detailed documentation
+- Scope: activities only; the listing endpoints are not load-tested yet
+- See [Performance tests](PERFORMANCE_TESTS.md) for detailed documentation
 
 ---
 
-## Key Configuration Files
+## Key configuration files
 
 - **`.env`** - Base environment variables for local development
 - **`.env.extra`** - Optional local overrides loaded by Make/docker compose when present

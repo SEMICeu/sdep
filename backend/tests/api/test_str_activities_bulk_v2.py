@@ -3,7 +3,7 @@
 UTC-only timestamps and the activity regulation check apply to v2 only; the
 v1 cases here prove v1 is unchanged. The widened
 `fullAddress` and `url`) apply to v1 as well and are proven round trip through
-the CA v1, CA v2 and REP v1 reads.
+the CA v1, CA v2 and STA v1 reads.
 """
 
 from typing import Any
@@ -13,7 +13,7 @@ import pytest_asyncio
 from app.api.common.security import verify_bearer_token
 from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.ca.v2 import app_ca_v2
-from app.api.domains.rep.v1 import app_rep_v1
+from app.api.domains.sta.v1 import app_sta_v1
 from app.api.domains.str.v1 import app_str_v1
 from app.api.domains.str.v2 import app_str_v2
 from app.db.config import get_async_db, get_async_db_read_only
@@ -46,12 +46,12 @@ def _ca_token() -> dict[str, Any]:
     }
 
 
-def _rep_token() -> dict[str, Any]:
+def _sta_token() -> dict[str, Any]:
     return {
-        "sub": "rep",
+        "sub": "sta",
         "client_id": "cbs01",
-        "client_name": "Statistics Office",
-        "realm_access": {"roles": ["sdep_rep", "sdep_read"]},
+        "client_name": "Statistics Authority",
+        "realm_access": {"roles": ["sdep_sta", "sdep_read"]},
     }
 
 
@@ -98,13 +98,13 @@ class TestStrBulkV2:
             (app_str_v2, _str_token),
             (app_ca_v1, _ca_token),
             (app_ca_v2, _ca_token),
-            (app_rep_v1, _rep_token),
+            (app_sta_v1, _sta_token),
         ):
             app.dependency_overrides[verify_bearer_token] = token
             app.dependency_overrides[get_async_db] = override_get_db
             app.dependency_overrides[get_async_db_read_only] = override_get_db
         yield
-        for app in (app_str_v1, app_str_v2, app_ca_v1, app_ca_v2, app_rep_v1):
+        for app in (app_str_v1, app_str_v2, app_ca_v1, app_ca_v2, app_sta_v1):
             app.dependency_overrides.clear()
 
     @pytest_asyncio.fixture
@@ -231,7 +231,7 @@ class TestStrBulkV2:
 
         assert response.status_code == status.HTTP_201_CREATED
 
-    # ── Widened maxima, round trip through every reader ──
+    # ── Widened maxima (v2 only), round trip through every reader ──
 
     async def test_widened_url_and_full_address_round_trip(
         self, setup_overrides, areas
@@ -239,7 +239,7 @@ class TestStrBulkV2:
         url = "http://example.com/" + "u" * (2048 - len("http://example.com/"))
         full_address = "F" * 328
         posted = await _post(
-            app_str_v1,
+            app_str_v2,
             [
                 _activity(
                     areas["all"],
@@ -256,7 +256,7 @@ class TestStrBulkV2:
         )
         assert posted.status_code == status.HTTP_201_CREATED, posted.text
 
-        for app in (app_ca_v1, app_ca_v2, app_rep_v1):
+        for app in (app_ca_v1, app_ca_v2, app_sta_v1):
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -268,21 +268,43 @@ class TestStrBulkV2:
             assert activity["url"] == url
             assert activity["address"]["fullAddress"] == full_address
 
-    async def test_one_over_the_maximum_is_rejected(self, setup_overrides, areas):
-        response = await _post(
-            app_str_v1,
+    @pytest.mark.parametrize(
+        ("app", "url_max", "full_address_max"),
+        [(app_str_v1, 128, 318), (app_str_v2, 2048, 328)],
+        ids=["v1", "v2"],
+    )
+    async def test_maximum_is_accepted_and_one_over_is_rejected(
+        self, setup_overrides, areas, app, url_max: int, full_address_max: int
+    ):
+        def url(length: int) -> str:
+            return "http://x/" + "u" * (length - len("http://x/"))
+
+        def address(length: int) -> dict[str, Any]:
+            return {
+                "thoroughfare": "T",
+                "postCode": "1234AB",
+                "postName": "P",
+                "fullAddress": "F" * length,
+            }
+
+        at_max = await _post(
+            app,
             [
-                _activity(areas["all"], "o1", url="http://x/" + "u" * 2040),  # 2049
                 _activity(
                     areas["all"],
-                    "o2",
-                    address={
-                        "thoroughfare": "T",
-                        "postCode": "1234AB",
-                        "postName": "P",
-                        "fullAddress": "F" * 329,
-                    },
-                ),
+                    "m1",
+                    url=url(url_max),
+                    address=address(full_address_max),
+                )
+            ],
+        )
+        assert at_max.status_code == status.HTTP_201_CREATED, at_max.text
+
+        response = await _post(
+            app,
+            [
+                _activity(areas["all"], "o1", url=url(url_max + 1)),
+                _activity(areas["all"], "o2", address=address(full_address_max + 1)),
             ],
         )
 
@@ -314,24 +336,32 @@ class TestStrV2Contract:
             in schema["paths"]["/activities/bulk"]["post"]["description"]
         )
 
-    def test_v1_openapi_keeps_its_operation_ids_and_widened_maxima(self):
+    def test_v1_openapi_keeps_its_operation_ids_and_maxima(self):
         schema = app_str_v1.openapi()
         assert (
             schema["paths"]["/activities/bulk"]["post"]["operationId"]
             == "postActivitiesBulk"
         )
         request = schema["components"]["schemas"]["ActivityRequest"]["properties"]
-        assert request["url"]["maxLength"] == 2048
+        assert request["url"]["maxLength"] == 128
         address = schema["components"]["schemas"]["CommonAddressRequest"]["properties"]
+        assert address["fullAddress"]["maxLength"] == 318
+
+    def test_v2_openapi_documents_the_widened_maxima(self):
+        schemas = app_str_v2.openapi()["components"]["schemas"]
+        assert schemas["ActivityRequestV2"]["properties"]["url"]["maxLength"] == 2048
+        address = schemas["CommonAddressRequest"]["properties"]
         assert address["fullAddress"]["maxLength"] == 328
 
-    def test_ca_v1_response_declares_no_maxima_but_ca_v2_and_rep_v1_do(self):
-        v1 = app_ca_v1.openapi()["components"]["schemas"]
-        assert "maxLength" not in v1["ActivityResponse"]["properties"]["url"]
-        assert (
-            "maxLength" not in v1["CommonAddressResponse"]["properties"]["fullAddress"]
-        )
-        for app in (app_ca_v2, app_rep_v1):
+    def test_v1_responses_declare_no_maxima_but_v2_and_sta_v1_do(self):
+        for app in (app_ca_v1, app_str_v1):
+            v1 = app.openapi()["components"]["schemas"]
+            assert "maxLength" not in v1["ActivityResponse"]["properties"]["url"]
+            assert (
+                "maxLength"
+                not in v1["CommonAddressResponse"]["properties"]["fullAddress"]
+            )
+        for app in (app_ca_v2, app_str_v2, app_sta_v1):
             schemas = app.openapi()["components"]["schemas"]
             assert schemas["ActivityResponse"]["properties"]["url"]["maxLength"] == 2048
             assert (

@@ -11,35 +11,27 @@ from datetime import UTC, datetime
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.api.domain_registry import API_DOMAINS
 from app.db.config import create_async_session
 from app.models.audit_log import AuditLog
 
 logger = logging.getLogger(__name__)
 audit_logger = logging.getLogger("audit")
 
-# Paths to skip auditing (high-frequency, low-value)
+# Paths to skip auditing (high-frequency, low-value): the fixed pages plus the
+# docs and OpenAPI paths of every domain version in API_DOMAINS.
 SKIP_PATHS = frozenset(
     {
         "/",
         "/favicon.ico",
         "/api/docs",
         "/api/health",
-        "/api/auth/v1/openapi.json",
-        "/api/auth/v1/docs",
-        "/api/ca/v1/openapi.json",
-        "/api/ca/v1/docs",
-        "/api/ca/v2/openapi.json",
-        "/api/ca/v2/docs",
-        "/api/str/v1/openapi.json",
-        "/api/str/v1/docs",
-        "/api/str/v2/openapi.json",
-        "/api/str/v2/docs",
-        "/api/rep/v1/openapi.json",
-        "/api/rep/v1/docs",
         "/api/openapi.json",
         "/api/ping/openapi.json",
         "/api/ping/docs",
     }
+    | {domain.docs_path for domain in API_DOMAINS}
+    | {domain.openapi_path for domain in API_DOMAINS}
 )
 
 # Action mapping: (method, regex_pattern) -> (action, resource_type)
@@ -56,8 +48,35 @@ _ACTION_RULES: list[tuple[str, re.Pattern, str, str]] = [
     ("POST", re.compile(r"^/api/str/v\d+/activities/bulk$"), "create_bulk", "activity"),
     ("GET", re.compile(r"^/api/ca/v\d+/activities/count$"), "count", "activity"),
     ("GET", re.compile(r"^/api/ca/v\d+/activities$"), "list", "activity"),
-    ("GET", re.compile(r"^/api/rep/v\d+/activities/count$"), "count", "activity"),
-    ("GET", re.compile(r"^/api/rep/v\d+/activities$"), "list", "activity"),
+    ("GET", re.compile(r"^/api/sta/v\d+/activities/count$"), "count", "activity"),
+    ("GET", re.compile(r"^/api/sta/v\d+/activities$"), "list", "activity"),
+    ("GET", re.compile(r"^/api/ama/v\d+/activities/count$"), "count", "activity"),
+    ("GET", re.compile(r"^/api/ama/v\d+/activities$"), "list", "activity"),
+    ("POST", re.compile(r"^/api/str/v\d+/listings/bulk$"), "create_bulk", "listing"),
+    (
+        "POST",
+        re.compile(r"^/api/lsa/v\d+/listing-screenings/bulk$"),
+        "screen_bulk",
+        "listing",
+    ),
+    (
+        "POST",
+        re.compile(r"^/api/str/v\d+/listing-acknowledgements/bulk$"),
+        "acknowledge_bulk",
+        "listing",
+    ),
+    (
+        "GET",
+        re.compile(r"^/api/(str|lsa|ca|lma|sta)/v\d+/listings/count$"),
+        "count",
+        "listing",
+    ),
+    (
+        "GET",
+        re.compile(r"^/api/(str|lsa|ca|lma|sta)/v\d+/listings$"),
+        "list",
+        "listing",
+    ),
     ("POST", re.compile(r"^/api/auth/v\d+/token$"), "token", "auth"),
     ("GET", re.compile(r"^/api/ping$"), "ping", "system"),
 ]

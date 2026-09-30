@@ -4,22 +4,26 @@ Overview:
 
 - [Introduction](#introduction)
 - [Specification](#specification)
-- [Reference Implementation](#reference-implementation)
+- [Reference implementation](#reference-implementation)
 - [Production (PRD)](#production-prd)
-- [Pre-production Testing (PRE)](#pre-production-testing-pre)
+- [Pre-production testing (PRE)](#pre-production-testing-pre)
 - [Development](#development)
   - [Fullstack](#fullstack)
-  - [Tests (Unit)](#tests-unit)
-  - [Tests (Fullstack)](#tests-fullstack)
-  - [Tests (Migrations)](#tests-migrations)
-  - [Tests (Performance)](#tests-performance)
-  - [Tests (Security)](#tests-security)
-  - [Tests (All)](#tests-all)
-  - [Markdown](#markdown)
+  - [Tests (unit)](#tests-unit)
+  - [Tests (fullstack, integration)](#tests-fullstack-integration)
+  - [Tests (migrations)](#tests-migrations)
+  - [Tests (performance)](#tests-performance)
+  - [Tests (security)](#tests-security)
+  - [Tests (all)](#tests-all)
   - [All](#all)
-- [Functional Design](#functional-design)
-- [Technical Design](#technical-design)
+- [Design](#design)
+  - [Style guide](#style-guide)
+  - [Definitions](#definitions)
+  - [Functional](#functional)
+  - [Technical](#technical)
+  - [Security](#security)
 - [Getting started](#getting-started)
+- [Known issues](#known-issues)
 - [Process](#process)
 - [Foundation](#foundation)
 
@@ -31,15 +35,13 @@ https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng
 
 In accordance with this legislation, SDEP supports the following capabilities:
 
-- **Ingesting data on regulated areas** from competent authorities (CAs)
-- **Providing data on regulated areas** to short-term rental platforms (STRs)
-- **Ingesting rental activity data** from STRs
-- **Providing rental activity data** to CAs and other relevant stakeholders
-- **Ingesting flagged listing data** from STRs
-- **Providing flagged listing data** to CAs and other relevant stakeholders
-- **Supporting statistical reporting** to reporting/statistics offices (REPs) and other relevant stakeholders
-
-> **Note**: Support for flagged listings and statistical reporting is currently under development.
+- **Ingesting regulated areas** from competent authorities (CAs)
+- **Providing regulated areas** to short-term rental platforms (STRs)
+- **Ingesting listings (random checks)** from STRs
+- **Providing listings (random check results)** to CAs and other relevant stakeholders
+- **Ingesting rental activities** from STRs
+- **Providing rental activities** to CAs and other relevant stakeholders
+- **Supporting statistical reporting** to statistics authorities (STAs) and other relevant stakeholders
 
 ## Specification
 
@@ -52,12 +54,12 @@ This repository contains the **API specifications** for SDEP implementations acr
 
 **National components**
 
-- The competent authority (**CA**) and reporting/statistics (**REP**) components are provided as **guidance only**
+- The competent authority (**CA**), statistics authority (**STA**), listing screening authority (**LSA**) and monitoring authority (**LMA**, **AMA**) components are provided as **guidance only**
 - Their implementation may vary between EU Member States to accommodate national legislation and administrative requirements
 
-## Reference Implementation
+## Reference implementation
 
-This repository contains the **EU reference implementation** for SDEP implementations (CA, STR, REP) across EU Member States.
+This repository contains a **reference implementation** for SDEP implementations (CA, STR, STA, LSA, LMA, AMA) across EU Member States.
 
 The implementation is provided as **guidance only** and can serve as a **blueprint** for national implementations.
 
@@ -71,15 +73,15 @@ The reference implementation is deployed in production (**PRD**) in the Netherla
 
 The production environment (PRD):
 
-- Enables competent authorities (CA) and short-term rental platforms (STR) in the Netherlands to exchange regulated-area and rental-activity data in accordance with EU legislation
-- Includes the **EU-harmonized** short-term rental (STR) component
-- Includes the **SDEP-NL-specific** competent authority (CA) and reporting/statistics (REP) components
+- Enables competent authorities (CA) and short-term rental platforms (STR) in the Netherlands to exchange regulated-area, listing (random check) and rental-activity data in accordance with EU legislation
+- Includes the **EU-harmonized** short-term rental component (STR)
+- Includes the **SDEP-NL-specific** components (CA, STA, ...)
 
 > **Disclaimer (PRD)**: For production use in your own country, always contact your **national SDEP representative** regarding national deployment and operational responsibilities.
 
-For onboarding, see [Getting Started in PRD](./docs/GET_STARTED_PRD.md).
+For onboarding, see [Getting started in PRD](./docs/GET_STARTED_PRD.md).
 
-## Pre-production Testing (PRE)
+## Pre-production testing (PRE)
 
 To facilitate end-to-end testing with integration partners, the reference implementation is also deployed in a dedicated pre-production environment (**PRE**) in the Netherlands within SDEP-NL
 
@@ -88,14 +90,14 @@ To facilitate end-to-end testing with integration partners, the reference implem
 The pre-production environment (PRE):
 
 - Enables integration partners to test integrations with the **EU-harmonized** short-term rental (STR) component before connecting to production systems
-- Also provides testing access to the **SDEP-NL-specific** competent authority (CA) and reporting/statistics (REP) components
+- Also provides testing access to the **SDEP-NL-specific** competent authority (CA) and statistics authority (STA) components
 
 In the PRE environment:
 
 - Only anonymized data should be used
 - A daily cleanup takes place to remove any residual test or production-like data
 
-For **onboarding**, see: [Getting Started in PRE](./docs/GET_STARTED_PRE.md).
+For **onboarding**, see: [Getting started in PRE](./docs/GET_STARTED_PRE.md).
 
 > **Disclaimer (PRE)**: For end-to-end testing in your own country, always contact your **national SDEP representative** for guidance on deployment, integrations, and operations.
 
@@ -146,26 +148,26 @@ Explore API docs in Swagger UI:
 
 - http://localhost:8000/api/docs
 
-In Swagger UI, use **Authorize** to activate either of the following **client authentication methods** (both fall under the same **Client Credentials flow**, see also [Authentication and Authorization](./docs/SECURITY.md#authentication-and-authorization)):
+In Swagger UI, use **Authorize** to activate either of the following **client authentication methods** (both fall under the same **Client Credentials flow**, see also [Authentication and authorization](./docs/SECURITY.md#authentication-and-authorization)):
 
 - **Client ID & secret** ("client secret auth")
 
   - This is the default for testing (easier to use)
   - It uses **client-id & secret** to acquire a `Bearer` token, that is used in turn to invoke the other (authenticated) endpoints
   - See [machine-clients.yaml](./keycloak/machine-clients.yaml) for credentials & roles
-  - Credentials for all roles are present, so you can replay all end-to-end scenarios (CA, STR, REP)
+  - Credentials for all roles are present, so you can replay all end-to-end scenarios (CA, STR, STA, LSA, LMA, AMA)
 
 - **Client-signed JWT** ("client signed JWT auth")
 
   - This provides a more secure way to test production behavior
   - It uses **client-signed JWT** to acquire a `Bearer` token, that is used in turn to invoke the other (authenticated) endpoints
   - It requires an additional private/public keypair to generate the client-signed JWT
-  - Credentials for all roles are explained in the guidance, so you can test how client-signed JWT authentication works for your role (CA, STR, REP)
+  - Credentials for all roles are explained in the guidance, so you can test how client-signed JWT authentication works for your role (CA, STR, STA, LSA, LMA, AMA)
   - It also requires you to disable client-secret authentication in your local `.env.extra` (consider a `make backend-restart` to effectuate):
     ```bash
     CLIENT_SECRET_AUTH_ENABLED=false
     ```
-  - See [Client-Signed JWT Authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
+  - See [Client-signed JWT authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
 
 - National SDEP implementations are free to adopt either method in production
 
@@ -185,7 +187,7 @@ make up
 
 ---
 
-### Tests (Unit)
+### Tests (unit)
 
 Backend:
 
@@ -196,7 +198,7 @@ make test
 
 ---
 
-### Tests (Fullstack)
+### Tests (fullstack, integration)
 
 Fullstack:
 
@@ -208,16 +210,16 @@ make test-full
 The tests cover the cases as described in the [integration test documentation](./docs/INTEGRATION_TESTS.md).
 
 - Tests are executed against the complete Dockerized stack
-- Test suites run sequentially: `test-smoke`, `test-security`, `test-str`, `test-ca`, and `test-rep` - each exercising the live API over HTTP (Python `httpx`)
+- Test suites run sequentially: `test-smoke`, `test-security`, `test-str`, `test-ca`, and `test-sta` - each exercising the live API over HTTP (Python `httpx`)
 - Test data uses the `sdep-test-*` naming convention; this data is automatically detected and removed after each test run (`postgres/clean-testrun.sql`)
 - Test isolation is enforced by comparing table row counts before and after execution (PRE/POST); any discrepancy causes the build to fail
 - A consolidated summary report presents per-suite and overall totals (executed/passed/failed) and exits with a non-zero status if any test fails
 
-> Fullstack tests can be re-used in Test or Production environments (contact team SDEP-NL for more info).
+> Fullstack tests can be reused in Test or Production environments (contact team SDEP-NL for more info).
 
 ---
 
-### Tests (Migrations)
+### Tests (migrations)
 
 Alembic migrations are verified separately against PostgreSQL:
 
@@ -231,7 +233,7 @@ make test-migrations
 
 ---
 
-### Tests (Performance)
+### Tests (performance)
 
 Locust-based load testing for the bulk activity endpoint (`POST /str/activities/bulk`).
 
@@ -239,11 +241,11 @@ Locust-based load testing for the bulk activity endpoint (`POST /str/activities/
 make test-perf
 ```
 
-For full configuration options and usage examples, see [Performance Tests](./docs/PERFORMANCE_TESTS.md).
+For full configuration options and usage examples, see [Performance tests](./docs/PERFORMANCE_TESTS.md).
 
 ---
 
-### Tests (Security)
+### Tests (security)
 
 ---
 
@@ -289,7 +291,7 @@ To refresh your local backend image manually: `make test-cve` or `docker compose
 
 ---
 
-### Tests (All)
+### Tests (all)
 
 Test all in one go (fullstack + migrations + malware + performance):
 
@@ -297,20 +299,10 @@ Test all in one go (fullstack + migrations + malware + performance):
 make test
 ```
 
----
-
-### Markdown
-
-Markdown lint:
+Same, keeping the generated test data afterwards (not idempotent, for inspection):
 
 ```
-make md-lint
-```
-
-Markdown format:
-
-```
-make md-format
+make test-keep
 ```
 
 ---
@@ -323,21 +315,91 @@ All in one go:
 make all
 ```
 
-## Functional Design
+Definition of Done (every automated check, one status line per step, full logs in `tmp/dod/`):
+
+```
+make dod
+```
+
+The gate stops at the first failing step. After the fix, continue from that step: the cheap steps (docs checks, API snapshots, Markdown) rerun, the stack-bound suites that already passed are skipped. It refuses when `backend/` changed since the failure, because the backend test and image scan are then stale.
+
+```
+make dod-continue
+```
+
+## Design
+
+### Style guide
+
+Lint:
+
+```
+make md-lint
+```
+
+Format (also part of `make dod`, the definition of done):
+
+```
+make md-format
+```
+
+Validate links, every relative Markdown link and heading anchor (also part of `make dod`):
+
+```
+make md-validate-links
+```
+
+Style, applied by the tooling above (config and custom rules in `docs/markdown-tooling/`):
+
+- Level 1 headings as `<h1>`, so the title stays out of the table of contents
+- Max heading depth 3 (`###`); deeper levels become a `---` line plus bold text
+- A `---` line before every `###`, except directly after a `##`
+- Headings go in **"Sentence case"**, as in the GitHub, Google and Microsoft style guides:
+  - Only the first word, the first word after a colon, acronyms and names keep a capital (Competent authority (CA), Swagger UI, ...)
+  - Names that must keep their capital go in the `keep` list of `.markdownlint-cli2.jsonc`
+- Table alignment,
+- `-` list markers (iso. `*`)
+- Plain hyphens (no en or em dash)
+- Rightmost `# ...` alignment in directory trees
+
+---
+
+### Definitions
 
 - [Definitions](./docs/DEFINITIONS.md)
-- [Architecture](./docs/ARCHITECTURE_FUNC.md)
-- [Host](./docs/HOST.md)
-- [Area](./docs/AREA.md)
-- [Listing](./docs/LISTING.md)
-- [Activity](./docs/ACTIVITY.md)
 
-## Technical Design
+---
+
+### Functional
+
+- [Architecture](./docs/ARCHITECTURE_FUNC.md)
+- [Host](./docs/HOST_FUNC.md)
+- [Area](./docs/AREA_FUNC.md)
+- [Listing](./docs/LISTING_FUNC.md)
+- [Activity](./docs/ACTIVITY_FUNC.md)
+
+---
+
+### Technical
 
 - [Architecture](./docs/ARCHITECTURE_TECH.md)
-- [API](./docs/API.md)
-- [API version diff](./docs/API_DIFF.md)
-- [Internal Data Model](./docs/DATAMODEL.md)
+- [Host](./docs/HOST_TECH.md)
+- [Area](./docs/AREA_TECH.md)
+- [Listing](./docs/LISTING_TECH.md)
+- [Activity](./docs/ACTIVITY_TECH.md)
+
+---
+
+- [Internal data model](./docs/DATAMODEL_TECH.md)
+- [API](./docs/API_TECH.md)
+- [API version diff](./docs/API_DIFF_TECH.md)
+- [Database dialects](./docs/DATABASE_DIALECTS.md)
+- [Development workflow](./docs/DEVELOPMENT.md)
+
+---
+
+### Security
+
 - [Security](./docs/SECURITY.md)
 
 ## Getting started
@@ -347,9 +409,13 @@ make all
 - [Production](./docs/GET_STARTED_PRD.md)
 - [Client-signed JWT authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md)
 
+## Known issues
+
+- Multiple CAs can use the same areaId, but platforms act on areaId solely ([#95](https://github.com/SEMICeu/sdep/issues/95))
+
 ## Process
 
-- [Way Of Working](./docs/WOW.md)
+- [Way of working](./docs/WOW.md)
 
 ## Foundation
 

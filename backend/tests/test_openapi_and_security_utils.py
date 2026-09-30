@@ -139,7 +139,7 @@ def test_replace_auto_generated_body_schemas_returns_original_when_items_use_ref
     assert result is schema
 
 
-def test_extract_bulk_activity_item_schema_returns_original_when_items_use_ref():
+def test_extract_bulk_item_schemas_returns_original_when_items_use_ref():
     schema = {
         "components": {
             "schemas": {
@@ -154,7 +154,7 @@ def test_extract_bulk_activity_item_schema_returns_original_when_items_use_ref()
         }
     }
 
-    result = openapi_utils.extract_bulk_activity_item_schema(schema)
+    result = openapi_utils.extract_bulk_item_schemas(schema)
 
     assert result is schema
 

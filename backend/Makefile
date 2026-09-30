@@ -67,7 +67,7 @@ check: ## Format, lint, type check
 	uv run ruff check --select I --fix-only . ## Organize imports
 	uv run pyright . ## Check typing
 	uv run ruff check . ## Lint (check for errors and style issues)
-	uvx ty check ## Verify type completeness
+	uv run ty check ## Verify type completeness (locked dev dependency, no fetch at run time)
 	@echo "✅ Quality check completed!"
 
 clean-stale: # Kill any stale uvicorn/backend processes
@@ -177,7 +177,7 @@ api-snapshot-update: ## Update the frozen OpenAPI snapshot
 	@echo "🧊 Updating frozen OpenAPI snapshot..."
 	@uv run python -c "from tests.api.test_openapi_schema_frozen import report_openapi_snapshots; print(report_openapi_snapshots())"
 
-api-diff-update: ## Update the generated API version diff (docs/API_DIFF.md)
+api-diff-update: ## Update the generated API version diff (docs/API_DIFF_TECH.md)
 	@echo "🔀 Updating API version diff..."
 	@uv run python -c "from tests.api.test_openapi_version_diff import report_version_diff; print(report_version_diff())"
 

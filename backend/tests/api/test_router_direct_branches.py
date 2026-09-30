@@ -14,18 +14,15 @@ from app.api.common.pagination import PaginationParams
 from app.api.domains.ca.routers import activities_v1 as ca_activities
 from app.api.domains.ca.routers import areas as ca_areas
 from app.api.domains.ca.routers import areas_list_v1 as ca_areas_list
-from app.api.domains.rep.routers import activities_v1 as rep_activities
+from app.api.domains.sta.routers import activities_v1 as sta_activities
 from app.api.domains.str.routers import activities_bulk_v1 as str_activities_bulk
 from app.api.domains.str.routers import areas as str_areas
 from app.api.domains.str.routers import areas_list_v1 as str_areas_list
 from app.models.address import Address
 from app.models.temporal import Temporal
 from app.schemas.activity import ActivityFilters
-from app.schemas.activity_bulk import (
-    ActivityBulkRequest,
-    ActivityBulkResponse,
-    ActivityBulkResultItem,
-)
+from app.schemas.activity_bulk import ActivityBulkResponse, ActivityBulkResultItem
+from app.schemas.activity_v1 import ActivityBulkRequest
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.security.malware_scan import ScanResult
 from fastapi import HTTPException, Request, UploadFile
@@ -99,7 +96,7 @@ async def test_ca_activities_direct_branches(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_rep_activities_direct_branches(monkeypatch):
+async def test_sta_activities_direct_branches(monkeypatch):
     session = cast("AsyncSession", object())
     monkeypatch.setattr(
         activity_handlers.activity,
@@ -137,7 +134,7 @@ async def test_rep_activities_direct_branches(monkeypatch):
             ]
         ),
     )
-    result = await rep_activities.get_activities(
+    result = await sta_activities.get_activities(
         pagination=PaginationParams(offset=0, limit=None),
         filters=ActivityFilters(),
         session=session,
@@ -149,7 +146,7 @@ async def test_rep_activities_direct_branches(monkeypatch):
         "count_current_activities",
         AsyncMock(return_value=5),
     )
-    count = await rep_activities.count_activities(
+    count = await sta_activities.count_activities(
         filters=ActivityFilters(), session=session
     )
     assert count.count == 5

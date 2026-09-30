@@ -236,8 +236,9 @@ class TestCAActivitiesAPI:
         assert len(urls1 & urls2) == 0  # No overlap between page 1 and 2
         assert len(urls2 & urls3) == 0  # No overlap between page 2 and 3
 
+    @pytest.mark.parametrize("app", [app_ca_v1, app_ca_v2], ids=["v1", "v2"])
     async def test_get_activities_with_filters(
-        self, async_session: AsyncSession, setup_overrides
+        self, async_session: AsyncSession, setup_overrides, app
     ):
         """Test GET /ca/activities filters by createdAt range, platformId, and areaId."""
         ca_amsterdam = await CompetentAuthorityFactory.create_async(
@@ -316,7 +317,7 @@ class TestCAActivitiesAPI:
             "&areaId=550e8400-e29b-41d4-a716-446655440011"
         )
         async with AsyncClient(
-            transport=ASGITransport(app=app_ca_v2), base_url="http://test"
+            transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             response = await client.get(
                 query,
@@ -327,13 +328,12 @@ class TestCAActivitiesAPI:
         data = response.json()
         assert [activity["url"] for activity in data["activities"]] == [expected.url]
 
-    def test_get_activities_v2_does_not_expose_competent_authority_filter(self):
-        """The CA v2 activities endpoint is already scoped by the authenticated CA."""
+    @pytest.mark.parametrize("app", [app_ca_v1, app_ca_v2], ids=["v1", "v2"])
+    def test_get_activities_does_not_expose_competent_authority_filter(self, app):
+        """The CA activities endpoint is already scoped by the authenticated CA."""
         parameters = {
             parameter["name"]
-            for parameter in app_ca_v2.openapi()["paths"]["/activities"]["get"][
-                "parameters"
-            ]
+            for parameter in app.openapi()["paths"]["/activities"]["get"]["parameters"]
         }
 
         assert "competentAuthorityId" not in parameters
@@ -341,7 +341,7 @@ class TestCAActivitiesAPI:
     async def test_get_activities_v2_ignores_competent_authority_filter_param(
         self, async_session: AsyncSession, setup_overrides, test_data
     ):
-        """v2 silently drops the REP-only competentAuthorityId query param.
+        """v2 silently drops the STA-only competentAuthorityId query param.
 
         The authenticated CA is 0363; if the param were honored, filtering by
         0518 would intersect to an empty result. Ignoring it returns the full
@@ -363,19 +363,23 @@ class TestCAActivitiesAPI:
             for activity in data["activities"]
         )
 
-    def test_get_activities_v1_ignores_filter_params(self):
-        """v1 does not declare filter* params; FastAPI silently drops unknown query params."""
-        parameters = {
-            parameter["name"]
-            for parameter in app_ca_v1.openapi()["paths"]["/activities"]["get"][
-                "parameters"
-            ]
-        }
+    @pytest.mark.parametrize("path", ["/activities", "/activities/count"])
+    def test_v1_declares_the_v2_filter_params(self, path: str):
+        """v1 declares the same optional filters as v2 (backported, additive)."""
 
-        assert "platformId" not in parameters
-        assert "areaId" not in parameters
-        assert "createdAtFrom" not in parameters
-        assert "createdAtTo" not in parameters
+        def filter_parameters(app) -> list[dict]:
+            return [
+                parameter
+                for parameter in app.openapi()["paths"][path]["get"]["parameters"]
+                if parameter["name"]
+                in {"createdAtFrom", "createdAtTo", "platformId", "areaId"}
+            ]
+
+        v1_parameters = filter_parameters(app_ca_v1)
+
+        assert len(v1_parameters) == 4
+        assert all(not parameter["required"] for parameter in v1_parameters)
+        assert v1_parameters == filter_parameters(app_ca_v2)
 
     @pytest.mark.parametrize(
         ("query_param", "value"),
@@ -384,17 +388,19 @@ class TestCAActivitiesAPI:
             ("areaId", "invalid/id"),
         ],
     )
+    @pytest.mark.parametrize("app", [app_ca_v1, app_ca_v2], ids=["v1", "v2"])
     async def test_get_activities_rejects_invalid_functional_id_filters(
         self,
         async_session: AsyncSession,
         setup_overrides,
         test_data,
+        app,
         query_param: str,
         value: str,
     ):
         """Test GET /ca/activities validates functional ID query filters."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_ca_v2), base_url="http://test"
+            transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             response = await client.get(
                 f"/activities?{query_param}={value}",
@@ -490,10 +496,10 @@ class TestCAActivitiesAPI:
         assert response.status_code == 400
 
     @pytest.mark.parametrize("app", [app_ca_v1, app_ca_v2], ids=["v1", "v2"])
-    async def test_get_activities_default_unlimited(
+    async def test_get_activities_without_limit_returns_all_below_the_cap(
         self, async_session: AsyncSession, setup_overrides, test_data, app
     ):
-        """Test GET /ca/activities without limit parameter returns all data."""
+        """Test GET /ca/activities without limit returns all data when below 1000."""
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
@@ -506,7 +512,7 @@ class TestCAActivitiesAPI:
         # Assert
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        # Should return all 5 Amsterdam activities (default is unlimited)
+        # Should return all 5 Amsterdam activities (default limit is 1000)
         assert len(data["activities"]) == 5
 
     @pytest.mark.parametrize("app", [app_ca_v1, app_ca_v2], ids=["v1", "v2"])
@@ -644,14 +650,15 @@ class TestCAActivitiesAPI:
         data = response.json()
         assert data["count"] == 5
 
+    @pytest.mark.parametrize("app", [app_ca_v1, app_ca_v2], ids=["v1", "v2"])
     async def test_count_activities_with_filters(
-        self, async_session: AsyncSession, setup_overrides, test_data
+        self, async_session: AsyncSession, setup_overrides, test_data, app
     ):
         """Test GET /ca/activities/count applies the same filters as the list endpoint."""
         area_id = test_data["area_amsterdam"].area_id
 
         async with AsyncClient(
-            transport=ASGITransport(app=app_ca_v2), base_url="http://test"
+            transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             response = await client.get(
                 f"/activities/count?createdAtFrom=2000-01-01T00:00:00Z&platformId=str01&areaId={area_id}",
@@ -676,17 +683,19 @@ class TestCAActivitiesAPI:
             ("createdAtTo", "2026-05-21T00:00:00%2B02:00"),
         ],
     )
+    @pytest.mark.parametrize("app", [app_ca_v1, app_ca_v2], ids=["v1", "v2"])
     async def test_count_activities_rejects_non_utc_created_at_filters(
         self,
         async_session: AsyncSession,
         setup_overrides,
         test_data,
+        app,
         query_param: str,
         value: str,
     ):
         """Test GET /ca/activities/count only accepts UTC createdAt filters."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_ca_v2), base_url="http://test"
+            transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             response = await client.get(
                 f"/activities/count?{query_param}={value}",
@@ -702,17 +711,19 @@ class TestCAActivitiesAPI:
             ("areaId", "invalid/id"),
         ],
     )
+    @pytest.mark.parametrize("app", [app_ca_v1, app_ca_v2], ids=["v1", "v2"])
     async def test_count_activities_rejects_invalid_functional_id_filters(
         self,
         async_session: AsyncSession,
         setup_overrides,
         test_data,
+        app,
         query_param: str,
         value: str,
     ):
         """Test GET /ca/activities/count validates functional ID query filters."""
         async with AsyncClient(
-            transport=ASGITransport(app=app_ca_v2), base_url="http://test"
+            transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             response = await client.get(
                 f"/activities/count?{query_param}={value}",

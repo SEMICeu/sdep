@@ -39,7 +39,10 @@ class Role(StrEnum):
 
     CA = "sdep_ca"
     STR = "sdep_str"
-    REP = "sdep_rep"
+    STA = "sdep_sta"
+    LSA = "sdep_lsa"
+    LMA = "sdep_lma"
+    AMA = "sdep_ama"
     READ = "sdep_read"
     WRITE = "sdep_write"
 

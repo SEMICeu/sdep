@@ -3,8 +3,9 @@
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 
 from app.db.config import create_async_session
 from app.models.audit_log import AuditLog
@@ -40,7 +41,11 @@ async def delete_old_audit_logs(retention_days: int) -> int:
             ids = rows.scalars().all()
             if not ids:
                 break
-            result = await session.execute(delete(AuditLog).where(AuditLog.id.in_(ids)))
+            # A DELETE returns a CursorResult at runtime; the async execute() is typed as Result.
+            result = cast(
+                "CursorResult[Any]",
+                await session.execute(delete(AuditLog).where(AuditLog.id.in_(ids))),
+            )
             total_deleted += result.rowcount
 
         if len(ids) < BATCH_SIZE:

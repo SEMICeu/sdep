@@ -20,12 +20,12 @@ from pydantic import (
 from pydantic_extra_types.country import CountryAlpha3
 
 from app.enums import ActivityStatus
-from app.schemas.address import (  # noqa: TC001
+from app.schemas.address import (
     CommonAddressRequest,
     CommonAddressResponse,
 )
-from app.schemas.common import FunctionalId, OptionalFunctionalId  # noqa: TC001
-from app.schemas.temporal import (  # noqa: TC001
+from app.schemas.common import FunctionalId, OptionalFunctionalId
+from app.schemas.temporal import (
     CommonTemporalRequest,
     CommonTemporalRequestV2,
     CommonTemporalResponse,
@@ -131,12 +131,13 @@ class ActivityRequest(BaseModel):
         alias="areaId",
         description="Functional ID referencing the area where the activity took place",
         examples=[
-            "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
-            "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495",
+            "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+            "58FF0814-3AA1-5019-9AFB-3CD9F398602C",
         ],
     )  # Functional ID reference
 
-    # 2048 is a chosen pragmatic cap, not a browser limit. See docs/DATAMODEL.md, Activity.
+    # 2048 is a chosen pragmatic cap, not a browser limit. See docs/DATAMODEL_TECH.md, Activity.
+    # STR v1 keeps 128, see app/schemas/activity_v1.py.
     url: str = Field(
         ...,
         min_length=1,
@@ -205,8 +206,8 @@ class ActivityRequest(BaseModel):
 class ActivityRequestV2(ActivityRequest):
     """Activity request schema for STR v2.
 
-    Differs from v1 in the temporal composite only: timestamps must be UTC.
-    Everything else is inherited.
+    Differs from v1 in three fields: timestamps must be UTC, and `url` and
+    `fullAddress` allow 2048 and 328 characters (v1: 128 and 318).
     """
 
     model_config = ConfigDict(
@@ -277,8 +278,8 @@ class ActivityResponse(BaseModel):
         validation_alias="area_id_functional",
         description="Functional ID referencing the area where this activity took place",
         examples=[
-            "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
-            "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495",
+            "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+            "58FF0814-3AA1-5019-9AFB-3CD9F398602C",
         ],
     )  # Functional ID reference
     area_name: str | None = Field(

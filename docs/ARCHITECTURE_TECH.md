@@ -1,66 +1,67 @@
-<h1>Technical Architecture</h1>
+<h1>Technical architecture</h1>
 
 This document provides an overview of the SDEP (Single Digital Entry Point) technical architecture.
 
 <h2>Table of Contents</h2>
 
 - [Overview](#overview)
-- [Technology Stack](#technology-stack)
+- [Technology stack](#technology-stack)
   - [Backend](#backend)
   - [Infrastructure](#infrastructure)
-  - [Development Tools](#development-tools)
-- [Repository and Directory Structure](#repository-and-directory-structure)
+  - [Development tools](#development-tools)
+- [Repository and directory structure](#repository-and-directory-structure)
 - [API (versioning)](#api-versioning)
 - [Application (versioning)](#application-versioning)
 - [Backend](#backend-1)
-  - [API Layer (`app/api/`)](#api-layer-appapi)
-  - [Schemas Layer (`app/schemas/`)](#schemas-layer-appschemas)
-  - [Service Layer (`app/services/`)](#service-layer-appservices)
-  - [CRUD Layer (`app/crud/`)](#crud-layer-appcrud)
-  - [Models Layer (`app/models/`)](#models-layer-appmodels)
-  - [Request Flow](#request-flow)
+  - [API layer (`app/api/`)](#api-layer-appapi)
+  - [Schemas layer (`app/schemas/`)](#schemas-layer-appschemas)
+  - [Service layer (`app/services/`)](#service-layer-appservices)
+  - [CRUD layer (`app/crud/`)](#crud-layer-appcrud)
+  - [Models layer (`app/models/`)](#models-layer-appmodels)
+  - [Request flow](#request-flow)
 - [Data](#data)
-  - [ID Management](#id-management)
+  - [ID management](#id-management)
   - [Versioning](#versioning)
   - [Deleting](#deleting)
   - [Locking](#locking)
-  - [Tenant Isolation](#tenant-isolation)
-  - [Lazy Loading](#lazy-loading)
-  - [Data Flow](#data-flow)
+  - [Tenant isolation](#tenant-isolation)
+  - [Lazy loading](#lazy-loading)
+  - [Data flow](#data-flow)
 - [Transactions](#transactions)
 - [Validations](#validations)
   - [Layers](#layers)
-  - [Functional IDs (General)](#functional-ids-general)
-  - [Functional IDs (User-Supplied)](#functional-ids-user-supplied)
-  - [Owner IDs and JWT Client IDs](#owner-ids-and-jwt-client-ids)
+  - [Functional IDs (general)](#functional-ids-general)
+  - [Functional IDs (user-supplied)](#functional-ids-user-supplied)
+  - [Owner IDs and JWT client IDs](#owner-ids-and-jwt-client-ids)
 - [Exceptions](#exceptions)
 - [Bulk](#bulk)
   - [Approach](#approach)
-  - [Validation Flow](#validation-flow)
-  - [Status Codes](#status-codes)
-  - [Design Decisions](#design-decisions)
-- [Database Dialects](#database-dialects)
-- [Development Workflow](#development-workflow)
+  - [Validation flow](#validation-flow)
+  - [Status codes](#status-codes)
+  - [Design decisions](#design-decisions)
 
 ## Overview
 
 SDEP is a FastAPI-based REST API that enables:
 
 - Competent Authorities (CA) to register regulated areas with geospatial data
-- Short-Term Rental platforms (STR) to query regulated areas and submit rental activities
-- Competent Authorities (CA) to query rental activities
-- The statistics office (REP) to query all registered rental activities for statistical analysis
+- Short-Term Rental platforms (STR) to query regulated areas, submit listings (random checks) and submit rental activities
+- The listing screening authority (LSA) to retrieve submitted listings and return screening results (flags)
+- Short-Term Rental platforms (STR) to retrieve their flagged listings and acknowledge them
+- Competent Authorities (CA) to query acknowledged listings in their own areas, and rental activities
+- The monitoring authorities (LMA, AMA) to query all listings and all activities
+- The statistics authority (STA) to query all registered listings and rental activities for statistical analysis
 - Compliance with EU Regulation 2024/1028
 
 SDEP-NL production is the reference implementation for this repo:
 
 https://sdep.gov.nl/api/docs.
 
-## Technology Stack
+## Technology stack
 
 ### Backend
 
-- **Python:** 3.13+
+- **Python:** 3.14+
 - **Framework:** FastAPI 0.115+
 - **ORM:** SQLAlchemy 2.0+ (async)
 - **Migrations:** Alembic
@@ -79,7 +80,7 @@ https://sdep.gov.nl/api/docs.
 
 ---
 
-### Development Tools
+### Development tools
 
 - **Linting:** Ruff
 - **Type Checking:** Pyright
@@ -87,228 +88,297 @@ https://sdep.gov.nl/api/docs.
 - **Pre-commit:** Hooks for code quality
 - **CI/CD:** Pipeline platform of choice (out of scope for this project)
 
-## Repository and Directory Structure
+## Repository and directory structure
 
 ```
 sdep-app/
-├── backend/                                           # Python FastAPI application
-│   ├── app/                                           # Application code
-│   │   ├── api/                                       # API layer (routers, endpoints)
-│   │   │   ├── app_factory.py                         # Domain sub-app factory (shared setup for all domains)
-│   │   │   ├── common/                                # Shared API components (routers, openapi, security)
-│   │   │   │   ├── routers/                           # API routers
-│   │   │   │   │   ├── auth.py                        # Authentication router
-│   │   │   │   │   ├── health.py                      # Health check router
-│   │   │   │   │   └── ping.py                        # Ping endpoint
-│   │   │   │   ├── activity_examples.py               # Shared OpenAPI activity response examples
-│   │   │   │   ├── activity_handlers.py               # Shared activity logic (CA v1/v2 and REP)
-│   │   │   │   ├── auth_dependencies.py               # Shared auth/role dependencies
+├── backend/                                                     # Python FastAPI application
+│   ├── app/                                                     # Application code
+│   │   ├── api/                                                 # API layer (routers, endpoints)
+│   │   │   ├── app_factory.py                                   # Domain sub-app factory (shared setup for all domains)
+│   │   │   ├── common/                                          # Shared API components (routers, openapi, security)
+│   │   │   │   ├── routers/                                     # API routers
+│   │   │   │   │   ├── auth.py                                  # Authentication router
+│   │   │   │   │   ├── health.py                                # Health check router
+│   │   │   │   │   └── ping.py                                  # Ping endpoint
+│   │   │   │   ├── activity_examples.py                         # Shared OpenAPI activity response examples
+│   │   │   │   ├── activity_handlers.py                         # Shared activity logic (CA v1/v2, STA and AMA)
+│   │   │   │   ├── area_download.py                             # Shared area shapefile download response
+│   │   │   │   ├── area_examples.py                             # Shared OpenAPI text and examples for the all-areas list
+│   │   │   │   ├── auth_dependencies.py                         # Shared auth/role dependencies
+│   │   │   │   ├── bulk_json.py                                 # HTTP status mapping of every bulk result
 │   │   │   │   ├── exception_handlers.py
-│   │   │   │   ├── filename.py                        # Download filename sanitization
+│   │   │   │   ├── filename.py                                  # Download filename sanitization
+│   │   │   │   ├── listing_examples.py                          # Shared OpenAPI listing examples and field text
+│   │   │   │   ├── listing_filters.py                           # Shared listing query-parameter types
+│   │   │   │   ├── listing_handlers.py                          # Shared listing logic (one read, fixed scope per audience)
 │   │   │   │   ├── openapi.py
-│   │   │   │   ├── pagination.py                      # Shared pagination helpers
+│   │   │   │   ├── pagination.py                                # Shared pagination helpers
+│   │   │   │   ├── reference_examples.py                        # Shared OpenAPI text for platforms and competent authorities
+│   │   │   │   ├── reference_routers.py                         # Read-only platforms, competent authorities and areas routers
 │   │   │   │   └── security.py
-│   │   │   ├── common_app.py                          # Version-independent sub-app (health, ping)
-│   │   │   ├── domain_registry.py                     # Centralized API domain metadata (label, paths, status)
-│   │   │   └── domains/                               # Per-domain versioned sub-apps
+│   │   │   ├── common_app.py                                    # Version-independent sub-app (health, ping)
+│   │   │   ├── domain_registry.py                               # Centralized API domain metadata (label, paths, status)
+│   │   │   └── domains/                                         # Per-domain versioned sub-apps
+│   │   │       ├── ama/
+│   │   │       │   ├── v1.py                                    # AMA domain sub-app
+│   │   │       │   └── routers/
+│   │   │       │       └── activities_v1.py                     # AMA activity endpoints (read-only, as STA)
 │   │   │       ├── auth/
-│   │   │       │   └── v1.py                          # Auth domain sub-app
+│   │   │       │   └── v1.py                                    # Auth domain sub-app
 │   │   │       ├── ca/
-│   │   │       │   ├── v1.py                          # CA domain sub-app v1
-│   │   │       │   ├── v2.py                          # CA domain sub-app v2
+│   │   │       │   ├── v1.py                                    # CA domain sub-app v1
+│   │   │       │   ├── v2.py                                    # CA domain sub-app v2 (with listings)
 │   │   │       │   └── routers/
-│   │   │       │       ├── activities_v1.py           # CA activity endpoints v1 (frozen response schemas)
-│   │   │       │       ├── activities_v2.py           # CA activity endpoints v2 (filters, limit default 1000)
-│   │   │       │       ├── areas.py                   # CA area endpoints shared by v1 and v2 (post, count, get, delete)
-│   │   │       │       ├── areas_docs.py              # Shared OpenAPI text and examples for the areas list
-│   │   │       │       ├── areas_list_v1.py           # CA areas list v1 (unlimited by default)
-│   │   │       │       └── areas_list_v2.py           # CA areas list v2 (limit default 1000)
-│   │   │       ├── rep/
-│   │   │       │   ├── v1.py                          # REP domain sub-app
+│   │   │       │       ├── activities_filters.py                # Shared query filters for the CA activity list and count (v1, v2)
+│   │   │       │       ├── activities_v1.py                     # CA activity endpoints v1 (frozen response schemas, limit default 1000)
+│   │   │       │       ├── activities_v2.py                     # CA activity endpoints v2 (limit default 1000)
+│   │   │       │       ├── areas.py                             # CA area endpoints shared by every version (post, count, get, delete)
+│   │   │       │       ├── areas_docs.py                        # Shared OpenAPI text and examples for the areas list
+│   │   │       │       ├── areas_list_v1.py                     # CA areas list v1 (limit default 1000)
+│   │   │       │       ├── areas_list_v2.py                     # CA areas list v2 (limit default 1000)
+│   │   │       │       └── listings_v2.py                       # CA listing endpoints v2 (acknowledged, own areas)
+│   │   │       ├── lma/
+│   │   │       │   ├── v2.py                                    # LMA domain sub-app
 │   │   │       │   └── routers/
-│   │   │       │       └── activities_v1.py           # REP activity endpoints (read-only)
+│   │   │       │       └── listings_v2.py                       # LMA listing endpoints (read-only, every status)
+│   │   │       ├── lsa/
+│   │   │       │   ├── v2.py                                    # LSA domain sub-app
+│   │   │       │   └── routers/
+│   │   │       │       ├── listing_screenings_bulk_v2.py        # LSA bulk screening results endpoint
+│   │   │       │       ├── listings_docs.py                     # OpenAPI text and examples for the LSA endpoints
+│   │   │       │       └── listings_v2.py                       # LSA listing endpoints (pending)
+│   │   │       ├── sta/
+│   │   │       │   ├── v1.py                                    # STA domain sub-app v1 (activities)
+│   │   │       │   ├── v2.py                                    # STA domain sub-app v2 (activities, listings)
+│   │   │       │   └── routers/
+│   │   │       │       ├── activities_v1.py                     # STA activity endpoints (read-only, v1 and v2)
+│   │   │       │       └── listings_v2.py                       # STA listing endpoints (read-only, every status)
 │   │   │       └── str/
-│   │   │           ├── v1.py                          # STR domain sub-app v1
-│   │   │           ├── v2.py                          # STR domain sub-app v2
+│   │   │           ├── v1.py                                    # STR domain sub-app v1
+│   │   │           ├── v2.py                                    # STR domain sub-app v2 (with listings)
 │   │   │           └── routers/
-│   │   │               ├── activities_bulk_docs.py    # Shared OpenAPI text and examples for the bulk endpoint
-│   │   │               ├── activities_bulk_shared.py  # HTTP status mapping of the bulk result
-│   │   │               ├── activities_bulk_v1.py      # STR bulk activity endpoint v1
-│   │   │               ├── activities_bulk_v2.py      # STR bulk activity endpoint v2 (UTC-only, regulation check)
-│   │   │               ├── areas.py                   # STR area endpoints shared by v1 and v2 (count, get)
-│   │   │               ├── areas_docs.py              # Shared OpenAPI text and examples for the areas list
-│   │   │               ├── areas_list_v1.py           # STR areas list v1 (unlimited by default)
-│   │   │               └── areas_list_v2.py           # STR areas list v2 (limit default 1000)
-│   │   ├── crud/                                      # Database operations (CRUD)
+│   │   │               ├── activities_bulk_docs.py              # Shared OpenAPI text and examples for the bulk endpoint
+│   │   │               ├── activities_bulk_v1.py                # STR bulk activity endpoint v1
+│   │   │               ├── activities_bulk_v2.py                # STR bulk activity endpoint v2 (UTC-only, regulation check)
+│   │   │               ├── areas.py                             # STR area endpoints shared by every version (count, get)
+│   │   │               ├── areas_list_v1.py                     # STR areas list v1 (unlimited by default)
+│   │   │               ├── areas_list_v2.py                     # STR areas list v2 (limit default 1000)
+│   │   │               ├── listing_acknowledgements_bulk_v2.py  # STR bulk listing acknowledgements endpoint v2
+│   │   │               ├── listings_bulk_v2.py                  # STR bulk listings endpoint v2 (random checks)
+│   │   │               ├── listings_docs.py                     # OpenAPI text and examples for the STR listing endpoints
+│   │   │               └── listings_v2.py                       # STR listing endpoints v2 (own flagged listings)
+│   │   ├── crud/                                                # Database operations (CRUD)
 │   │   │   ├── activity.py
 │   │   │   ├── area.py
 │   │   │   ├── competent_authority.py
+│   │   │   ├── listing.py
 │   │   │   └── platform.py
-│   │   ├── db/                                        # Database configuration
-│   │   │   └── config.py                              # Database session management
-│   │   ├── exceptions/                                # Custom exceptions
-│   │   │   ├── auth.py                                # Authentication exceptions
-│   │   │   ├── base.py                                # Base exception classes
-│   │   │   ├── business.py                            # Business logic exceptions
-│   │   │   ├── handlers.py                            # Exception handlers
-│   │   │   ├── infrastructure.py                      # Infrastructure exceptions (DB, auth server)
-│   │   │   └── validation.py                          # Validation exceptions
-│   │   ├── models/                                    # SQLAlchemy ORM models
+│   │   ├── db/                                                  # Database configuration
+│   │   │   └── config.py                                        # Database session management
+│   │   ├── exceptions/                                          # Custom exceptions
+│   │   │   ├── auth.py                                          # Authentication exceptions
+│   │   │   ├── base.py                                          # Base exception classes
+│   │   │   ├── business.py                                      # Business logic exceptions
+│   │   │   ├── handlers.py                                      # Exception handlers
+│   │   │   ├── infrastructure.py                                # Infrastructure exceptions (DB, auth server)
+│   │   │   └── validation.py                                    # Validation exceptions
+│   │   ├── models/                                              # SQLAlchemy ORM models
 │   │   │   ├── activity.py
 │   │   │   ├── address.py
 │   │   │   ├── area.py
-│   │   │   ├── audit_log.py                           # Audit log record
+│   │   │   ├── audit_log.py                                     # Audit log record
 │   │   │   ├── competent_authority.py
+│   │   │   ├── listing.py
 │   │   │   ├── platform.py
 │   │   │   ├── temporal.py
-│   │   │   └── types.py                               # Dialect-aware TypeDecorators (e.g. StringArray)
-│   │   ├── schemas/                                   # Pydantic schemas (request/response)
+│   │   │   └── types.py                                         # Dialect-aware TypeDecorators (e.g. StringArray)
+│   │   ├── schemas/                                             # Pydantic schemas (request/response)
 │   │   │   ├── activity.py
 │   │   │   ├── activity_bulk.py
-│   │   │   ├── activity_v1.py                         # Frozen CA v1 response schemas (deleted with CA v1)
+│   │   │   ├── activity_v1.py                                   # Frozen STR v1 bulk and CA v1 response schemas (deleted with v1)
 │   │   │   ├── address.py
 │   │   │   ├── area.py
 │   │   │   ├── auth.py
-│   │   │   ├── common.py                              # Shared types: FunctionalId, UtcDateTime, validate_client_id()
+│   │   │   ├── common.py                                        # Shared types: FunctionalId, UtcDateTime, validate_client_id()
+│   │   │   ├── competent_authority.py
 │   │   │   ├── error.py
 │   │   │   ├── health.py
+│   │   │   ├── listing.py
+│   │   │   ├── listing_bulk.py
+│   │   │   ├── platform.py
 │   │   │   └── temporal.py
-│   │   ├── security/                                  # Security utilities
-│   │   │   ├── audit.py                               # Audit logging middleware
-│   │   │   ├── audit_retention.py                     # Background audit log cleanup
-│   │   │   ├── headers.py                             # Security headers
-│   │   │   └── malware_scan.py                        # ClamAV malware scanning
-│   │   ├── services/                                  # Business logic layer
+│   │   ├── security/                                            # Security utilities
+│   │   │   ├── audit.py                                         # Audit logging middleware
+│   │   │   ├── audit_retention.py                               # Background audit log cleanup
+│   │   │   ├── headers.py                                       # Security headers
+│   │   │   └── malware_scan.py                                  # ClamAV malware scanning
+│   │   ├── services/                                            # Business logic layer
 │   │   │   ├── activity.py
 │   │   │   ├── activity_bulk.py
-│   │   │   └── area.py
-│   │   ├── config.py                                  # Application configuration
-│   │   ├── enums.py                                   # Shared enumerations (e.g. Regulation)
-│   │   └── main.py                                    # Application entry point
-│   ├── alembic/                                       # Database migrations
-│   │   ├── env.py                                     # Alembic environment config
-│   │   └── versions/                                  # Migration scripts
-│   │       ├── 001_initial.py                         # Initial migration
-│   │       └── *.py                                   # Additional migrations on top
-│   ├── scripts/                                       # Backend helper scripts
-│   │   └── wait_for_postgres.py                       # Block until the database accepts connections
-│   ├── tests/                                         # Unit tests (mirrors app/ structure)
-│   │   ├── api/                                       # API layer tests
-│   │   ├── crud/                                      # CRUD layer tests
-│   │   ├── fixtures/                                  # Test fixtures and factories
-│   │   ├── security/                                  # Security tests
-│   │   ├── services/                                  # Service layer tests
-│   │   └── conftest.py                                # pytest configuration
-│   ├── alembic.ini                                    # Alembic configuration
-│   ├── Dockerfile                                     # Backend container image
-│   ├── Makefile                                       # Backend-specific make targets
-│   ├── pyproject.toml                                 # Python project configuration (uv)
-│   └── uv.lock                                        # Locked dependencies
+│   │   │   ├── area.py
+│   │   │   ├── competent_authority.py                           # Competent authority reads
+│   │   │   ├── listing.py
+│   │   │   ├── listing_acknowledgement_bulk.py
+│   │   │   ├── listing_bulk.py
+│   │   │   ├── listing_bulk_common.py                           # Shared steps of the three listing bulk services
+│   │   │   ├── listing_screening_bulk.py
+│   │   │   └── platform.py                                      # Platform resolution for STR writes, platform reads
+│   │   ├── config.py                                            # Application configuration
+│   │   ├── enums.py                                             # Shared enumerations (Regulation, ListingStatus, ListingFlag, ActivityStatus)
+│   │   └── main.py                                              # Application entry point
+│   ├── alembic/                                                 # Database migrations
+│   │   ├── env.py                                               # Alembic environment config
+│   │   ├── script.py.mako                                       # Template for new migration scripts
+│   │   └── versions/                                            # Migration scripts
+│   │       ├── 001_initial.py                                   # Initial migration
+│   │       └── *.py                                             # Additional migrations on top
+│   ├── scripts/                                                 # Backend helper scripts
+│   │   └── wait_for_postgres.py                                 # Block until the database accepts connections
+│   ├── tests/                                                   # Unit tests (mirrors app/ structure)
+│   │   ├── api/                                                 # API layer tests
+│   │   ├── crud/                                                # CRUD layer tests
+│   │   ├── fixtures/                                            # Test fixtures and factories
+│   │   ├── security/                                            # Security tests
+│   │   ├── services/                                            # Service layer tests
+│   │   ├── conftest.py                                          # pytest configuration
+│   │   ├── test_app_misc.py                                     # Root app, lifespan and landing page
+│   │   ├── test_exception_handlers.py                           # Exception handler mapping
+│   │   ├── test_failure_message_summary.py                      # Terminal failure summary hook
+│   │   ├── test_filename.py                                     # Download filename sanitization
+│   │   ├── test_low_level_helpers.py                            # Small helpers across layers
+│   │   ├── test_models_and_schemas.py                           # Model constraints and schema serializers
+│   │   └── test_openapi_and_security_utils.py                   # OpenAPI post-processing and security utilities
+│   ├── alembic.ini                                              # Alembic configuration
+│   ├── Dockerfile                                               # Backend container image
+│   ├── Makefile                                                 # Backend-specific make targets
+│   ├── pyproject.toml                                           # Python project configuration (uv)
+│   └── uv.lock                                                  # Locked dependencies
 │
-├── tests/                                             # Integration tests + performance tests
-│   ├── lib/                                           # Test library utilities
-│   │   └── create_fixture_areas.py                    # Area fixture creation
-│   ├── malware/                                       # Malware scanning tests
-│   │   └── test_malware_scan.py                       # ClamAV malware scan test
-│   ├── performance/                                   # Performance tests (Locust)
-│   │   └── locustfile.py                              # Bulk activity load test
-│   ├── test_auth_client_bootstrap.py                  # Bearer token acquisition utility (client secret)
-│   ├── test_auth_client_jwt.py                        # Test client-signed JWT (private_key_jwt) + roles
-│   ├── test_auth_client_secret.py                     # Test client-secret authentication
-│   ├── test_auth_headers.py                           # Security headers compliance
-│   ├── test_auth_unauthorized.py                      # Test unauthorized access rejection
-│   ├── test_ca_activities.py                          # Test CA activity endpoints
-│   ├── test_ca_areas.py                               # Test CA area submission
-│   ├── test_client_id_regex.py                        # Test client ID regex validation
-│   ├── test_cve_ids.py                                # Guard against corrupted (year-rewritten) CVE ids
-│   ├── test_health_ping.py                            # Health check tests
-│   ├── test_postgres_check_constraints.py             # Test database check constraints
-│   ├── test_rep_activities.py                         # Test REP activity endpoints
-│   ├── test_smoketest.py                              # Smoke test audit-excluded endpoints
-│   ├── test_str_activities_bulk.py                    # Test STR bulk activity submission
-│   ├── test_str_areas.py                              # Test STR area query endpoints
-│   └── test_trivy_allowlist.py                        # Test CVE allowlist policy validation
+├── tests/                                                       # Integration tests + performance tests
+│   ├── lib/                                                     # Test library utilities
+│   │   └── create_fixture_areas.py                              # Area fixture creation
+│   ├── malware/                                                 # Malware scanning tests
+│   │   └── test_malware_scan.py                                 # ClamAV malware scan test
+│   ├── performance/                                             # Performance tests (Locust)
+│   │   └── locustfile.py                                        # Bulk activity load test
+│   ├── api-versions.txt                                         # API versions per versioned test
+│   ├── test_auth_client_bootstrap.py                            # Bearer token acquisition utility (client secret)
+│   ├── test_auth_client_jwt.py                                  # Test client-signed JWT (private_key_jwt) + roles
+│   ├── test_auth_client_secret.py                               # Test client-secret authentication
+│   ├── test_auth_headers.py                                     # Security headers compliance
+│   ├── test_auth_unauthorized.py                                # Test unauthorized access rejection
+│   ├── test_ama_activities.py                                   # Test AMA activity endpoints
+│   ├── test_ca_activities.py                                    # Test CA activity endpoints
+│   ├── test_ca_listings.py                                      # Test CA listing endpoints
+│   ├── test_ca_areas.py                                         # Test CA area submission
+│   ├── test_client_id_regex.py                                  # Test client ID regex validation
+│   ├── test_cve_ids.py                                          # Guard against corrupted (year-rewritten) CVE ids
+│   ├── test_health_ping.py                                      # Health check tests
+│   ├── test_postgres_check_constraints.py                       # Test database check constraints
+│   ├── test_reference_data.py                                   # Test platforms, competent authorities and areas reads
+│   ├── test_lma_listings.py                                     # Test LMA listing endpoints
+│   ├── test_lsa_listings.py                                     # Test LSA endpoints and the listing lifecycle
+│   ├── test_sta_activities.py                                   # Test STA activity endpoints
+│   ├── test_sta_listings.py                                     # Test STA listing endpoints
+│   ├── test_smoketest.py                                        # Smoke test audit-excluded endpoints
+│   ├── test_str_activities_bulk.py                              # Test STR bulk activity submission
+│   ├── test_str_listings.py                                     # Test STR listing endpoints
+│   ├── test_str_areas.py                                        # Test STR area query endpoints
+│   └── test_trivy_allowlist.py                                  # Test CVE allowlist policy validation
 │
-├── keycloak/                                          # Keycloak config
-│   ├── Dockerfile                                     # Optimized image (build-time options baked in)
-│   ├── add-realm-admin.sh                             # Create realm admin user
-│   ├── add-realm-machine-clients.sh                   # Configure OAuth 2.0 machine clients
-│   ├── add-realm-roles.sh                             # Configure roles
-│   ├── add-realm.sh                                   # Initialize realm
-│   ├── get-client-secret.sh                           # Retrieve client secret
-│   ├── machine-clients.yaml                           # Machine client definitions (CA, STR, REP)
-│   ├── realm.yaml                                     # Realm configuration
-│   ├── roles.yaml                                     # Role definitions
-│   └── wait.sh                                        # Wait for Keycloak startup
+├── keycloak/                                                    # Keycloak config
+│   ├── Dockerfile                                               # Optimized image (build-time options baked in)
+│   ├── add-realm-admin.sh                                       # Create realm admin user
+│   ├── add-realm-machine-clients.sh                             # Configure OAuth 2.0 machine clients
+│   ├── add-realm-roles.sh                                       # Configure roles
+│   ├── add-realm.sh                                             # Initialize realm
+│   ├── get-client-secret.sh                                     # Retrieve client secret
+│   ├── machine-clients.yaml                                     # Machine client definitions (CA, STR, STA)
+│   ├── realm.yaml                                               # Realm configuration
+│   ├── roles.yaml                                               # Role definitions
+│   └── wait.sh                                                  # Wait for Keycloak startup
 │
-├── postgres/                                          # PostgreSQL initialization
-│   ├── clean-app.sql                                  # Database cleanup
-│   ├── clean-testrun.sql                              # Test run cleanup
-│   ├── count-app.sql                                  # Row count queries
-│   ├── init-keycloak.sql                              # Keycloak database setup
-│   └── init-app.sql                                   # SDEP database setup
+├── postgres/                                                    # PostgreSQL initialization
+│   ├── clean-app.sql                                            # Database cleanup
+│   ├── clean-testrun.sql                                        # Test run cleanup
+│   ├── count-app.sql                                            # Row count queries
+│   ├── init-keycloak.sql                                        # Keycloak database setup
+│   └── init-app.sql                                             # SDEP database setup
 │
-├── test-data/                                         # Test data for integration tests
-│   ├── shapefiles/                                    # Shapefile test data (zipped)
-│   ├── 01-competent-authority.sql                     # Competent authority fixtures
-│   ├── 02-area-generated.sql                          # Generated area data
-│   └── postgres-prep-area-sql.sh                      # Area data generator script
+├── test-data/                                                   # Test data for integration tests
+│   ├── shapefiles/                                              # Shapefile test data (zipped)
+│   ├── 01-competent-authority.sql                               # Competent authority fixtures
+│   ├── 02-area-generated.sql                                    # Generated area data
+│   └── postgres-prep-area-sql.sh                                # Area data generator script
 │
-├── docs/                                              # Documentation
-│   ├── ACTIVITY.md                                    # Activity functional design
-│   ├── API.md                                         # API documentation
-│   ├── API_DIFF.md                                    # Generated diff between consecutive API versions
-│   ├── ARCHITECTURE_FUNC.md                           # Functional architecture
-│   ├── ARCHITECTURE_TECH.md                           # Architecture overview (this file)
-│   ├── AREA.md                                        # Area functional design
-│   ├── DATABASE_DIALECTS.md                           # SQLite/PostgreSQL compatibility
-│   ├── DATAMODEL.md                                   # Data Model documentation
-│   ├── DEFINITIONS.md                                 # Informal definitions of SDEP concepts
-│   ├── DEVELOPMENT.md                                 # Workflow, testing, configuration
-│   ├── GET_STARTED_CLIENT_SIGNED_JWT.md               # Getting started with client-signed JWT (private_key_jwt)
-│   ├── GET_STARTED_PRD.md                             # Getting started with the production (PRD) environment
-│   ├── GET_STARTED_PRE.md                             # Getting started with the pre-production (PRE) environment
-│   ├── HOST.md                                        # Host role (out of scope for SDEP)
-│   ├── INTEGRATION_TESTS.md                           # Integration test documentation
-│   ├── LISTING.md                                     # Listing functional design (proposal)
-│   ├── MIGRATION_ADDRESS_INSPIRE.md                   # Address field migration guide (INSPIRE/STR-AP)
-│   ├── PERFORMANCE_TESTS.md                           # Performance test documentation
-│   ├── SECURITY.md                                    # Security documentation
-│   ├── STR Regulation QA rev.pdf                      # Q&A on STR Regulation random checks (Article 7)
-│   ├── WOW.md                                         # Ways of working
-│   ├── sdep_openapi_auth_v1.pdf                       # OpenAPI auth v1 PDF export
-│   ├── sdep_openapi_ca_v1.pdf                         # OpenAPI CA v1 PDF export
-│   ├── sdep_openapi_str_v1.pdf                        # OpenAPI STR v1 PDF export
-│   ├── diagrams/                                      # Architecture diagrams
+├── docs/                                                        # Documentation
+│   ├── ACTIVITY_FUNC.md                                         # Activity functional design
+│   ├── ACTIVITY_TECH.md                                         # Activity technical design
+│   ├── API_TECH.md                                              # API technical design
+│   ├── API_DIFF_TECH.md                                         # Generated diff between consecutive API versions
+│   ├── ARCHITECTURE_FUNC.md                                     # Functional architecture
+│   ├── ARCHITECTURE_TECH.md                                     # Architecture overview (this file)
+│   ├── AREA_FUNC.md                                             # Area functional design
+│   ├── AREA_TECH.md                                             # Area technical design
+│   ├── DATABASE_DIALECTS.md                                     # SQLite/PostgreSQL compatibility
+│   ├── DATAMODEL_TECH.md                                        # Internal data model technical design
+│   ├── DEFINITIONS.md                                           # Informal definitions of SDEP concepts
+│   ├── DEVELOPMENT.md                                           # Workflow, testing, configuration
+│   ├── GET_STARTED_CLIENT_SIGNED_JWT.md                         # Getting started with client-signed JWT (private_key_jwt)
+│   ├── GET_STARTED_PRD.md                                       # Getting started with the production (PRD) environment
+│   ├── GET_STARTED_PRE.md                                       # Getting started with the pre-production (PRE) environment
+│   ├── HOST_FUNC.md                                             # Host role (out of scope for SDEP)
+│   ├── HOST_TECH.md                                             # Host technical design (not applicable, out of scope)
+│   ├── INTEGRATION_TESTS.md                                     # Integration test documentation
+│   ├── LISTING_FUNC.md                                          # Listing functional design
+│   ├── LISTING_TECH.md                                          # Listing technical design
+│   ├── MIGRATION_ADDRESS_INSPIRE.md                             # Address field migration guide (INSPIRE/STR-AP)
+│   ├── PERFORMANCE_TESTS.md                                     # Performance test documentation
+│   ├── SECURITY.md                                              # Security documentation
+│   ├── STR Regulation QA rev.pdf                                # Q&A on STR Regulation random checks (Article 7)
+│   ├── WOW.md                                                   # Ways of working
+│   ├── sdep_openapi_auth_v1.pdf                                 # OpenAPI auth v1 PDF export
+│   ├── sdep_openapi_ca_v1.pdf                                   # OpenAPI CA v1 PDF export
+│   ├── sdep_openapi_str_v1.pdf                                  # OpenAPI STR v1 PDF export
+│   ├── diagrams/                                                # Architecture diagrams
 │   │   └── ARCHITECTURE_FUNC.png
-│   └── markdown-tooling/                              # Markdown format/lint tooling (see `make md-format`, `make md-lint`)
-│       ├── markdownlint-rules/                        # Custom markdownlint rules
-│       └── mdformat-sdep/                             # mdformat plugin enforcing the project style rules
+│   └── markdown-tooling/                                        # Markdown format/lint tooling (see `make md-format`, `make md-lint`)
+│       ├── markdownlint-rules/                                  # Custom markdownlint rules
+│       └── mdformat/                                            # mdformat plugin enforcing the project style rules
 │
-├── scripts/                                           # Utility scripts
-│   ├── check_cve_allowlist.py                         # Reconcile Trivy report vs CVE_EXPLAINS.md allowlist (policy gate)
-│   ├── create-client-signed-jwt.py                    # Create a client-signed JWT assertion (portable, standalone)
-│   ├── generate-eicar-zip.sh                          # Generate EICAR test archive (malware scan test)
-│   ├── generate-keycloak-machine-clients.py           # Generate client-signed JWT test clients (CA, STR, REP)
-│   ├── run-tests.sh                                   # Integration test runner
-│   ├── run-tests-perf.sh                              # Performance test runner (Locust)
-│   ├── run-trivy-scan.sh                              # Run Trivy and emit the JSON report (scan only)
-│   ├── show-keycloak-client-jwks.py                   # Show a client's public key (JWKS) stored in Keycloak
-│   └── validate-client-key-pair.py                    # Verify a private key matches the configured public key
+├── scripts/                                                     # Utility scripts
+│   ├── api-versions.sh                                          # Print the API versions of a test (tests/api-versions.txt)
+│   ├── check_architecture_tree.py                               # Check this directory tree against the filesystem (make dod)
+│   ├── check_changelog.sh                                       # Changelog currency against the git log (make dod)
+│   ├── check_cve_allowlist.py                                   # Reconcile Trivy report vs CVE_EXPLAINS.md (own allowlist, not published)
+│   ├── check_dead_links.py                                      # Check Markdown links and anchors (make dod)
+│   ├── check_docs_consistency.py                                # Routes, columns, roles, domain names and test scripts against the docs (make dod)
+│   ├── check_forbidden_references.sh                            # Public-tree gate: no private paths, deployment repo or issue numbers named (make dod, mirror sync)
+│   ├── create-client-signed-jwt.py                              # Create a client-signed JWT assertion (portable, standalone)
+│   ├── generate-eicar-zip.sh                                    # Generate EICAR test archive (malware scan test)
+│   ├── generate-keycloak-machine-clients.py                     # Generate client-signed JWT test clients (CA, STR, STA, LSA, LMA, AMA)
+│   ├── public_files.sh                                          # List the public files (git-known minus export-ignore), used by the gates and Markdown targets
+│   ├── run-dod.sh                                               # Definition of Done runner (make dod)
+│   ├── run-tests.sh                                             # Integration test runner
+│   ├── run-tests-perf.sh                                        # Performance test runner (Locust)
+│   ├── run-trivy-scan.sh                                        # Run Trivy and emit the JSON report (scan only)
+│   ├── show-keycloak-client-jwks.py                             # Show a client's public key (JWKS) stored in Keycloak
+│   └── validate-client-key-pair.py                              # Verify a private key matches the configured public key
 │
-├── .env                                               # Environment variables
-├── .env.extra.example                                 # Template for `.env.extra`, the optional local override file
-├── .gitignore                                         # Git ignore rules
-├── CHANGELOG.md                                       # Changelog
-├── docker-compose.yml                                 # Multi-container orchestration
-├── LICENSE.md                                         # EUPL License
-├── Makefile                                           # Root-level make targets
-└── README.md                                          # Quick start guide
+├── .env                                                         # Environment variables
+├── .env.extra.example                                           # Template for `.env.extra`, the optional local override file
+├── .gitignore                                                   # Git ignore rules
+├── CHANGELOG.md                                                 # Changelog
+├── docker-compose.yml                                           # Multi-container orchestration
+├── LICENSE.md                                                   # EUPL License
+├── Makefile                                                     # Root-level make targets
+└── README.md                                                    # Quick start guide
 ```
 
 ## API (versioning)
 
-See separate [API design document](API.md).
+See separate [API design document](API_TECH.md).
 
 ## Application (versioning)
 
@@ -340,7 +410,7 @@ The backend follows a **layered architecture** pattern:
 
 ---
 
-### API Layer (`app/api/`)
+### API layer (`app/api/`)
 
 - HTTP request/response handling
 - Route definitions and parameter validation
@@ -349,7 +419,7 @@ The backend follows a **layered architecture** pattern:
 
 ---
 
-### Schemas Layer (`app/schemas/`)
+### Schemas layer (`app/schemas/`)
 
 - Pydantic models for request/response validation
 - Data serialization/deserialization
@@ -358,7 +428,7 @@ The backend follows a **layered architecture** pattern:
 
 ---
 
-### Service Layer (`app/services/`)
+### Service layer (`app/services/`)
 
 - Business logic implementation
 - Validation (Layer 2: business rules, e.g. area exists, platform lookup/creation)
@@ -367,7 +437,7 @@ The backend follows a **layered architecture** pattern:
 
 ---
 
-### CRUD Layer (`app/crud/`)
+### CRUD layer (`app/crud/`)
 
 - Database operations (Create, Read, Update, Delete)
 - Data access abstraction
@@ -376,18 +446,18 @@ The backend follows a **layered architecture** pattern:
 
 ---
 
-### Models Layer (`app/models/`)
+### Models layer (`app/models/`)
 
 - SQLAlchemy ORM models
 - Database table definitions
 - Relationships and constraints
 - Includes `audit_log.py` for audit trail
 
-For key patterns, see also [Data Model](./DATAMODEL.md), [Security](./SECURITY.md), and [API](./API.md).
+For key patterns, see also [Internal data model](./DATAMODEL_TECH.md), [Security](./SECURITY.md), and [API](./API_TECH.md).
 
 ---
 
-### Request Flow
+### Request flow
 
 ```
 POST /api/str/v1/activities/bulk (JSON body with activities array)
@@ -451,9 +521,13 @@ GET /api/ca/v2/activities (bearer token, optional filter query params)
   └── Response: 200 + ActivityListResponse (camelCase JSON)
 ```
 
+The listing endpoints follow both flows unchanged: the three bulk writes take the first
+shape, the five audience reads the second. What differs per listing endpoint is in
+[Listing (technical)](./LISTING_TECH.md#code-structure).
+
 ## Data
 
-### ID Management
+### ID management
 
 **Technical IDs**
 
@@ -495,7 +569,7 @@ See later in this document for more info on IDs.
 - When all versions of a functional ID have `endedAt` set, the entity is considered **deactivated**
 - Creating a new version with a deactivated functional ID is rejected (HTTP 422)
 - This prevents "resurrecting" soft-deleted entities
-- The guard applies to: `competentAuthorityId`, `platformId`, `areaId`, and `activityId`
+- The guard applies to: `competentAuthorityId`, `platformId`, `areaId`, `activityId`, and `listingId`
 
 ---
 
@@ -520,7 +594,10 @@ All foreign keys use the PostgreSQL default (`NO ACTION`), which is **restricted
 | CompetentAuthority | Area          | `area.competent_authority_id` | Restricted - blocked if Areas exist      |
 | Area               | Activity      | `activity.area_id`            | Restricted - blocked if Activities exist |
 | Platform           | Activity      | `activity.platform_id`        | Restricted - blocked if Activities exist |
+| Area               | Listing       | `listing.area_id`             | Restricted - blocked if Listings exist   |
+| Platform           | Listing       | `listing.platform_id`         | Restricted - blocked if Listings exist   |
 | Activity           | *(leaf node)* | -                             | Unrestricted - deletes cleanly           |
+| Listing            | *(leaf node)* | -                             | Unrestricted - deletes cleanly           |
 
 In practice, the application uses **soft-delete** (`mark_as_ended`) for all operations. Hard-delete functions are not provided.
 
@@ -553,6 +630,7 @@ Pessimistic locking applies to:
 
 - `CompetentAuthority` versioning (single POST)
 - `Area` versioning (single POST)
+- `Listing` bulk versioning (the three listing bulk POSTs: submit, screen, acknowledge)
 - `Activity` bulk versioning (bulk POST)
 
 ---
@@ -647,9 +725,11 @@ Expected impact:
 
 ---
 
-### Tenant Isolation
+### Tenant isolation
 
-Each tenant - a Competent Authority (CA) for areas, or a Platform (STR) for activities - can only affect its own data. Isolation is enforced at multiple layers: JWT identity, service-layer scoping, CRUD-layer filtering, and database constraints.
+Each tenant - a Competent Authority (CA) for areas, or a Platform (STR) for listings and activities - can only affect its own data. Isolation is enforced at multiple layers: JWT identity, service-layer scoping, CRUD-layer filtering, and database constraints.
+
+Listings add a second dimension: several audiences read the same rows. There the read scope is fixed by the router per audience, never by a query parameter, so a caller cannot widen what it sees.
 
 ---
 
@@ -671,19 +751,30 @@ Each tenant - a Competent Authority (CA) for areas, or a Platform (STR) for acti
 
 ---
 
-**Enforcement layers**
+**Listing operations (platform-scoped write, audience-scoped read)**
 
-| Layer       | Area                                                                | Activity                                                            |
-| :---------- | :------------------------------------------------------------------ | :------------------------------------------------------------------ |
-| **JWT**     | `client_id` identifies the CA                                       | `client_id` identifies the platform (STR)                           |
-| **API**     | Passes `client.id` to service; cannot be overridden by request body | Passes `client.id` to service; cannot be overridden by request body |
-| **Service** | Scoped lookups via `competent_authority_id_str`                     | Scoped lookups via `platform_id`                                    |
-| **CRUD**    | WHERE clauses include `competent_authority_id`                      | WHERE clauses include `platform_id`                                 |
-| **DB**      | `UNIQUE(area_id, competent_authority_id, created_at)` + FK          | `UNIQUE(activity_id, platform_id, created_at)` + FK                 |
+- **Create / update (bulk versioning):** `get_current_by_listing_ids()` and `bulk_mark_as_ended()` both filter by `platform_id`. Platform-A cannot version Platform-B's listings, even if they share the same `listingId`.
+- **Screening and acknowledgement:** both carry the `createdAt` of the version they refer to, checked on the locked current version. A stale token is refused per item (`conflict_error`), so one actor's write never lands on another actor's version.
+- **Screening scope:** the LSA writes for any platform, but it names the platform in its payload; the lookup still resolves through `platform_id`, so a screening cannot cross to another platform's listing by `listingId` alone.
+- **Read:** the router fixes the `ListingScope` from the bearer token - `platform_client_id` for STR, `competent_authority_client_id` for CA, neither for LSA/LMA/STA - plus a fixed lifecycle status per audience. The scope is keyword-only with no default, so an unscoped read has to be written out.
+- **Delete:** no delete endpoint exists for listings.
+- **DB constraint:** `UNIQUE(listing_id, platform_id, created_at)` allows the same `listingId` to be used independently by different platforms.
 
 ---
 
-### Lazy Loading
+**Enforcement layers**
+
+| Layer       | Area                                                       | Activity                                                   | Listing                                                           |
+| :---------- | :--------------------------------------------------------- | :--------------------------------------------------------- | :---------------------------------------------------------------- |
+| **JWT**     | `client_id` identifies the CA                              | `client_id` identifies the platform (STR)                  | `client_id` identifies the platform (STR) or the reading audience |
+| **API**     | Passes `client.id` to service; not overridable by the body | Passes `client.id` to service; not overridable by the body | Router fixes the `ListingScope`; no filter can widen it           |
+| **Service** | Scoped lookups via `competent_authority_id_str`            | Scoped lookups via `platform_id`                           | Scoped lookups via `platform_id`, plus the version token          |
+| **CRUD**    | WHERE clauses include `competent_authority_id`             | WHERE clauses include `platform_id`                        | WHERE clauses include `platform_id` and/or the scope joins        |
+| **DB**      | `UNIQUE(area_id, competent_authority_id, created_at)` + FK | `UNIQUE(activity_id, platform_id, created_at)` + FK        | `UNIQUE(listing_id, platform_id, created_at)` + FK                |
+
+---
+
+### Lazy loading
 
 - **Default lazy loading**
 
@@ -705,180 +796,41 @@ Each tenant - a Competent Authority (CA) for areas, or a Platform (STR) for acti
   - Eager-when-needed (loads relationships in bulk via `selectinload`)
   - Idiomatic (reduced boilerplate, less-verbose than manual queries)
 
----
-
-### Data Flow
-
----
-
-**CA POST /areas**
-
-A. Inputs:
-
-- From JWT (verified by the auth dependency):
-  - `clientId` ← `client_id` claim
-  - `competentAuthorityName` ← `client_name` claim
-- From multipart payload:
-  - `areaId` (optional functional id, alphanumeric with hyphens, length \<= 64)
-  - `areaName` (optional, length \<= 64)
-  - `regulation` (optional enum, defaults to `all`)
-  - `file` (.zip, max 1 MiB, ZIP-magic verified, malware-scanned)
-
-B. Steps:
-
-1. Resolve or version the `CompetentAuthority` (row-locked `FOR UPDATE` on `clientId`):
-
-   - No row e xists for `clientId`: create a new Competent Authority
-     - Technical id `id`: autogenerated (int)
-     - Functional id `competentAuthorityId`: auto-generated (UUIDv4)
-     - Name `competentAuthorityName`: ← JWT
-     - Reference `clientId`: ← JWT
-     - Timestamp `createdAt`: autogenerated (`now()`)
-   - `clientId` exists and `competentAuthorityName` unchanged: reuse as is
-   - `clientId` exists and `competentAuthorityName` changed: mark the current Competent Authority as ended (`endedAt = now()`) and insert a new version
-     - Technical id `id`: autogenerated (int)
-     - Functional id `competentAuthorityId`: same as is
-     - Name `competentAuthorityName`: ← JWT
-     - Reference `clientId`: same as is
-     - Timestamp `createdAt`: autogenerated (`now()`)
-   - Only ended rows exist for `clientId`: reject as deactivated
-
-2. Resolve or version the `Area` (row-locked `FOR UPDATE` on `(areaId, competentAuthorityId)` when `areaId` is supplied):
-
-   - `areaId` is not supplied: create a brand-new Area
-
-     - Technical id `id`: autogenerated (int)
-     - Functional id `areaId`: auto-generated (UUIDv4)
-     - Name `areaName`: ← payload
-     - Regulation `regulation`: ← payload
-     - File name `filename`: ← payload
-     - File data `filedata`: ← payload
-     - CA reference `competent_authority_id`: ← technical `id` of the CA row from step 1
-     - Timestamp `createdAt`: autogenerated (`now()`)
-     - End timestamp `endedAt`: `NULL`
-
-   - `areaId` is supplied and no row exists for `(areaId, competentAuthorityId)`: create a new Area using the supplied functional id
-
-     - Technical id `id`: autogenerated (int)
-     - Functional id `areaId`: ← payload
-     - Name `areaName`: ← payload
-     - Regulation `regulation`: ← payload
-     - File name `filename`: ← payload
-     - File data `filedata`: ← payload
-     - CA reference `competent_authority_id`: ← technical `id` of the CA row from step 1
-     - Timestamp `createdAt`: autogenerated (`now()`)
-     - End timestamp `endedAt`: `NULL`
-
-   - `areaId` is supplied and an active row exists for `(areaId, competentAuthorityId)`: mark the current Area as ended (`endedAt = now()`) and insert a new version
-
-     - Technical id `id`: autogenerated (int)
-     - Functional id `areaId`: same as supplied
-     - Name `areaName`: ← payload
-     - Regulation `regulation`: ← payload
-     - File name `filename`: ← payload
-     - File data `filedata`: ← payload
-     - CA reference `competent_authority_id`: ← technical `id` of the CA row from step 1
-     - Timestamp `createdAt`: autogenerated (`now()`)
-     - End timestamp `endedAt`: `NULL`
-
-   - `areaId` is supplied and only ended rows exist for `(areaId, competentAuthorityId)`: reject as deactivated
-
-3. Commit at the API transaction boundary (CRUD layer only flushes)
-
-Net effect:
-
-- 1x new `competent_authority` row inserted only when the CA is new or its name changed; the previous version is marked ended in the latter case
-- 1x new `area` row, with FK `area.competent_authority_id → competent_authority.id`
-- Optionally 1 old `area` row marked ended if the same `areaId` was resubmitted for this CA
+`crud/listing.py` uses the same pattern, loading `Listing.platform` and
+`Listing.area` (with its competent authority) at query time.
 
 ---
 
-**STR POST /activities/bulk**
+### Data flow
 
-A. Inputs:
+What each write does to the data, step by step and field by field, is documented per
+resource, next to the rest of that resource's design:
 
-- From JWT (verified by the auth dependency):
-  - `clientId` ← `client_id` claim
-  - `platformName` ← `client_name` claim
-- From JSON payload:
-  - `activities`: array of 1-1000 activity items; each item carries:
-    - `activityId` (optional functional id, alphanumeric with hyphens, length \<= 64)
-    - `activityName` (optional, length \<= 64)
-    - `status` (optional enum, defaults to `finished`; may also be `cancelled`)
-    - `areaId` (required functional id, must reference an existing area)
-    - `url` (length \<= 128)
-    - `address` (composite: `thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)
-    - `registrationNumber` (length \<= 32)
-    - `numberOfGuests` (1-1024)
-    - `countryOfGuests` (array, 1-1024 elements; each ISO 3166-1 alpha-3 or `N/A`, uppercase; length must equal `numberOfGuests`)
-    - `temporal` (composite: `startDatetime`, `endDatetime`)
+- [Area](./AREA_TECH.md#data-flow) - `POST /areas` and `DELETE /areas/{areaId}`
+- [Activity](./ACTIVITY_TECH.md#data-flow) - `POST /activities/bulk`
+- [Listing](./LISTING_TECH.md#data-flow) - the three listing writes
 
-B. Steps:
-
-1. Per-item Pydantic validation (`TypeAdapter(ActivityRequest)`):
-
-   - Invalid items are marked NOK with their errors; valid items continue
-   - The original client-supplied `activityId` (or `None`) is preserved for the response
-   - For valid items, a missing `activityId` is auto-generated (UUIDv4)
-
-2. Resolve or version the `Platform` once per batch:
-
-   - No row exists for `clientId`: create a new Platform
-     - Technical id `id`: autogenerated (int)
-     - Functional id `platformId`: auto-generated (UUIDv4)
-     - Name `platformName`: ← JWT
-     - Reference `clientId`: ← JWT
-     - Timestamp `createdAt`: autogenerated (`now()`)
-   - `clientId` exists and `platformName` unchanged: reuse as is
-   - `clientId` exists and `platformName` changed: mark the current Platform as ended (`endedAt = now()`) and insert a new version
-     - Technical id `id`: autogenerated (int)
-     - Functional id `platformId`: same as is
-     - Name `platformName`: ← JWT
-     - Reference `clientId`: same as is
-     - Timestamp `createdAt`: autogenerated (`now()`)
-   - Only ended rows exist for `clientId`: reject as deactivated
-
-3. Intra-batch deduplication on `activityId` (last-wins): when a batch contains multiple valid items with the same `activityId`, only the last occurrence proceeds; earlier occurrences are marked NOK with a "superseded by later item in batch at index N" error.
-
-4. Referential integrity check (single query): resolve `areaId` → technical `id` (and owning CA) for all referenced areas via `get_area_ca_map`. Items pointing at unknown areas are marked NOK.
-
-5. Resolve or version each `Activity` (row-locked `FOR UPDATE` on `(activityId, platformId)` when `activityId` is supplied):
-
-   - `activityId` was auto-generated in step 1: defer to step 6 (no versioning lookup; brand-new functional id)
-   - `activityId` is supplied and no active row exists for `(activityId, platformId)`: defer to step 6 (insert using the supplied functional id)
-   - `activityId` is supplied and an active row exists for `(activityId, platformId)`: mark the current Activity as ended (`endedAt = now()`); the new version is inserted in step 6
-   - `activityId` is supplied and only ended rows exist (across any platform): reject as deactivated
-
-6. Bulk insert all remaining valid items in a single multi-row INSERT, using one `batch_created_at` (= `now()` at INSERT time) for the whole batch. Each new `activity` row:
-
-   - Technical id `id`: autogenerated (int)
-   - Functional id `activityId`: ← validated request (supplied, or auto-generated UUIDv4 from step 1)
-   - Functional columns from the payload (`activityName`, `status`, `url`, address fields, `registrationNumber`, `numberOfGuests`, `countryOfGuests`, temporal fields)
-   - Platform reference `platform_id` (FK): ← technical `id` of the Platform row from step 2
-   - Area reference `area_id` (FK): ← technical `id` resolved in step 4
-   - Timestamp `createdAt`: ← `batch_created_at`
-   - End timestamp `endedAt`: `NULL`
-
-7. Commit at the API transaction boundary (CRUD layer only flushes); on any exception the whole batch rolls back.
-
-8. Return a per-item OK/NOK response preserving the original request order. HTTP status: `201` if all items succeeded, `200` on partial success, `422` if all items failed.
-
-Net effect:
-
-- 1x new `platform` row inserted only when the platform is new or its name changed; the previous version is marked ended in the latter case
-- N new `activity` rows (one per valid item), each with FKs `activity.platform_id → platform.id` and `activity.area_id → area.id`
-- Optionally M old `activity` rows marked ended when a supplied `activityId` had an active version for this platform
+All three follow the same shape, described above: validate, resolve references, version
+under lock, commit at the API transaction boundary. The reads add nothing to the data;
+they apply the scope and the filters, see [API](./API_TECH.md#filtering).
 
 ## Transactions
 
 Two session factories handle different operation types:
 
-| Dependency               | Session Type                | Transaction                                   | Used by        |
-| ------------------------ | --------------------------- | --------------------------------------------- | -------------- |
-| `get_async_db`           | Write (autoflush=True)      | Auto-commit on success, rollback on exception | POST endpoints |
-| `get_async_db_read_only` | Read-only (autoflush=False) | No transaction overhead                       | GET endpoints  |
+| Dependency               | Session Type                | Transaction                                   | Used by                   |
+| ------------------------ | --------------------------- | --------------------------------------------- | ------------------------- |
+| `get_async_db`           | Write (autoflush=True)      | Auto-commit on success, rollback on exception | POST and DELETE endpoints |
+| `get_async_db_read_only` | Read-only (autoflush=False) | No transaction overhead                       | GET endpoints             |
 
-POST endpoints use `get_async_db` which wraps the entire request in a single transaction. If any error occurs, the entire operation is rolled back. On success, the transaction is committed automatically.
+Write endpoints use `get_async_db`, which wraps the endpoint function in a single transaction. If any error occurs, the entire operation is rolled back. On success, the transaction is committed automatically.
+
+The commit must happen before the response is sent, so a 2xx means the data is stored:
+
+- Declare the session as `Depends(get_async_db, scope="function")`
+- The FastAPI default (`scope="request"`) runs the commit after the response is sent. A client can then get `201`, read the resource back and get `404`, or get `201` for data that a failed commit never stored.
+- The session is closed when the endpoint function returns, so build the response inside the function (`JSONResponse`, `Response`), not from ORM objects that need the session afterwards.
+- `backend/tests/api/test_write_session_scope.py` fails the build for a route that uses the default scope.
 
 ## Validations
 
@@ -896,7 +848,7 @@ Validation is distributed across three layers, each with a distinct responsibili
 
 ---
 
-### Functional IDs (General)
+### Functional IDs (general)
 
 All functional IDs conform to a single pattern defined in `app/schemas/common.py`:
 
@@ -913,7 +865,7 @@ This pattern is expressed as two reusable types:
 
 ---
 
-### Functional IDs (User-Supplied)
+### Functional IDs (user-supplied)
 
 **Area and Activity functional IDs** are user-supplied.
 
@@ -922,6 +874,7 @@ These IDs are submitted by the caller in the request body or form fields and val
 | Endpoint                           | Field                 | Type                   | Pydantic validates?                                       | When omitted                                                |
 | ---------------------------------- | --------------------- | ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------- |
 | `POST /api/ca/v1/areas`            | `areaId` (form field) | `OptionalFunctionalId` | Yes - `Annotated[OptionalFunctionalId, Form()]`           | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
+| `POST /api/str/v2/listings/bulk`   | `listingId` per item  | `OptionalFunctionalId` | Yes - via `TypeAdapter(ListingRequest)` in service layer  | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
 | `POST /api/str/v1/activities/bulk` | `activityId` per item | `OptionalFunctionalId` | Yes - via `TypeAdapter(ActivityRequest)` in service layer | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
 
 **Why `POST /api/ca/v1/areas` uses `Form()` instead of a JSON body** (see implementation):
@@ -932,7 +885,7 @@ These IDs are submitted by the caller in the request body or form fields and val
 
 ---
 
-### Owner IDs and JWT Client IDs
+### Owner IDs and JWT client IDs
 
 **Platform and Competent Authority public functional IDs** are generated UUID strings stored in `platform.platform_id` and `competent_authority.competent_authority_id`.
 
@@ -940,22 +893,31 @@ These public owner IDs are returned as `platformId` and `competentAuthorityId` i
 
 The JWT token's `client_id` claim is stored separately in the private `client_id` column on `Platform` and `CompetentAuthority`. Service and CRUD code use this private value for lookup, ownership scoping, versioning, and deactivation checks.
 
-| Endpoint                           | Router                      | JWT claim used for scoping  | Public owner ID exposed in responses |
-| ---------------------------------- | --------------------------- | --------------------------- | ------------------------------------ |
-| `POST /api/ca/v1/areas`            | `areas.py`                  | `client_id`                 | `competentAuthorityId`               |
-| `GET /api/ca/v1/areas`             | `areas_list_v1.py`          | `client_id`                 | `competentAuthorityId`               |
-| `GET /api/ca/v2/areas`             | `areas_list_v2.py`          | `client_id`                 | `competentAuthorityId`               |
-| `GET /api/ca/v1/areas/count`       | `areas.py`                  | `client_id`                 | n/a                                  |
-| `GET /api/ca/v1/areas/{areaId}`    | `areas.py`                  | `client_id`                 | n/a                                  |
-| `DELETE /api/ca/v1/areas/{areaId}` | `areas.py`                  | `client_id`                 | n/a                                  |
-| `GET /api/ca/v1/activities`        | `activities_v1.py`          | `client_id`                 | `competentAuthorityId`, `platformId` |
-| `GET /api/ca/v1/activities/count`  | `activities_v1.py`          | `client_id`                 | n/a                                  |
-| `GET /api/ca/v2/activities`        | `activities_v2.py`          | `client_id`                 | `competentAuthorityId`, `platformId` |
-| `GET /api/ca/v2/activities/count`  | `activities_v2.py`          | `client_id`                 | n/a                                  |
-| `POST /api/str/v1/activities/bulk` | `str/activities_bulk_v1.py` | `client_id`                 | `competentAuthorityId`, `platformId` |
-| `POST /api/str/v2/activities/bulk` | `str/activities_bulk_v2.py` | `client_id`                 | `competentAuthorityId`, `platformId` |
-| `GET /api/rep/v1/activities`       | `rep/activities_v1.py`      | none (roles only, unscoped) | `competentAuthorityId`, `platformId` |
-| `GET /api/rep/v1/activities/count` | `rep/activities_v1.py`      | none (roles only, unscoped) | n/a                                  |
+| Endpoint                                         | Router                                    | JWT claim used for scoping   | Public owner ID exposed in responses |
+| ------------------------------------------------ | ----------------------------------------- | ---------------------------- | ------------------------------------ |
+| `POST /api/ca/v1/areas`                          | `areas.py`                                | `client_id`                  | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas`                           | `areas_list_v1.py`                        | `client_id`                  | `competentAuthorityId`               |
+| `GET /api/ca/v2/areas`                           | `areas_list_v2.py`                        | `client_id`                  | `competentAuthorityId`               |
+| `GET /api/ca/v1/areas/count`                     | `areas.py`                                | `client_id`                  | n/a                                  |
+| `GET /api/ca/v1/areas/{areaId}`                  | `areas.py`                                | `client_id`                  | n/a                                  |
+| `DELETE /api/ca/v1/areas/{areaId}`               | `areas.py`                                | `client_id`                  | n/a                                  |
+| `POST /api/str/v2/listings/bulk`                 | `str/listings_bulk_v2.py`                 | `client_id`                  | `competentAuthorityId`, `platformId` |
+| `GET /api/str/v2/listings`                       | `str/listings_v2.py`                      | `client_id`                  | `competentAuthorityId`, `platformId` |
+| `POST /api/str/v2/listing-acknowledgements/bulk` | `str/listing_acknowledgements_bulk_v2.py` | `client_id`                  | `competentAuthorityId`, `platformId` |
+| `GET /api/lsa/v2/listings`                       | `lsa/listings_v2.py`                      | none (roles only, unscoped)  | `competentAuthorityId`, `platformId` |
+| `POST /api/lsa/v2/listing-screenings/bulk`       | `lsa/listing_screenings_bulk_v2.py`       | none (`platformId` per item) | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v2/listings`                        | `ca/listings_v2.py`                       | `client_id`                  | `competentAuthorityId`, `platformId` |
+| `GET /api/lma/v2/listings`                       | `lma/listings_v2.py`                      | none (roles only, unscoped)  | `competentAuthorityId`, `platformId` |
+| `GET /api/sta/v2/listings`                       | `sta/listings_v2.py`                      | none (roles only, unscoped)  | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v1/activities`                      | `activities_v1.py`                        | `client_id`                  | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v1/activities/count`                | `activities_v1.py`                        | `client_id`                  | n/a                                  |
+| `GET /api/ca/v2/activities`                      | `activities_v2.py`                        | `client_id`                  | `competentAuthorityId`, `platformId` |
+| `GET /api/ca/v2/activities/count`                | `activities_v2.py`                        | `client_id`                  | n/a                                  |
+| `POST /api/str/v1/activities/bulk`               | `str/activities_bulk_v1.py`               | `client_id`                  | `competentAuthorityId`, `platformId` |
+| `POST /api/str/v2/activities/bulk`               | `str/activities_bulk_v2.py`               | `client_id`                  | `competentAuthorityId`, `platformId` |
+| `GET /api/sta/v1/activities`                     | `sta/activities_v1.py`                    | none (roles only, unscoped)  | `competentAuthorityId`, `platformId` |
+| `GET /api/sta/v1/activities/count`               | `sta/activities_v1.py`                    | none (roles only, unscoped)  | n/a                                  |
+| `GET /api/ama/v1/activities`                     | `ama/activities_v1.py`                    | none (roles only, unscoped)  | `competentAuthorityId`, `platformId` |
 
 The private `client_id` is never serialized in public API responses, OpenAPI examples, or public documentation as an owner ID.
 
@@ -964,7 +926,7 @@ The private `client_id` is never serialized in public API responses, OpenAPI exa
 All exceptions are handled by global exception handlers:
 
 - Defined in `app/exceptions/handlers.py`, and
-- Registered in `app/api/common/exception_handlers.py`.
+- Registered in `app/api/common/exception_handlers.py`
 
 The table below maps **application exceptions** to **HTTP status codes**:
 
@@ -983,11 +945,11 @@ The table below maps **application exceptions** to **HTTP status codes**:
 | `DatabaseOperationalError`            | Database temporarily unavailable                                                                                                                                                | 503                               |
 | `AuthorizationServerOperationalError` | Authorization server temporarily unavailable                                                                                                                                    | 503                               |
 
-*For the complete list of HTTP status codes used by the API, see [HTTP Status Codes](API.md#http-status-codes).*
+*For the complete list of HTTP status codes used by the API, see [HTTP status codes](API_TECH.md#http-status-codes).*
 
 ## Bulk
 
-The bulk endpoint `POST /api/str/v1/activities/bulk` is the single entry point for all STR activity submissions.
+The bulk endpoint `POST /api/str/v1/activities/bulk` is the single entry point for all STR activity submissions. The three listing bulk endpoints (`POST /listings/bulk`, `POST /listing-screenings/bulk`, `POST /listing-acknowledgements/bulk`, see [Listing (technical)](./LISTING_TECH.md)) follow the same design; where they differ (state preconditions, the `createdAt` version token, `conflict_error`) is described there.
 
 ---
 
@@ -1017,9 +979,10 @@ Synchronous bulk gives the client **immediate, per-item feedback** (OK/NOK with 
 
 ---
 
-### Validation Flow
+### Validation flow
 
-Instead of having the database check each record via savepoints, errors are caught in the application layer:
+Every bulk endpoint validates in the application layer, not in the database. Instead of
+having the database check each record via savepoints:
 
 - Application-level Pydantic validation is **many times faster** than database savepoints
 - **Horizontally scalable**: add more API nodes under load
@@ -1027,7 +990,36 @@ Instead of having the database check each record via savepoints, errors are caug
 - Only "clean" (validated) data reaches the database
 - No savepoints or nested transactions needed, which avoids the overhead of extra database round-trips
 
-The wire contract (OpenAPI) and the runtime validation behavior are deliberately decoupled:
+The four steps, the same for the activity write and the three listing writes:
+
+| Step                               | What                                                                                       | How                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| **1. Pydantic check**              | Validate each item against its request schema; a failed item is NOK with the error reason  | `TypeAdapter(<Item>Request).validate_python()` per item               |
+| **2. Referential integrity check** | Fetch every referenced ID in one query into a `dict` (O(1) lookup); an unknown ID is NOK   | one `SELECT ... WHERE ... IN (...)` per batch                         |
+| **3. Versioning under lock**       | Lock the current version, check the preconditions on it, mark it ended and insert the next | `SELECT ... FOR UPDATE`, then one `UPDATE` and one multi-row `INSERT` |
+| **4. Feedback**                    | Per-item OK/NOK response in the original order **[1]**                                     | JSON response with summary counts                                     |
+
+[1] Each item carries the batch-item `status` and either the embedded resource (OK) or an `errors` object (NOK). An embedded activity or listing also carries its own lifecycle `status`.
+
+**Why step 2 after step 1:** it prevents unvalidated (untrusted) data from being used in
+database operations.
+
+**Why the step-3 checks must run on the locked row:** a state change creates a new version,
+so a value read before the lock would be stale. Activities have no precondition beyond the
+deactivation guard; listings check the state and the version token there, see
+[Concurrency](./LISTING_TECH.md#concurrency).
+
+What each write does per field is in the resource documents:
+[Area](./AREA_TECH.md#data-flow), [Activity](./ACTIVITY_TECH.md#data-flow),
+[Listing](./LISTING_TECH.md#data-flow).
+
+---
+
+**Contract versus runtime**
+
+The wire contract (OpenAPI) and the runtime validation behavior are deliberately decoupled.
+`ActivityBulkRequest` is the worked example below; `ListingBulkRequest`,
+`ListingScreeningBulkRequest` and `ListingAcknowledgementBulkRequest` work identically.
 
 - **Contract (OpenAPI)** - `ActivityBulkRequest.activities` is typed concretely as `list[ActivityRequest]`, so the spec documents the full item shape instead of an untyped object.
 - **Runtime** - items are *not* validated at request-parse time. If Pydantic validated the whole list eagerly, one bad item would return HTTP 422 for the entire batch and the per-item OK/NOK flow would be unreachable.
@@ -1040,27 +1032,17 @@ Implementation:
   - Exactly what step 1 (`TypeAdapter(ActivityRequest).validate_python()` per item) expects
 - Because `SkipValidation` makes FastAPI's model-discovery pass treat the field as a leaf, `ActivityRequest` is **not** auto-registered in `components.schemas`
   - FastAPI inlines its schema into `items`
-  - A post-processing hook in `app/api/common/openapi.py` (`extract_bulk_activity_item_schema`) lifts the inlined schema out and replaces the inline with a `$ref` to `#/components/schemas/ActivityRequest`, restoring it as a reusable named component
+  - A post-processing hook in `app/api/common/openapi.py` (`extract_bulk_item_schemas`, one table row per bulk request) lifts the inlined schema out and replaces the inline with a `$ref` to `#/components/schemas/ActivityRequest`, restoring it as a reusable named component
   - This follows the same pattern already used in that file for renaming `Body_*` schemas
 
 Result:
 
-- The contract is schema-concrete and reusable
+- The contract is schema-concrete and reusable, for every bulk request
 - Runtime behavior preserves per-item NOK feedback unchanged
-
-| Step                               | What                                                                                                                                                                                                                  | How                                                       |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| **1. Pydantic Check**              | Validate each item individually against the ActivityRequest schema. Mark failed items as NOK with the error reason.                                                                                                   | `TypeAdapter(ActivityRequest).validate_python()` per item |
-| **2. Referential Integrity Check** | For the remaining OK records: fetch all referenced area IDs in a single query. Store in a Python `dict` for O(1) lookup. Items with unknown `areaId` → NOK.                                                           | `SELECT area_id, id FROM area WHERE area_id IN (...)`     |
-| **3. Bulk Insert**                 | For the remaining OK records: insert in a single database operation.                                                                                                                                                  | `session.execute(insert(Activity), list_of_valid_dicts)`  |
-| **4. Feedback**                    | Return per-item OK/NOK response preserving original order, enriched with batch-item `status`, embedded `activity` (OK) or `errorMessages` array (NOK). The embedded activity also carries its own lifecycle `status`. | JSON response with summary counts                         |
-
-**Motivation for step 2 after step 1:** \
-Prevents unvalidated (untrusted) data from being used in database operations.
 
 ---
 
-### Status Codes
+### Status codes
 
 | HTTP Status                   | When                                                                |
 | ----------------------------- | ------------------------------------------------------------------- |
@@ -1070,24 +1052,21 @@ Prevents unvalidated (untrusted) data from being used in database operations.
 
 ---
 
-### Design Decisions
+### Design decisions
 
-| #      | Decision                                                                                                                                                                                                          | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D1** | **Per-item Pydantic validation** - the request accepts raw dicts, each validated individually in the service layer                                                                                                | One invalid item should not block the other (999) items in the batch. If one item has a missing field, the rest are still processed.                                                                                                                                                                                                                                                                                                    |
-| **D2** | **Intra-batch duplicates: last-wins** - when the same `activityId` appears multiple times in a single batch, only the last occurrence is processed; earlier occurrences receive NOK                               | Deterministic and predictable for clients. Avoids ambiguity about which version "wins". Combined with pessimistic locking ([Locking](#locking)), this extends across requests: if two concurrent batches contain the same `activityId`, `SELECT ... FOR UPDATE` serializes them so the second batch waits for the first to commit, then overwrites it - consistent last-wins semantics at both the intra-batch and cross-request level. |
-| **D3** | **Versioning: batch UPDATE before INSERT** - existing current versions in the database are marked as ended via a single batch `UPDATE ... WHERE activity_id IN (...)` before the bulk INSERT creates new versions | Consistent with single-endpoint versioning semantics, but uses batch operations (1 UPDATE + 1 INSERT) instead of per-item queries.                                                                                                                                                                                                                                                                                                      |
-| **D4** | **Platform resolution: version only on name change** - platform is resolved once per batch; a new version is only created if the JWT claim (`client_name`) has changed                                            | Avoids unnecessary versioning churn when the same platform submits many batches with unchanged credentials.                                                                                                                                                                                                                                                                                                                             |
-| **D5** | **Deactivated entities rejected** - if an `activityId` has been deactivated (all versions have `endedAt` set), submitting it again is rejected (NOK)                                                              | Prevents "resurrecting" soft-deleted entities. Consistent with single endpoint behavior.                                                                                                                                                                                                                                                                                                                                                |
-| **D6** | **No `ON CONFLICT DO NOTHING`** - SDEP uses explicit versioning (mark-as-ended + new insert) instead of database-level upsert                                                                                     | `ON CONFLICT DO NOTHING` is a general best practice for idempotency in bulk inserts. However, SDEP's data model requires explicit versioning with `endedAt` timestamps.                                                                                                                                                                                                                                                                 |
-| **D7** | **Single transaction scope** - the entire bulk operation runs in a single transaction; if the bulk INSERT fails, all changes roll back                                                                            | No partial database state. Consistent with the single endpoint's `get_async_db` auto-commit/rollback model.                                                                                                                                                                                                                                                                                                                             |
-| **D8** | **SQLite compatibility** - the bulk INSERT and all queries work on both PostgreSQL and SQLite                                                                                                                     | Unit tests run on SQLite in-memory without requiring PostgreSQL. The `StringArray` TypeDecorator handles dialect differences.                                                                                                                                                                                                                                                                                                           |
-| **D9** | **Lifecycle status on activities** - activity records carry `status` with values `finished` (default) or `cancelled`; resubmitting the same `activityId` with `cancelled` creates a new current cancelled version | Allows platforms to correct previously submitted stays without changing the existing versioning model.                                                                                                                                                                                                                                                                                                                                  |
+| #       | Decision                                                                                                                                   | Rationale                                                                                            |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| **D1**  | **Per-item Pydantic validation** - the request accepts raw dicts, each validated individually in the service layer                         | One invalid item must not block the other (999) items in the batch                                   |
+| **D2**  | **Intra-batch duplicates: last-wins** - of a repeated functional ID in one batch only the last is processed, the others are NOK            | Deterministic for clients, no ambiguity about which version wins; extends across requests **[1]**    |
+| **D3**  | **Versioning: batch UPDATE before INSERT** - current versions are ended with one `UPDATE ... WHERE <id> IN (...)` first                    | Same semantics as single-endpoint versioning, with 1 UPDATE + 1 INSERT instead of per-item queries   |
+| **D4**  | **Platform resolution: version only on name change** - resolved once per platform-owned batch, a new version only if `client_name` changed | No versioning churn when one platform submits many batches with unchanged credentials                |
+| **D5**  | **Deactivated entities rejected** - a functional ID whose versions all have `endedAt` set is NOK when submitted again                      | No "resurrecting" of soft-deleted entities; consistent with the single endpoint                      |
+| **D6**  | **No `ON CONFLICT DO NOTHING`** - explicit versioning (mark-as-ended + new insert) instead of a database-level upsert                      | The upsert is a common idempotency practice, but the data model needs explicit `endedAt` versioning  |
+| **D7**  | **Single transaction scope** - the whole bulk operation is one transaction; a failed INSERT rolls everything back                          | No partial database state; consistent with the `get_async_db` auto-commit/rollback model             |
+| **D8**  | **SQLite compatibility** - the bulk INSERT and all queries work on PostgreSQL and SQLite                                                   | Unit tests run on in-memory SQLite; the `StringArray` TypeDecorator handles dialect differences      |
+| **D9**  | **Lifecycle status on activities** - `status` is `finished` (default) or `cancelled`; resubmitting as `cancelled` adds a version           | Platforms correct previously submitted stays without a change to the versioning model                |
+| **D10** | **State precondition and version token on listing writes** - refused per item on a wrong state or a stale `createdAt` **[2]**              | Several actors write the same listing asynchronously; one version's flags must never land on another |
 
-## Database Dialects
+[1] Combined with pessimistic locking ([Locking](#locking)): when two concurrent batches contain the same `activityId`, `SELECT ... FOR UPDATE` serializes them, so the second batch waits for the first to commit and then overwrites it. Last-wins holds within a batch and across requests.
 
-See [Database Dialects](./DATABASE_DIALECTS.md)
-
-## Development Workflow
-
-See [Development](./DEVELOPMENT.md)
+[2] The check runs on the locked current version: the state must be the one the write expects, and the submitted `createdAt` must still be current. D1 to D8 hold unchanged for the three listing bulk endpoints. D9 has no listing equivalent: a listing's `status` is not set by the caller but derived from the write, see [Transitions](./LISTING_TECH.md#transitions). D10 is the one concept activities do not have, because an activity has a single writer (the platform) while a listing has three (platform, LSA, platform again).

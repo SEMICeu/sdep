@@ -13,6 +13,7 @@ from app.db.config import Base
 
 if TYPE_CHECKING:
     from app.models.activity import Activity
+    from app.models.listing import Listing
 
 
 class Platform(Base):
@@ -70,6 +71,10 @@ class Platform(Base):
     # Relationships
     activities: Mapped[list[Activity]] = relationship(
         "Activity", back_populates="platform"
+    )  # One to many (0..n)
+
+    listings: Mapped[list[Listing]] = relationship(
+        "Listing", back_populates="platform"
     )  # One to many (0..n)
 
     def __repr__(self) -> str:

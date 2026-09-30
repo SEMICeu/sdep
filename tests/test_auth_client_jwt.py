@@ -8,7 +8,7 @@
 # ///
 
 # Test OAuth 2.0 token acquisition and role enforcement for the client-signed-JWT
-# (private_key_jwt) machine clients. For each selected client (CA, STR, REP) it signs
+# (private_key_jwt) machine clients. For each selected client (CA, STR, STA) it signs
 # a short-lived assertion with the matching local private key, exchanges it for a
 # bearer token via /api/auth/{API_VERSION}/token (client_signed_jwt), and then proves
 # the token carries the right roles:
@@ -76,6 +76,7 @@ class JwtTestClient:
     client_id: str
     role: str
     # Read-only endpoint requiring this client's role; "{version}" is substituted.
+    # LSA and LMA exist in v2 only, so their endpoints carry a fixed version.
     role_endpoint: str
 
 
@@ -92,9 +93,24 @@ JWT_TEST_CLIENTS: tuple[JwtTestClient, ...] = (
         role_endpoint="/api/str/{version}/areas/count",
     ),
     JwtTestClient(
-        client_id="sdep-test-rep.jwt",
-        role="REP",
-        role_endpoint="/api/rep/{version}/activities/count",
+        client_id="sdep-test-sta.jwt",
+        role="STA",
+        role_endpoint="/api/sta/{version}/activities/count",
+    ),
+    JwtTestClient(
+        client_id="sdep-test-lsa.jwt",
+        role="LSA",
+        role_endpoint="/api/lsa/v2/listings/count",
+    ),
+    JwtTestClient(
+        client_id="sdep-test-lma.jwt",
+        role="LMA",
+        role_endpoint="/api/lma/v2/listings/count",
+    ),
+    JwtTestClient(
+        client_id="sdep-test-ama.jwt",
+        role="AMA",
+        role_endpoint="/api/ama/{version}/activities/count",
     ),
 )
 

@@ -17,7 +17,10 @@
     "./markdownlint-rules/no-smart-dash.cjs",
     "./markdownlint-rules/h1-html.cjs",
     "./markdownlint-rules/hr-before-h3.cjs",
-    "./markdownlint-rules/max-heading-depth.cjs"
+    "./markdownlint-rules/max-heading-depth.cjs",
+    "./markdownlint-rules/toc-complete.cjs",
+    "./markdownlint-rules/heading-sentence-case.cjs",
+    "./markdownlint-rules/table-line-length.cjs"
   ],
   "config": {
     "default": false,
@@ -27,6 +30,14 @@
     "h1-html": true,
     "hr-before-h3": true,
     "max-heading-depth": true,
+    "toc-complete": true,
+    // Table lines stay readable in the raw source; not auto-fixable, see table-line-length.cjs
+    "table-line-length": { "max": 256 },
+    // Sentence case for headings; "keep" lists the proper nouns that stay capitalized
+    // (matched as whole words or phrases). See heading-sentence-case.cjs.
+    "heading-sentence-case": {
+      "keep": ["Swagger", "Keycloak", "Locust", "Content-Disposition", "Technical Working Group", "NLgov REST API Design Rules", "Draft", "Single Digital Entry Point"]
+    },
 
     // Built-in rules that mdformat already produces — kept on as a safety net
     "MD004": { "style": "dash" }, // unordered list marker must be "-"
@@ -44,19 +55,18 @@
     "MD032": true, // blank lines around lists
     "MD047": true // single trailing newline at end of file
   },
-  // Every *.md in the repo, minus tool output and third-party trees (see "ignores").
-  // mdformat reads "ignores" too, via mdformat-excludes.sh: keep one quoted glob per line.
-  "globs": [
-    "**/*.md"
-  ],
-  // CHANGELOG.md and LICENSE.md are ours but not ours to reformat; .claude/ holds
-  // skill files with YAML front matter, which the formatter does not understand.
+  // No "globs": the Makefile passes the public *.md files explicitly (scripts/public_files.sh),
+  // and configured globs would be linted on top of them. Tool output and third-party trees
+  // are skipped (see "ignores"); mdformat reads "ignores" too, via mdformat-excludes.sh:
+  // keep one quoted glob per line.
+  // CHANGELOG.md and LICENSE.md are ours but not ours to reformat. Private paths
+  // (export-ignore in .gitattributes) never reach the tools: the Makefile passes
+  // the public *.md files explicitly (scripts/public_files.sh).
   "ignores": [
     "**/node_modules/**",
     "**/.venv/**",
     "**/.pytest_cache/**",
     "**/.git/**",
-    ".claude/**",
     "tmp/**",
     "CHANGELOG.md",
     "LICENSE.md"

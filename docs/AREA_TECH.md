@@ -1,0 +1,371 @@
+<h1>Area (technical)</h1>
+
+This document describes the **technical design** of SDEP areas.
+
+Reference links:
+
+- [Area (functional)](./AREA_FUNC.md)
+- [External API endpoints](./API_TECH.md#surface)
+- [Internal data model](./DATAMODEL_TECH.md#area)
+
+The generic patterns behind the choices below are in [Architecture](./ARCHITECTURE_TECH.md) and [API](./API_TECH.md#code-structure).
+
+<h2>Table of Contents</h2>
+
+- [Characteristics](#characteristics)
+- [Data](#data)
+  - [`Area.Request`](#arearequest)
+  - [`Area.Response`](#arearesponse)
+- [Data flow](#data-flow)
+  - [`POST /areas`](#post-areas)
+  - [`DELETE /areas/{areaId}`](#delete-areasareaid)
+- [Shapefile storage](#shapefile-storage)
+- [Upload validation](#upload-validation)
+- [Versioning and scope](#versioning-and-scope)
+- [Delete](#delete)
+- [Regulation](#regulation)
+- [Code structure](#code-structure)
+  - [File map](#file-map)
+  - [Endpoint to service](#endpoint-to-service)
+  - [Shared with other resources](#shared-with-other-resources)
+  - [Runtime wiring](#runtime-wiring)
+
+## Characteristics
+
+For area:
+
+| Aspect      | Description                                                        |
+| ----------- | ------------------------------------------------------------------ |
+| Owner       | Competent authority (CA)                                           |
+| Writers     | CA only                                                            |
+| Write shape | One `POST /areas` per area (no `/bulk`, as few areas are expected) |
+| Payload     | `multipart/form-data` with a binary shapefile                      |
+| Readers     | CA (own areas), STR, AMA, STA, LSA and LMA (all areas)             |
+| Concurrency | No version token: a single writer per area, the owning CA          |
+| Lifecycle   | Current until deleted (`endedAt` set)                              |
+| Delete      | `DELETE /areas/{areaId}` (soft-delete)                             |
+
+Everything else follows the shared patterns: versioning, functional IDs, soft-delete and
+the transaction boundary.
+
+---
+
+## Data
+
+**This is an overview, not the contract.** The contract is the OpenAPI document of the
+version you call; the persisted columns are in [Internal data model](./DATAMODEL_TECH.md#area).
+
+Areas take no query filters, only pagination. The read endpoints are listed in
+[API](./API_TECH.md#surface).
+
+---
+
+### `Area.Request`
+
+There is no `Area.Request` class. `POST /areas` takes `multipart/form-data`, so FastAPI
+generates a `Body_postArea` schema, renamed to `Area.Request` by the OpenAPI hook, see
+[OpenAPI document](./API_TECH.md#openapi-document).
+
+| Field        | Description                                                               |
+| ------------ | ------------------------------------------------------------------------- |
+| `file`       | The shapefile, `.zip` only, at most 1 MiB, filename at most 64 characters |
+| `areaId`     | Functional ID identifying the area (optional, else auto-generated)        |
+| `areaName`   | Display name (optional)                                                   |
+| `regulation` | `listing`, `activity` or `all` (optional, defaults to `all`)              |
+
+The competent authority is not a field: it comes from the bearer token.
+
+---
+
+### `Area.Response`
+
+Returned by `GET /areas`. The shapefile itself is **not** in it: `GET /areas/{areaId}`
+returns the raw bytes with `Content-Type: application/zip`.
+
+| Field                    | Description                                    |
+| ------------------------ | ---------------------------------------------- |
+| `areaId`                 | Functional ID identifying the area             |
+| `areaName`               | Display name                                   |
+| `regulation`             | What the area is regulated for                 |
+| `filename`               | The stored shapefile name, sanitized at upload |
+| `competentAuthorityId`   | The authority owning the area                  |
+| `competentAuthorityName` | Display name of that authority                 |
+| `createdAt`              | The version timestamp, managed by SDEP         |
+
+The envelope follows the same pattern as the other resources: `Area.ListResponse` and
+`Area.CountResponse`. There is no bulk write, so there is no `Area.BulkResponse`.
+
+---
+
+## Data flow
+
+### `POST /areas`
+
+A. Inputs:
+
+- From JWT (verified by the auth dependency):
+  - `clientId` ← `client_id` claim
+  - `competentAuthorityName` ← `client_name` claim
+- From multipart payload:
+  - `areaId` (optional functional id, alphanumeric with hyphens, length \<= 64)
+  - `areaName` (optional, length \<= 64)
+  - `regulation` (optional enum, defaults to `all`)
+  - `file` (.zip, max 1 MiB, ZIP-magic verified, malware-scanned)
+
+B. Steps:
+
+1. Resolve or version the `CompetentAuthority` (row-locked `FOR UPDATE` on `clientId`):
+
+   - No row exists for `clientId`: create a new Competent Authority
+     - Technical id `id`: autogenerated (int)
+     - Functional id `competentAuthorityId`: auto-generated (UUIDv4)
+     - Name `competentAuthorityName`: ← JWT
+     - Reference `clientId`: ← JWT
+     - Timestamp `createdAt`: autogenerated (`now()`)
+   - `clientId` exists and `competentAuthorityName` unchanged: reuse as is
+   - `clientId` exists and `competentAuthorityName` changed: mark the current Competent Authority as ended (`endedAt = now()`) and insert a new version
+     - Technical id `id`: autogenerated (int)
+     - Functional id `competentAuthorityId`: same as is
+     - Name `competentAuthorityName`: ← JWT
+     - Reference `clientId`: same as is
+     - Timestamp `createdAt`: autogenerated (`now()`)
+   - Only ended rows exist for `clientId`: reject as deactivated
+
+2. Resolve or version the `Area` (row-locked `FOR UPDATE` on `(areaId, competentAuthorityId)` when `areaId` is supplied):
+
+   - `areaId` is not supplied: create a brand-new Area
+
+     - Technical id `id`: autogenerated (int)
+     - Functional id `areaId`: auto-generated (UUIDv4)
+     - Name `areaName`: ← payload
+     - Regulation `regulation`: ← payload
+     - File name `filename`: ← payload
+     - File data `filedata`: ← payload
+     - CA reference `competent_authority_id`: ← technical `id` of the CA row from step 1
+     - Timestamp `createdAt`: autogenerated (`now()`)
+     - End timestamp `endedAt`: `NULL`
+
+   - `areaId` is supplied and no row exists for `(areaId, competentAuthorityId)`: create a new Area using the supplied functional id
+
+     - Technical id `id`: autogenerated (int)
+     - Functional id `areaId`: ← payload
+     - Name `areaName`: ← payload
+     - Regulation `regulation`: ← payload
+     - File name `filename`: ← payload
+     - File data `filedata`: ← payload
+     - CA reference `competent_authority_id`: ← technical `id` of the CA row from step 1
+     - Timestamp `createdAt`: autogenerated (`now()`)
+     - End timestamp `endedAt`: `NULL`
+
+   - `areaId` is supplied and an active row exists for `(areaId, competentAuthorityId)`: mark the current Area as ended (`endedAt = now()`) and insert a new version
+
+     - Technical id `id`: autogenerated (int)
+     - Functional id `areaId`: same as supplied
+     - Name `areaName`: ← payload
+     - Regulation `regulation`: ← payload
+     - File name `filename`: ← payload
+     - File data `filedata`: ← payload
+     - CA reference `competent_authority_id`: ← technical `id` of the CA row from step 1
+     - Timestamp `createdAt`: autogenerated (`now()`)
+     - End timestamp `endedAt`: `NULL`
+
+   - `areaId` is supplied and only ended rows exist for `(areaId, competentAuthorityId)`: reject as deactivated
+
+3. Commit at the API transaction boundary (CRUD layer only flushes)
+
+Net effect:
+
+- 1x new `competent_authority` row inserted only when the CA is new or its name changed; the previous version is marked ended in the latter case
+- 1x new `area` row, with FK `area.competent_authority_id → competent_authority.id`
+- Optionally 1 old `area` row marked ended if the same `areaId` was resubmitted for this CA
+
+---
+
+### `DELETE /areas/{areaId}`
+
+A. Inputs:
+
+- From JWT: `clientId` identifies the competent authority
+- From the path: `areaId`
+
+B. Steps:
+
+1. Look up the current `Area` scoped to the authenticated CA (`get_by_area_id_and_competent_authority_client_id`). No row, an already ended row, or a row owned by another CA all give `404` - the caller learns nothing about areas it does not own.
+2. Mark that version ended (`endedAt = now()`). No new row is inserted: this is where an area's lifecycle stops.
+3. Commit at the API transaction boundary.
+
+Net effect:
+
+- 1 `area` row marked ended; no insert
+- The `areaId` is now deactivated for this CA: a later `POST /areas` with it is rejected, see [Versioning and scope](#versioning-and-scope)
+
+---
+
+## Shapefile storage
+
+The shapefile is stored **in the row**, as a `bytea` column (`area.filedata`), next to the
+sanitized `filename`. No object store, no file system.
+
+Why: an area is at most 1 MiB, there are a few hundred of them, and keeping the binary in
+the row means one transaction, one backup and one retention rule for the whole record. A
+separate store would need its own consistency, lifecycle and access control.
+
+The size cap is enforced three times, cheapest first:
+
+1. `Content-Length` header, before the body is buffered - returns `413`
+2. Actual file size after `read()`, because `Content-Length` covers the whole multipart envelope - returns `422`
+3. `ck_area_filedata_max_size` (`length(filedata) <= 1048576`) in the database, on both PostgreSQL and SQLite
+
+---
+
+## Upload validation
+
+`POST /areas` runs its checks in a deliberate order, in `ca/routers/areas.py` (`post_area`):
+
+| Step | Check                                                                  | Failure |
+| ---- | ---------------------------------------------------------------------- | ------- |
+| 1    | `Content-Length` within 1 MiB                                          | `413`   |
+| 2    | Filename sanitized, `.zip`, at most 64 characters, non-empty base name | `422`   |
+| 3    | Actual file size within 1 MiB                                          | `422`   |
+| 4    | Malware scan (ClamAV)                                                  | `400`   |
+| 5    | ZIP magic bytes (`PK\x03\x04`)                                         | `422`   |
+
+Two things are worth knowing about the order:
+
+- The malware scan runs **before** the magic-bytes check. A file that is not a ZIP is still scanned, so a disguised payload never gets a "not a ZIP" answer that reveals it was never read
+- The filename is sanitized **before** it is stored, so a malicious filename is never persisted. The download path re-sanitizes anyway, as defense in depth
+
+The full security rationale is in [Security](./SECURITY.md#file-upload) and
+[Security](./SECURITY.md#file-download-content-disposition). This section only states the
+order and where it lives.
+
+---
+
+## Versioning and scope
+
+An area is versioned like every other resource: the current version is marked ended and a
+new row is inserted. Two things are specific to areas.
+
+**The owner is versioned too.** `POST /areas` resolves the `CompetentAuthority` first,
+row-locked on `clientId`, and versions it when the name in the JWT claim changed. Same
+mechanism as `ensure_platform` for listings and activities, but inlined in the area
+service because it is a single write, not a batch.
+
+**Scope is per competent authority.** The same `areaId` may exist under different CAs and
+they must not affect each other:
+
+- The versioning lookup is `get_by_area_id_and_competent_authority_id_str(..., for_update=True)`
+- The deactivation guard `exists_any_by_area_id()` is CA-scoped, so a deactivated `areaId` at one CA does not block another
+- `UNIQUE(area_id, competent_authority_id, created_at)` allows the same functional ID per CA
+- A partial unique index, `uq_area_current_area_id_ca` on `(area_id, competent_authority_id) WHERE ended_at IS NULL`, guarantees at most one **current** row per pair, so the current-row lookup can never find duplicates
+
+See [Tenant isolation](./ARCHITECTURE_TECH.md#tenant-isolation) for the layer-by-layer view.
+
+---
+
+## Delete
+
+Areas are the only resource with a delete endpoint. It is a **soft**-delete:
+`mark_as_ended` sets `endedAt` on the current version, scoped to the authenticated CA. An
+area belonging to another CA returns `404`, not `403`: the caller learns nothing about
+areas it does not own.
+
+Consequences elsewhere:
+
+- The deactivation guard is reachable for areas, unlike for listings and activities where no delete endpoint exists. Creating a new version of a fully ended `areaId` is refused
+- Hard-delete is blocked by the foreign keys: an area with listings or activities cannot be removed, see [Deleting](./ARCHITECTURE_TECH.md#deleting)
+
+---
+
+## Regulation
+
+`Area.regulation` (`listing`, `activity`, `all`) is the switch between the two subject
+areas, see [Area](./AREA_FUNC.md#regulation) for what it means functionally.
+
+Technically it is enforced in the **referential integrity step** of the bulk writes, not
+on the area itself:
+
+- `get_area_ca_map(session, ids)` resolves the referenced areas unfiltered, in one query per batch
+- The caller then checks `Regulation.covers(required)`, where `all` covers both
+
+The lookup is deliberately unfiltered: a filtered query would make a regulation mismatch
+look like a missing area. Checking afterwards gives the item its own message
+(`regulation_error`) instead of `not_found_error`.
+
+---
+
+## Code structure
+
+### File map
+
+| Layer    | File                                                     | What it holds                                                                   |
+| -------- | -------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Models   | `app/models/area.py`                                     | The `Area` ORM class, the size and format checks, the current-row index         |
+| Enums    | `app/enums.py`                                           | `Regulation`, titled `Common.Regulation`, with `covers()`                       |
+| Schemas  | `app/schemas/area.py`                                    | `Area.Response`, `Area.ListResponse`, `Area.CountResponse` **[1]**              |
+| CRUD     | `app/crud/area.py`                                       | The lookups, the scoped current-version lookups and the ID maps                 |
+| Services | `app/services/area.py`                                   | Create (with CA resolution), the reads and the soft-delete                      |
+| API      | `app/api/common/filename.py`                             | Upload and download filename sanitization                                       |
+| API      | `app/api/common/area_download.py`                        | The shapefile download response, shared by the STR and CA `GET /areas/{areaId}` |
+| API      | `app/api/domains/ca/routers/areas.py`                    | Post, count, download and delete, shared by every CA version                    |
+| API      | `app/api/domains/ca/routers/areas_list_v1.py`            | CA areas list v1, `limit` defaults to 1000                                      |
+| API      | `app/api/domains/ca/routers/areas_list_v2.py`            | CA areas list v2, `limit` defaults to 1000                                      |
+| API      | `app/api/domains/str/routers/areas.py`                   | Count and download, shared by every STR version                                 |
+| API      | `app/api/domains/str/routers/areas_list_v1.py`, `_v2.py` | STR areas list, v1 unlimited by default, v2 `limit` defaults to 1000            |
+| API      | `app/api/domains/ca/routers/areas_docs.py`               | The shared OpenAPI text and examples for the CA list endpoints                  |
+| API      | `app/api/common/area_examples.py`                        | The shared OpenAPI text and examples for the all-areas list endpoints           |
+| API      | `app/api/common/reference_routers.py`                    | Areas list and count for AMA, STA, LMA and LSA                                  |
+
+[1] There is no `Area.Request`: the request is `multipart/form-data`, so FastAPI generates a `Body_postArea` schema, renamed to `Area.Request` by the OpenAPI hook, see [OpenAPI document](./API_TECH.md#openapi-document).
+
+---
+
+### Endpoint to service
+
+The endpoint contract per domain and version is in [API](./API_TECH.md#surface).
+
+| Endpoint                 | Domain     | Router                         | Service                             |
+| ------------------------ | ---------- | ------------------------------ | ----------------------------------- |
+| `POST /areas`            | CA v1, v2  | `ca/routers/areas.py`          | `create_area`                       |
+| `GET /areas`             | CA v1      | `ca/routers/areas_list_v1.py`  | `get_areas_by_client_id`            |
+| `GET /areas`             | CA v2      | `ca/routers/areas_list_v2.py`  | `get_areas_by_client_id`            |
+| `GET /areas/count`       | CA v1, v2  | `ca/routers/areas.py`          | `count_areas_by_client_id`          |
+| `GET /areas/{areaId}`    | CA v1, v2  | `ca/routers/areas.py`          | `get_area_by_area_id_and_client_id` |
+| `DELETE /areas/{areaId}` | CA v1, v2  | `ca/routers/areas.py`          | `delete_area_by_client_id`          |
+| `GET /areas`             | STR v1     | `str/routers/areas_list_v1.py` | `get_areas`                         |
+| `GET /areas`             | STR v2     | `str/routers/areas_list_v2.py` | `get_areas`                         |
+| `GET /areas/count`       | STR v1, v2 | `str/routers/areas.py`         | `count_areas`                       |
+| `GET /areas/{areaId}`    | STR v1, v2 | `str/routers/areas.py`         | `get_area_by_id`                    |
+
+The CA reads are client-scoped (`..._by_client_id`), the STR reads are not: a platform
+needs every regulated area to decide what to submit. The version split is only about the
+`limit` default (STR) or the `operationId` (CA), so both versions mount the same
+`areas.py` for everything else.
+
+---
+
+### Shared with other resources
+
+| Shared part                          | Used by                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------ |
+| `get_area_ca_map()`                  | The listing and activity bulk writes, for referential integrity          |
+| `get_area_id_map()`                  | Resolving `areaId` to the technical ID                                   |
+| `Regulation.covers()`                | The same two bulk writes, for the `regulation_error` per item            |
+| The `Area` relationship              | `Listing.area` and `Activity.area`, both eager-loaded via `selectinload` |
+| `areaName`, `competentAuthorityName` | Copied into the listing and activity responses from the related area     |
+
+---
+
+### Runtime wiring
+
+What is registered outside the area files:
+
+- Keycloak role `sdep_ca` for the writes and reads, `sdep_str` for the reads, plus `sdep_read` and `sdep_write`, in `keycloak/roles.yaml` and the `Role` enum
+- Audit action rules for the area endpoints, in `app/security/audit.py`
+- The `Area` class in `app/models/__init__.py` and the module in `app/crud/__init__.py`
+- The `area` table, in the initial Alembic migration
+- `Body_postArea` in the OpenAPI rename map, so the multipart body is published as `Area.Request`
+- ClamAV, reachable from the backend, for the upload scan
+- A test client per role, in `keycloak/machine-clients.yaml` and `scripts/generate-keycloak-machine-clients.py`, with the credentials exported by the root `Makefile`
+- End-to-end tests `tests/test_ca_areas.py` and `tests/test_str_areas.py`, run by the `make test-<role>` targets and `scripts/run-tests.sh`
+- The `area` rows in `postgres/clean-testrun.sql` (test cleanup) and `postgres/count-app.sql`; seed data in `test-data/`

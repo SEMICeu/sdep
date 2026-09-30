@@ -18,10 +18,14 @@ from app.api.domain_registry import API_DOMAINS, ApiDomain
 
 from tests.api.test_openapi_schema_frozen import snapshot_path
 
-DIFF_PATH = Path(__file__).resolve().parents[3] / "docs" / "API_DIFF.md"
+DIFF_PATH = Path(__file__).resolve().parents[3] / "docs" / "API_DIFF_TECH.md"
 
-# Consecutive version pairs to document. One line per additional pair (e.g. a future str_v2).
-VERSION_PAIRS: tuple[tuple[str, str], ...] = (("ca_v1", "ca_v2"), ("str_v1", "str_v2"))
+# Consecutive version pairs to document. One line per additional pair.
+VERSION_PAIRS: tuple[tuple[str, str], ...] = (
+    ("ca_v1", "ca_v2"),
+    ("str_v1", "str_v2"),
+    ("sta_v1", "sta_v2"),
+)
 
 HTTP_METHODS = frozenset(
     {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
@@ -327,6 +331,32 @@ def _table(header: list[str], rows: list[list[str]]) -> list[str]:
     ]
 
 
+def _anchor(heading: str) -> str:
+    """Heading anchor as GitHub and GitLab build it: lowercase, spaces to hyphens."""
+    kept = "".join(c for c in heading.lower() if c.isalnum() or c in " -_")
+    return kept.replace(" ", "-")
+
+
+def _table_of_contents(body: list[str]) -> list[str]:
+    """TOC of every `##` and `###` heading, as md-lint `toc-complete` requires.
+
+    A repeated heading gets `-1`, `-2`, ... on its anchor, as GitHub and GitLab do.
+    """
+    seen: dict[str, int] = {}
+    toc: list[str] = []
+    for line in body:
+        level, _, heading = line.partition(" ")
+        if level not in ("##", "###"):
+            continue
+        anchor = _anchor(heading)
+        count = seen.get(anchor, 0)
+        seen[anchor] = count + 1
+        indent = "  " if level == "###" else ""
+        suffix = f"-{count}" if count else ""
+        toc.append(f"{indent}- [{heading}](#{anchor}{suffix})")
+    return toc
+
+
 def _render_pair(old_name: str, new_name: str) -> list[str]:
     return _render_body(
         _load(old_name),
@@ -357,7 +387,9 @@ def _render_body(
     old_security = old.get("components", {}).get("securitySchemes", {})
     new_security = new.get("components", {}).get("securitySchemes", {})
 
-    lines = [f"## {old_label} to {new_label}", ""]
+    # "CA v1 to v2": the new label repeats the code, so keep only its version.
+    new_version = new_label.rsplit(" ", 1)[-1]
+    lines = [f"## {old_label} to {new_version}", ""]
     lines += _table(
         ["Category", "Added", "Removed", "Modified", "Unchanged"],
         [
@@ -399,7 +431,7 @@ def _render_body(
     lines.append("")
 
     if added or removed:
-        lines += ["---", "", "### Added and Removed Operations", ""]
+        lines += ["---", "", "### Added and removed operations", ""]
         for method, path in added:
             lines.append(f"- Added `{method} {path}`")
         for method, path in removed:
@@ -407,14 +439,14 @@ def _render_body(
         lines.append("")
 
     if modified:
-        lines += ["---", "", "### Modified Operations", ""]
+        lines += ["---", "", "### Modified operations", ""]
         for (method, path), changes in modified:
             lines += ["---", "", f"**`{method} {path}`**", ""]
             lines += [f"- {change}" for change in changes]
             lines.append("")
 
     if schemas["added"] or schemas["removed"] or schemas["modified"]:
-        lines += ["---", "", "### Component Schemas", ""]
+        lines += ["---", "", "### Component schemas", ""]
         for name in schemas["added"]:
             lines.append(f"- Added `{name}`")
         for name in schemas["removed"]:
@@ -430,7 +462,7 @@ def _render_body(
     old_description = old.get("info", {}).get("description", "")
     new_description = new.get("info", {}).get("description", "")
     if old_description != new_description:
-        lines += ["---", "", "### API Description", ""]
+        lines += ["---", "", "### API description", ""]
         lines.append(f"- {old_label}: {old_description}")
         lines.append(f"- {new_label}: {new_description}")
         lines.append("")
@@ -441,18 +473,22 @@ def _render_body(
 def render_version_diff() -> str:
     """Render the full diff document for every configured version pair."""
     lines = [
-        "<h1>API Version Diff</h1>",
+        "<h1>API version diff</h1>",
         "",
         "Differences between consecutive API versions, generated from the committed OpenAPI",
         "snapshots in `backend/tests/api/fixtures/`. Refresh with `make api-diff-update` from",
         "`backend/`. Do not edit by hand.",
         "",
-        "For the versioning rules behind these differences, see [API](API.md).",
+        "For the versioning rules behind these differences, see [API](API_TECH.md).",
         "",
     ]
 
+    body: list[str] = []
     for old_name, new_name in VERSION_PAIRS:
-        lines += _render_pair(old_name, new_name)
+        body += _render_pair(old_name, new_name)
+
+    lines += ["<h2>Table of Contents</h2>", "", *_table_of_contents(body), ""]
+    lines += body
 
     return "\n".join(lines).rstrip("\n") + "\n"
 
@@ -487,7 +523,7 @@ def test_version_diff_is_current() -> None:
             difflib.unified_diff(
                 expected.splitlines(),
                 actual.splitlines(),
-                fromfile="docs/API_DIFF.md",
+                fromfile="docs/API_DIFF_TECH.md",
                 tofile="generated",
                 lineterm="",
             )
@@ -495,7 +531,7 @@ def test_version_diff_is_current() -> None:
         banner = "=" * 72
         # First line is visible in `make test` (--tb=line); full diff shows in `make test-verbose`
         pytest.fail(
-            "docs/API_DIFF.md is out of date. "
+            "docs/API_DIFF_TECH.md is out of date. "
             "Run `make api-diff-update` to refresh it."
             f"\n\n{banner}\n  API version diff\n{banner}\n\n{diff}\n\n{banner}"
         )
@@ -721,3 +757,16 @@ class TestDiffDocument:
         assert (
             "| Operations        | 0     | 0       | 0        | 1         |" in rendered
         )
+
+    def test_table_of_contents_links_to_every_heading(self) -> None:
+        body = ["## A to B", "", "### Added", "## C to D", "### Added"]
+
+        assert _table_of_contents(body) == [
+            "- [A to B](#a-to-b)",
+            "  - [Added](#added)",
+            "- [C to D](#c-to-d)",
+            "  - [Added](#added-1)",
+        ]
+
+    def test_anchor_follows_heading_slug_rules(self) -> None:
+        assert _anchor("STR v1 to v2") == "str-v1-to-v2"

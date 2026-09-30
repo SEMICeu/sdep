@@ -1,8 +1,15 @@
 """Tests for the API docs landing page."""
 
+from html import escape
+
 import pytest
 from app.api.common_app import app_common
-from app.api.domain_registry import API_DOMAINS, API_SCOPES, OAS_VERSION
+from app.api.domain_registry import (
+    API_DOMAINS,
+    API_GROUPS,
+    API_SCOPES,
+    OAS_VERSION,
+)
 from app.config import settings
 from httpx import ASGITransport, AsyncClient
 
@@ -34,30 +41,86 @@ class TestDocsLandingPage:
             assert domain.docs_path in body
             assert domain.openapi_path in body
 
+    @staticmethod
+    def _sections(body: str) -> dict[str, str]:
+        """The HTML of each API_GROUPS section, from its heading up to the next one."""
+        starts = [
+            body.index(f"<h2>{escape(heading)}</h2>") for _, heading in API_GROUPS
+        ]
+        assert starts == sorted(starts)
+        ends = [*starts[1:], body.index("<h2>Common</h2>")]
+        return {
+            group: body[start:end]
+            for (group, _), start, end in zip(API_GROUPS, starts, ends, strict=True)
+        }
+
     @pytest.mark.asyncio
-    async def test_docs_landing_groups_domains_by_scope(self):
-        """Each domain is listed under its own scope heading, EU-harmonized first."""
+    async def test_docs_landing_groups_domains_by_group_then_scope(self):
+        """Each domain is listed in its group section, under its scope heading."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/docs")
+
+        sections = self._sections(response.text)
+        for domain in API_DOMAINS:
+            section = sections[domain.group]
+            # Scope headings in API_SCOPES order; the domain sits under its own
+            scope_at = [
+                (section.index(f"<h3>{heading}</h3>"), scope)
+                for scope, heading, _ in API_SCOPES
+                if f"<h3>{heading}</h3>" in section
+            ]
+            assert scope_at == sorted(scope_at)
+            row_at = section.index(f'<a href="{domain.docs_path}">')
+            assert max(s for s in scope_at if s[0] < row_at)[1] == domain.scope, (
+                domain.label
+            )
+
+    @pytest.mark.asyncio
+    async def test_docs_landing_leaves_out_a_scope_without_domains(self):
+        """Auth is the only domain in its section, so only its scope heading shows."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/docs")
+
+        section = self._sections(response.text)["authentication"]
+        assert "<h3>EU-harmonized</h3>" in section
+        assert "<h3>Country-specific</h3>" not in section
+
+    @pytest.mark.asyncio
+    async def test_docs_landing_sorts_domains_alphabetically_within_group(self):
+        """Within a group and scope the domains are listed by label, whatever the registry order."""
         async with AsyncClient(
             transport=ASGITransport(app=app_common), base_url="http://test"
         ) as client:
             response = await client.get("/docs")
 
         body = response.text
-        assert "<h2>API domains</h2>" in body
-        assert body.index("<h3>EU-harmonized</h3>") < body.index(
-            "<h3>Country-specific</h3>"
-        )
+        for group, _ in API_GROUPS:
+            for scope, _, _ in API_SCOPES:
+                labels = [
+                    d.label
+                    for d in API_DOMAINS
+                    if d.group == group and d.scope == scope
+                ]
+                listed = sorted(labels, key=lambda label: body.index(f">{label}</a>"))
+                assert listed == sorted(labels), (group, scope)
 
-        heading_at = {
-            scope: body.index(f"<h3>{heading}</h3>") for scope, heading, _ in API_SCOPES
-        }
-        bounds = [*sorted(heading_at.values()), body.index("<h2>Common</h2>")]
+    @pytest.mark.asyncio
+    async def test_docs_landing_shows_the_spelled_out_acronym_per_domain(self):
+        """Each row ends with the domain name, right-aligned, so the acronym needs no lookup."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_common), base_url="http://test"
+        ) as client:
+            response = await client.get("/docs")
+
+        body = response.text
         for domain in API_DOMAINS:
-            start = heading_at[domain.scope]
-            end = bounds[bounds.index(start) + 1]
-            assert start < body.index(f'<a href="{domain.docs_path}">') < end, (
-                domain.label
-            )
+            row = domain.html
+            assert row in body, domain.label
+            assert row.endswith(f'<span class="name">{domain.name}</span>\n    </div>')
 
     @pytest.mark.asyncio
     async def test_docs_landing_contains_api_status_tags(self):
@@ -94,19 +157,21 @@ class TestDocsLandingPage:
 
     @pytest.mark.asyncio
     async def test_docs_landing_header_shows_version_and_oas_badges(self):
-        """Test the deployment and OAS badges appear once, in the page header."""
+        """Test the version, environment and OAS badges appear once, in the page header."""
         async with AsyncClient(
             transport=ASGITransport(app=app_common), base_url="http://test"
         ) as client:
             response = await client.get("/docs")
 
         body = response.text
-        version_badge = f'<span class="badge">{settings.api_version_label}</span>'
+        version_badge = f'<span class="badge">{settings.api_version}</span>'
+        environment_badge = f'<span class="badge">{settings.DTAP}</span>'
         oas_badge = f'<span class="badge badge-oas">OAS {OAS_VERSION}</span>'
 
         assert body.count(version_badge) == 1
+        assert body.count(environment_badge) == 1
         assert body.count(oas_badge) == 1
-        assert f"{version_badge}{oas_badge}</h1>" in body
+        assert f"{version_badge}{environment_badge}{oas_badge}</h1>" in body
 
     @pytest.mark.asyncio
     async def test_docs_landing_contains_health_link(self):
@@ -130,6 +195,7 @@ class TestDocsLandingPage:
         assert "<h2>Common</h2>" in body
         assert '<a href="/api/ping/docs">Ping</a>' in body
         assert '<a href="/api/health">Health</a>' in body
+        assert '<span class="name">Application + database</span>' in body
         assert body.index(">Ping</a>") < body.index(">Health</a>")
 
     @pytest.mark.asyncio

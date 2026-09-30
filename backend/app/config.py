@@ -1,8 +1,9 @@
 """Configuration settings"""
 
 from functools import lru_cache
+from typing import Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Settings priority:
@@ -33,11 +34,28 @@ class Settings(BaseSettings):
     # OS settings
     DTAP: str = Field(
         default="DEV",
-        description="DTAP environment (DEV/tests/ACC/PROD)",
+        description="DTAP environment (DEV/TST/ACC/PRE/PRD)",
     )
+    # Semantic version of this release (the pipeline sets the image tag). Served as
+    # OpenAPI `info.version` and the `API-Version` response header, see docs/API_TECH.md
+    # "NLgov REST API Design Rules". The local default is valid semver too.
     IMAGE_TAG: str = Field(
-        default="undefined",
-        description="Image tag from container build",
+        default="0.0.0-dev",
+        description="Image tag from container build (semantic version)",
+    )
+    # OpenAPI `info.contact`, published in every version's document: a functional
+    # mailbox of the deployment's API owner, so each Member State names its own team.
+    API_CONTACT_NAME: str = Field(
+        default="Nationaal Coordinator SDEP",
+        description="API owner shown as OpenAPI info.contact.name",
+    )
+    API_CONTACT_URL: str = Field(
+        default="https://minvro.nl/",
+        description="API owner website shown as OpenAPI info.contact.url",
+    )
+    API_CONTACT_EMAIL: str = Field(
+        default="nationaalcoordinatorsdep@minbzk.nl",
+        description="API owner mailbox shown as OpenAPI info.contact.email",
     )
 
     # Backend settings
@@ -63,6 +81,17 @@ class Settings(BaseSettings):
             "on the token endpoint. Disabled by default; only allow in local- and test "
             "environments. Client-signed JWT (private_key_jwt) always stays available, "
             "even when this flag is false."
+        ),
+    )
+
+    # Alpha API versions are served up to PRE only, never in PRD, so data written through
+    # a contract that may still change stays out of the production database. Off by
+    # default; see docs/API_TECH.md "Design".
+    API_ALPHA_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Serve the alpha API versions. Disabled by default; only allow up to PRE. "
+            "Refused when DTAP is PRD."
         ),
     )
 
@@ -146,10 +175,27 @@ class Settings(BaseSettings):
         description="SQLAlchemy max overflow connections",
     )
 
+    @model_validator(mode="after")
+    def _no_alpha_in_production(self) -> Self:
+        """Refuse to start PRD with alpha versions enabled (see API_ALPHA_ENABLED)."""
+        if self.API_ALPHA_ENABLED and self.DTAP.upper() == "PRD":
+            raise ValueError("API_ALPHA_ENABLED must not be true when DTAP is PRD")
+
+        return self
+
     @property
-    def api_version_label(self) -> str:
-        """Deployment identifier served as OpenAPI `info.version` by every sub-app."""
-        return f"{self.DTAP}-{self.IMAGE_TAG}"
+    def api_version(self) -> str:
+        """Semantic version served as OpenAPI `info.version` and `API-Version` header."""
+        return self.IMAGE_TAG
+
+    @property
+    def api_contact(self) -> dict[str, str]:
+        """OpenAPI `info.contact` (name, url and email are all required by the design rules)."""
+        return {
+            "name": self.API_CONTACT_NAME,
+            "url": self.API_CONTACT_URL,
+            "email": self.API_CONTACT_EMAIL,
+        }
 
 
 @lru_cache

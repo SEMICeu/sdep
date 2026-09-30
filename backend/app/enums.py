@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Regulation(str, Enum):
+class Regulation(StrEnum):
     """Regulation type for an area: 'listing', 'activity', or 'all' (covers both)."""
 
     listing = "listing"
@@ -23,7 +23,7 @@ class Regulation(str, Enum):
         return json_schema
 
 
-class ActivityStatus(str, Enum):
+class ActivityStatus(StrEnum):
     """Lifecycle status for an activity record."""
 
     finished = "finished"
@@ -33,4 +33,37 @@ class ActivityStatus(str, Enum):
     def __get_pydantic_json_schema__(cls, core_schema, handler):
         json_schema = handler(core_schema)
         json_schema["title"] = "Activity.Status"
+        return json_schema
+
+
+class ListingStatus(StrEnum):
+    """Lifecycle status for a listing (random check) record."""
+
+    pending = "pending"
+    clear = "clear"
+    flagged = "flagged"
+    acknowledged = "acknowledged"
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema, handler):
+        json_schema = handler(core_schema)
+        json_schema["title"] = "Listing.Status"
+        return json_schema
+
+
+class ListingFlag(StrEnum):
+    """Flag code raised by listing screening, see docs/LISTING_FUNC.md."""
+
+    ABS = "ABS"  # Absent registration number
+    UNK = "UNK"  # Unknown registration number
+    EXP = "EXP"  # Expired registration number
+    MIS = "MIS"  # Mismatched address
+    NPR = "NPR"  # Not a private residence
+    UNX = "UNX"  # Unexpected registration number
+    UDS = "UDS"  # Undeclared short-term rental
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema, handler):
+        json_schema = handler(core_schema)
+        json_schema["title"] = "Listing.Flag"
         return json_schema

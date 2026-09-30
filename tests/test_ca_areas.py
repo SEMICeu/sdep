@@ -11,7 +11,7 @@
 # Reads the bearer token written by test_auth_client (./tmp/.bearer_token).
 # Optionally accepts API_VERSION environment variable (defaults to v1).
 # Tests POST /ca/areas endpoint with file upload (multipart/form-data) and related
-# read/delete/isolation behaviour.
+# read/delete/isolation behavior.
 
 from __future__ import annotations
 
@@ -33,6 +33,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # SHAPEFILE_PATH stays REPO_ROOT-anchored - it is a static sdep-app asset.
 BEARER_TOKEN_FILE = Path(os.getenv("TOKEN_FILE", "tmp/.bearer_token"))
 SHAPEFILE_PATH = REPO_ROOT / "test-data" / "shapefiles" / "Amsterdam.zip"
+# API_VERSION selects the CA version under test. Auth has its own version (v1 only).
+AUTH_API_VERSION = "v1"
 
 
 @dataclass
@@ -50,8 +52,28 @@ def env(name: str) -> str:
     return value
 
 
+def stamp() -> int:
+    # Milliseconds, not seconds: the runner repeats this test per API version, and a
+    # reused id would hit an area that the previous run deactivated.
+    return int(time.time() * 1000)
+
+
 def compact_json(data: Any) -> str:
     return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+
+
+# Log form of a response body: a collection becomes its item count (lists grow
+# with "keep" runs), anything else is cut at `limit` characters.
+COLLECTION_KEYS = ("activities", "areas", "listings")
+
+
+def brief(data: Any, limit: int = 300) -> str:
+    if isinstance(data, dict):
+        counts = [f"{key}: {len(data[key])} items" for key in COLLECTION_KEYS if isinstance(data.get(key), list)]
+        if counts:
+            return ", ".join(counts)
+    text = compact_json(data)
+    return text if len(text) <= limit else f"{text[:limit]}..."
 
 
 def load_bearer_token() -> str:
@@ -62,9 +84,9 @@ def load_bearer_token() -> str:
     return ""
 
 
-def auth_token(client: httpx.Client, base_url: str, api_version: str, client_id: str, client_secret: str) -> str:
+def auth_token(client: httpx.Client, base_url: str, client_id: str, client_secret: str) -> str:
     response = client.post(
-        f"{base_url}/api/auth/{api_version}/token",
+        f"{base_url}/api/auth/{AUTH_API_VERSION}/token",
         data={
             "grant_type": "client_credentials",
             "client_id": client_id,
@@ -144,10 +166,10 @@ def main() -> int:
         print("Test 1: POST single area with file upload")
         print("------------------------------------------------")
         stats.total += 1
-        area_id = f"sdep-test-area-single-{int(time.time())}"
+        area_id = f"sdep-test-area-single-{stamp()}"
         if bearer_token:
             code, body = post_area(client, base_url, api_version, bearer_token, area_id=area_id)
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {code}")
             print()
             raw = compact_json(body)
@@ -180,7 +202,7 @@ def main() -> int:
             code, body = post_area(
                 client, base_url, api_version, bearer_token, area_id=f"sdep-test-area-custom-{unique_id}"
             )
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {code}")
             print()
             raw = compact_json(body)
@@ -202,7 +224,7 @@ def main() -> int:
         stats.total += 1
         if bearer_token:
             code, body = post_area(client, base_url, api_version, bearer_token)
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {code}")
             print()
             raw = compact_json(body)
@@ -228,7 +250,7 @@ def main() -> int:
                 body = response.json()
             except json.JSONDecodeError:
                 body = {"raw": response.text}
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {response.status_code}")
             print()
             if response.status_code == 200:
@@ -253,7 +275,7 @@ def main() -> int:
                 body = response.json()
             except json.JSONDecodeError:
                 body = {"raw": response.text}
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {response.status_code}")
             print()
             if response.status_code == 200:
@@ -297,13 +319,15 @@ def main() -> int:
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
-            versioned_id = f"sdep-test-area-versioned-{int(time.time())}"
-            post_area(client, base_url, api_version, bearer_token, area_id=versioned_id)
+            versioned_id = f"sdep-test-area-versioned-{stamp()}"
+            first_code, _ = post_area(client, base_url, api_version, bearer_token, area_id=versioned_id)
             code, body = post_area(client, base_url, api_version, bearer_token, area_id=versioned_id)
-            print(f"Response: {compact_json(body)}")
-            print(f"HTTP Status: {code}")
+            print(f"Response: {brief(body)}")
+            print(f"HTTP Status: {first_code} (first POST), {code} (second POST)")
             print()
-            if code == 201:
+            if first_code != 201:
+                mark(stats, False, "", f"Test 7 failed: First POST expected 201 but got {first_code}")
+            elif code == 201:
                 mark(
                     stats,
                     body.get("areaId") == versioned_id,
@@ -320,16 +344,16 @@ def main() -> int:
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
-            delete_area_id = f"sdep-test-area-delete-{int(time.time())}"
-            post_area(client, base_url, api_version, bearer_token, area_id=delete_area_id)
+            delete_area_id = f"sdep-test-area-delete-{stamp()}"
+            post_code, _ = post_area(client, base_url, api_version, bearer_token, area_id=delete_area_id)
             response = client.delete(f"{areas_url}/{delete_area_id}", headers=auth)
-            print(f"HTTP Status: {response.status_code}")
+            print(f"HTTP Status: {post_code} (POST), {response.status_code} (DELETE)")
             print()
             mark(
                 stats,
-                response.status_code == 204,
+                post_code == 201 and response.status_code == 204,
                 "Test 8 passed: Area successfully deleted (204 No Content)",
-                f"Test 8 failed: Expected 204 but got {response.status_code}",
+                f"Test 8 failed: Expected POST 201 and DELETE 204, got {post_code} and {response.status_code}",
             )
         else:
             print("Skipping Test 8 (requires authentication)")
@@ -339,7 +363,7 @@ def main() -> int:
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
-            response = client.delete(f"{areas_url}/nonexistent-area-{int(time.time())}", headers=auth)
+            response = client.delete(f"{areas_url}/nonexistent-area-{stamp()}", headers=auth)
             print(f"HTTP Status: {response.status_code}")
             print()
             mark(
@@ -356,16 +380,16 @@ def main() -> int:
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
-            get_area_id = f"sdep-test-area-get-{int(time.time())}"
-            post_area(client, base_url, api_version, bearer_token, area_id=get_area_id)
+            get_area_id = f"sdep-test-area-get-{stamp()}"
+            post_code, _ = post_area(client, base_url, api_version, bearer_token, area_id=get_area_id)
             response = client.get(f"{areas_url}/{get_area_id}", headers=auth)
-            print(f"HTTP Status: {response.status_code}")
+            print(f"HTTP Status: {post_code} (POST), {response.status_code} (GET)")
             print()
             mark(
                 stats,
-                response.status_code == 200,
+                post_code == 201 and response.status_code == 200,
                 "Test 10 passed: GET /ca/areas/{areaId} returned area (200 OK)",
-                f"Test 10 failed: Expected 200 but got {response.status_code}",
+                f"Test 10 failed: Expected POST 201 and GET 200, got {post_code} and {response.status_code}",
             )
         else:
             print("Skipping Test 10 (requires authentication)")
@@ -375,7 +399,7 @@ def main() -> int:
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
-            response = client.get(f"{areas_url}/nonexistent-area-{int(time.time())}", headers=auth)
+            response = client.get(f"{areas_url}/nonexistent-area-{stamp()}", headers=auth)
             print(f"HTTP Status: {response.status_code}")
             print()
             mark(
@@ -394,11 +418,11 @@ def main() -> int:
         ca2_client_id = os.getenv("CA2_CLIENT_ID")
         ca2_client_secret = os.getenv("CA2_CLIENT_SECRET")
         if bearer_token and ca2_client_id and ca2_client_secret:
-            ca2_token = auth_token(client, base_url, api_version, ca2_client_id, ca2_client_secret)
+            ca2_token = auth_token(client, base_url, ca2_client_id, ca2_client_secret)
             if not ca2_token:
                 mark(stats, False, "", "Test 12 failed: Could not obtain CA2 access token")
             else:
-                shared_area_id = f"sdep-test-area-shared-{int(time.time())}"
+                shared_area_id = f"sdep-test-area-shared-{stamp()}"
                 ca1_post_code, _ = post_area(
                     client, base_url, api_version, bearer_token, area_id=shared_area_id, area_name="CA1 area"
                 )

@@ -146,6 +146,11 @@
     }
   },
   "info": {
+    "contact": {
+      "email": "nationaalcoordinatorsdep@minbzk.nl",
+      "name": "Nationaal Coordinator SDEP",
+      "url": "https://minvro.nl/"
+    },
     "description": "Authentication endpoints for machine-to-machine OAuth 2.0 Client Credentials flow via Keycloak. Status: stable.",
     "title": "SDEP - Auth API",
     "version": "<frozen-version>"

@@ -1,11 +1,12 @@
 """OpenAPI text and examples for the STR bulk activities endpoint, shared by v1 and v2.
 
-Only the description differs per version; the response examples and the request
-example are identical.
+The description differs per version, and v2 adds a `regulation_error` item to
+the partial-success example; the request example is identical.
 """
 
 from typing import Any
 
+from app.schemas import activity_v1
 from app.schemas.activity_bulk import ActivityBulkResponse
 from app.schemas.error import ErrorResponse
 
@@ -40,7 +41,7 @@ occurrence is processed. Earlier occurrences receive NOK.
 - `activityName`: Display name of the activity (optional, max 64 chars)
 - `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`
 - `areaId`: Functional ID referencing the area where the activity took place
-- `url`: URL of the originating listing/advertisement (max 2048 chars)
+- `url`: URL of the originating listing/advertisement (max 128 chars)
 - `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)
 - `registrationNumber`: Registration number of the address (max 32 chars)
 - `numberOfGuests`: Number of guests (1-1024)
@@ -121,7 +122,7 @@ occurrence is processed. Earlier occurrences receive NOK.
 - `registrationNumber`: Registration number of the address (max 32 chars)
 - `numberOfGuests`: Number of guests (1-1024)
 - `countryOfGuests`: Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or `N/A`, uppercase only); array length must equal `numberOfGuests`.
-- `temporal`: Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00`; naive and date-only values are rejected
+- `temporal`: Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00` (e.g. `2025-06-01T14:00:00Z`); rejected are other offsets such as CET (`2025-06-01T15:00:00+01:00`), no offset (`2025-06-01T14:00:00`) and no time (`2025-06-01`)
 
 **The response contains:**
 - `totalReceived`: Total number of items received in the request
@@ -432,6 +433,57 @@ BULK_RESPONSES: dict[int | str, dict[str, Any]] = {
                                 ]
                             },
                         },
+                    ],
+                }
+            }
+        },
+    },
+}
+
+# Amstelveen is a listing-only seed area, see test-data/postgres-prep-area-sql.sh.
+LISTING_ONLY_AREA_ID = "00c0748b-5782-5d7e-be01-7dd306841d89"
+
+_REGULATION_ERROR_ITEM: dict[str, Any] = {
+    "activityIndex": 6,
+    "activityId": "aa4d3955-j74g-96i9-f26b-991100995555",
+    "status": "NOK",
+    "errors": {
+        "detail": [
+            {
+                "msg": f"Area with areaId '{LISTING_ONLY_AREA_ID}' is regulated for listing only",
+                "type": "regulation_error",
+                "loc": ["areaId"],
+            }
+        ]
+    },
+}
+
+# v1: the same responses, typed with the frozen v1 bulk response (no response maximums).
+BULK_RESPONSES_V1: dict[int | str, dict[str, Any]] = {
+    code: (
+        {**response, "model": activity_v1.ActivityBulkResponse}
+        if response.get("model") is ActivityBulkResponse
+        else response
+    )
+    for code, response in BULK_RESPONSES.items()
+}
+
+# v2: as v1, plus a regulation_error item in the partial-success example.
+BULK_RESPONSES_V2: dict[int | str, dict[str, Any]] = {
+    **BULK_RESPONSES,
+    "200": {
+        **BULK_RESPONSES["200"],
+        "content": {
+            "application/json": {
+                "example": {
+                    **BULK_RESPONSES["200"]["content"]["application/json"]["example"],
+                    "totalReceived": 7,
+                    "failed": 5,
+                    "results": [
+                        *BULK_RESPONSES["200"]["content"]["application/json"][
+                            "example"
+                        ]["results"],
+                        _REGULATION_ERROR_ITEM,
                     ],
                 }
             }

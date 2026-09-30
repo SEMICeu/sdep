@@ -68,6 +68,25 @@ async def count(session: AsyncSession) -> int:
     return result.scalar_one()
 
 
+async def count_current(session: AsyncSession) -> int:
+    """
+    Count current competent authorities (ended_at IS NULL).
+
+    Args:
+        session: Async database session
+
+    Returns:
+        Total number of current competent authorities
+    """
+    stmt = (
+        select(func.count())
+        .select_from(CompetentAuthority)
+        .where(CompetentAuthority.ended_at.is_(None))
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one()
+
+
 async def get_all(
     session: AsyncSession, offset: int = 0, limit: int | None = None
 ) -> list[CompetentAuthority]:

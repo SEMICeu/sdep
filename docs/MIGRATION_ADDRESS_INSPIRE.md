@@ -1,14 +1,14 @@
-<h1>Migration Guide: Address Fields (INSPIRE/STR-AP)</h1>
+<h1>Migration guide: Address fields (INSPIRE/STR-AP)</h1>
 
 This document describes the breaking change to address field names in the SDEP API,
 aligned with the INSPIRE directive and SEMIC STR-AP standard for EU interoperability.
 
-## What Changed
+## What changed
 
 Address fields have been renamed from Dutch BAG-style names to INSPIRE/STR-AP names.
 Some maximum length constraints have been widened to accommodate EU-wide address formats.
 
-## Field Mapping
+## Field mapping
 
 | Old field name | New field name              | Type   | Constraint change        |
 | :------------- | :-------------------------- | :----- | :----------------------- |
@@ -19,7 +19,7 @@ Some maximum length constraints have been widened to accommodate EU-wide address
 | `postalCode`   | `postCode`                  | string | max 8 -> 10              |
 | `city`         | `postName`                  | string | max 64 -> 80             |
 
-## JSON Payload: Before and After
+## JSON payload: Before and after
 
 ### Before
 
@@ -53,7 +53,7 @@ Some maximum length constraints have been widened to accommodate EU-wide address
 }
 ```
 
-## Required Client Changes
+## Required client changes
 
 1. **Update all request payloads** (`POST /str/activities/bulk`):
 
@@ -76,7 +76,7 @@ Some maximum length constraints have been widened to accommodate EU-wide address
    - `postCode` now allows up to 10 characters (was 8) -- accommodates longer EU postal codes
    - `postName` now allows up to 80 characters (was 64)
 
-## Affected Endpoints
+## Affected endpoints
 
 | Endpoint                    | Direction | Change                           |
 | :-------------------------- | :-------- | :------------------------------- |
@@ -97,11 +97,11 @@ This migration aligns SDEP with these standards, enabling:
 
 ---
 
-## Addition of `fullAddress` Field
+## Addition of `fullAddress` field
 
 A new required `fullAddress` string field has been added to the Address composite.
 
-- **Type:** `string`, required, max length 328 characters (= 80 + 10 + 10 + 128 + 10 + 80, the sum of the other address field maximums, plus 10 for five ", " separators; 318 before).
+- **Type:** `string`, required, max length 328 characters (= 80 + 10 + 10 + 128 + 10 + 80, the sum of the other address field maximums, plus 10 for five ", " separators; 318 before, and still 318 on STR v1 input).
 - **Semantics:** client-supplied, free-form rendering of the complete address. The server does not derive or normalize the value; it stores whatever the submitting platform provides, up to the length limit.
 - **Example:** `"Turfmarkt 147a-5h, 2500EA Den Haag"`.
 - **Migration:** Alembic revision `001_initial` includes the column as `NOT NULL` with `VARCHAR(318)`; revision `007` widens it to `VARCHAR(328)`.

@@ -7,7 +7,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
-from app.schemas.common import UtcDateTime  # noqa: TC001
+from app.schemas.common import UtcDateTime
 
 __all__ = [
     "CommonTemporalRequest",
@@ -77,8 +77,8 @@ class CommonTemporalRequestV2(CommonTemporalRequest):
     """Temporal composite schema for STR v2 activity requests.
 
     Tightens v1: both timestamps must carry the UTC offset `Z` or
-    `+00:00`. Naive and date-only values are rejected. The start-before-end and
-    year >= 2025 rules are inherited.
+    `+00:00`. Other offsets, no offset and date-only values are rejected. The
+    start-before-end and year >= 2025 rules are inherited.
     """
 
     model_config = ConfigDict(

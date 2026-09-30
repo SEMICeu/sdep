@@ -396,7 +396,7 @@ class TestActivityService:
         assert len(result) == 1
         assert result[0].status == ActivityStatus.cancelled
 
-    # Tests for the unscoped read (client_id=None), used by the reporting/REP API
+    # Tests for the unscoped read (client_id=None), used by the STA API
 
     async def test_count_current_activities_unscoped_empty(
         self, async_session: AsyncSession

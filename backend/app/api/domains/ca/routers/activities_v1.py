@@ -2,6 +2,7 @@
 
 Uses the frozen response schemas from app.schemas.activity_v1, so the stable
 v1 contract does not pick up the documented field maximums of the base schemas.
+The optional query filters and the default limit of 1000 are backported from v2.
 """
 
 from fastapi import APIRouter, Depends, status
@@ -13,16 +14,17 @@ from app.api.common.activity_examples import (
     COUNT_ACTIVITY_RESPONSES,
 )
 from app.api.common.auth_dependencies import ClientDependency, RequireRoles
-from app.api.common.pagination import PaginationDependency
+from app.api.common.pagination import LimitedPaginationDependency
 from app.api.common.security import Role
+from app.api.domains.ca.routers.activities_filters import activity_filters
 from app.db.config import get_async_db_read_only
-from app.schemas.activity import ActivityCountResponse
+from app.schemas.activity import ActivityCountResponse, ActivityFilters
 from app.schemas.activity_v1 import ActivityListResponse, ActivityResponse
 
 router = APIRouter(tags=["ca"])
 
 ACTIVITIES_DESCRIPTION = (
-    "Get activities for the currently authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results.\n\n"
+    "Get activities for the currently authenticated competent authority, maximum 1000 per page, including current records whose lifecycle `status` is `cancelled`. `limit` defaults to 1000 (the maximum); use `offset` and `limit` to page through the result set, and `GET /activities/count` for the total. Optional filters use AND semantics: every provided filter narrows the result set within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters.\n\n"
     "**Each activity contains:**\n"
     "- `activityId`: Functional ID identifying this activity\n"
     "- `activityName`: Display name (optional) of the activity\n"
@@ -42,7 +44,7 @@ ACTIVITIES_DESCRIPTION = (
     "- `createdAt`: Timestamp when this activity version was created (UTC)"
 )
 
-COUNT_ACTIVITIES_DESCRIPTION = "Get activities count for the currently authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`."
+COUNT_ACTIVITIES_DESCRIPTION = "Get activities count for the currently authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters."
 
 
 @router.get(
@@ -57,7 +59,8 @@ COUNT_ACTIVITIES_DESCRIPTION = "Get activities count for the currently authentic
 )
 async def get_activities(
     client: ClientDependency,
-    pagination: PaginationDependency,
+    pagination: LimitedPaginationDependency,
+    filters: ActivityFilters = Depends(activity_filters),
     session: AsyncSession = Depends(get_async_db_read_only),
 ) -> ActivityListResponse:
     """
@@ -69,13 +72,20 @@ async def get_activities(
 
     Pagination parameters:
     - offset: Number of records to skip (default: 0)
-    - limit: Maximum number of records to return (default: no limit, max: 1000)
+    - limit: Maximum number of records to return (default: 1000, max: 1000)
+
+    Filter parameters (provided filters are combined with AND semantics):
+    - createdAtFrom: Minimum activity version creation timestamp, inclusive
+    - createdAtTo: Maximum activity version creation timestamp, inclusive
+    - platformId: Platform functional ID
+    - areaId: Area functional ID
     """
     return await activity_handlers.list_activities(
         client=client,
         session=session,
         offset=pagination.offset,
         limit=pagination.limit,
+        filters=filters,
         list_model=ActivityListResponse,
         item_model=ActivityResponse,
     )
@@ -93,6 +103,7 @@ async def get_activities(
 )
 async def count_activities(
     client: ClientDependency,
+    filters: ActivityFilters = Depends(activity_filters),
     session: AsyncSession = Depends(get_async_db_read_only),
 ) -> ActivityCountResponse:
     """
@@ -105,4 +116,8 @@ async def count_activities(
     Returns:
     - count: Total number of activities for the given competent authority
     """
-    return await activity_handlers.count_activities(client=client, session=session)
+    return await activity_handlers.count_activities(
+        client=client,
+        session=session,
+        filters=filters,
+    )

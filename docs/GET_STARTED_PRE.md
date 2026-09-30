@@ -1,9 +1,9 @@
-<h1>SDEP-NL - Pre-Production</h1>
+<h1>SDEP-NL - pre-production</h1>
 
 Welcome to the **SDEP-NL Pre-Production (PRE) environment**. As an **integration partner** testing SDEP, you can use this environment:
 
 - To validate your integration before moving to SDEP-NL production
-- To pre-validate your integration against the harmonized short-term rental API, before moving to the SDEP in your country.
+- To pre-validate your integration against the harmonized short-term rental API, before moving to the SDEP in your country
 
 > **Disclaimer**: For end-to-end testing per country, always contact your **national SDEP representative** for guidance on deployment, integrations, and operations.
 
@@ -12,10 +12,10 @@ Welcome to the **SDEP-NL Pre-Production (PRE) environment**. As an **integration
 - [Introduction](#introduction)
   - [SDEP](#sdep)
   - [Authentication](#authentication)
-- [Get Access](#get-access)
+- [Get access](#get-access)
   - [Generate keypair](#generate-keypair)
   - [Contact team SDEP-NL](#contact-team-sdep-nl)
-  - [Receive Connection Info](#receive-connection-info)
+  - [Receive connection info](#receive-connection-info)
 - [Ask questions](#ask-questions)
 
 ## Introduction
@@ -27,7 +27,7 @@ The **Single Digital Entry Point (SDEP)** is established in accordance with [EU 
 The SDEP repository contains:
 
 - The **EU-harmonized API specification** for short-term rental platforms (**STR**)
-- The **NL-specific API specification** for competent authorities (**CA**) and reporting/statistics offices (**REP**)
+- The **NL-specific API specification** for competent authorities (**CA**) and statistics authorities (**STA**)
 - The **NL-specific reference implementation**
 
 The reference implementation is deployed in the **SDEP-NL Pre-Production (PRE)** environment, enabling integration partners to perform end-to-end testing before moving to production, or before moving to their own national implementation.
@@ -63,15 +63,15 @@ SDEP-NL PRE supports both authentication methods.
   - It requires you to setup a private/public key pair upfront, and submit the public key to team SDEP-NL.
   - It still allows you to authenticate and use the Swagger UI (after you programmatically acquired a `Bearer` token).
   - It is used to test (simulate) the behavior in the production environment.
-  - See [Get Started with Client Signed JWT](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance.
+  - See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance.
 
-> Contrary to PRE, the SDEP-NL production environment (PRD) only supports client-signed JWT authentication: see [Getting Started in PRD](./GET_STARTED_PRD.md).
+> Contrary to PRE, the SDEP-NL production environment (PRD) only supports client-signed JWT authentication: see [Getting started in PRD](./GET_STARTED_PRD.md).
 
 > National SDEP implementations are free to adopt either authentication method; this does not impact the API.
 
 > To explore both authentication methods locally, see [Fullstack](../README.md#fullstack).
 
-## Get Access
+## Get access
 
 Take the following steps to **get access to the SDEP-NL pre-production (PRE)** environment.
 
@@ -79,7 +79,7 @@ Take the following steps to **get access to the SDEP-NL pre-production (PRE)** e
 
 ### Generate keypair
 
-See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for **guidance**.
+See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for **guidance**.
 
 ---
 
@@ -95,22 +95,27 @@ See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for *
 Also include in the email:
 
 - **Your public key**: used to authenticate your client through client-signed JWT
-  - See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
+  - See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
 - **Your Role**: used to grant the appropriate API permissions
   - Competent authority (CA)
   - Short-term rental platform (STR)
-  - Reporting statistics office (REP)
+  - Statistics authority (STA)
 
 ---
 
-### Receive Connection Info
+### Receive connection info
 
-From team SDEP-NL, you will receive connection info for both authenticaton methods:
+From team SDEP-NL, you will receive connection info for both authentication methods:
 
 - **Client ID & secret**: to support **client-secret authentication**
 - **Token request values**: to support **client-signed JWT**
 
-See [Client-Signed JWT Authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for applying these to the SDEP API.
+**One client per organization**: each competent authority (CA) and each short-term rental platform (STR) gets exactly one client.
+
+- All your systems use that one client, and share its credentials.
+- A second client is not linked to your organization: SDEP treats it as a separate CA or platform, with its own ID and its own data.
+
+See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for applying these to the SDEP API.
 
 ## Ask questions
 

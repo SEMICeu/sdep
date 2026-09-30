@@ -18,7 +18,7 @@ target_metadata = Base.metadata
 # Build database URL using SQLAlchemy's URL.create() for proper handling
 # of special characters in passwords (/, =, @, etc.)
 database_url = URL.create(
-    "postgresql",
+    "postgresql+psycopg",
     database=settings.POSTGRES_DB_NAME,
     host=settings.POSTGRES_HOST,
     password=settings.POSTGRES_DB_PASSWORD,

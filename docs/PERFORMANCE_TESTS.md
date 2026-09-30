@@ -1,30 +1,32 @@
-<h1>Performance Tests</h1>
+<h1>Performance tests</h1>
 
 The [../tests/performance](../tests/performance) directory contains a [Locust](https://locust.io/) test for load testing the SDEP bulk activity endpoint (`POST /api/str/v1/activities/bulk`).
 
-- [Running Performance Tests](#running-performance-tests)
+**Scope:** activities only. The listing endpoints (random checks) are covered by the functional suites, not by this load test. Extending the suite to listings is planned as separate work.
+
+- [Running performance tests](#running-performance-tests)
 - [Implementation](#implementation)
-  - [Locust Test](#locust-test)
-  - [Test Data Generation](#test-data-generation)
-  - [Test Data Cleanup](#test-data-cleanup)
+  - [Locust test](#locust-test)
+  - [Test data generation](#test-data-generation)
+  - [Test data cleanup](#test-data-cleanup)
 - [Results](#results)
 - [Benchmarks](#benchmarks)
-- [Database Tuning](#database-tuning)
-  - [Connection Pool Chain](#connection-pool-chain)
+- [Database tuning](#database-tuning)
+  - [Connection pool chain](#connection-pool-chain)
   - [SQLAlchemy pool (`backend/app/db/config.py`)](#sqlalchemy-pool-backendappdbconfigpy)
   - [PgBouncer pool (`sdep-cnpg Pooler` resource)](#pgbouncer-pool-sdep-cnpg-pooler-resource)
-  - [Example: Sizing for 50 Concurrent Users](#example-sizing-for-50-concurrent-users)
-- [Network Tuning](#network-tuning)
+  - [Example: Sizing for 50 concurrent users](#example-sizing-for-50-concurrent-users)
+- [Network tuning](#network-tuning)
   - [Cause](#cause)
-  - [Solution Alternatives](#solution-alternatives)
+  - [Solution alternatives](#solution-alternatives)
   - [Recommendation](#recommendation)
-- [Service Level Objectives (SLO)](#service-level-objectives-slo)
-  - [Service Level Indicators (SLIs)](#service-level-indicators-slis)
-  - [Strategies for Bulk Updates](#strategies-for-bulk-updates)
-  - [Error Budgets for Batch Processing](#error-budgets-for-batch-processing)
-  - [Summary: SLI Measurement Gaps](#summary-sli-measurement-gaps)
+- [Service level objectives (SLO)](#service-level-objectives-slo)
+  - [Service level indicators (SLIs)](#service-level-indicators-slis)
+  - [Strategies for bulk updates](#strategies-for-bulk-updates)
+  - [Error budgets for batch processing](#error-budgets-for-batch-processing)
+  - [Summary: SLI measurement gaps](#summary-sli-measurement-gaps)
 
-## Running Performance Tests
+## Running performance tests
 
 See [../Makefile](../Makefile). The Makefile delegates to [../scripts/run-tests-perf.sh](../scripts/run-tests-perf.sh).
 
@@ -47,7 +49,7 @@ Both are invoked via `make test-perf`.
 
 ---
 
-### Locust Test
+### Locust test
 
 `tests/performance/locustfile.py`
 
@@ -76,7 +78,7 @@ Both are invoked via `make test-perf`.
 
 ---
 
-### Test Data Generation
+### Test data generation
 
 No fixture files are used - all test data is generated at runtime by `_generate_activity()` in `locustfile.py`. Each Locust task iteration generates `PERF_BATCH_SIZE` activities (default: 500) per HTTP request.
 
@@ -100,7 +102,7 @@ The `sdep-test-` naming convention controls cleanup:
 
 ---
 
-### Test Data Cleanup
+### Test data cleanup
 
 After the Locust run completes, `scripts/run-tests-perf.sh` automatically cleans up test data unless `KEEP_TEST_DATA=true`.
 
@@ -113,7 +115,7 @@ Cleanup executes `postgres/clean-testrun.sql` via `docker exec psql`, which:
 
 Deletion follows FK order: children (activities) first, then parents (areas, platforms, competent authorities). An activity has two parents (`area` and `platform`), so step 1 must cover every row that step 2 or step 3 would orphan - otherwise those steps fail on their foreign key.
 
-The same cleanup SQL is used by both test runners (`scripts/run-tests.sh` and `scripts/run-tests-perf.sh`) for all test types (integration and performance), since all cleaned-up test data shares the `sdep-test-*` naming convention. See [Test Data Lifecycle](./INTEGRATION_TESTS.md#test-data-lifecycle) for how the two runners and the two "keep" modes interact.
+The same cleanup SQL is used by both test runners (`scripts/run-tests.sh` and `scripts/run-tests-perf.sh`) for all test types (integration and performance), since all cleaned-up test data shares the `sdep-test-*` naming convention. See [Test data lifecycle](./INTEGRATION_TESTS.md#test-data-lifecycle) for how the two runners and the two "keep" modes interact.
 
 - When `KEEP_TEST_DATA=true`, the run skips its own cleanup, so its rows are still there when the run finishes, ready for inspection
 - Those rows do **not** survive the next test run without "keep", and cannot: the fixture areas are owned by the `sdep-test-ca.01` competent authority and the activities by the `sdep-test-str.01` platform, and the cleanup deletes those accounts themselves. The foreign keys take everything they own with them, whatever the rows are named
@@ -123,18 +125,20 @@ The same cleanup SQL is used by both test runners (`scripts/run-tests.sh` and `s
 
 After running the tests:
 
-| Field                          | Meaning                                                                                                                                                                                                                                            |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Configuration**              | Repeats the parameter values used for this test run                                                                                                                                                                                                |
-| **Total activities processed** | Sum of all per-item OK + NOK results across all HTTP requests, incl. overshoot                                                                                                                                                                     |
-| **HTTP requests**              | Total HTTP requests with per-endpoint breakdown (auth + bulk)                                                                                                                                                                                      |
-| **Throughput**                 | Actual sustained rate of successfully processed activities per second                                                                                                                                                                              |
-| **Bulk requests/sec**          | Actual sustained rate of bulk POST requests per second (x activities per request)                                                                                                                                                                  |
-| **Extrapolated**               | Throughput projected over 24 hours - what the system *can* sustain                                                                                                                                                                                 |
-| **Target**                     | What you *asked* for (`PERF_ACTIVITIES_TARGET`), reached by `PERF_USERS` concurrent users                                                                                                                                                          |
-| **Verdict**                    | Whether extrapolated capacity meets or exceeds the target, with the headroom ratio                                                                                                                                                                 |
-| **Overshoot**                  | Only shown when `PERF_STOP_ON_TARGET=true` and total exceeds target (see explanation below)                                                                                                                                                        |
-| **Correctness (SLI)**          | Post-test verification: samples 10 submitted activities and verifies them via `GET /ca/activities`. Runs on every run - verification happens at `test_stop`, before cleanup - and is skipped only when `CA_CLIENT_ID`/`CA_CLIENT_SECRET` are unset |
+| Field                          | Meaning                                                                                                    |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| **Configuration**              | Repeats the parameter values used for this test run                                                        |
+| **Total activities processed** | Sum of all per-item OK + NOK results across all HTTP requests, incl. overshoot                             |
+| **HTTP requests**              | Total HTTP requests with per-endpoint breakdown (auth + bulk)                                              |
+| **Throughput**                 | Actual sustained rate of successfully processed activities per second                                      |
+| **Bulk requests/sec**          | Actual sustained rate of bulk POST requests per second (x activities per request)                          |
+| **Extrapolated**               | Throughput projected over 24 hours - what the system *can* sustain                                         |
+| **Target**                     | What you *asked* for (`PERF_ACTIVITIES_TARGET`), reached by `PERF_USERS` concurrent users                  |
+| **Verdict**                    | Whether extrapolated capacity meets or exceeds the target, with the headroom ratio                         |
+| **Overshoot**                  | Only shown when `PERF_STOP_ON_TARGET=true` and total exceeds target (see explanation below)                |
+| **Correctness (SLI)**          | Post-test verification: 10 submitted activities are sampled and read back via `GET /ca/activities` **[1]** |
+
+[1] Runs on every run: the verification happens at `test_stop`, before cleanup. Skipped only when `CA_CLIENT_ID`/`CA_CLIENT_SECRET` are unset.
 
 **Note on target vs extrapolated:** The target controls the *minimum* load (number of concurrent users). Each user fires requests as fast as possible, so actual throughput is whatever the server can sustain. The "extrapolated" value shows real capacity; the ratio tells you how much headroom exists above the target.
 
@@ -164,15 +168,15 @@ Industry-standard benchmarks for API response times:
 - AWS Well-Architected Framework (Performance Efficiency)
 - Nielsen Norman Group - [Response Time Limits](https://www.nngroup.com/articles/response-times-3-important-limits/)
 
-**Contextualisation for bulk endpoints:**
+**Contextualization for bulk endpoints:**
 
 - These benchmarks are based on individual HTTP requests
 - When assessing bulk performance, consider both the per-request latency and the per-item cost (i.e., response time divided by batch size)
 - For example, processing up to 1000 activities in a single request: a 200 ms response time equates to 0.2 ms per item (excellent), whereas 200 ms for a single-item endpoint would be considered only “very good”
 
-## Database Tuning
+## Database tuning
 
-### Connection Pool Chain
+### Connection pool chain
 
 Requests flow through two connection pools before reaching PostgreSQL:
 
@@ -214,7 +218,7 @@ PgBouncer sits between the backend and PostgreSQL. Its `default_pool_size` is th
 
 ---
 
-### Example: Sizing for 50 Concurrent Users
+### Example: Sizing for 50 concurrent users
 
 | Layer      | Parameter           | Value | Rationale                                     |
 | ---------- | ------------------- | ----- | --------------------------------------------- |
@@ -226,7 +230,7 @@ PgBouncer sits between the backend and PostgreSQL. Its `default_pool_size` is th
 
 If you scale to 2 backend replicas, set SQLAlchemy to `pool_size=10, max_overflow=15` (25 per replica × 2 = 50 total ≤ PgBouncer's 50).
 
-## Network Tuning
+## Network tuning
 
 Under sustained load, a small percentage of HTTP requests may fail with connection-level errors (`RemoteDisconnected`, `ChunkedEncodingError`) even though the backend processed the request successfully (HTTP 201). These are not application errors - they are TCP connection drops between the client and the backend, caused by intermediate network components (reverse proxy, load balancer) closing the connection before the client reads the full response.
 
@@ -249,7 +253,7 @@ Each layer enforces its own timeouts. A bulk request that takes several seconds 
 
 ---
 
-### Solution Alternatives
+### Solution alternatives
 
 1. **Client-side retry logic (implemented in the performance test)**
 
@@ -283,13 +287,13 @@ Each layer enforces its own timeouts. A bulk request that takes several seconds 
 
 Apply all three: client-side retry absorbs occasional hiccups regardless of infrastructure, while the proxy and load balancer timeouts prevent the hiccups from occurring in the first place. The proxy and load balancer changes are deployment-level configuration managed (out of scope of this project).
 
-## Service Level Objectives (SLO)
+## Service level objectives (SLO)
 
 When looking at approaches in public cloud, e.g. in Google SRE practice, SLOs for batch processing differ fundamentally from interactive services. Where request-driven services focus on *availability* and *latency*, batch SLOs revolve around data throughput and freshness.
 
 ---
 
-### Service Level Indicators (SLIs)
+### Service level indicators (SLIs)
 
 Four SLIs are most relevant for bulk activity ingestion:
 
@@ -328,19 +332,25 @@ Useful for systems with variable load to ensure the pipeline keeps up with growt
 
 ---
 
-### Strategies for Bulk Updates
+### Strategies for bulk updates
 
 Google applies specific patterns to guarantee reliability at large volumes. Here is how SDEP implements them:
 
-| Strategy                    | Description                                                                       | SDEP implementation                                                                                                                                                                                                                              |
-| --------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Atomicity**               | A batch request succeeds or fails as a whole, preventing partial states           | Each bulk request is a single database transaction. On error, the entire batch rolls back - no half-written state. Per-item validation failures are reported as NOK without aborting the valid items in the same batch.                          |
-| **Idempotency**             | A bulk update can be retried without creating duplicates                          | Implemented via activity versioning: re-submitting an `activityId` marks the previous version as ended (`ended_at = now()`) and inserts a new current version. Duplicate `activityId` values within a single batch are deduplicated (last-wins). |
-| **Side-by-side validation** | Compare output of a new batch version against the previous one before overwriting | Not currently implemented. Could be added as a post-ingestion step that compares record counts and checksums between the previous and current batch for a given platform.                                                                        |
+| Strategy                    | Description                                                                       | SDEP implementation                               |
+| --------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **Atomicity**               | A batch request succeeds or fails as a whole, preventing partial states           | One database transaction per bulk request **[1]** |
+| **Idempotency**             | A bulk update can be retried without creating duplicates                          | Activity versioning **[2]**                       |
+| **Side-by-side validation** | Compare output of a new batch version against the previous one before overwriting | Not implemented **[3]**                           |
+
+[1] On error the entire batch rolls back, no half-written state. Per-item validation failures are reported as NOK without aborting the valid items in the same batch.
+
+[2] Re-submitting an `activityId` marks the previous version as ended (`ended_at = now()`) and inserts a new current version. Duplicate `activityId` values within a single batch are deduplicated (last-wins).
+
+[3] Could be added as a post-ingestion step that compares record counts and checksums between the previous and current batch for a given platform.
 
 ---
 
-### Error Budgets for Batch Processing
+### Error budgets for batch processing
 
 Batch errors behave differently in an error budget than request-level errors:
 
@@ -350,7 +360,7 @@ Batch errors behave differently in an error budget than request-level errors:
 
 ---
 
-### Summary: SLI Measurement Gaps
+### Summary: SLI measurement gaps
 
 | SLI         | Measured by perf test?                                             | Suggested extension |
 | ----------- | ------------------------------------------------------------------ | ------------------- |

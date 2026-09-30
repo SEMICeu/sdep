@@ -1,8 +1,6 @@
 """Competent authority activity endpoints for API v2."""
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.common import activity_handlers
@@ -13,13 +11,13 @@ from app.api.common.activity_examples import (
 from app.api.common.auth_dependencies import ClientDependency, RequireRoles
 from app.api.common.pagination import LimitedPaginationDependency
 from app.api.common.security import Role
+from app.api.domains.ca.routers.activities_filters import activity_filters
 from app.db.config import get_async_db_read_only
 from app.schemas.activity import (
     ActivityCountResponse,
     ActivityFilters,
     ActivityListResponse,
 )
-from app.schemas.common import OptionalFunctionalId, UtcDateTime
 
 router = APIRouter(tags=["ca"])
 
@@ -46,48 +44,6 @@ ACTIVITIES_DESCRIPTION = (
 )
 
 COUNT_ACTIVITIES_DESCRIPTION = "Get activities count for the currently authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters."
-
-
-async def activity_filters(
-    created_at_from: Annotated[
-        UtcDateTime | None,
-        Query(
-            alias="createdAtFrom",
-            description="Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
-            examples=["2025-06-01T00:00:00Z"],
-        ),
-    ] = None,
-    created_at_to: Annotated[
-        UtcDateTime | None,
-        Query(
-            alias="createdAtTo",
-            description="Filter activities whose createdAt timestamp is less than or equal to this UTC value",
-            examples=["2025-06-30T23:59:59Z"],
-        ),
-    ] = None,
-    platform_id: Annotated[
-        OptionalFunctionalId,
-        Query(
-            alias="platformId",
-            description="Filter by platform functional ID",
-            examples=["sdep-str01"],
-        ),
-    ] = None,
-    area_id: Annotated[
-        OptionalFunctionalId,
-        Query(
-            alias="areaId",
-            description="Filter by area functional ID",
-            examples=["959a7439-7cad-4009-96ec-353b44723db9"],
-        ),
-    ] = None,
-) -> ActivityFilters:
-    return ActivityFilters(
-        created_at_from=created_at_from,
-        created_at_to=created_at_to,
-        platform_id=platform_id,
-        area_id=area_id,
-    )
 
 
 @router.get(

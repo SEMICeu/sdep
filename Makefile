@@ -10,13 +10,13 @@ SHELL := /bin/bash
         keycloak-up keycloak-down .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles keycloak-generate-machine-clients keycloak-configure keycloak-show-client-public-key keycloak-match-client-public-keys .get-client-credentials \
         backend-up backend-down backend-restart \
         up down restart status \
-        .is-up .ensure-up test-smoke test-full test-full-keep test-full-verbose test-ca test-str test-rep test-security \
+        .is-up .ensure-up test-smoke test-full test-full-keep test-full-verbose test-ca test-str test-sta test-lsa test-lma test-ama test-security \
         .postgres-up-unless-ci test-migrations \
         test-perf test-perf-keep test-perf-verbose \
         test-malware test-cve test-cve-offline \
         test test-keep \
-        md-lint md-format \
-        all ci-gate \
+        md-lint md-format md-validate-links \
+        all ci-gate dod dod-continue \
         postgres-logs keycloak-logs backend-logs dbgate-logs fullstack-logs \
         help
 
@@ -32,7 +32,7 @@ export POSTGRES_HOST POSTGRES_PORT POSTGRES_DB_NAME POSTGRES_DB_USER POSTGRES_DB
 
 DOCKER_COMPOSE := docker compose --env-file .env $(if $(wildcard .env.extra),--env-file .env.extra,)
 # Client-signed JWT test clients. The generator emits one client per role (CA,
-# STR, REP) into KEYCLOAK_JWT_CLIENT_DIR, named "<client-id>.private.pem" and
+# STR, STA) into KEYCLOAK_JWT_CLIENT_DIR, named "<client-id>.private.pem" and
 # "<client-id>.public.yaml", so any client's key path follows from its id and
 # needs no variable of its own. Keep MACHINE_CLIENTS_EXTENDED_YAML in sync with
 # KC_APP_REALM_MACHINE_CLIENT_YAML in .env - both name the same file.
@@ -180,9 +180,10 @@ postgres-count: ## Count rows in all tables
 	  SELECT \
 	    (SELECT COUNT(*) FROM activity) AS activity, \
 	    (SELECT COUNT(*) FROM area) AS area, \
-	    (SELECT COUNT(*) FROM platform) AS platform, \
+	    (SELECT COUNT(*) FROM audit_log) AS audit_log, \
 	    (SELECT COUNT(*) FROM competent_authority) AS competent_authority, \
-	    (SELECT COUNT(*) FROM audit_log) AS audit_log;"
+	    (SELECT COUNT(*) FROM listing) AS listing, \
+	    (SELECT COUNT(*) FROM platform) AS platform;"
 
 postgres-auditlog: ## Show audit log
 	@set -a && source .env && set +a && \
@@ -326,7 +327,7 @@ keycloak-down: ## Stop and remove keycloak (including volumes)
 	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
 	./keycloak/add-realm-roles.sh
 
-keycloak-generate-machine-clients: ## Generate machine clients (from keycloak/machine-clients.yaml, adding client-signed JWT key pairs for CA, STR, REP)
+keycloak-generate-machine-clients: ## Generate machine clients (from keycloak/machine-clients.yaml, adding client-signed JWT key pairs for CA, STR, STA)
 	@uv run --script scripts/generate-keycloak-machine-clients.py \
 		--output-dir "$(KEYCLOAK_JWT_CLIENT_DIR)" \
 		--static-clients-file keycloak/machine-clients.yaml \
@@ -385,15 +386,24 @@ keycloak-match-client-public-keys: ## Match client public keys to private keys (
 	CA1_CLIENT_ID=sdep-test-ca.01 && KC_APP_REALM_CLIENT_ID=$$CA1_CLIENT_ID && get_client_secret && CA1_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	CA2_CLIENT_ID=sdep-test-ca.02 && KC_APP_REALM_CLIENT_ID=$$CA2_CLIENT_ID && get_client_secret && CA2_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	STR_CLIENT_ID=sdep-test-str.01 && KC_APP_REALM_CLIENT_ID=$$STR_CLIENT_ID && get_client_secret && STR_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
-	REP_CLIENT_ID=sdep-test-rep.01 && KC_APP_REALM_CLIENT_ID=$$REP_CLIENT_ID && get_client_secret && REP_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	STA_CLIENT_ID=sdep-test-sta.01 && KC_APP_REALM_CLIENT_ID=$$STA_CLIENT_ID && get_client_secret && STA_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	LSA_CLIENT_ID=sdep-test-lsa.01 && KC_APP_REALM_CLIENT_ID=$$LSA_CLIENT_ID && get_client_secret && LSA_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	LMA_CLIENT_ID=sdep-test-lma.01 && KC_APP_REALM_CLIENT_ID=$$LMA_CLIENT_ID && get_client_secret && LMA_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	AMA_CLIENT_ID=sdep-test-ama.01 && KC_APP_REALM_CLIENT_ID=$$AMA_CLIENT_ID && get_client_secret && AMA_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	echo "export CA1_CLIENT_ID=$$CA1_CLIENT_ID" > ./tmp/.credentials && \
 	echo "export CA1_CLIENT_SECRET=$$CA1_CLIENT_SECRET" >> ./tmp/.credentials && \
 	echo "export CA2_CLIENT_ID=$$CA2_CLIENT_ID" >> ./tmp/.credentials && \
 	echo "export CA2_CLIENT_SECRET=$$CA2_CLIENT_SECRET" >> ./tmp/.credentials && \
 	echo "export STR_CLIENT_ID=$$STR_CLIENT_ID" >> ./tmp/.credentials && \
 	echo "export STR_CLIENT_SECRET=$$STR_CLIENT_SECRET" >> ./tmp/.credentials && \
-	echo "export REP_CLIENT_ID=$$REP_CLIENT_ID" >> ./tmp/.credentials && \
-	echo "export REP_CLIENT_SECRET=$$REP_CLIENT_SECRET" >> ./tmp/.credentials
+	echo "export STA_CLIENT_ID=$$STA_CLIENT_ID" >> ./tmp/.credentials && \
+	echo "export STA_CLIENT_SECRET=$$STA_CLIENT_SECRET" >> ./tmp/.credentials && \
+	echo "export LSA_CLIENT_ID=$$LSA_CLIENT_ID" >> ./tmp/.credentials && \
+	echo "export LSA_CLIENT_SECRET=$$LSA_CLIENT_SECRET" >> ./tmp/.credentials && \
+	echo "export LMA_CLIENT_ID=$$LMA_CLIENT_ID" >> ./tmp/.credentials && \
+	echo "export LMA_CLIENT_SECRET=$$LMA_CLIENT_SECRET" >> ./tmp/.credentials && \
+	echo "export AMA_CLIENT_ID=$$AMA_CLIENT_ID" >> ./tmp/.credentials && \
+	echo "export AMA_CLIENT_SECRET=$$AMA_CLIENT_SECRET" >> ./tmp/.credentials
 
 ##@ Backend
 
@@ -446,8 +456,12 @@ status: ## Show status
 	@set -a && source .env && set +a && \
 	printf "  %-42s %s\n" "Backend API docs (version independent):" "$$BACKEND_BASE_URL/api/docs" && \
 	printf "  %-42s %s\n" "Backend API docs (auth):" "$$BACKEND_BASE_URL/api/auth/v1/docs" && \
-	printf "  %-42s %s\n" "Backend API docs (ca):" "$$BACKEND_BASE_URL/api/ca/v1/docs" && \
-	printf "  %-42s %s\n" "Backend API docs (str):" "$$BACKEND_BASE_URL/api/str/v1/docs" && \
+	printf "  %-42s %s\n" "Backend API docs (ca v1, v2):" "$$BACKEND_BASE_URL/api/ca/v1/docs $$BACKEND_BASE_URL/api/ca/v2/docs" && \
+	printf "  %-42s %s\n" "Backend API docs (str v1, v2):" "$$BACKEND_BASE_URL/api/str/v1/docs $$BACKEND_BASE_URL/api/str/v2/docs" && \
+	printf "  %-42s %s\n" "Backend API docs (lsa v2):" "$$BACKEND_BASE_URL/api/lsa/v2/docs" && \
+	printf "  %-42s %s\n" "Backend API docs (lma v2):" "$$BACKEND_BASE_URL/api/lma/v2/docs" && \
+	printf "  %-42s %s\n" "Backend API docs (ama v1):" "$$BACKEND_BASE_URL/api/ama/v1/docs" && \
+	printf "  %-42s %s\n" "Backend API docs (sta v1, v2):" "$$BACKEND_BASE_URL/api/sta/v1/docs $$BACKEND_BASE_URL/api/sta/v2/docs" && \
 	printf "  %-42s %s\n" "Backend health:" "$$BACKEND_BASE_URL/api/health" && \
 	printf "  %-42s %s\n" "Keycloak:" "$$KC_BASE_URL/admin"
 	@echo ""
@@ -468,7 +482,7 @@ status: ## Show status
 # in the same run's summary hook (tests/performance/locustfile.py).
 # See docs/PERFORMANCE_TESTS.md for the cleanup query itself.
 
-##@ Tests (fullstack)
+##@ Tests (fullstack, integration)
 
 .is-up: ## Check if services are running
 	@echo "🔍 Checking if services are up..." && \
@@ -499,6 +513,11 @@ status: ## Show status
 
 .ensure-up: ## Start the stack only if it is not already running and healthy
 	@$(MAKE) --no-print-directory .is-up >/dev/null 2>&1 || $(MAKE) --no-print-directory up
+
+# Run a test once per API version listed in tests/api-versions.txt (fail fast).
+# For the test-* recipes below, which define OUTPUT_FILE. Usage: $(call run_versioned_test,test_ca_areas)
+run_versioned_test = versions=$$(scripts/api-versions.sh $(1)) && \
+	for v in $$versions; do API_VERSION=$$v uv run --script tests/$(1).py 2>&1 | tee $$OUTPUT_FILE || exit 1; done
 
 test-smoke: .ensure-up ## Test smoke (audit-excluded, no auth needed; no test data created)
 	@set -a && source ./.env && set +a && \
@@ -533,9 +552,10 @@ test-ca: .ensure-up .get-client-credentials # Helper - Test only CA endpoints
 		exit 1; \
 	fi && \
 	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
-	uv run --script tests/test_ca_areas.py 2>&1 | tee $$OUTPUT_FILE && \
-	API_VERSION=v1 uv run --script tests/test_ca_activities.py 2>&1 | tee $$OUTPUT_FILE && \
-	API_VERSION=v2 uv run --script tests/test_ca_activities.py 2>&1 | tee $$OUTPUT_FILE && \
+	$(call run_versioned_test,test_ca_areas) && \
+	$(call run_versioned_test,test_ca_activities) && \
+	$(call run_versioned_test,test_ca_listings) && \
+	$(call run_versioned_test,test_reference_data) && \
 	echo "✅ CA endpoints tested!"
 
 test-str: .ensure-up .get-client-credentials # Helper - Test only STR endpoints
@@ -552,28 +572,85 @@ test-str: .ensure-up .get-client-credentials # Helper - Test only STR endpoints
 		exit 1; \
 	fi && \
 	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
-	API_VERSION=v1 uv run --script tests/test_str_areas.py 2>&1 | tee $$OUTPUT_FILE && \
-	API_VERSION=v2 uv run --script tests/test_str_areas.py 2>&1 | tee $$OUTPUT_FILE && \
-	API_VERSION=v1 uv run --script tests/test_str_activities_bulk.py 2>&1 | tee $$OUTPUT_FILE && \
-	API_VERSION=v2 uv run --script tests/test_str_activities_bulk.py 2>&1 | tee $$OUTPUT_FILE && \
+	$(call run_versioned_test,test_str_areas) && \
+	$(call run_versioned_test,test_str_activities_bulk) && \
+	$(call run_versioned_test,test_str_listings) && \
 	echo "✅ STR endpoints tested!"
 
-test-rep: .ensure-up .get-client-credentials # Helper - Test only REP endpoints
+test-sta: .ensure-up .get-client-credentials # Helper - Test only STA endpoints
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
 	OUTPUT_FILE=$$(mktemp) && \
 	trap "rm -f $$OUTPUT_FILE" EXIT && \
-	echo "🧪 Testing REP endpoints..." && \
+	echo "🧪 Testing STA endpoints..." && \
 	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
 	echo "" && \
-	if CLIENT_ID=$$REP_CLIENT_ID CLIENT_SECRET=$$REP_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
-		echo "✅ REP client authorized"; \
+	if CLIENT_ID=$$STA_CLIENT_ID CLIENT_SECRET=$$STA_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
+		echo "✅ STA client authorized"; \
 	else \
-		echo "❌ REP client authorization failed"; \
+		echo "❌ STA client authorization failed"; \
 		exit 1; \
 	fi && \
 	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
-	uv run --script tests/test_rep_activities.py 2>&1 | tee $$OUTPUT_FILE && \
-	echo "✅ REP endpoints tested!"
+	$(call run_versioned_test,test_sta_activities) && \
+	$(call run_versioned_test,test_sta_listings) && \
+	$(call run_versioned_test,test_reference_data) && \
+	echo "✅ STA endpoints tested!"
+
+# The LSA suite runs the whole random-check lifecycle (submit, screen, acknowledge,
+# read), so it needs the STR and CA credentials next to its own.
+test-lsa: .ensure-up .get-client-credentials # Helper - Test only LSA endpoints (incl. the listing lifecycle)
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
+	OUTPUT_FILE=$$(mktemp) && \
+	trap "rm -f $$OUTPUT_FILE" EXIT && \
+	echo "🧪 Testing LSA endpoints..." && \
+	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
+	echo "" && \
+	if CLIENT_ID=$$LSA_CLIENT_ID CLIENT_SECRET=$$LSA_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
+		echo "✅ LSA client authorized"; \
+	else \
+		echo "❌ LSA client authorization failed"; \
+		exit 1; \
+	fi && \
+	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
+	$(call run_versioned_test,test_lsa_listings) && \
+	$(call run_versioned_test,test_reference_data) && \
+	echo "✅ LSA endpoints tested!"
+
+test-lma: .ensure-up .get-client-credentials # Helper - Test only LMA endpoints
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
+	OUTPUT_FILE=$$(mktemp) && \
+	trap "rm -f $$OUTPUT_FILE" EXIT && \
+	echo "🧪 Testing LMA endpoints..." && \
+	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
+	echo "" && \
+	if CLIENT_ID=$$LMA_CLIENT_ID CLIENT_SECRET=$$LMA_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
+		echo "✅ LMA client authorized"; \
+	else \
+		echo "❌ LMA client authorization failed"; \
+		exit 1; \
+	fi && \
+	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
+	$(call run_versioned_test,test_lma_listings) && \
+	$(call run_versioned_test,test_reference_data) && \
+	echo "✅ LMA endpoints tested!"
+
+test-ama: .ensure-up .get-client-credentials # Helper - Test only AMA endpoints
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
+	OUTPUT_FILE=$$(mktemp) && \
+	trap "rm -f $$OUTPUT_FILE" EXIT && \
+	echo "🧪 Testing AMA endpoints..." && \
+	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
+	echo "" && \
+	if CLIENT_ID=$$AMA_CLIENT_ID CLIENT_SECRET=$$AMA_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
+		echo "✅ AMA client authorized"; \
+	else \
+		echo "❌ AMA client authorization failed"; \
+		exit 1; \
+	fi && \
+	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
+	$(call run_versioned_test,test_ama_activities) && \
+	$(call run_versioned_test,test_reference_data) && \
+	echo "✅ AMA endpoints tested!"
 
 test-security: .ensure-up .get-client-credentials # Helper - Test only security (headers, unauthorized, credentials)
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
@@ -583,7 +660,7 @@ test-security: .ensure-up .get-client-credentials # Helper - Test only security 
 	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
 	echo "" && \
 	echo "Testing security headers..." && \
-	uv run --script tests/test_auth_headers.py 2>&1 | tee $$OUTPUT_FILE && \
+	$(call run_versioned_test,test_auth_headers) && \
 	echo "" && \
 	echo "Testing unauthorized access..." && \
 	uv run --script tests/test_auth_unauthorized.py 2>&1 | tee $$OUTPUT_FILE && \
@@ -674,7 +751,7 @@ test-cve: export DOCKER_DEFAULT_PLATFORM := linux/amd64
 # The fresh --no-cache build below otherwise replaces local/sdep-backend:latest,
 # which would make the next `make up` needlessly recreate the backend container.
 test-cve: export BACKEND_IMAGE_VERSION := trivy-scan
-test-cve: ## Test the CVE allowlist by really scanning the SDEP backend image (fails on failure > fix or explain in docs/CVE_EXPLAINS.md)
+test-cve: ## Test the CVE allowlist by really scanning the SDEP backend image (fails on failure > fix or explain in docs/CVE_EXPLAINS.md, your own allowlist, not published)
 	@echo "🔒 Scanning backend image for CVEs..."
 	@echo ""
 	@# Always build fresh (--pull --no-cache) so apt-get upgrade fetches current
@@ -729,16 +806,19 @@ test-keep: ## Test fullstack + migrations + performance + security (malware); ke
 
 ##@ Markdown
 
-# Two tools do the work, each from its own ecosystem:
+# Three tools do the work, each from its own ecosystem:
 #   - markdownlint-cli2 (Node)  checks the house rules; run on demand via npx
 #   - mdformat (Python)         rewrites the file; run on demand via uvx, with
 #                               mdformat-gfm for table alignment and the local
-#                               mdformat-sdep plugin for thematic breaks as "---"
-# Neither is vendored or installed into the repo: npx and uvx fetch the pinned versions
-# below on first use and cache them. All shared config lives under docs/markdown-tooling/:
+#                               mdformat-house plugin for thematic breaks as "---"
+#   - format_tree_visualizations.py (Python, in the repo) aligns the `# comment`
+#                               column in directory-tree code blocks (--check to lint)
+# The first two are not vendored or installed into the repo: npx and uvx fetch the pinned
+# versions below on first use and cache them. All shared config lives under docs/markdown-tooling/:
 #   - .markdownlint-cli2.jsonc : markdownlint config (loaded via --config)
 #   - markdownlint-rules/      : custom .cjs house rules
-#   - mdformat-sdep/           : local mdformat plugin (thematic breaks as "---")
+#   - mdformat/                : local mdformat plugin (thematic breaks as "---")
+#   - format_tree_visualizations.py : tree comment alignment
 # Both are ordinary processes, so `make md-lint` works locally and could equally run as a
 # CI/CD pipeline gate: it only needs Node/npm and Python/uv on PATH (a toolbox image with
 # both is enough) and, unlike the container-based checks, no Docker daemon or service.
@@ -746,32 +826,53 @@ MARKDOWN_TOOLING := docs/markdown-tooling
 MARKDOWNLINT_VERSION := 0.18.1
 MARKDOWNLINT := npx --yes markdownlint-cli2@$(MARKDOWNLINT_VERSION) --config $(MARKDOWN_TOOLING)/.markdownlint-cli2.jsonc
 MARKDOWNLINT_FIX := $(MARKDOWNLINT) --fix
-MDFORMAT := uvx --from mdformat==1.0.0 --with mdformat-gfm==1.0.0 --with ./$(MARKDOWN_TOOLING)/mdformat-sdep mdformat --number
-# Every *.md in the repo, minus the "ignores" of .markdownlint-cli2.jsonc (single
-# source for both tools). "=" so the script only runs for the md-* targets.
-MDFORMAT_FILES := .
+MDFORMAT := uvx --from mdformat==1.0.0 --with mdformat-gfm==1.0.0 --with ./$(MARKDOWN_TOOLING)/mdformat mdformat --number
+TREEFORMAT := python3 $(MARKDOWN_TOOLING)/format_tree_visualizations.py
+# Every public *.md in the repo (scripts/public_files.sh: git-known, minus the private
+# paths marked export-ignore in .gitattributes), minus the "ignores" of
+# .markdownlint-cli2.jsonc (single source for both tools). "=" so the shell commands
+# only run for the md-* targets.
+MD_FILES = $(shell ./scripts/public_files.sh '*.md')
 MDFORMAT_EXCLUDES = $(shell $(MARKDOWN_TOOLING)/mdformat-excludes.sh)
 
 md-lint: ## Lint markdown
 	@echo "🔍 Linting Markdown..."
-	@$(MARKDOWNLINT)
-	@$(MDFORMAT) --check $(MDFORMAT_EXCLUDES) $(MDFORMAT_FILES)
+	@$(MARKDOWNLINT) $(MD_FILES)
+	@$(MDFORMAT) --check $(MDFORMAT_EXCLUDES) $(MD_FILES)
+	@$(TREEFORMAT) --check $(MD_FILES)
 	@echo "✅ Markdown lint passed!"
 
 md-format: ## Format markdown
 	@echo "📝 Formatting Markdown..."
-	@$(MARKDOWNLINT_FIX) || true
-	@$(MDFORMAT) $(MDFORMAT_EXCLUDES) $(MDFORMAT_FILES)
+	@$(MARKDOWNLINT_FIX) $(MD_FILES) || true
+	@$(MDFORMAT) $(MDFORMAT_EXCLUDES) $(MD_FILES)
+	@$(TREEFORMAT) $(MD_FILES)
 	@echo "✅ Markdown formatted!"
+
+# Scans the whole docs/ directory, not the public MD_FILES of md-lint: a dead link
+# in a private document is just as broken. Shared with sdep-app's sibling repositories.
+md-validate-links: ## Check that every relative Markdown link and heading anchor resolves
+	@echo "🔍 Checking dead links..."
+	@python3 scripts/check_dead_links.py --quiet docs README.md CHANGELOG.md
+	@echo "✅ No dead links!"
 
 ##@ All
 
-all: ## Test fullstack + migrations + performance + malware + CVE scripts (offline)    + lint markdown
-	@echo "🧪 Running: test (test-full + test-migrations + test-perf + test-malware) + test-cve-offline + md-lint"
+# Gate order, shared by all, ci-gate and dod: cheap and Docker-only steps first (markdown,
+# backend test, CVE), the stack-bound suites last, so a failure that needs a docs or allowlist
+# fix costs seconds, not the full cycle.
+all: ## Markdown format/lint + backend test + CVE offline + CVE scan + migrations + fullstack + performance + malware
+	@echo "🧪 Running: md-format + md-lint + backend test + test-cve-offline + test-cve + test-migrations + test-full + test-perf + test-malware"
 	@echo ""
-	@$(MAKE) --no-print-directory test
-	@$(MAKE) --no-print-directory test-cve-offline
+	@$(MAKE) --no-print-directory md-format
 	@$(MAKE) --no-print-directory md-lint
+	@$(MAKE) -C backend --no-print-directory test
+	@$(MAKE) --no-print-directory test-cve-offline
+	@$(MAKE) --no-print-directory test-cve
+	@$(MAKE) --no-print-directory test-migrations
+	@$(MAKE) --no-print-directory test-full
+	@$(MAKE) --no-print-directory test-perf PERF_AUTO_CONFIRM=true
+	@$(MAKE) --no-print-directory test-malware
 	@echo ""
 	@echo "✅ Completed"
 
@@ -788,17 +889,34 @@ all: ## Test fullstack + migrations + performance + malware + CVE scripts (offli
 # Note: CI does NOT run the fullstack (test-full) suite on push; that lives in `make all`/`make test`.
 # test-perf is included here by choice, so a local run exercises the bulk path before pushing,
 # even though the pipeline does not. Consider to keep this target in sync with continuous integration (pipeline) jobs.
-ci-gate: ## Test backend   + migrations + performance + malware + CVE scan (fail on error) + lint markdown
-	@echo "🧪 Running CI checks (mirrors pipeline gates): backend test + test-migrations + test-perf + test-malware + test-cve + md-lint"
+ci-gate: ## Markdown        lint + backend test               + CVE scan + migrations             + performance + malware
+	@echo "🧪 Running CI checks (mirrors pipeline gates): md-lint + backend test + test-cve + test-migrations + test-perf + test-malware"
 	@echo ""
+	@$(MAKE) --no-print-directory md-lint
 	@$(MAKE) -C backend --no-print-directory test
+	@$(MAKE) --no-print-directory test-cve
 	@$(MAKE) --no-print-directory test-migrations
 	@$(MAKE) --no-print-directory test-perf PERF_AUTO_CONFIRM=true
 	@$(MAKE) --no-print-directory test-malware
-	@$(MAKE) --no-print-directory test-cve
-	@$(MAKE) --no-print-directory md-lint
 	@echo ""
 	@echo "✅ CI checks completed"
+
+# Definition of Done = docs checks + API snapshots/diff + `all` (with the keep sequences):
+#   docs checks -> forbidden references, dead links, architecture tree, docs consistency, changelog
+#   API         -> api-snapshot-update + api-diff-update (before the backend test that freezes them)
+#   all         -> as the `all` target, with the stack started and Keycloak provisioned before the
+#                  suites, and the fullstack and performance suites each run clean, keep, keep, clean:
+#                  a keep run must not break the next clean run, and a clean run must remove what two
+#                  keep runs left
+# One line per step on the terminal, full output in tmp/dod/<step>.log, stops at the first
+# failure. The manual review items stay in the developer tooling (private, see .gitattributes).
+dod: ## Docs checks (e.g. dead links, architecture tree) + API snapshots + API diffs + All/all (with fullstack and performance tests running a clean/keep/keep/clean sequence)
+	@./scripts/run-dod.sh
+
+# Resume after a failed dod: the cheap steps rerun, the stack-bound steps that passed are skipped
+# (see scripts/run-dod.sh for the markers and the refusal when backend/ changed since).
+dod-continue: ## Continue a failed dod from its failed step (cheap steps rerun, passed stack-bound steps are skipped)
+	@DOD_CONTINUE=1 ./scripts/run-dod.sh
 
 ##@ Logs
 

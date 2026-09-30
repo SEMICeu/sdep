@@ -280,8 +280,8 @@ async def get_by_area_id(
 
 
 def _apply_activity_filters(
-    stmt: Select[tuple[Activity]] | Select[tuple[int]], filters: ActivityFilters
-) -> Select[tuple[Activity]] | Select[tuple[int]]:
+    stmt: Select[Activity] | Select[int], filters: ActivityFilters
+) -> Select[Activity] | Select[int]:
     # The area_id and competent_authority_id branches rely on the caller having
     # joined Area and CompetentAuthority.
     if filters.created_at_from is not None:
@@ -316,7 +316,7 @@ async def get_current_activities(
         session: Async database session
         client_id: Competent-authority private client identifier to scope to, or None to
             return current activities across all competent authorities (the unscoped read
-            used by the reporting/REP API). Keyword-only with no default so callers must
+            used by the STA API). Keyword-only with no default so callers must
             pass it explicitly - an unscoped read is never reached by accident.
         offset: Number of records to skip (default: 0)
         limit: Maximum number of records to return (default: no limit)
@@ -363,7 +363,7 @@ async def count_current_activities(
         session: Async database session
         client_id: Competent-authority private client identifier to scope to, or None to
             count current activities across all competent authorities (the unscoped count
-            used by the reporting/REP API). Keyword-only with no default so callers must
+            used by the STA API). Keyword-only with no default so callers must
             pass it explicitly.
         filters: Optional activity query filters
 

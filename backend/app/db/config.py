@@ -75,6 +75,10 @@ async def get_async_db() -> AsyncGenerator[AsyncSession]:
     - Automatic session cleanup
     - Automatic transaction handling (commit/rollback)
     - Proper resource management
+
+    Declare it as `Depends(get_async_db, scope="function")`: the commit then runs
+    before the response is sent, so a 2xx means the data is stored. The default
+    scope commits after the response (see tests/api/test_write_session_scope.py).
     """
     async with AsyncSessionLocal.begin() as session:
         yield session

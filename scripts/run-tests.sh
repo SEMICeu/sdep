@@ -77,7 +77,10 @@ run_suite test-smoke
 run_suite test-security
 run_suite test-str
 run_suite test-ca
-run_suite test-rep
+run_suite test-sta
+run_suite test-lsa
+run_suite test-lma
+run_suite test-ama
 
 # --- Clean test data (unless KEEP_TEST_DATA=true) ---
 if [ "${KEEP_TEST_DATA:-false}" = "true" ]; then

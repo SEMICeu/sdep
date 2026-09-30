@@ -14,18 +14,26 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from app.api.common import openapi as openapi_module
 from app.api.domain_registry import (
+    AMA_V1,
     AUTH_V1,
     CA_V1,
     CA_V2,
-    REP_V1,
+    LMA_V2,
+    LSA_V2,
+    STA_V1,
+    STA_V2,
     STR_V1,
     STR_V2,
     ApiDomain,
 )
+from app.api.domains.ama.v1 import app_ama_v1
 from app.api.domains.auth.v1 import app_auth_v1
 from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.ca.v2 import app_ca_v2
-from app.api.domains.rep.v1 import app_rep_v1
+from app.api.domains.lma.v2 import app_lma_v2
+from app.api.domains.lsa.v2 import app_lsa_v2
+from app.api.domains.sta.v1 import app_sta_v1
+from app.api.domains.sta.v2 import app_sta_v2
 from app.api.domains.str.v1 import app_str_v1
 from app.api.domains.str.v2 import app_str_v2
 
@@ -42,7 +50,11 @@ DOMAIN_APPS: dict[str, FastAPI] = {
     "ca_v2": app_ca_v2,
     "str_v1": app_str_v1,
     "str_v2": app_str_v2,
-    "rep_v1": app_rep_v1,
+    "lsa_v2": app_lsa_v2,
+    "lma_v2": app_lma_v2,
+    "ama_v1": app_ama_v1,
+    "sta_v1": app_sta_v1,
+    "sta_v2": app_sta_v2,
 }
 
 DOMAIN_STATUS_APPS: tuple[tuple[ApiDomain, FastAPI], ...] = (
@@ -51,7 +63,11 @@ DOMAIN_STATUS_APPS: tuple[tuple[ApiDomain, FastAPI], ...] = (
     (CA_V2, app_ca_v2),
     (STR_V1, app_str_v1),
     (STR_V2, app_str_v2),
-    (REP_V1, app_rep_v1),
+    (LSA_V2, app_lsa_v2),
+    (LMA_V2, app_lma_v2),
+    (AMA_V1, app_ama_v1),
+    (STA_V1, app_sta_v1),
+    (STA_V2, app_sta_v2),
 )
 
 

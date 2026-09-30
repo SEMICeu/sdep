@@ -75,6 +75,32 @@ async def get_by_client_id(session: AsyncSession, client_id: str) -> Platform | 
     return result.scalar_one_or_none()
 
 
+async def get_current_by_platform_ids(
+    session: AsyncSession, platform_ids: list[str]
+) -> dict[str, Platform]:
+    """
+    Get current platforms (ended_at IS NULL) by public functional IDs.
+
+    Used by the listing screening authority, which names the platform in its payload.
+
+    Args:
+        session: Async database session
+        platform_ids: Public platform functional identifiers
+
+    Returns:
+        Dictionary {platform_id: Platform} for IDs that have a current version
+    """
+    if not platform_ids:
+        return {}
+
+    stmt = select(Platform).where(
+        Platform.platform_id.in_(platform_ids),
+        Platform.ended_at.is_(None),
+    )
+    result = await session.execute(stmt)
+    return {platform.platform_id: platform for platform in result.scalars().all()}
+
+
 async def get_by_id(session: AsyncSession, platform_id: int) -> Platform | None:
     """
     Get a platform by primary key ID.
@@ -90,12 +116,16 @@ async def get_by_id(session: AsyncSession, platform_id: int) -> Platform | None:
     return result.scalar_one_or_none()
 
 
-async def get_all(session: AsyncSession) -> list[Platform]:
+async def get_all(
+    session: AsyncSession, offset: int = 0, limit: int | None = None
+) -> list[Platform]:
     """
-    Get all current platforms (ended_at IS NULL).
+    Get current platforms with pagination (ended_at IS NULL).
 
     Args:
         session: Async database session
+        offset: Number of records to skip (default: 0)
+        limit: Maximum number of records to return (default: no limit)
 
     Returns:
         List of current Platform instances
@@ -105,7 +135,10 @@ async def get_all(session: AsyncSession) -> list[Platform]:
         .where(Platform.ended_at.is_(None))
         # Secondary sort on id ensures deterministic pagination order when rows share the same created_at
         .order_by(Platform.created_at.desc(), Platform.id.desc())
+        .offset(offset)
     )
+    if limit is not None:
+        stmt = stmt.limit(limit)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -137,6 +170,21 @@ async def count(session: AsyncSession) -> int:
         Total count of platforms
     """
     stmt = select(func.count()).select_from(Platform)
+    result = await session.execute(stmt)
+    return result.scalar_one()
+
+
+async def count_current(session: AsyncSession) -> int:
+    """
+    Count current platforms (ended_at IS NULL).
+
+    Args:
+        session: Async database session
+
+    Returns:
+        Total count of current platforms
+    """
+    stmt = select(func.count()).select_from(Platform).where(Platform.ended_at.is_(None))
     result = await session.execute(stmt)
     return result.scalar_one()
 

@@ -7,132 +7,7 @@
           "activities": {
             "description": "Array of activity objects to process (1-1000 items per batch)",
             "items": {
-              "description": "Activity request schema for STR v2.\n\nDiffers from v1 in the temporal composite only: timestamps must be UTC.\nEverything else is inherited.",
-              "properties": {
-                "activityId": {
-                  "anyOf": [
-                    {
-                      "maxLength": 64,
-                      "minLength": 1,
-                      "pattern": "^[A-Za-z0-9-]+$",
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)",
-                  "examples": [
-                    "550e8400-e29b-41d4-a716-446655440000",
-                    "550E8400-E29B-41D4-A716-446655440000"
-                  ],
-                  "title": "Activityid"
-                },
-                "activityName": {
-                  "anyOf": [
-                    {
-                      "maxLength": 64,
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Display name of the activity (optional, max 64 chars)",
-                  "examples": [
-                    "Amsterdam Summer Rental"
-                  ],
-                  "title": "Activityname"
-                },
-                "address": {
-                  "$ref": "#/components/schemas/CommonAddressRequest",
-                  "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
-                },
-                "areaId": {
-                  "description": "Functional ID referencing the area where the activity took place",
-                  "examples": [
-                    "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
-                    "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495"
-                  ],
-                  "maxLength": 64,
-                  "minLength": 1,
-                  "pattern": "^[A-Za-z0-9-]+$",
-                  "title": "Areaid",
-                  "type": "string"
-                },
-                "countryOfGuests": {
-                  "description": "Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A', uppercase only). Length must equal numberOfGuests.",
-                  "examples": [
-                    [
-                      "NLD",
-                      "NLD",
-                      "DEU",
-                      "BEL"
-                    ]
-                  ],
-                  "items": {
-                    "type": "string"
-                  },
-                  "maxItems": 1024,
-                  "minItems": 1,
-                  "title": "Countryofguests",
-                  "type": "array"
-                },
-                "numberOfGuests": {
-                  "description": "Number of guests (1-1024)",
-                  "examples": [
-                    4
-                  ],
-                  "maximum": 1024.0,
-                  "minimum": 1.0,
-                  "title": "Numberofguests",
-                  "type": "integer"
-                },
-                "registrationNumber": {
-                  "description": "Registration number of the address (max 32 chars)",
-                  "examples": [
-                    "REG0001"
-                  ],
-                  "maxLength": 32,
-                  "minLength": 1,
-                  "title": "Registrationnumber",
-                  "type": "string"
-                },
-                "status": {
-                  "$ref": "#/components/schemas/ActivityStatus",
-                  "default": "finished",
-                  "description": "Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`.",
-                  "examples": [
-                    "finished",
-                    "cancelled"
-                  ]
-                },
-                "temporal": {
-                  "$ref": "#/components/schemas/CommonTemporalRequestV2",
-                  "description": "Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00`"
-                },
-                "url": {
-                  "description": "URL of the originating listing/advertisement (max 2048 chars)",
-                  "examples": [
-                    "http://example.com/amsterdam-myhouse-1"
-                  ],
-                  "maxLength": 2048,
-                  "minLength": 1,
-                  "title": "Url",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "areaId",
-                "url",
-                "address",
-                "registrationNumber",
-                "numberOfGuests",
-                "countryOfGuests",
-                "temporal"
-              ],
-              "title": "Activity.RequestV2",
-              "type": "object"
+              "$ref": "#/components/schemas/ActivityRequestV2"
             },
             "maxItems": 1000,
             "minItems": 1,
@@ -171,7 +46,7 @@
                     "postName": "Amsterdam",
                     "thoroughfare": "Prinsengracht"
                   },
-                  "areaId": "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
+                  "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
                   "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                   "competentAuthorityName": "Gemeente Amsterdam",
                   "countryOfGuests": [
@@ -329,7 +204,7 @@
         "type": "object"
       },
       "ActivityRequestV2": {
-        "description": "Activity request schema for STR v2.\n\nDiffers from v1 in the temporal composite only: timestamps must be UTC.\nEverything else is inherited.",
+        "description": "Activity request schema for STR v2.\n\nDiffers from v1 in three fields: timestamps must be UTC, and `url` and\n`fullAddress` allow 2048 and 328 characters (v1: 128 and 318).",
         "properties": {
           "activityId": {
             "anyOf": [
@@ -373,8 +248,8 @@
           "areaId": {
             "description": "Functional ID referencing the area where the activity took place",
             "examples": [
-              "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
-              "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495"
+              "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+              "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
             ],
             "maxLength": 64,
             "minLength": 1,
@@ -491,8 +366,8 @@
           "areaId": {
             "description": "Functional ID referencing the area where this activity took place",
             "examples": [
-              "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
-              "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495"
+              "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+              "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
             ],
             "maxLength": 64,
             "minLength": 1,
@@ -943,7 +818,7 @@
         "type": "object"
       },
       "CommonTemporalRequestV2": {
-        "description": "Temporal composite schema for STR v2 activity requests.\n\nTightens v1: both timestamps must carry the UTC offset `Z` or\n`+00:00`. Naive and date-only values are rejected. The start-before-end and\nyear >= 2025 rules are inherited.",
+        "description": "Temporal composite schema for STR v2 activity requests.\n\nTightens v1: both timestamps must carry the UTC offset `Z` or\n`+00:00`. Other offsets, no offset and date-only values are rejected. The\nstart-before-end and year >= 2025 rules are inherited.",
         "properties": {
           "endDatetime": {
             "description": "End date and time of the rental activity, in UTC with offset `Z` or `+00:00` (must be after startDatetime)",
@@ -1055,6 +930,700 @@
         "title": "Error.Response",
         "type": "object"
       },
+      "ListingAcknowledgementBulkRequest": {
+        "description": "Bulk acknowledgement request schema (`POST /listing-acknowledgements/bulk`).",
+        "properties": {
+          "acknowledgements": {
+            "description": "Array of acknowledgements to process (1-1000 items per batch)",
+            "items": {
+              "$ref": "#/components/schemas/ListingAcknowledgementRequest"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Acknowledgements",
+            "type": "array"
+          }
+        },
+        "required": [
+          "acknowledgements"
+        ],
+        "title": "ListingAcknowledgement.BulkRequest",
+        "type": "object"
+      },
+      "ListingAcknowledgementBulkResponse": {
+        "description": "Bulk acknowledgement response schema.",
+        "properties": {
+          "failed": {
+            "description": "Number of items that failed validation or processing (status NOK)",
+            "examples": [
+              0
+            ],
+            "minimum": 0.0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "results": {
+            "description": "Per-item results preserving the original request order",
+            "items": {
+              "$ref": "#/components/schemas/ListingAcknowledgementBulkResultItem"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "succeeded": {
+            "description": "Number of items successfully processed (status OK)",
+            "examples": [
+              2
+            ],
+            "minimum": 0.0,
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "totalReceived": {
+            "description": "Total number of items received in the request",
+            "examples": [
+              2
+            ],
+            "minimum": 0.0,
+            "title": "Totalreceived",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalReceived",
+          "succeeded",
+          "failed",
+          "results"
+        ],
+        "title": "ListingAcknowledgement.BulkResponse",
+        "type": "object"
+      },
+      "ListingAcknowledgementBulkResultItem": {
+        "description": "Result for a single item in an acknowledgement bulk response.",
+        "properties": {
+          "errors": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Structured error details (present for NOK items, omitted for OK items)",
+            "examples": [
+              {
+                "detail": [
+                  {
+                    "loc": [
+                      "createdAt"
+                    ],
+                    "msg": "Listing 'abc-123' version '2026-09-07T08:00:00Z' is no longer current",
+                    "type": "conflict_error"
+                  }
+                ]
+              }
+            ]
+          },
+          "listing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ListingResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The listing as it now is (present for OK items, omitted for NOK items)"
+          },
+          "listingId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Listing functional ID provided by the client in the request",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "title": "Listingid"
+          },
+          "listingIndex": {
+            "description": "Zero-based index of this item in the original request list",
+            "examples": [
+              0
+            ],
+            "minimum": 0.0,
+            "title": "Listingindex",
+            "type": "integer"
+          },
+          "status": {
+            "description": "Processing result - `OK` (new listing version created) or `NOK` (failed validation or processing)",
+            "enum": [
+              "OK",
+              "NOK"
+            ],
+            "examples": [
+              "OK"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "listingIndex",
+          "status"
+        ],
+        "title": "ListingAcknowledgement.BulkResultItem",
+        "type": "object"
+      },
+      "ListingAcknowledgementRequest": {
+        "description": "Acknowledgement of a flagged listing, submitted by the platform.",
+        "properties": {
+          "createdAt": {
+            "description": "`createdAt` of the flagged listing version (UTC); refused with `conflict_error` when that version is no longer current",
+            "examples": [
+              "2026-09-07T08:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "listingId": {
+            "description": "Functional ID of the flagged listing (scoped to the authenticated platform)",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Listingid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "listingId",
+          "createdAt"
+        ],
+        "title": "ListingAcknowledgement.Request",
+        "type": "object"
+      },
+      "ListingBulkRequest": {
+        "description": "Bulk listing request schema (`POST /listings/bulk`).",
+        "properties": {
+          "listings": {
+            "description": "Array of listing objects to process (1-1000 items per batch)",
+            "items": {
+              "$ref": "#/components/schemas/ListingRequest"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Listings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "listings"
+        ],
+        "title": "Listing.BulkRequest",
+        "type": "object"
+      },
+      "ListingBulkResponse": {
+        "description": "Bulk listing response schema: per-item OK/NOK feedback with summary counts.",
+        "properties": {
+          "failed": {
+            "description": "Number of items that failed validation or processing (status NOK)",
+            "examples": [
+              0
+            ],
+            "minimum": 0.0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "results": {
+            "description": "Per-item results preserving the original request order",
+            "items": {
+              "$ref": "#/components/schemas/ListingBulkResultItem"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "succeeded": {
+            "description": "Number of items successfully processed (status OK)",
+            "examples": [
+              2
+            ],
+            "minimum": 0.0,
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "totalReceived": {
+            "description": "Total number of items received in the request",
+            "examples": [
+              2
+            ],
+            "minimum": 0.0,
+            "title": "Totalreceived",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalReceived",
+          "succeeded",
+          "failed",
+          "results"
+        ],
+        "title": "Listing.BulkResponse",
+        "type": "object"
+      },
+      "ListingBulkResultItem": {
+        "description": "Result for a single item in a listing bulk response.",
+        "properties": {
+          "errors": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Structured error details (present for NOK items, omitted for OK items)",
+            "examples": [
+              {
+                "detail": [
+                  {
+                    "loc": [
+                      "createdAt"
+                    ],
+                    "msg": "Listing 'abc-123' version '2026-09-07T08:00:00Z' is no longer current",
+                    "type": "conflict_error"
+                  }
+                ]
+              }
+            ]
+          },
+          "listing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ListingResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The listing as it now is (present for OK items, omitted for NOK items)"
+          },
+          "listingId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Listing functional ID provided by the client in the request",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "title": "Listingid"
+          },
+          "listingIndex": {
+            "description": "Zero-based index of this item in the original request list",
+            "examples": [
+              0
+            ],
+            "minimum": 0.0,
+            "title": "Listingindex",
+            "type": "integer"
+          },
+          "status": {
+            "description": "Processing result - `OK` (new listing version created) or `NOK` (failed validation or processing)",
+            "enum": [
+              "OK",
+              "NOK"
+            ],
+            "examples": [
+              "OK"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "listingIndex",
+          "status"
+        ],
+        "title": "Listing.BulkResultItem",
+        "type": "object"
+      },
+      "ListingCountResponse": {
+        "description": "Count of listings response schema.",
+        "properties": {
+          "count": {
+            "description": "Total number of listing records",
+            "examples": [
+              42
+            ],
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "Listing.CountResponse",
+        "type": "object"
+      },
+      "ListingFlag": {
+        "description": "Flag code raised by listing screening, see docs/LISTING_FUNC.md.",
+        "enum": [
+          "ABS",
+          "UNK",
+          "EXP",
+          "MIS",
+          "NPR",
+          "UNX",
+          "UDS"
+        ],
+        "title": "Listing.Flag",
+        "type": "string"
+      },
+      "ListingListResponse": {
+        "description": "List of listings for GET responses.",
+        "properties": {
+          "listings": {
+            "description": "List of listings",
+            "items": {
+              "$ref": "#/components/schemas/ListingResponse"
+            },
+            "title": "Listings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "listings"
+        ],
+        "title": "Listing.ListResponse",
+        "type": "object"
+      },
+      "ListingRequest": {
+        "description": "Listing request schema, submitted by a platform (`POST /listings/bulk`).\n\nListing ID:\n- Optional: If not provided, will be auto-generated (RFC 9562 UUID)\n- Resubmitting the same ID corrects the listing while it is `pending`\n\nConstraints (enforced at database level):\n- Unique constraint: (listingId, platformId, createdAt) for versioning support",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/CommonAddressRequest",
+            "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
+          },
+          "areaId": {
+            "description": "Functional ID referencing the area where the listing is posted",
+            "examples": [
+              "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+              "974e2c23-b666-5044-a05c-9479a4c293a1"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Areaid",
+            "type": "string"
+          },
+          "declaredAsShortTermRental": {
+            "description": "Host self-declaration: `true` when the host declared the listing as a short-term rental",
+            "examples": [
+              true
+            ],
+            "title": "Declaredasshorttermrental",
+            "type": "boolean"
+          },
+          "listingId": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Functional ID identifying the listing (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied). Resubmitting an ID corrects the listing while it is `pending`.",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000",
+              "550E8400-E29B-41D4-A716-446655440000"
+            ],
+            "title": "Listingid"
+          },
+          "listingName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name of the listing (optional, max 64 chars)",
+            "examples": [
+              "Amsterdam Canal Apartment"
+            ],
+            "title": "Listingname"
+          },
+          "registrationNumber": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Registration number shown on the listing (optional, max 32 chars)",
+            "examples": [
+              "REG0001"
+            ],
+            "title": "Registrationnumber"
+          },
+          "url": {
+            "description": "URL referencing the listing online (max 2048 chars)",
+            "examples": [
+              "http://example.com/amsterdam-canal-apartment"
+            ],
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "areaId",
+          "url",
+          "address",
+          "declaredAsShortTermRental"
+        ],
+        "title": "Listing.Request",
+        "type": "object"
+      },
+      "ListingResponse": {
+        "description": "Listing response schema, the same for every audience.",
+        "properties": {
+          "acknowledgedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Timestamp of the acknowledgement (UTC); null until acknowledged",
+            "title": "Acknowledgedat"
+          },
+          "address": {
+            "$ref": "#/components/schemas/CommonAddressResponse",
+            "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
+          },
+          "areaId": {
+            "description": "Functional ID referencing the area where the listing is posted",
+            "examples": [
+              "58ff0814-3aa1-5019-9afb-3cd9f398602c"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Areaid",
+            "type": "string"
+          },
+          "areaName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the area",
+            "title": "Areaname"
+          },
+          "competentAuthorityId": {
+            "description": "Functional ID referencing the competent authority that owns the area",
+            "examples": [
+              "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Competentauthorityid",
+            "type": "string"
+          },
+          "competentAuthorityName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the competent authority",
+            "title": "Competentauthorityname"
+          },
+          "createdAt": {
+            "description": "Timestamp when this listing version was created (UTC); the version token for screening and acknowledgement",
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "declaredAsShortTermRental": {
+            "description": "Host self-declaration: `true` when the host declared the listing as a short-term rental",
+            "title": "Declaredasshorttermrental",
+            "type": "boolean"
+          },
+          "flags": {
+            "description": "Flag codes raised by the screening (empty until screened; non-empty when `flagged` or `acknowledged`)",
+            "examples": [
+              [
+                "UNK"
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ListingFlag"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "listingId": {
+            "description": "Functional ID identifying this listing",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Listingid",
+            "type": "string"
+          },
+          "listingName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the listing",
+            "title": "Listingname"
+          },
+          "platformId": {
+            "description": "Functional ID referencing the platform that submitted the listing",
+            "examples": [
+              "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Platformid",
+            "type": "string"
+          },
+          "platformName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name (optional) of the platform",
+            "title": "Platformname"
+          },
+          "registrationNumber": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Registration number shown on the listing (optional, max 32 chars)",
+            "title": "Registrationnumber"
+          },
+          "screenedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Timestamp of the screening (UTC); null until screened",
+            "title": "Screenedat"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ListingStatus",
+            "description": "Lifecycle status: `pending`, `clear`, `flagged` or `acknowledged`",
+            "examples": [
+              "flagged"
+            ]
+          },
+          "submittedAt": {
+            "description": "Timestamp of the platform's submission (UTC); unchanged by screening and acknowledgement",
+            "format": "date-time",
+            "title": "Submittedat",
+            "type": "string"
+          },
+          "url": {
+            "description": "URL referencing the listing online (max 2048 chars)",
+            "maxLength": 2048,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "listingId",
+          "status",
+          "flags",
+          "areaId",
+          "competentAuthorityId",
+          "url",
+          "address",
+          "declaredAsShortTermRental",
+          "submittedAt",
+          "platformId",
+          "createdAt"
+        ],
+        "title": "Listing.Response",
+        "type": "object"
+      },
+      "ListingStatus": {
+        "description": "Lifecycle status for a listing (random check) record.",
+        "enum": [
+          "pending",
+          "clear",
+          "flagged",
+          "acknowledged"
+        ],
+        "title": "Listing.Status",
+        "type": "string"
+      },
       "Regulation": {
         "description": "Regulation type for an area: 'listing', 'activity', or 'all' (covers both).",
         "enum": [
@@ -1079,7 +1648,12 @@
     }
   },
   "info": {
-    "description": "Endpoints for short-term rental platforms to view areas and to submit activities. Status: beta. Changes from STR v1: activity timestamps must be UTC (offset `Z` or `+00:00`, no date-only values); activities are rejected per item (`regulation_error`) for areas that are regulated for listing only; `GET /areas` returns at most 1000 areas per call (`limit` defaults to 1000); no other changes.",
+    "contact": {
+      "email": "nationaalcoordinatorsdep@minbzk.nl",
+      "name": "Nationaal Coordinator SDEP",
+      "url": "https://minvro.nl/"
+    },
+    "description": "Endpoints for short-term rental platforms to view areas, to submit and acknowledge listings (random checks), and to submit activities. Status: alpha. Changes from STR v1: activity timestamps must be UTC (offset `Z` or `+00:00`; no other offsets, no date-only values); activity `url` and `fullAddress` allow 2048 and 328 characters (v1: 128 and 318); activities are rejected per item (`regulation_error`) for areas that are regulated for listing only; `GET /areas` returns at most 1000 areas per call (`limit` defaults to 1000); adds the listing endpoints for random checks (`POST /listings/bulk`, `GET /listings`, `GET /listings/count`, `POST /listing-acknowledgements/bulk`); no other changes.",
     "title": "SDEP - Short-Term Rental Platform (STR) API",
     "version": "<frozen-version>"
   },
@@ -1087,7 +1661,7 @@
   "paths": {
     "/activities/bulk": {
       "post": {
-        "description": "Submit 1-1000 activities into the activities collection for the currently authenticated platform.\n\n**ID Pattern:**\n- `activityId`: provided by the platform as business identifier (optional), otherwise generated as UUIDv4 (RFC 9562)\n\n**Versioning:**\n- Same `activityId` can be resubmitted \u2192 creates new version with different timestamp\n- Unique constraint: (`activityId`, `createdAt`, current authenticated platform)\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n   Failed items are marked NOK with the error reason; valid items continue.\n2. **Referential Integrity Check** - area IDs are verified. Items with unknown `areaId` are marked NOK; valid items continue.\n   Activities are rejected for areas that are regulated for listing only (`regulation` is `listing`): such items are marked NOK with `regulation_error`.\n3. **Bulk Insert** - all remaining valid items are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `activityId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `activities`: Array of activity objects to process (1-1000 items per batch)\n\n**Each activity item in the request contains:**\n- `activityId`: Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `activityName`: Display name of the activity (optional, max 64 chars)\n- `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `url`: URL of the originating listing/advertisement (max 2048 chars)\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 32 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or `N/A`, uppercase only); array length must equal `numberOfGuests`.\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00`; naive and date-only values are rejected\n\n**The response contains:**\n- `totalReceived`: Total number of items received in the request\n- `succeeded`: Number of items successfully created (status OK)\n- `failed`: Number of items that failed validation or processing (status NOK)\n- `results`: Per-item results preserving the original request order\n\n**Each results item contains:**\n- `activityIndex`: Zero-based index of this item in the original request list\n- `activityId`: Activity functional ID provided by the client in the request\n- `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)\n- `activity`: The full activity object (present for OK items, omitted for NOK items)\n- `errors`: Structured error details (present for NOK items, omitted for OK items)\n\n**The activity object (for the OK items) contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where this activity took place\n- `areaName`: Display name (optional) of the area where this activity took place\n- `competentAuthorityId`: Functional ID of the competent authority that owns the referenced area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 32 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`); array length equals `numberOfGuests`.\n- `temporal`: Temporal composite (startDatetime, endDatetime)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)\n\n**Response HTTP status:**\n- 201: all items created successfully\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 422: all items failed",
+        "description": "Submit 1-1000 activities into the activities collection for the currently authenticated platform.\n\n**ID Pattern:**\n- `activityId`: provided by the platform as business identifier (optional), otherwise generated as UUIDv4 (RFC 9562)\n\n**Versioning:**\n- Same `activityId` can be resubmitted \u2192 creates new version with different timestamp\n- Unique constraint: (`activityId`, `createdAt`, current authenticated platform)\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n   Failed items are marked NOK with the error reason; valid items continue.\n2. **Referential Integrity Check** - area IDs are verified. Items with unknown `areaId` are marked NOK; valid items continue.\n   Activities are rejected for areas that are regulated for listing only (`regulation` is `listing`): such items are marked NOK with `regulation_error`.\n3. **Bulk Insert** - all remaining valid items are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `activityId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `activities`: Array of activity objects to process (1-1000 items per batch)\n\n**Each activity item in the request contains:**\n- `activityId`: Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `activityName`: Display name of the activity (optional, max 64 chars)\n- `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `url`: URL of the originating listing/advertisement (max 2048 chars)\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 32 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or `N/A`, uppercase only); array length must equal `numberOfGuests`.\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00` (e.g. `2025-06-01T14:00:00Z`); rejected are other offsets such as CET (`2025-06-01T15:00:00+01:00`), no offset (`2025-06-01T14:00:00`) and no time (`2025-06-01`)\n\n**The response contains:**\n- `totalReceived`: Total number of items received in the request\n- `succeeded`: Number of items successfully created (status OK)\n- `failed`: Number of items that failed validation or processing (status NOK)\n- `results`: Per-item results preserving the original request order\n\n**Each results item contains:**\n- `activityIndex`: Zero-based index of this item in the original request list\n- `activityId`: Activity functional ID provided by the client in the request\n- `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)\n- `activity`: The full activity object (present for OK items, omitted for NOK items)\n- `errors`: Structured error details (present for NOK items, omitted for OK items)\n\n**The activity object (for the OK items) contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where this activity took place\n- `areaName`: Display name (optional) of the area where this activity took place\n- `competentAuthorityId`: Functional ID of the competent authority that owns the referenced area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 32 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`); array length equals `numberOfGuests`.\n- `temporal`: Temporal composite (startDatetime, endDatetime)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)\n\n**Response HTTP status:**\n- 201: all items created successfully\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 422: all items failed",
         "operationId": "postActivitiesBulkV2",
         "requestBody": {
           "content": {
@@ -1246,7 +1820,7 @@
             "content": {
               "application/json": {
                 "example": {
-                  "failed": 4,
+                  "failed": 5,
                   "results": [
                     {
                       "activity": {
@@ -1381,10 +1955,26 @@
                         ]
                       },
                       "status": "NOK"
+                    },
+                    {
+                      "activityId": "aa4d3955-j74g-96i9-f26b-991100995555",
+                      "activityIndex": 6,
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "areaId"
+                            ],
+                            "msg": "Area with areaId '00c0748b-5782-5d7e-be01-7dd306841d89' is regulated for listing only",
+                            "type": "regulation_error"
+                          }
+                        ]
+                      },
+                      "status": "NOK"
                     }
                   ],
                   "succeeded": 2,
-                  "totalReceived": 6
+                  "totalReceived": 7
                 },
                 "schema": {
                   "$ref": "#/components/schemas/ActivityBulkResponse"
@@ -1776,6 +2366,874 @@
           }
         ],
         "summary": "Get area (shapefile)",
+        "tags": [
+          "str"
+        ]
+      }
+    },
+    "/listing-acknowledgements/bulk": {
+      "post": {
+        "description": "Acknowledge 1-1000 flagged listings (= random check performed). Each acknowledged listing becomes a new `acknowledged` version; its flags are retained. The acknowledgement carries no further data.\n\n**Concurrency:**\n- `createdAt` is the `createdAt` of the flagged version, as returned by `GET /listings`\n- When that version is no longer current (for example, the listing was re-screened), the item is marked NOK with `conflict_error` and `loc` `[\"createdAt\"]`; the listing then reappears in `GET /listings` with its new version\n- A retried acknowledgement fails the same way: treat it as \"already acknowledged\"\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n2. **Referential Integrity Check** - the listing must exist for the currently authenticated platform (`not_found_error`).\n3. **Versioning and Bulk Insert** - the current version is locked and checked (`createdAt` current, status `flagged`), marked ended, and the `acknowledged` versions are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `listingId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `acknowledgements`: Array of acknowledgements to process (1-1000 items per batch)\n\n**Each acknowledgement item in the request contains:**\n- `listingId`: Functional ID of the flagged listing\n- `createdAt`: `createdAt` of the flagged listing version (UTC)\n\n**The response contains:**\n- `totalReceived`, `succeeded`, `failed`: Summary counts\n- `results`: Per-item results preserving the original request order (`listingIndex`, `listingId`, `status`, `listing` for OK items, `errors` for NOK items)\n\n**Response HTTP status:**\n- 201: all items acknowledged\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 422: all items failed",
+        "operationId": "postListingAcknowledgementsBulkV2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "acknowledgements": [
+                  {
+                    "createdAt": "2026-09-08T06:00:00Z",
+                    "listingId": "550e8400-e29b-41d4-a716-446655440000"
+                  }
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ListingAcknowledgementBulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "failed": 2,
+                  "results": [
+                    {
+                      "listing": {
+                        "acknowledgedAt": "2026-09-09T10:00:00Z",
+                        "address": {
+                          "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                          "locatorDesignatorNumber": 263,
+                          "postCode": "1016GV",
+                          "postName": "Amsterdam",
+                          "thoroughfare": "Prinsengracht"
+                        },
+                        "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                        "areaName": "Amsterdam",
+                        "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                        "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                        "createdAt": "2026-09-09T10:00:00Z",
+                        "declaredAsShortTermRental": true,
+                        "flags": [
+                          "UNK"
+                        ],
+                        "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                        "listingName": "Amsterdam Canal Apartment",
+                        "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                        "platformName": "Test STR 01",
+                        "registrationNumber": "REG0001",
+                        "screenedAt": "2026-09-08T06:00:00Z",
+                        "status": "acknowledged",
+                        "submittedAt": "2026-09-07T08:00:00Z",
+                        "url": "http://example.com/amsterdam-canal-apartment"
+                      },
+                      "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                      "listingIndex": 0,
+                      "status": "OK"
+                    },
+                    {
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "createdAt"
+                            ],
+                            "msg": "Listing 'abc-123' version '2026-09-07T08:00:00Z' is no longer current",
+                            "type": "conflict_error"
+                          }
+                        ]
+                      },
+                      "listingId": "abc-123",
+                      "listingIndex": 1,
+                      "status": "NOK"
+                    },
+                    {
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "listingId"
+                            ],
+                            "msg": "Listing 'unknown-id' not found",
+                            "type": "not_found_error"
+                          }
+                        ]
+                      },
+                      "listingId": "unknown-id",
+                      "listingIndex": 2,
+                      "status": "NOK"
+                    }
+                  ],
+                  "succeeded": 1,
+                  "totalReceived": 3
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ListingAcknowledgementBulkResponse"
+                }
+              }
+            },
+            "description": "Partial success - some listings acknowledged, some failed"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "failed": 0,
+                  "results": [
+                    {
+                      "listing": {
+                        "acknowledgedAt": "2026-09-09T10:00:00Z",
+                        "address": {
+                          "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                          "locatorDesignatorNumber": 263,
+                          "postCode": "1016GV",
+                          "postName": "Amsterdam",
+                          "thoroughfare": "Prinsengracht"
+                        },
+                        "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                        "areaName": "Amsterdam",
+                        "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                        "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                        "createdAt": "2026-09-09T10:00:00Z",
+                        "declaredAsShortTermRental": true,
+                        "flags": [
+                          "UNK"
+                        ],
+                        "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                        "listingName": "Amsterdam Canal Apartment",
+                        "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                        "platformName": "Test STR 01",
+                        "registrationNumber": "REG0001",
+                        "screenedAt": "2026-09-08T06:00:00Z",
+                        "status": "acknowledged",
+                        "submittedAt": "2026-09-07T08:00:00Z",
+                        "url": "http://example.com/amsterdam-canal-apartment"
+                      },
+                      "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                      "listingIndex": 0,
+                      "status": "OK"
+                    }
+                  ],
+                  "succeeded": 1,
+                  "totalReceived": 1
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ListingAcknowledgementBulkResponse"
+                }
+              }
+            },
+            "description": "All listings acknowledged"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "failed": 1,
+                  "results": [
+                    {
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "createdAt"
+                            ],
+                            "msg": "Listing 'abc-123' version '2026-09-07T08:00:00Z' is no longer current",
+                            "type": "conflict_error"
+                          }
+                        ]
+                      },
+                      "listingId": "abc-123",
+                      "listingIndex": 0,
+                      "status": "NOK"
+                    }
+                  ],
+                  "succeeded": 0,
+                  "totalReceived": 1
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ListingAcknowledgementBulkResponse"
+                }
+              }
+            },
+            "description": "All acknowledgements failed"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Acknowledge flagged listings in bulk for the currently authenticated platform",
+        "tags": [
+          "str"
+        ]
+      }
+    },
+    "/listings": {
+      "get": {
+        "description": "Get the current listings of the currently authenticated platform that were flagged by the screening and not yet acknowledged (fixed scope: `status` is `flagged`, `acknowledgedAt` is null). Acknowledge them with `POST /listing-acknowledgements/bulk`. Returns at most 1000 listings per request (the default and maximum `limit`). Use the `offset` and `limit` pagination parameters to page through results. Optional filters use AND semantics: every provided filter narrows the result set. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; the other filters are exact-match, except `flags` which matches any of the given codes.\n\n**Each listing contains:**\n- `listingId`: Functional ID identifying this listing\n- `listingName`: Display name (optional) of the listing\n- `status`: Lifecycle status: `pending`, `clear`, `flagged` or `acknowledged`\n- `flags`: Flag codes raised by the screening (`ABS`, `UNK`, `EXP`, `MIS`, `NPR`, `UNX`, `UDS`); empty until screened\n- `areaId`: Functional ID referencing the area where the listing is posted\n- `areaName`: Display name (optional) of the area\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL referencing the listing online\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `declaredAsShortTermRental`: Host self-declaration\n- `registrationNumber`: Registration number shown on the listing (optional)\n- `submittedAt`: Timestamp of the platform's submission (UTC)\n- `screenedAt`: Timestamp of the screening (UTC, null until screened)\n- `acknowledgedAt`: Timestamp of the acknowledgement (UTC, null until acknowledged)\n- `platformId`: Functional ID referencing the platform that submitted the listing\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this listing version was created (UTC); the version token for screening and acknowledgement",
+        "operationId": "getListingsV2",
+        "parameters": [
+          {
+            "description": "Number of records to skip (default: 0)",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of records to skip (default: 0)",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Filter listings whose createdAt timestamp is greater than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter listings whose createdAt timestamp is greater than or equal to this UTC value",
+              "examples": [
+                "2026-09-01T00:00:00Z"
+              ],
+              "title": "Createdatfrom"
+            }
+          },
+          {
+            "description": "Filter listings whose createdAt timestamp is less than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter listings whose createdAt timestamp is less than or equal to this UTC value",
+              "examples": [
+                "2026-09-30T23:59:59Z"
+              ],
+              "title": "Createdatto"
+            }
+          },
+          {
+            "description": "Filter by area functional ID",
+            "in": "query",
+            "name": "areaId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area functional ID",
+              "examples": [
+                "58ff0814-3aa1-5019-9afb-3cd9f398602c"
+              ],
+              "title": "Areaid"
+            }
+          },
+          {
+            "description": "Filter by competent authority functional ID",
+            "in": "query",
+            "name": "competentAuthorityId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by competent authority functional ID",
+              "examples": [
+                "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+              ],
+              "title": "Competentauthorityid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "listings": [
+                    {
+                      "address": {
+                        "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                        "locatorDesignatorNumber": 263,
+                        "postCode": "1016GV",
+                        "postName": "Amsterdam",
+                        "thoroughfare": "Prinsengracht"
+                      },
+                      "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                      "areaName": "Amsterdam",
+                      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                      "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                      "createdAt": "2026-09-08T06:00:00Z",
+                      "declaredAsShortTermRental": true,
+                      "flags": [
+                        "UNK"
+                      ],
+                      "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                      "listingName": "Amsterdam Canal Apartment",
+                      "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                      "platformName": "Test STR 01",
+                      "registrationNumber": "REG0001",
+                      "screenedAt": "2026-09-08T06:00:00Z",
+                      "status": "flagged",
+                      "submittedAt": "2026-09-07T08:00:00Z",
+                      "url": "http://example.com/amsterdam-canal-apartment"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ListingListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request - invalid query parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get the flagged listings of the currently authenticated platform",
+        "tags": [
+          "str"
+        ]
+      }
+    },
+    "/listings/bulk": {
+      "post": {
+        "description": "Submit 1-1000 randomly selected listings for screening (random checks, see the functional design). Every submitted listing starts `pending`; the listing screening authority sets it to `clear` or `flagged`, and the platform acknowledges flagged listings via `POST /listing-acknowledgements/bulk`.\n\n**ID Pattern:**\n- `listingId`: provided by the platform as business identifier (optional), otherwise generated as UUIDv4 (RFC 9562)\n\n**Versioning:**\n- Same `listingId` can be resubmitted while the listing is `pending` \u2192 creates a new `pending` version (a correction)\n- A listing that is already screened (`clear`, `flagged`, `acknowledged`) cannot be corrected: such items are marked NOK with `conflict_error`. Submit it under a new `listingId` instead (a new random check)\n- Unique constraint: (`listingId`, `createdAt`, current authenticated platform)\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n   Failed items are marked NOK with the error reason; valid items continue.\n2. **Referential Integrity Check** - area IDs are verified. Items with unknown `areaId` are marked NOK (`not_found_error`).\n   Listings are rejected for areas that are regulated for activity only (`regulation` is `activity`): such items are marked NOK with `regulation_error`.\n3. **Versioning and Bulk Insert** - the current version is locked and checked (`pending`), marked ended, and all remaining valid items are inserted as new versions in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `listingId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `listings`: Array of listing objects to process (1-1000 items per batch)\n\n**Each listing item in the request contains:**\n- `listingId`: Functional ID identifying the listing (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `listingName`: Display name of the listing (optional, max 64 chars)\n- `areaId`: Functional ID referencing the area where the listing is posted\n- `url`: URL referencing the listing online (max 2048 chars)\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `declaredAsShortTermRental`: Host self-declaration (`true` or `false`)\n- `registrationNumber`: Registration number shown on the listing (optional, max 32 chars)\n\n**The response contains:**\n- `totalReceived`: Total number of items received in the request\n- `succeeded`: Number of items successfully created (status OK)\n- `failed`: Number of items that failed validation or processing (status NOK)\n- `results`: Per-item results preserving the original request order\n\n**Each results item contains:**\n- `listingIndex`: Zero-based index of this item in the original request list\n- `listingId`: Listing functional ID provided by the client in the request\n- `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)\n- `listing`: The listing as it now is (present for OK items, omitted for NOK items), see `GET /listings` for its fields\n- `errors`: Structured error details (present for NOK items, omitted for OK items)\n\n**Response HTTP status:**\n- 201: all items created successfully\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 422: all items failed",
+        "operationId": "postListingsBulkV2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "listings": [
+                  {
+                    "address": {
+                      "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                      "locatorDesignatorNumber": 263,
+                      "postCode": "1016GV",
+                      "postName": "Amsterdam",
+                      "thoroughfare": "Prinsengracht"
+                    },
+                    "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                    "declaredAsShortTermRental": true,
+                    "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                    "listingName": "Amsterdam Canal Apartment",
+                    "registrationNumber": "REG0001",
+                    "url": "http://example.com/amsterdam-canal-apartment"
+                  },
+                  {
+                    "address": {
+                      "fullAddress": "Wilhelminakade 50, 3072AP Rotterdam",
+                      "locatorDesignatorNumber": 50,
+                      "postCode": "3072AP",
+                      "postName": "Rotterdam",
+                      "thoroughfare": "Wilhelminakade"
+                    },
+                    "areaId": "974e2c23-b666-5044-a05c-9479a4c293a1",
+                    "declaredAsShortTermRental": false,
+                    "listingName": "Rotterdam Harbor View",
+                    "url": "http://example.com/rotterdam-harbor-view"
+                  },
+                  {
+                    "address": {
+                      "fullAddress": "Herestraat 20, 9711LA Groningen",
+                      "locatorDesignatorNumber": 20,
+                      "postCode": "9711LA",
+                      "postName": "Groningen",
+                      "thoroughfare": "Herestraat"
+                    },
+                    "areaId": "00000000-0000-0000-0000-000000000000",
+                    "declaredAsShortTermRental": true,
+                    "listingId": "882b1733-h52e-74g7-d049-779988773333",
+                    "listingName": "Groningen Loft",
+                    "url": "http://example.com/groningen-loft"
+                  }
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ListingBulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "failed": 3,
+                  "results": [
+                    {
+                      "listing": {
+                        "address": {
+                          "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                          "locatorDesignatorNumber": 263,
+                          "postCode": "1016GV",
+                          "postName": "Amsterdam",
+                          "thoroughfare": "Prinsengracht"
+                        },
+                        "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                        "areaName": "Amsterdam",
+                        "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                        "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                        "createdAt": "2026-09-07T08:00:00Z",
+                        "declaredAsShortTermRental": true,
+                        "flags": [],
+                        "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                        "listingName": "Amsterdam Canal Apartment",
+                        "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                        "platformName": "Test STR 01",
+                        "registrationNumber": "REG0001",
+                        "status": "pending",
+                        "submittedAt": "2026-09-07T08:00:00Z",
+                        "url": "http://example.com/amsterdam-canal-apartment"
+                      },
+                      "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                      "listingIndex": 0,
+                      "status": "OK"
+                    },
+                    {
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "declaredAsShortTermRental"
+                            ],
+                            "msg": "Field required",
+                            "type": "missing"
+                          }
+                        ]
+                      },
+                      "listingIndex": 1,
+                      "status": "NOK"
+                    },
+                    {
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "areaId"
+                            ],
+                            "msg": "Area with areaId '00000000-0000-0000-0000-000000000000' not found",
+                            "type": "not_found_error"
+                          }
+                        ]
+                      },
+                      "listingId": "882b1733-h52e-74g7-d049-779988773333",
+                      "listingIndex": 2,
+                      "status": "NOK"
+                    },
+                    {
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "listingId"
+                            ],
+                            "msg": "Listing '993c2844-i63f-85h8-e15a-880099884444' is already screened (status 'flagged')",
+                            "type": "conflict_error"
+                          }
+                        ]
+                      },
+                      "listingId": "993c2844-i63f-85h8-e15a-880099884444",
+                      "listingIndex": 3,
+                      "status": "NOK"
+                    }
+                  ],
+                  "succeeded": 1,
+                  "totalReceived": 4
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ListingBulkResponse"
+                }
+              }
+            },
+            "description": "Partial success - some listings created, some failed"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "failed": 0,
+                  "results": [
+                    {
+                      "listing": {
+                        "address": {
+                          "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
+                          "locatorDesignatorNumber": 263,
+                          "postCode": "1016GV",
+                          "postName": "Amsterdam",
+                          "thoroughfare": "Prinsengracht"
+                        },
+                        "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+                        "areaName": "Amsterdam",
+                        "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+                        "competentAuthorityName": "Amsterdam (inclusief Weesp)",
+                        "createdAt": "2026-09-07T08:00:00Z",
+                        "declaredAsShortTermRental": true,
+                        "flags": [],
+                        "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                        "listingName": "Amsterdam Canal Apartment",
+                        "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                        "platformName": "Test STR 01",
+                        "registrationNumber": "REG0001",
+                        "status": "pending",
+                        "submittedAt": "2026-09-07T08:00:00Z",
+                        "url": "http://example.com/amsterdam-canal-apartment"
+                      },
+                      "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                      "listingIndex": 0,
+                      "status": "OK"
+                    },
+                    {
+                      "listing": {
+                        "address": {
+                          "fullAddress": "Wilhelminakade 50, 3072AP Rotterdam",
+                          "locatorDesignatorNumber": 50,
+                          "postCode": "3072AP",
+                          "postName": "Rotterdam",
+                          "thoroughfare": "Wilhelminakade"
+                        },
+                        "areaId": "974e2c23-b666-5044-a05c-9479a4c293a1",
+                        "areaName": "Rotterdam",
+                        "competentAuthorityId": "a30df3a7-7e38-534c-b9c0-7666bad077d2",
+                        "competentAuthorityName": "Rotterdam",
+                        "createdAt": "2026-09-07T08:00:00Z",
+                        "declaredAsShortTermRental": false,
+                        "flags": [],
+                        "listingId": "1d1a7f0c-2b4e-4a63-9c0f-7c1e5b2a9d10",
+                        "listingName": "Rotterdam Harbor View",
+                        "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+                        "platformName": "Test STR 01",
+                        "status": "pending",
+                        "submittedAt": "2026-09-07T08:00:00Z",
+                        "url": "http://example.com/rotterdam-harbor-view"
+                      },
+                      "listingIndex": 1,
+                      "status": "OK"
+                    }
+                  ],
+                  "succeeded": 2,
+                  "totalReceived": 2
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ListingBulkResponse"
+                }
+              }
+            },
+            "description": "All listings created successfully"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "failed": 1,
+                  "results": [
+                    {
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "areaId"
+                            ],
+                            "msg": "Area with areaId '00000000-0000-0000-0000-000000000000' not found",
+                            "type": "not_found_error"
+                          }
+                        ]
+                      },
+                      "listingId": "550e8400-e29b-41d4-a716-446655440000",
+                      "listingIndex": 0,
+                      "status": "NOK"
+                    }
+                  ],
+                  "succeeded": 0,
+                  "totalReceived": 1
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ListingBulkResponse"
+                }
+              }
+            },
+            "description": "All listings failed validation"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Submit randomly selected listings in bulk for the currently authenticated platform",
+        "tags": [
+          "str"
+        ]
+      }
+    },
+    "/listings/count": {
+      "get": {
+        "description": "Get the count of the current flagged listings of the currently authenticated platform (optional, to support pagination). Optional filters use AND semantics: every provided filter narrows the result set. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; the other filters are exact-match, except `flags` which matches any of the given codes.",
+        "operationId": "countListingsV2",
+        "parameters": [
+          {
+            "description": "Filter listings whose createdAt timestamp is greater than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter listings whose createdAt timestamp is greater than or equal to this UTC value",
+              "examples": [
+                "2026-09-01T00:00:00Z"
+              ],
+              "title": "Createdatfrom"
+            }
+          },
+          {
+            "description": "Filter listings whose createdAt timestamp is less than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter listings whose createdAt timestamp is less than or equal to this UTC value",
+              "examples": [
+                "2026-09-30T23:59:59Z"
+              ],
+              "title": "Createdatto"
+            }
+          },
+          {
+            "description": "Filter by area functional ID",
+            "in": "query",
+            "name": "areaId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area functional ID",
+              "examples": [
+                "58ff0814-3aa1-5019-9afb-3cd9f398602c"
+              ],
+              "title": "Areaid"
+            }
+          },
+          {
+            "description": "Filter by competent authority functional ID",
+            "in": "query",
+            "name": "competentAuthorityId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by competent authority functional ID",
+              "examples": [
+                "c4ac8ccf-a281-5789-bad7-28dfac20ca7f"
+              ],
+              "title": "Competentauthorityid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request - invalid query parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - an unexpected issue occurred that prevented the request from being completed"
+          },
+          "503": {
+            "description": "Service Unavailable - temporarily unable to process requests due to overload, maintenance, or dependency issues (database/authorization server)"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get the count of flagged listings of the currently authenticated platform (optional, to support pagination)",
         "tags": [
           "str"
         ]

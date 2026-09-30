@@ -73,8 +73,8 @@
           "areaId": {
             "description": "Functional ID referencing the area where this activity took place",
             "examples": [
-              "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
-              "3AB7C2B9-5C8D-4100-BC3E-00AC115F0495"
+              "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+              "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
             ],
             "maxLength": 64,
             "minLength": 1,
@@ -569,7 +569,12 @@
     }
   },
   "info": {
-    "description": "Endpoints for competent authorities to manage areas and to view activities. Status: stable. Superseded by CA v2 (beta).",
+    "contact": {
+      "email": "nationaalcoordinatorsdep@minbzk.nl",
+      "name": "Nationaal Coordinator SDEP",
+      "url": "https://minvro.nl/"
+    },
+    "description": "Endpoints for competent authorities to manage areas and to view activities. Status: stable. Superseded by CA v2 (alpha).",
     "title": "SDEP - Competent Authority (CA) API",
     "version": "<frozen-version>"
   },
@@ -577,7 +582,7 @@
   "paths": {
     "/activities": {
       "get": {
-        "description": "Get activities for the currently authenticated competent authority. By default, returns all current activities (unlimited), including current records whose lifecycle `status` is `cancelled`. Use optional pagination parameters to limit results.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `areaName`: Display name (optional) of the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
+        "description": "Get activities for the currently authenticated competent authority, maximum 1000 per page, including current records whose lifecycle `status` is `cancelled`. `limit` defaults to 1000 (the maximum); use `offset` and `limit` to page through the result set, and `GET /activities/count` for the total. Optional filters use AND semantics: every provided filter narrows the result set within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters.\n\n**Each activity contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `areaName`: Display name (optional) of the area where the activity took place\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)",
         "operationId": "getActivityByCompetentAuthority",
         "parameters": [
           {
@@ -594,23 +599,109 @@
             }
           },
           {
-            "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtFrom",
+            "required": false,
+            "schema": {
               "anyOf": [
                 {
-                  "maximum": 1000,
-                  "minimum": 1,
-                  "type": "integer"
+                  "format": "date-time",
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
-              "title": "Limit"
+              "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
+              "examples": [
+                "2025-06-01T00:00:00Z"
+              ],
+              "title": "Createdatfrom"
+            }
+          },
+          {
+            "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
+              "examples": [
+                "2025-06-30T23:59:59Z"
+              ],
+              "title": "Createdatto"
+            }
+          },
+          {
+            "description": "Filter by platform functional ID",
+            "in": "query",
+            "name": "platformId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by platform functional ID",
+              "examples": [
+                "sdep-str01"
+              ],
+              "title": "Platformid"
+            }
+          },
+          {
+            "description": "Filter by area functional ID",
+            "in": "query",
+            "name": "areaId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area functional ID",
+              "examples": [
+                "959a7439-7cad-4009-96ec-353b44723db9"
+              ],
+              "title": "Areaid"
             }
           }
         ],
@@ -704,8 +795,102 @@
     },
     "/activities/count": {
       "get": {
-        "description": "Get activities count for the currently authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`.",
+        "description": "Get activities count for the currently authenticated competent authority (optional, to support pagination). Counts all current activity records, including those whose lifecycle `status` is `cancelled`. Optional filters use AND semantics: every provided filter narrows the count within the authenticated CA scope. The `createdAtFrom` and `createdAtTo` form an inclusive `createdAt` range; `platformId` and `areaId` are exact-match filters.",
         "operationId": "countActivities",
+        "parameters": [
+          {
+            "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is greater than or equal to this UTC value",
+              "examples": [
+                "2025-06-01T00:00:00Z"
+              ],
+              "title": "Createdatfrom"
+            }
+          },
+          {
+            "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
+            "in": "query",
+            "name": "createdAtTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter activities whose createdAt timestamp is less than or equal to this UTC value",
+              "examples": [
+                "2025-06-30T23:59:59Z"
+              ],
+              "title": "Createdatto"
+            }
+          },
+          {
+            "description": "Filter by platform functional ID",
+            "in": "query",
+            "name": "platformId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by platform functional ID",
+              "examples": [
+                "sdep-str01"
+              ],
+              "title": "Platformid"
+            }
+          },
+          {
+            "description": "Filter by area functional ID",
+            "in": "query",
+            "name": "areaId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area functional ID",
+              "examples": [
+                "959a7439-7cad-4009-96ec-353b44723db9"
+              ],
+              "title": "Areaid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -750,7 +935,7 @@
     },
     "/areas": {
       "get": {
-        "description": "Get all areas owned by the currently authenticated competent authority. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.\n\n**Scoping:**\n- Only returns areas belonging to the currently authenticated competent authority (based on JWT client_id)\n\n**Each area contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type: 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID of the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)\n\n**Pagination:**\n- `offset`: Number of records to skip (default: 0)\n- `limit`: Maximum number of records to return (default: unlimited)",
+        "description": "Get all areas owned by the currently authenticated competent authority, maximum 1000 per page. `limit` defaults to 1000 (the maximum); use `offset` and `limit` to page through the result set, and `GET /areas/count` for the total.\n\n**Scoping:**\n- Only returns areas belonging to the currently authenticated competent authority (based on JWT client_id)\n\n**Each area contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type: 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID of the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)\n\n**Pagination:**\n- `offset`: Number of records to skip (default: 0)\n- `limit`: Maximum number of records to return (default: 1000, max: 1000)",
         "operationId": "getOwnAreas",
         "parameters": [
           {
@@ -767,23 +952,17 @@
             }
           },
           {
-            "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "maximum": 1000,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
-              "title": "Limit"
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
             }
           }
         ],

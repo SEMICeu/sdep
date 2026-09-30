@@ -10,11 +10,28 @@ from fastapi import FastAPI
 
 from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common_app import app_common
-from app.api.domain_registry import AUTH_V1, CA_V1, CA_V2, REP_V1, STR_V1, STR_V2
+from app.api.domain_registry import (
+    AMA_V1,
+    AUTH_V1,
+    CA_V1,
+    CA_V2,
+    LMA_V2,
+    LSA_V2,
+    STA_V1,
+    STA_V2,
+    STR_V1,
+    STR_V2,
+    ApiDomain,
+    is_served,
+)
+from app.api.domains.ama.v1 import app_ama_v1
 from app.api.domains.auth.v1 import app_auth_v1
 from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.ca.v2 import app_ca_v2
-from app.api.domains.rep.v1 import app_rep_v1
+from app.api.domains.lma.v2 import app_lma_v2
+from app.api.domains.lsa.v2 import app_lsa_v2
+from app.api.domains.sta.v1 import app_sta_v1
+from app.api.domains.sta.v2 import app_sta_v2
 from app.api.domains.str.v1 import app_str_v1
 from app.api.domains.str.v2 import app_str_v2
 from app.config import settings
@@ -53,7 +70,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 # Create FastAPI application instance
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, redirect_slashes=False)
 
 # ============================================================================
 # EXCEPTION HANDLERS
@@ -123,19 +140,39 @@ app.add_middleware(
         "form-action 'self'"
     ),
     enable_hsts=True,
+    api_version=settings.api_version,
 )
 
 # ============================================================================
 # MOUNT SUB-APPLICATIONS
 # ============================================================================
 
-# Mount domain sub-applications (most specific paths first)
-app.mount(AUTH_V1.root_path, app_auth_v1)
-app.mount(CA_V1.root_path, app_ca_v1)
-app.mount(CA_V2.root_path, app_ca_v2)
-app.mount(STR_V1.root_path, app_str_v1)
-app.mount(STR_V2.root_path, app_str_v2)
-app.mount(REP_V1.root_path, app_rep_v1)
+# Every domain version with its sub-app, in mount order (most specific paths first).
+DOMAIN_APPS: tuple[tuple[ApiDomain, FastAPI], ...] = (
+    (AUTH_V1, app_auth_v1),
+    (CA_V1, app_ca_v1),
+    (CA_V2, app_ca_v2),
+    (STR_V1, app_str_v1),
+    (STR_V2, app_str_v2),
+    (LSA_V2, app_lsa_v2),
+    (LMA_V2, app_lma_v2),
+    (AMA_V1, app_ama_v1),
+    (STA_V1, app_sta_v1),
+    (STA_V2, app_sta_v2),
+)
+
+
+def mount_domain_apps(root_app: FastAPI) -> None:
+    """Mount the served versions only: an unserved (alpha) version is a plain 404.
+
+    See is_served() in app/api/domain_registry.py.
+    """
+    for domain, domain_app in DOMAIN_APPS:
+        if is_served(domain):
+            root_app.mount(domain.root_path, domain_app)
+
+
+mount_domain_apps(app)
 
 # Mount version-independent sub-application last (broader path)
 app.mount("/api", app_common)

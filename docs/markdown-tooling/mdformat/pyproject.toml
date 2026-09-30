@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mdformat-house"
+version = "0.1.0"
+description = "SDEP house-style overrides for mdformat (renders thematic breaks as '---')"
+requires-python = ">=3.9"
+dependencies = ["mdformat"]
+
+[tool.hatch.build.targets.wheel]
+include = ["mdformat_house.py"]
+
+[project.entry-points."mdformat.parser_extension"]
+house = "mdformat_house"

@@ -3,14 +3,14 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.common.auth_dependencies import RequireRoles
-from app.api.common.pagination import PaginationDependency
-from app.api.common.security import Role
-from app.api.domains.str.routers.areas_docs import (
+from app.api.common.area_examples import (
     AREAS_DESCRIPTION_V1,
     AREAS_RESPONSES,
     AREAS_SUMMARY,
 )
+from app.api.common.auth_dependencies import RequireRoles
+from app.api.common.pagination import PaginationDependency
+from app.api.common.security import Role
 from app.db.config import get_async_db_read_only
 from app.schemas.area import AreaListResponse, AreaResponse
 from app.services import area

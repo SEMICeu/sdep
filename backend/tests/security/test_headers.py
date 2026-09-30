@@ -3,7 +3,11 @@
 Tests XSS protection, output encoding, and OWASP security headers compliance.
 """
 
+import re
+
 import pytest
+from app.api.domain_registry import API_DOMAINS
+from app.config import settings
 from app.main import app
 from httpx import ASGITransport, AsyncClient
 
@@ -22,6 +26,19 @@ class TestSecurityHeadersMiddleware:
             assert response.status_code == 200
             assert "X-Frame-Options" in response.headers
             assert "X-Content-Type-Options" in response.headers
+
+    async def test_every_response_carries_the_api_version(self):
+        """NLgov `/core/version-header`: the full semantic version on every response,
+        including errors and the unversioned paths; the contract major stays in the path."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            for path in ("/", "/api/health", "/api/ping", "/api/str/v1/areas", "/nope"):
+                response = await client.get(path)
+
+                assert response.headers["API-Version"] == settings.api_version, path
+                assert re.fullmatch(
+                    r"\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?", response.headers["API-Version"]
+                ), path
 
     async def test_api_endpoint_has_comprehensive_headers(self):
         """Test that API endpoints have comprehensive security headers."""
@@ -130,6 +147,19 @@ class TestSecurityHeadersMiddleware:
             cache_control = response.headers.get("Cache-Control", "")
             assert "no-store" in cache_control or "no-cache" in cache_control
             assert response.headers.get("Pragma") == "no-cache"
+
+    async def test_every_domain_is_sensitive(self):
+        """Every domain version in API_DOMAINS gets the no-cache headers."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            for domain in API_DOMAINS:
+                response = await client.get(domain.openapi_path)
+
+                cache_control = response.headers.get("Cache-Control", "")
+                assert "no-store" in cache_control, (
+                    f"Missing no-store on {domain.label}"
+                )
+                assert response.headers.get("Pragma") == "no-cache"
 
     async def test_hsts_enabled(self):
         """Test that HSTS is enabled as defense-in-depth."""
@@ -319,12 +349,7 @@ class TestRouteSpecificCSP:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             for path in [
-                "/api/auth/v1/docs",
-                "/api/ca/v1/docs",
-                "/api/ca/v2/docs",
-                "/api/str/v1/docs",
-                "/api/str/v2/docs",
-                "/api/rep/v1/docs",
+                *(domain.docs_path for domain in API_DOMAINS),
                 "/api/ping/docs",
             ]:
                 response = await client.get(path)

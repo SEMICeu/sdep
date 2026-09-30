@@ -1,15 +1,16 @@
-<h1>Integration Test Scripts</h1>
+<h1>Integration test scripts</h1>
 
 The [../tests](../tests) directory contains standalone Python scripts for integration testing the SDEP (Single Digital Entry Point) API endpoints.
 
 These tests verify API functionality, authentication, authorization, and security compliance.
 
-- [Running Tests](#running-tests)
+- [Running tests](#running-tests)
 - [Configuration](#configuration)
   - [Credentials](#credentials)
-  - [Bearer Tokens](#bearer-tokens)
-  - [Exit Codes](#exit-codes)
-  - [Test Data Lifecycle](#test-data-lifecycle)
+  - [Bearer tokens](#bearer-tokens)
+  - [Exit codes](#exit-codes)
+  - [Test data lifecycle](#test-data-lifecycle)
+  - [API versions](#api-versions)
 - [Coverage](#coverage)
   - [`test-smoke`](#test-smoke)
   - [`test-full`](#test-full)
@@ -17,16 +18,19 @@ These tests verify API functionality, authentication, authorization, and securit
   - [`test-full-verbose`](#test-full-verbose)
   - [`test-ca`](#test-ca)
   - [`test-str`](#test-str)
-  - [`test-rep`](#test-rep)
+  - [`test-sta`](#test-sta)
+  - [`test-lsa`](#test-lsa)
+  - [`test-lma`](#test-lma)
+  - [`test-ama`](#test-ama)
   - [`test-security`](#test-security)
   - [`test-migrations`](#test-migrations)
   - [`test-malware`](#test-malware)
-- [Helper Scripts](#helper-scripts)
+- [Helper scripts](#helper-scripts)
   - [`test_auth_client_bootstrap.py`](#test_auth_client_bootstrappy)
   - [`test_health_ping.py`](#test_health_pingpy)
   - [`lib/create_fixture_areas.py`](#libcreate_fixture_areaspy)
 
-## Running Tests
+## Running tests
 
 See [../Makefile](../Makefile).
 
@@ -52,15 +56,33 @@ The Makefile retrieves secrets dynamically via `get_client_secret`:
 - **Roles:** `sdep_str`, `sdep_write`, `sdep_read`
 - **Can access:** STR platform endpoints
 
-**Reporting / Statistics Office (REP)**
+**Statistics Authority (STA)**
 
-- **Client ID:** `sdep-test-rep.01`
-- **Roles:** `sdep_rep`, `sdep_read` (read-only, no write role)
-- **Can access:** REP endpoints
+- **Client ID:** `sdep-test-sta.01`
+- **Roles:** `sdep_sta`, `sdep_read` (read-only, no write role)
+- **Can access:** STA endpoints
+
+**Listing Screening Authority (LSA)**
+
+- **Client ID:** `sdep-test-lsa.01`
+- **Roles:** `sdep_lsa`, `sdep_write`, `sdep_read`
+- **Can access:** LSA endpoints
+
+**Listing Monitoring Authority (LMA)**
+
+- **Client ID:** `sdep-test-lma.01`
+- **Roles:** `sdep_lma`, `sdep_read` (read-only, no write role)
+- **Can access:** LMA endpoints
+
+**Activity Monitoring Authority (AMA)**
+
+- **Client ID:** `sdep-test-ama.01`
+- **Roles:** `sdep_ama`, `sdep_read` (read-only, no write role)
+- **Can access:** AMA endpoints
 
 ---
 
-### Bearer Tokens
+### Bearer tokens
 
 - Tokens are saved to `./tmp/.bearer_token` by `test_auth_client_bootstrap.py`
 - Other scripts automatically load tokens from this file
@@ -68,7 +90,7 @@ The Makefile retrieves secrets dynamically via `get_client_secret`:
 
 ---
 
-### Exit Codes
+### Exit codes
 
 All test scripts follow standard Unix exit codes:
 
@@ -77,7 +99,7 @@ All test scripts follow standard Unix exit codes:
 
 ---
 
-### Test Data Lifecycle
+### Test data lifecycle
 
 Everything a test run creates is named `sdep-test-*` and owned by the `sdep-test-*` machine clients, and [`postgres/clean-testrun.sql`](../postgres/clean-testrun.sql) removes exactly that. One shared SQL file serves both the integration and the performance runner, so the cleanup never distinguishes between the two kinds of data.
 
@@ -94,6 +116,34 @@ Note that two of the four deletes match on the functional id (`area_id` / `activ
 
 `clean-testrun.sql` never removes `audit_log` rows. An empty entity count alongside a populated audit log is the normal result of a clean-up, not a defect.
 
+---
+
+### API versions
+
+A versioned test runs once per API version that exists, so older versions stay tested (backwards compatibility).
+
+- [`tests/api-versions.txt`](../tests/api-versions.txt) lists the versions per test, one line per test
+- `scripts/api-versions.sh <test>` prints them; the Makefile (`run_versioned_test`) and the deployment test runner both read the list through this script
+- The runner passes each version to the test as `API_VERSION`
+- A test that is not listed fails, it is never skipped
+- A new API version means one changed line in that file, for both runners
+
+| Test                                                           | Versions | Note                                                        |
+| -------------------------------------------------------------- | -------- | ----------------------------------------------------------- |
+| `test_auth_headers`                                            | v1, v2   | Headers of the CA OpenAPI document and Swagger UI           |
+| `test_ca_areas`                                                | v1, v2   |                                                             |
+| `test_ca_activities`                                           | v1, v2   | v1 and v2 declare the query filters                         |
+| `test_ca_listings`                                             | v2       | Listings exist only in v2                                   |
+| `test_str_areas`                                               | v1, v2   | v2 defaults `limit` to 1000                                 |
+| `test_str_activities_bulk`                                     | v1, v2   | v2 requires UTC timestamps                                  |
+| `test_str_listings`                                            | v2       | Listings exist only in v2                                   |
+| `test_sta_*`, `test_lsa_*`, `test_lma_*`, `test_ama_*`         | v1       | One version per API today                                   |
+| `test_reference_data`                                          | v1, v2   | Domain from the token role; skips a version that lacks it   |
+| `test_auth_client_secret`, `test_auth_client_jwt`              | v1       | Not listed: the auth API has one version                    |
+| `test_smoketest`, `test_health_ping`, `test_auth_unauthorized` | -        | Not versioned: they cover the versions they need themselves |
+
+Version-specific checks in a test compare against `v1` (`api_version != "v1"`). A newer version therefore gets the v2 checks, which is correct as long as each version only adds endpoints to the one before.
+
 ## Coverage
 
 ### `test-smoke`
@@ -105,6 +155,7 @@ Smoke test for audit-excluded endpoints (SKIP_PATHS).
 **What it tests:**
 
 - All audit-excluded, unauthenticated endpoints return HTTP 200
+- With `API_ALPHA_ENABLED=false` (PRD), the alpha endpoints return HTTP 404 instead, see the API versioning [design](./API_TECH.md#design)
 - Safe for production: read-only, no authentication, no test data
 
 **Endpoints tested:**
@@ -114,16 +165,17 @@ Smoke test for audit-excluded endpoints (SKIP_PATHS).
 - `/api/health` - Health check
 - `/api/auth/v1/openapi.json` - Auth OpenAPI spec
 - `/api/auth/v1/docs` - Auth Swagger UI
-- `/api/ca/v1/openapi.json` - CA OpenAPI spec (v1)
-- `/api/ca/v1/docs` - CA Swagger UI (v1)
-- `/api/ca/v2/openapi.json` - CA OpenAPI spec (v2, with activity filters)
-- `/api/ca/v2/docs` - CA Swagger UI (v2)
-- `/api/str/v1/openapi.json` - STR OpenAPI spec
-- `/api/str/v1/docs` - STR Swagger UI
+- `/api/ca/v{1,2,3}/openapi.json` and `/docs` - CA OpenAPI spec and Swagger UI per version
+- `/api/str/v{1,2,3}/openapi.json` and `/docs` - STR OpenAPI spec and Swagger UI per version
+- `/api/{lsa,lma,ama,sta}/v1/openapi.json` and `/docs` - the v1 spec and Swagger UI of the other domains
 
 **Required environment variables:**
 
 - `BACKEND_BASE_URL` - API base URL
+
+**Optional environment variables:**
+
+- `API_ALPHA_ENABLED` - `false` for PRD (default `true`)
 
 ---
 
@@ -149,7 +201,7 @@ Test fullstack (verbose). Runs all suites below via `scripts/run-tests.sh` with 
 
 Test CA (Competent Authority) endpoints.
 
-**Scripts:** `test_ca_areas.py`, `test_ca_activities.py`
+**Scripts:** `test_ca_areas.py`, `test_ca_listings.py`, `test_ca_activities.py`
 
 ---
 
@@ -196,9 +248,17 @@ Test CA (Competent Authority) endpoints.
 
 ---
 
+**`test_ca_listings.py`**
+
+**Tests:** the same tests as `test_sta_listings.py`, against `GET /ca/v2/listings` and `GET /ca/v2/listings/count` (fixed scope: acknowledged listings in the authority's own areas; role isolation with an STR token)
+
+**Authentication:** Requires CA client credentials (token loaded from `./tmp/.bearer_token`)
+
+---
+
 **`test_ca_activities.py`**
 
-`make test-ca` runs this script twice, with `API_VERSION=v1` and `API_VERSION=v2`. Tests 6-10 discover a sample activity (`?limit=1`) and derive the filter values from it, so no IDs are hard-coded; with no data they pass with a note.
+`make test-ca` runs this script once per version (v1, v2, see [API versions](#api-versions)). Tests 6-10 discover a sample activity (`?limit=1`) and derive the filter values from it, so no IDs are hard-coded; with no data they pass with a note.
 
 **Tests:**
 
@@ -211,13 +271,10 @@ Test CA (Competent Authority) endpoints.
 - **Test 7:** Filter by `platformId`
 - **Test 8:** Filter by `createdAtFrom` / `createdAtTo` (both equal to the sample's `createdAt`)
 - **Test 9:** Non-matching `areaId` filter
-- **Test 10:** `/count` with filter equals the length of the filtered list
+- **Test 10:** `/count` with filter matches the length of the filtered list (one page, max 1000)
 - **Test 11:** Pagination consistency (offset and limit work correctly)
 
-Tests 6-10 behave per version, matching the "filters are declared per audience" rule:
-
-- `v1` - filters are not declared: the query parameter must be ignored, so the filtered count equals the unfiltered count (Test 10 is not applicable and passes with a note)
-- `v2` - filters are declared: every returned activity matches the filter and the sample is among them; a non-matching filter returns an empty list
+Tests 6-10 behave the same in both versions: every returned activity matches the filter and the sample is among them; a non-matching filter returns an empty list.
 
 **Endpoints:**
 
@@ -235,7 +292,7 @@ Tests 6-10 behave per version, matching the "filters are declared per audience" 
 
 Test STR (Short-Term Rental) platform endpoints.
 
-**Scripts:** `test_str_areas.py`, `test_str_activities_bulk.py`
+**Scripts:** `test_str_areas.py`, `test_str_listings.py`, `test_str_activities_bulk.py`
 
 ---
 
@@ -265,6 +322,25 @@ Test STR (Short-Term Rental) platform endpoints.
 
 - List endpoints: `application/json`
 - Download endpoint: `application/zip` with `Content-Disposition: attachment`
+
+---
+
+**`test_str_listings.py`**
+
+**Setup:** Creates two fixture areas via the CA API (`CA1_*` credentials): one that is regulated for listings, one that is regulated for activities only.
+
+**Tests:**
+
+- **Test 1:** POST listings/bulk with three areas: one valid, one that is regulated for activities only, one unknown → 200, per item OK, `regulation_error`, `not_found_error`
+- **Test 2:** Resubmitting a pending listing is a correction → 201 with a new `createdAt`
+- **Test 3:** GET listings and listings/count in the flagged scope (empty result is valid, count matches list length, one page, max 1000)
+- **Test 4:** Acknowledging an unknown listing → 422 `not_found_error`
+- **Test 5:** An empty batch → 422
+- **Test 6:** A non-UTC `createdAtFrom` filter → 400
+
+**Endpoints:** `POST /api/str/v2/listings/bulk`, `GET /api/str/v2/listings`, `GET /api/str/v2/listings/count`, `POST /api/str/v2/listing-acknowledgements/bulk`
+
+**Authentication:** Requires STR client credentials (token loaded from `./tmp/.bearer_token`)
 
 ---
 
@@ -300,52 +376,127 @@ Where `results[].status` is the batch processing status (`OK`/`NOK`) and `result
 
 ---
 
-### `test-rep`
+### `test-sta`
 
-Test REP (reporting / statistics office) endpoints.
+Test STA (statistics authority) endpoints.
 
-**Scripts:** `test_rep_activities.py`
+**Scripts:** `test_sta_listings.py`, `test_sta_activities.py`
 
 ---
 
-**`test_rep_activities.py`**
+**`test_sta_listings.py`**
 
 **Tests:**
 
-- **Test 1:** Count activities (`GET /rep/v1/activities/count`)
+- **Test 1:** Count listings (`GET /sta/v2/listings/count`)
+- **Test 2:** Get listings with `limit=1`
+- **Test 3:** Every listing carries the listing fields
+- **Test 4:** Filters narrow the result (`areaId`, `flags`, `createdAtFrom`/`createdAtTo` from a sample), `/count` matches the filtered list length (one page, max 1000)
+- **Test 5:** An unknown flag code → 400
+- **Test 6:** POST is rejected with `405 Method Not Allowed`
+- **Test 7:** Role isolation - a CA token gets `403 Forbidden`. Requires `CA1_CLIENT_ID`/`CA1_CLIENT_SECRET`; skipped otherwise.
+
+Tests 3-4 discover a sample listing (`?limit=1`); with no data they pass with a note.
+
+**Endpoints:** `GET /sta/v2/listings`, `GET /sta/v2/listings/count`
+
+---
+
+**`test_sta_activities.py`**
+
+**Tests:**
+
+- **Test 1:** Count activities (`GET /sta/v1/activities/count`)
 - **Test 2:** Get all activities across all competent authorities
 - **Test 3:** Pagination (offset=0, limit=1)
-- **Test 4:** Verify response structure contains the required REP fields (temporal, numberOfGuests, countryOfGuests, registrationNumber, competentAuthorityId)
+- **Test 4:** Verify response structure contains the required STA fields (temporal, numberOfGuests, countryOfGuests, registrationNumber, competentAuthorityId)
 - **Test 5:** POST is rejected with `405 Method Not Allowed` (read-only API)
-- **Test 6:** Role isolation - a CA token gets `403 Forbidden` on the REP API. Requires `CA1_CLIENT_ID`/`CA1_CLIENT_SECRET`; skipped otherwise.
+- **Test 6:** Role isolation - a CA token gets `403 Forbidden` on the STA API. Requires `CA1_CLIENT_ID`/`CA1_CLIENT_SECRET`; skipped otherwise.
 - **Test 7:** Filter by `areaId`
 - **Test 8:** Filter by `platformId`
 - **Test 9:** Filter by `competentAuthorityId`
 - **Test 10:** Filter by `createdAtFrom` / `createdAtTo` (both equal to the sample's `createdAt`)
 - **Test 11:** Non-matching `areaId` filter returns an empty list
-- **Test 12:** `/count` with filter equals the length of the filtered list
+- **Test 12:** `/count` with filter matches the length of the filtered list (one page, max 1000)
 
-Tests 7-12 discover a sample activity (`?limit=1`) and derive the filter values from it; with no data they pass with a note. Every returned activity must match the filter and the sample must be among them.
+`make test-sta` runs this script once per version (v1, v2, see [API versions](#api-versions)); both versions serve the same activity endpoints. Tests 7-12 discover a sample activity (`?limit=1`) and derive the filter values from it; with no data they pass with a note. Every returned activity must match the filter and the sample must be among them.
 
 **Endpoints:**
 
-- `GET /rep/v1/activities/count`
-- `GET /rep/v1/activities`
-- `GET /rep/v1/activities?offset={offset}&limit={limit}`
-- `GET /rep/v1/activities?areaId={areaId}`
-- `GET /rep/v1/activities?platformId={platformId}`
-- `GET /rep/v1/activities?competentAuthorityId={competentAuthorityId}`
-- `GET /rep/v1/activities?createdAtFrom={datetime}&createdAtTo={datetime}`
-- `GET /rep/v1/activities/count?areaId={areaId}`
+- `GET /sta/v1/activities/count`
+- `GET /sta/v1/activities`
+- `GET /sta/v1/activities?offset={offset}&limit={limit}`
+- `GET /sta/v1/activities?areaId={areaId}`
+- `GET /sta/v1/activities?platformId={platformId}`
+- `GET /sta/v1/activities?competentAuthorityId={competentAuthorityId}`
+- `GET /sta/v1/activities?createdAtFrom={datetime}&createdAtTo={datetime}`
+- `GET /sta/v1/activities/count?areaId={areaId}`
 
-**Authentication:** Requires REP client credentials (token loaded from `./tmp/.bearer_token`)
+**Authentication:** Requires STA client credentials (token loaded from `./tmp/.bearer_token`)
 
 **HTTP Status Codes:**
 
 - `200 OK` - Activities returned
 - `401 Unauthorized` - No/invalid authentication
-- `403 Forbidden` - Token lacks the `sdep_rep` or `sdep_read` role
+- `403 Forbidden` - Token lacks the `sdep_sta` or `sdep_read` role
 - `405 Method Not Allowed` - Write method on the read-only API
+
+---
+
+### `test-lsa`
+
+Test LSA (listing screening authority) endpoints and the whole listing lifecycle (random checks).
+
+**Scripts:** `test_lsa_listings.py`
+
+**Setup:** Creates a fixture area that is regulated for listings, via the CA API. Authenticates the other audiences with the `STR_*`, `CA1_*`, `LMA_*` and `STA_*` credentials.
+
+**Tests:**
+
+- **Test 1:** STR submits two listings (`POST /str/v2/listings/bulk`) → 201, both `pending`
+- **Test 2:** LSA sees the pending listings (`GET /lsa/v2/listings?areaId`, `/count?areaId&platformId`)
+- **Test 3:** LSA screens them (`POST /lsa/v2/listing-screenings/bulk`) → 201, one `flagged`, one `clear`
+- **Test 4:** The LSA queue for the area is empty
+- **Test 5:** STR sees only the flagged listing (`GET /str/v2/listings?areaId`)
+- **Test 6:** STR acknowledges it (`POST /str/v2/listing-acknowledgements/bulk`) → 201; a retry → 422 `conflict_error`
+- **Test 7:** CA sees the acknowledged listing in its area (`GET /ca/v2/listings?areaId&flags=UNK,EXP`)
+- **Test 8:** LMA and STA see both listings; `status=clear` narrows to one
+- **Test 9:** A stale version token is refused → 422 `conflict_error` with `loc` `["createdAt"]`
+- **Test 10:** Role isolation - an STR token gets `403 Forbidden` on the LSA API
+
+**Endpoints:** `GET /lsa/v2/listings`, `GET /lsa/v2/listings/count`, `POST /lsa/v2/listing-screenings/bulk`, plus the STR, CA, LMA and STA listing endpoints
+
+**Authentication:** Requires LSA client credentials (token loaded from `./tmp/.bearer_token`) and the STR, CA1, LMA and STA client credentials from the environment
+
+---
+
+### `test-lma`
+
+Test LMA (listing monitoring authority) endpoints.
+
+**Scripts:** `test_lma_listings.py` - the same tests as `test_sta_listings.py`, against `GET /lma/v2/listings` and `GET /lma/v2/listings/count`; `test_reference_data.py`, see below
+
+**Authentication:** Requires LMA client credentials (token loaded from `./tmp/.bearer_token`)
+
+---
+
+### `test-ama`
+
+Test AMA (activity monitoring authority) endpoints.
+
+**Scripts:** `test_ama_activities.py` - the same tests as `test_sta_activities.py`, against `GET /ama/v1/activities` and `GET /ama/v1/activities/count`; `test_reference_data.py`
+
+**`test_reference_data.py`**
+
+Also run by `test-ca`, `test-sta`, `test-lsa` and `test-lma`. The domain comes from the audience role in the bearer token (e.g. `sdep_ama`), so the script needs no extra variable. A domain version that does not serve the reference data is skipped with a message.
+
+**What it tests:**
+
+- `GET /platforms`, `GET /competent-authorities`, `GET /areas`: `/count` and the list agree
+- `GET /platforms/{id}`, `GET /competent-authorities/{id}` and `GET /areas/{id}` are not served (404), also not for a listed ID
+- CA v2: platforms only, `GET /competent-authorities` returns 404
+
+**Authentication:** Requires AMA client credentials (token loaded from `./tmp/.bearer_token`)
 
 ---
 
@@ -371,7 +522,7 @@ Test security (headers, unauthorized, credentials).
 - `/` - Root endpoint
 - `/api/health` - Health check
 - `/api/ping` - Ping endpoint
-- `/api/ca/v1/openapi.json`, `/api/ca/v2/openapi.json` - OpenAPI specifications
+- `/api/ca/{API_VERSION}/openapi.json` and `/api/ca/{API_VERSION}/docs` - OpenAPI document and Swagger UI; the version comes from `API_VERSION`, so one run covers one CA version
 
 ---
 
@@ -384,18 +535,37 @@ Test security (headers, unauthorized, credentials).
 
 **Endpoints tested:**
 
+Areas and activities:
+
 - `GET /api/ping`
-- `GET /api/str/v1/areas`
-- `GET /api/str/v1/areas/count`
-- `GET /api/str/v1/areas/amsterdam-area0363`
-- `POST /api/str/v1/activities/bulk`
-- `POST /api/ca/v1/areas`
-- `GET /api/ca/v1/areas`
-- `GET /api/ca/v1/areas/count`
-- `GET /api/ca/v1/areas/{areaId}`
-- `DELETE /api/ca/v1/areas/{areaId}`
-- `GET /api/ca/v1/activities`
-- `GET /api/ca/v1/activities/count`
+- `GET /api/str/v1/areas`, `GET /api/str/v1/areas/count`, `GET /api/str/v1/areas/{areaId}`
+- `GET /api/str/v2/areas`, `GET /api/str/v2/areas/count`, `GET /api/str/v2/areas/{areaId}`
+- `POST /api/str/v1/activities/bulk`, `POST /api/str/v2/activities/bulk`
+- `POST /api/ca/v1/areas`, `POST /api/ca/v2/areas`
+- `GET /api/ca/v1/areas`, `GET /api/ca/v1/areas/count`, `GET /api/ca/v1/areas/{areaId}`
+- `GET /api/ca/v2/areas`, `GET /api/ca/v2/areas/count`, `GET /api/ca/v2/areas/{areaId}`
+- `DELETE /api/ca/v1/areas/{areaId}`, `DELETE /api/ca/v2/areas/{areaId}`
+- `GET /api/ca/v1/activities`, `GET /api/ca/v1/activities/count`
+- `GET /api/ca/v2/activities`, `GET /api/ca/v2/activities/count`
+- `GET /api/sta/v1/activities`, `GET /api/sta/v1/activities/count`
+- `GET /api/sta/v2/activities`, `GET /api/sta/v2/activities/count`
+- `GET /api/ama/v1/activities`, `GET /api/ama/v1/activities/count`
+
+Listings (random checks):
+
+- `POST /api/str/v2/listings/bulk`, `POST /api/str/v2/listing-acknowledgements/bulk`
+- `GET /api/str/v2/listings`, `GET /api/str/v2/listings/count`
+- `POST /api/lsa/v2/listing-screenings/bulk`
+- `GET /api/lsa/v2/listings`, `GET /api/lsa/v2/listings/count`
+- `GET /api/ca/v2/listings`, `GET /api/ca/v2/listings/count`
+- `GET /api/lma/v2/listings`, `GET /api/lma/v2/listings/count`
+- `GET /api/sta/v2/listings`, `GET /api/sta/v2/listings/count`
+
+Reference data (`areas`, `competent-authorities`, `platforms`, each with `/count`):
+
+- `GET /api/sta/v1/...`, `GET /api/sta/v2/...`
+- `GET /api/lsa/v2/...`, `GET /api/lma/v2/...`, `GET /api/ama/v1/...`
+- `GET /api/ca/v2/platforms`, `GET /api/ca/v2/platforms/count`
 
 ---
 
@@ -421,16 +591,27 @@ Test security (headers, unauthorized, credentials).
 
 **What it tests:**
 
-- Client-signed-JWT (`private_key_jwt`) token acquisition end to end, for all three generated clients (`sdep-test-ca.jwt`, `sdep-test-str.jwt`, `sdep-test-rep.jwt`)
+- Client-signed-JWT (`private_key_jwt`) token acquisition end to end, for all six generated clients (`sdep-test-ca.jwt`, `sdep-test-str.jwt`, `sdep-test-sta.jwt`, `sdep-test-lsa.jwt`, `sdep-test-lma.jwt`, `sdep-test-ama.jwt`)
 - Signs a short-lived assertion with each client's generated local private key in `tmp/<client-id>.private.pem` and exchanges it for a bearer token via `/api/auth/v1/token`
 - Exercises the clients provisioned from the extended machine-client YAML with the matching public keys
-- Role enforcement: each acquired token is used against every role's read-only count endpoint, expecting `200` for its own role and `403` for the other two
+- Role enforcement: each acquired token is used against every role's read-only count endpoint, expecting `200` for its own role and `403` for the other five
 
 **Tests (per client):**
 
 - **Test 1:** Acquire a bearer token with a client-signed JWT
-- **Test 2:** Call the client's own role endpoint (`GET /api/ca/v1/areas/count`, `GET /api/str/v1/areas/count` or `GET /api/rep/v1/activities/count`) → `200`
-- **Test 3-4:** Call the other two roles' endpoints → `403`
+- **Test 2:** Call the client's own role endpoint → `200`
+- **Test 3-7:** Call the other five roles' endpoints → `403`
+
+The role endpoint per client:
+
+| Client              | Role | Endpoint                                  |
+| ------------------- | ---- | ----------------------------------------- |
+| `sdep-test-ca.jwt`  | CA   | `GET /api/ca/{version}/areas/count`       |
+| `sdep-test-str.jwt` | STR  | `GET /api/str/{version}/areas/count`      |
+| `sdep-test-sta.jwt` | STA  | `GET /api/sta/{version}/activities/count` |
+| `sdep-test-lsa.jwt` | LSA  | `GET /api/lsa/v2/listings/count`          |
+| `sdep-test-lma.jwt` | LMA  | `GET /api/lma/v2/listings/count`          |
+| `sdep-test-ama.jwt` | AMA  | `GET /api/ama/{version}/activities/count` |
 
 Only read-only count endpoints are used, so the test creates no data and is idempotent.
 
@@ -438,7 +619,7 @@ Only read-only count endpoints are used, so the test creates no data and is idem
 
 - `BACKEND_BASE_URL`
 - `BACKEND_KC_BASE_URL` (the Keycloak URL the backend forwards to; falls back to `KC_BASE_URL`) - used to derive the assertion audience when `CLIENT_SIGNED_JWT_AUDIENCE` is not set
-- Optional: `CLIENT_SIGNED_JWT_AUDIENCE`, `JWT_PROVISION_CLIENTS` (default `false`), `JWT_KEY_DIR` (default `tmp`), `JWT_CLIENT_IDS` (comma-separated subset, default all three), `KC_REALM`, `API_VERSION`
+- Optional: `CLIENT_SIGNED_JWT_AUDIENCE`, `JWT_PROVISION_CLIENTS` (default `false`), `JWT_KEY_DIR` (default `tmp`), `JWT_CLIENT_IDS` (comma-separated subset, default all six), `KC_REALM`, `API_VERSION`
 
 **Reuse in deployed environments:**
 
@@ -505,7 +686,7 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 
 ---
 
-## Helper Scripts
+## Helper scripts
 
 ### `test_auth_client_bootstrap.py`
 
@@ -544,14 +725,14 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 
 **Purpose:** Create fixture areas for test isolation
 
-**Usage:** `create_fixture_areas.py [count] [prefix]`
+**Usage:** `create_fixture_areas.py [count] [prefix] [regulation]`
 
 **What it does:**
 
 - Authenticates using CA client-secret flow with credentials (`CA1_CLIENT_ID`,
   `CA1_CLIENT_SECRET`); requires `CLIENT_SECRET_AUTH_ENABLED=true` on the
   backend under test
-- Creates `count` areas (default: 3) with `prefix`-prefixed IDs via individual `POST /ca/areas` requests
+- Creates `count` areas (default: 3) with `prefix`-prefixed IDs via individual `POST /ca/areas` requests, optionally with a `regulation` (`listing`, `activity`, `all`)
 - Uploads `test-data/shapefiles/Amsterdam.zip` as multipart/form-data for each area
 - Outputs created area IDs to stdout (one per line), errors to stderr
 - Does not modify `./tmp/.bearer_token` (uses a local token variable)

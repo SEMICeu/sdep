@@ -99,7 +99,7 @@ async def post_auth_token(
                 client_id = basic_client_id
             if not client_secret:
                 client_secret = basic_client_secret
-        except (ValueError, binascii.Error, UnicodeDecodeError):
+        except ValueError, binascii.Error, UnicodeDecodeError:
             # Malformed Basic Auth header → fall back to form parameters.
             # ValueError covers a missing ":" separator in the decoded payload.
             pass

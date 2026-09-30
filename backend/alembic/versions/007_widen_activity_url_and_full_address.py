@@ -5,7 +5,7 @@ Revises: 006
 Create Date: 2026-09-16
 
 Listing URLs legitimately exceed 128 characters (query parameters).
-2048 is a chosen pragmatic cap, see docs/DATAMODEL.md.
+2048 is a chosen pragmatic cap, see docs/DATAMODEL_TECH.md.
 fullAddress was the sum of the other address fields (318) without room
 for separators; 328 adds 5 separators of ", ".
 

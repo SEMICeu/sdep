@@ -17,7 +17,6 @@ Usage:
         locust -f tests/performance/locustfile.py --headless -u 1 -r 1 --run-time 60s
 """
 
-import atexit
 import json
 import os
 import random
@@ -323,9 +322,13 @@ def on_test_stop(environment, **kwargs):
     _print_summary()
 
 
-@atexit.register
-def _atexit_handler():
-    """Runs after Locust's own statistics table (atexit runs last)."""
+@events.quit.add_listener
+def on_quit(exit_code, **kwargs):
+    """Runs after Locust's own statistics table, before Locust closes its CSV files.
+
+    Not atexit: the verification HTTP calls yield to gevent, which wakes Locust's
+    CSV writer greenlet on already closed files ("I/O operation on closed file").
+    """
     # Ensure summary prints even if test_stop didn't fire
     _print_summary()
 
@@ -488,7 +491,7 @@ class BulkActivityUser(HttpUser):
             break
 
         # Sample one activity for post-test correctness verification. Runs on every
-        # run: verification happens at test_stop, before the runner cleans up, so the
+        # run: verification happens at quit, before the runner cleans up, so the
         # rows are still there whether or not the data is kept.
         if response.status_code in (200, 201) and len(sampled_activities) < CORRECTNESS_SAMPLE_SIZE:
             sampled_activities.append(random.choice(activities))

@@ -47,6 +47,20 @@ def compact_json(data: Any) -> str:
     return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
 
 
+# Log form of a response body: a collection becomes its item count (lists grow
+# with "keep" runs), anything else is cut at `limit` characters.
+COLLECTION_KEYS = ("activities", "areas", "listings")
+
+
+def brief(data: Any, limit: int = 300) -> str:
+    if isinstance(data, dict):
+        counts = [f"{key}: {len(data[key])} items" for key in COLLECTION_KEYS if isinstance(data.get(key), list)]
+        if counts:
+            return ", ".join(counts)
+    text = compact_json(data)
+    return text if len(text) <= limit else f"{text[:limit]}..."
+
+
 # API_VERSION selects the STR version under test. Auth and the CA helpers (fixture
 # areas, activity count) are pinned to their stable v1, they are not under test here.
 AUTH_API_VERSION = "v1"
@@ -266,7 +280,7 @@ def main() -> int:
             }
             payload["activities"][1]["address"].pop("locatorDesignatorNumber")
             code, body = post_bulk(client, base_url, api_version, bearer_token, payload)
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {code}")
             print()
             mark(
@@ -314,7 +328,7 @@ def main() -> int:
                 ]
             }
             code, body = post_bulk(client, base_url, api_version, bearer_token, payload)
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {code}")
             print()
             mark(
@@ -366,7 +380,7 @@ def main() -> int:
                 ]
             }
             code, body = post_bulk(client, base_url, api_version, bearer_token, payload)
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {code}")
             print()
             mark(
@@ -527,7 +541,7 @@ def main() -> int:
                 ]
             }
             status_code, body = post_bulk(client, base_url, api_version, bearer_token, payload)
-            print(f"Response: {compact_json(body)[:500]}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {status_code}")
             print()
             if api_version == "v1":

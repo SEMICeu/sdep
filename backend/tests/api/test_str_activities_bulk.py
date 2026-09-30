@@ -1,5 +1,7 @@
 """Tests for STR Bulk Activities API endpoint."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 from uuid import UUID
 
@@ -7,8 +9,10 @@ import pytest
 import pytest_asyncio
 from app.api.common.security import verify_bearer_token
 from app.api.domains.str.v1 import app_str_v1
+from app.db import config as db_config
 from app.db.config import get_async_db, get_async_db_read_only
 from app.enums import ActivityStatus
+from app.models.activity import Activity
 from app.models.competent_authority import CompetentAuthority
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
@@ -768,6 +772,104 @@ class TestSTRActivitiesBulkAPI:
         assert len(versions) == 2
         assert sum(1 for record in versions if record.ended_at is None) == 1
         assert sum(1 for record in versions if record.ended_at is not None) == 1
+
+    async def test_bulk_failed_batch_rolls_back(
+        self,
+        async_session: AsyncSession,
+        setup_overrides,
+        write_transaction,
+        test_areas,
+        monkeypatch,
+    ):
+        """A failure after the end mark rolls back the whole batch (data flow step 7)."""
+        from app.crud import activity as activity_crud
+
+        async def _post(activity: dict):
+            async with AsyncClient(
+                transport=ASGITransport(app=app_str_v1), base_url="http://test"
+            ) as client:
+                return await client.post(
+                    "/activities/bulk",
+                    json={"activities": [activity]},
+                    headers={"Authorization": "Bearer test_token"},
+                )
+
+        area_id = test_areas["area1"].area_id
+        response = await _post(_make_activity(area_id, "rb", activityId="rollback"))
+        assert response.status_code == status.HTTP_201_CREATED
+
+        # A correction ends the current version, then fails before the insert
+        app_str_v1.dependency_overrides.pop(get_async_db)
+
+        async def _fail(session: AsyncSession, *args: Any) -> None:
+            with session.no_autoflush:
+                ended_at = await session.scalar(
+                    select(Activity.ended_at).where(Activity.activity_id == "rollback")
+                )
+            assert ended_at is not None  # So there is something to roll back
+            raise RuntimeError("insert failed")
+
+        monkeypatch.setattr(activity_crud, "bulk_create", _fail)
+        with pytest.raises(RuntimeError, match="insert failed"):
+            await _post(
+                _make_activity(area_id, "rb", activityId="rollback", status="cancelled")
+            )
+
+        # The end mark is rolled back: the first version is still the current one
+        async_session.expire_all()
+        versions = (
+            await async_session.scalars(
+                select(Activity).where(Activity.activity_id == "rollback")
+            )
+        ).all()
+        assert [(v.status, v.ended_at) for v in versions] == [
+            (ActivityStatus.finished, None)
+        ]
+
+    async def test_bulk_commits_before_response(
+        self,
+        setup_overrides,
+        write_transaction,
+        test_areas,
+        monkeypatch,
+    ):
+        """The commit runs before the response starts, so a 201 means the data is stored."""
+        events: list[str] = []
+        savepoint_factory = db_config.AsyncSessionLocal  # Set by write_transaction
+
+        @asynccontextmanager
+        async def _begin() -> AsyncIterator[AsyncSession]:
+            async with savepoint_factory.begin() as session:
+                yield session
+            events.append("commit")
+
+        class _RecordingFactory:
+            def begin(self):
+                return _begin()
+
+        monkeypatch.setattr(db_config, "AsyncSessionLocal", _RecordingFactory())
+        app_str_v1.dependency_overrides.pop(get_async_db)
+
+        async def _recording_app(scope, receive, send) -> None:
+            async def _send(message) -> None:
+                if message["type"] == "http.response.start":
+                    events.append("response")
+                await send(message)
+
+            await app_str_v1(scope, receive, _send)
+
+        area_id = test_areas["area1"].area_id
+        async with AsyncClient(
+            transport=ASGITransport(app=_recording_app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/activities/bulk",
+                json={"activities": [_make_activity(area_id, "cbr")]},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert events == ["commit", "response"]
 
     # ── Platform resolution ──────────────────────────────────────────────
 

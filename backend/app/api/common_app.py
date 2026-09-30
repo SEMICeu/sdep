@@ -19,15 +19,22 @@ from app.api.common.security import (
 from app.api.common.security import (
     verify_bearer_token as _default_verify,
 )
-from app.api.domain_registry import API_DOMAINS, API_SCOPES, OAS_VERSION
+from app.api.domain_registry import (
+    API_GROUPS,
+    API_SCOPES,
+    OAS_VERSION,
+    served_api_domains,
+)
 from app.config import settings
 
 # Create version-independent sub-application
 app_common = FastAPI(
     title="Short Term Rental (STR) - Single Digital Entry Point (SDEP) - Common",
     description="Version-independent endpoints for health monitoring and basic operations.",
-    version=settings.api_version_label,
+    version=settings.api_version,
+    contact=settings.api_contact,
     root_path="/api",
+    redirect_slashes=False,
     docs_url=None,
     redoc_url=None,
 )
@@ -98,12 +105,30 @@ _register_endpoint_docs("ping", f"{app_common.title} - Ping", {"/ping"})
 
 
 def _render_api_domains() -> str:
-    """Render the domains grouped by scope, in API_SCOPES order."""
+    """Render one section per group, then by scope, alphabetical within a scope.
+
+    Order comes from API_GROUPS and API_SCOPES; a group or scope without served domains
+    is left out, e.g. the listings group when alpha versions are not served.
+    """
+    served = served_api_domains()
     blocks: list[str] = []
-    for scope, heading, note in API_SCOPES:
-        blocks.append(f"    <h3>{escape(heading)}</h3>")
-        blocks.append(f'    <p class="scope-note">{escape(note)}</p>')
-        blocks.extend(domain.html for domain in API_DOMAINS if domain.scope == scope)
+    for group, group_heading in API_GROUPS:
+        if not any(d.group == group for d in served):
+            continue
+        blocks.append('  <div class="section">')
+        blocks.append(f"    <h2>{escape(group_heading)}</h2>")
+        for scope, heading, note in API_SCOPES:
+            # Sorted here, not in API_DOMAINS, so the mount order never leaks into the page.
+            domains = sorted(
+                (d for d in served if d.group == group and d.scope == scope),
+                key=lambda domain: domain.label,
+            )
+            if not domains:
+                continue
+            blocks.append(f"    <h3>{escape(heading)}</h3>")
+            blocks.append(f'    <p class="scope-note">{escape(note)}</p>')
+            blocks.extend(domain.html for domain in domains)
+        blocks.append("  </div>")
 
     return "\n".join(blocks)
 
@@ -125,13 +150,15 @@ async def docs_landing_page():
     body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #333; line-height: 1.6; }}
     h1 {{ border-bottom: 2px solid #2563eb; padding-bottom: 8px; }}
     a {{ color: #2563eb; }}
-    .version {{ background: #f0f7ff; border-left: 4px solid #2563eb; padding: 12px 16px; margin: 16px 0; }}
+    .version {{ display: flex; flex-wrap: wrap; align-items: baseline; background: #f0f7ff; border-left: 4px solid #2563eb; padding: 12px 16px; margin: 16px 0; }}
     .version a {{ font-weight: bold; font-size: 1.1em; }}
+    /* Spelled-out acronym, right-aligned; wraps below the links on narrow screens. */
+    .version .name {{ margin-left: auto; padding-left: 16px; color: #6b7280; font-size: 0.9em; }}
     .status {{ display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 4px; background: #e5e7eb; color: #374151; font-size: 0.85em; font-weight: 600; }}
     .status-stable {{ background: #dcfce7; color: #166534; }}
     .status-beta {{ background: #fef3c7; color: #92400e; }}
     .status-alpha {{ background: #fee2e2; color: #991b1b; }}
-    /* Deployment and OAS badges, mirroring the ones Swagger UI shows beside each API title. */
+    /* Version, environment and OAS badges, mirroring the ones Swagger UI shows beside each API title. */
     .badge {{ display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 4px; background: #e5e7eb; color: #374151; font-size: 0.75rem; font-weight: 600; vertical-align: middle; }}
     .badge-oas {{ background: #dcfce7; color: #166534; }}
     ul {{ padding-left: 20px; }}
@@ -142,16 +169,13 @@ async def docs_landing_page():
   </style>
 </head>
 <body>
-  <h1>SDEP - API Documentation<span class="badge">{settings.api_version_label}</span><span class="badge badge-oas">OAS {OAS_VERSION}</span></h1>
+  <h1>SDEP - API Documentation<span class="badge">{settings.api_version}</span><span class="badge">{settings.DTAP}</span><span class="badge badge-oas">OAS {OAS_VERSION}</span></h1>
   <p>
     Single Digital Entry Point (SDEP) is a gateway for the electronic transmission of data
     between online short-term rental platforms (STR) and competent authorities (CA).
   </p>
 
-  <div class="section">
-    <h2>API domains</h2>
 {api_domains_html}
-  </div>
 
   <div class="section">
     <h2>Common</h2>
@@ -164,12 +188,14 @@ async def docs_landing_page():
     <div class="version">
       <a href="/api/health">Health</a>
       <span class="status status-beta">unauthenticated</span>
+      <span class="name">Application + database</span>
     </div>
   </div>
 
   <div class="section">
     <h2>Contact</h2>
-    <p><a href="mailto:nationaalcoordinatorsdep@minbzk.nl">nationaalcoordinatorsdep@minbzk.nl</a></p>
+    <p>{settings.API_CONTACT_NAME}, <a href="{settings.API_CONTACT_URL}">{settings.API_CONTACT_URL}</a></p>
+    <p><a href="mailto:{settings.API_CONTACT_EMAIL}">{settings.API_CONTACT_EMAIL}</a></p>
   </div>
 </body>
 </html>"""

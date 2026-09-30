@@ -127,7 +127,7 @@ class Activity(Base):
 
     url: Mapped[str] = mapped_column(
         String(2048), nullable=False
-    )  # Required, max 2048 (chosen cap, see docs/DATAMODEL.md), e.g. "http://example.com/my-advertisement"
+    )  # Required, max 2048 (chosen cap, see docs/DATAMODEL_TECH.md), e.g. "http://example.com/my-advertisement"
 
     # Composite attributes - Address (INSPIRE/STR-AP field names)
     address_thoroughfare: Mapped[str] = mapped_column(String(80), nullable=False)

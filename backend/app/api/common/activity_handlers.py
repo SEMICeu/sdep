@@ -1,7 +1,7 @@
 """Shared activity list/count endpoint behavior across API domains.
 
 These handlers back both the CA endpoints (scoped to the authenticated competent
-authority) and the REP endpoint (unscoped, across all competent authorities). The scope
+authority) and the STA endpoint (unscoped, across all competent authorities). The scope
 is selected by the ``client`` argument: a ``Client`` scopes the read, ``None`` makes it
 unscoped. ``client`` is keyword-only with no default, so an unscoped read can only be
 triggered by explicitly passing ``client=None``.

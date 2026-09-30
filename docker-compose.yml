@@ -81,7 +81,7 @@ services:
       network: host
       # Use public Docker Hub image for local development (avoids dependency on custom image registry)
       args:
-        PYTHON_IMAGE: python:3.13-slim
+        PYTHON_IMAGE: python:3.14-slim
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -94,6 +94,7 @@ services:
       KC_BASE_URL: ${BACKEND_KC_BASE_URL}
       # Value comes from .env
       CLIENT_SECRET_AUTH_ENABLED: ${CLIENT_SECRET_AUTH_ENABLED}
+      API_ALPHA_ENABLED: ${API_ALPHA_ENABLED}
       POSTGRES_HOST: ${POSTGRES_CONTAINER_NAME}
       POSTGRES_PORT: 5432
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}

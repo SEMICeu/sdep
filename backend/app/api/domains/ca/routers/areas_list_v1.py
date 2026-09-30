@@ -1,14 +1,14 @@
-"""CA v1 areas list endpoint (unlimited by default)."""
+"""CA v1 areas list endpoint (limit defaults to 1000)."""
 
 from fastapi import APIRouter, Depends, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.common.auth_dependencies import ClientDependency, RequireRoles
-from app.api.common.pagination import PaginationDependency
+from app.api.common.pagination import LimitedPaginationDependency
 from app.api.common.security import Role
 from app.api.domains.ca.routers.areas_docs import (
-    OWN_AREAS_DESCRIPTION_V1,
+    OWN_AREAS_DESCRIPTION,
     OWN_AREAS_RESPONSES,
     OWN_AREAS_SUMMARY,
 )
@@ -22,7 +22,7 @@ router = APIRouter(tags=["ca"])
 @router.get(
     "/areas",
     summary=OWN_AREAS_SUMMARY,
-    description=OWN_AREAS_DESCRIPTION_V1,
+    description=OWN_AREAS_DESCRIPTION,
     operation_id="getOwnAreas",
     response_model=AreaListResponse,
     status_code=status.HTTP_200_OK,
@@ -31,7 +31,7 @@ router = APIRouter(tags=["ca"])
 )
 async def get_own_areas(
     client: ClientDependency,
-    pagination: PaginationDependency,
+    pagination: LimitedPaginationDependency,
     session: AsyncSession = Depends(get_async_db_read_only),
 ) -> Response:
     """

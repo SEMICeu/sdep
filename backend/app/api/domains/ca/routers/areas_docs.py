@@ -20,19 +20,8 @@ OWN_AREAS_ITEM_DESCRIPTION = """**Scoping:**
 - `createdAt`: Timestamp when this area version was created (UTC)
 """
 
-OWN_AREAS_DESCRIPTION_V1 = (
-    "Get all areas owned by the currently authenticated competent authority. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.\n\n"
-    + OWN_AREAS_ITEM_DESCRIPTION
-    + """
-**Pagination:**
-- `offset`: Number of records to skip (default: 0)
-- `limit`: Maximum number of records to return (default: unlimited)
-"""
-)
-
-# CA v2: the limit defaults to the maximum, so one
-# call never returns more than 1000 areas.
-OWN_AREAS_DESCRIPTION_V2 = (
+# The limit defaults to the maximum, so one call never returns more than 1000 areas.
+OWN_AREAS_DESCRIPTION = (
     "Get all areas owned by the currently authenticated competent authority, maximum 1000 per page. `limit` defaults to 1000 (the maximum); use `offset` and `limit` to page through the result set, and `GET /areas/count` for the total.\n\n"
     + OWN_AREAS_ITEM_DESCRIPTION
     + """

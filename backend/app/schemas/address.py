@@ -73,7 +73,7 @@ class CommonAddressRequest(BaseModel):
     )  # Attribute
 
     # 328 = sum of the other address field maximums (318) + 5 separators of ", ".
-    # See docs/DATAMODEL.md, Address.
+    # See docs/DATAMODEL_TECH.md, Address. STR v1 keeps 318, see app/schemas/activity_v1.py.
     full_address: str = Field(
         ...,
         alias="fullAddress",

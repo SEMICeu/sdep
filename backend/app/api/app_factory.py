@@ -1,6 +1,6 @@
 """Factory for building per-domain FastAPI sub-applications.
 
-Every API domain (CA, STR, REP, ...) builds its sub-application the same way: metadata
+Every API domain (CA, STR, STA, ...) builds its sub-application the same way: metadata
 from the domain registry, the shared custom OpenAPI generator and exception handlers, the
 routers the domain exposes, and the OAuth 2.0 bearer-token security override. This single
 factory captures that shared shape so each domain only supplies its registry entry and the
@@ -43,8 +43,10 @@ def create_domain_app(
     app = FastAPI(
         title=domain.title,
         description=domain.description_with_status,
-        version=settings.api_version_label,
+        version=settings.api_version,
+        contact=settings.api_contact,
         root_path=domain.root_path,
+        redirect_slashes=domain.redirect_slashes,
         redoc_url=None,
         responses=COMMON_RESPONSES,
     )

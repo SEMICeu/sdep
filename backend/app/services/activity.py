@@ -45,7 +45,7 @@ async def get_activity_list(
 
     Business logic for retrieving current activities. When client_id is provided the
     result is restricted to that competent authority (CA API); when client_id is None the
-    result spans all competent authorities (the unscoped reporting/REP read).
+    result spans all competent authorities (the unscoped STA read).
 
     Transaction Management:
     - Uses read-only session (no transaction needed for queries)
@@ -81,7 +81,7 @@ async def count_current_activities(
     Count current activities, optionally scoped to one competent authority.
 
     When client_id is provided the count is restricted to that competent authority (CA
-    API); when client_id is None it spans all competent authorities (reporting/REP read).
+    API); when client_id is None it spans all competent authorities (STA read).
 
     Transaction Management:
     - Uses read-only session (no transaction needed for queries)

@@ -49,6 +49,11 @@ class TestStats:
     failed: int = 0
 
 
+# One list call returns one page: at most PAGE_LIMIT items (the default and max limit).
+# A filtered set that is larger (e.g. after "keep" runs) has count > list length.
+PAGE_LIMIT = 1000
+
+
 def env(name: str) -> str:
     value = os.getenv(name)
     if not value:
@@ -59,6 +64,20 @@ def env(name: str) -> str:
 
 def compact_json(data: Any) -> str:
     return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+
+
+# Log form of a response body: a collection becomes its item count (lists grow
+# with "keep" runs), anything else is cut at `limit` characters.
+COLLECTION_KEYS = ("activities", "areas", "listings")
+
+
+def brief(data: Any, limit: int = 300) -> str:
+    if isinstance(data, dict):
+        counts = [f"{key}: {len(data[key])} items" for key in COLLECTION_KEYS if isinstance(data.get(key), list)]
+        if counts:
+            return ", ".join(counts)
+    text = compact_json(data)
+    return text if len(text) <= limit else f"{text[:limit]}..."
 
 
 def load_bearer_token() -> str:
@@ -101,22 +120,17 @@ def run_filter_tests(
     get: Callable[[str], tuple[int, dict[str, Any]]],
     first_test: int,
     id_fields: tuple[str, ...],
-    filters_declared: bool,
 ) -> int:
     """Filter tests driven by a sample activity, so no IDs are hard-coded.
 
-    filters_declared=False (CA v1): the API does not declare these query parameters,
-    so they must be ignored - the filtered count equals the unfiltered count.
-    filters_declared=True (CA v2, REP v1): every returned activity matches the filter
-    and the sample activity is among them; a non-matching filter returns an empty list.
+    Every returned activity matches the filter and the sample activity is among them;
+    a non-matching filter returns an empty list.
 
     Returns the next free test number.
     """
     code, body = get("?limit=1")
     activities = body.get("activities") if isinstance(body, dict) else None
     sample = activities[0] if code == 200 and activities else None
-    _, count_body = get("/count")
-    unfiltered = count_body.get("count") if isinstance(count_body, dict) else None
 
     def same(field: str, value: Any) -> Callable[[dict[str, Any]], bool]:
         return lambda activity: activity.get(field) == value
@@ -146,16 +160,6 @@ def run_filter_tests(
         stats.total += 1
         if sample is None and matches is not None:
             mark(stats, True, f"Test {n} passed: No data available to test", "")
-        elif not filters_declared:
-            code, body = get(f"/count?{query}")
-            filtered = body.get("count") if isinstance(body, dict) else None
-            print(f"HTTP Status: {code} (count={filtered}, unfiltered={unfiltered})")
-            mark(
-                stats,
-                code == 200 and filtered == unfiltered,
-                f"Test {n} passed: Undeclared filter is ignored (count unchanged)",
-                f"Test {n} failed: Expected count {unfiltered} with an undeclared filter, got {filtered} (HTTP {code})",
-            )
         else:
             code, body = get(f"?{query}")
             items = body.get("activities") if isinstance(body, dict) else None
@@ -185,24 +189,22 @@ def run_filter_tests(
         n += 1
 
     print()
-    print(f"Test {n}: count with filter equals length of the filtered list")
+    print(f"Test {n}: count with filter matches length of the filtered list")
     print("------------------------------------------------")
     stats.total += 1
     if sample is None:
         mark(stats, True, f"Test {n} passed: No data available to test", "")
-    elif not filters_declared:
-        mark(stats, True, f"Test {n} passed: Not applicable, filters are not declared for this version", "")
     else:
         query = urlencode({"areaId": sample.get("areaId")})
-        code_list, list_body = get(f"?{query}")
+        code_list, list_body = get(f"?{query}&limit={PAGE_LIMIT}")
         code_count, count_body = get(f"/count?{query}")
         items = list_body.get("activities") if isinstance(list_body, dict) else None
         count = count_body.get("count") if isinstance(count_body, dict) else None
         print(f"HTTP Status: list {code_list}, count {code_count} (len={len(items) if isinstance(items, list) else items}, count={count})")
         mark(
             stats,
-            code_list == 200 and code_count == 200 and isinstance(items, list) and count == len(items),
-            f"Test {n} passed: Filtered count {count} equals filtered list length",
+            code_list == 200 and code_count == 200 and isinstance(items, list) and isinstance(count, int) and len(items) == min(count, PAGE_LIMIT),
+            f"Test {n} passed: Filtered count {count} matches filtered list length (one page, max {PAGE_LIMIT})",
             f"Test {n} failed: Filtered count {count} differs from list length {len(items) if isinstance(items, list) else items}",
         )
     return n + 1
@@ -224,7 +226,7 @@ def main() -> int:
         print("------------------------------------------------")
         stats.total += 1
         code, body = get_activities(client, base_url, api_version, bearer_token, "/count")
-        print(f"Response: {compact_json(body)}")
+        print(f"Response: {brief(body)}")
         print(f"HTTP Status: {code}")
         count = body.get("count")
         mark(
@@ -240,7 +242,7 @@ def main() -> int:
         stats.total += 1
         code, body = get_activities(client, base_url, api_version, bearer_token)
         activities = body.get("activities")
-        print(f"Response (first 500 chars): {compact_json(body)[:500]}...")
+        print(f"Response: {brief(body)}")
         print(f"HTTP Status: {code}")
         print()
         if code == 200 and isinstance(activities, list):
@@ -263,7 +265,7 @@ def main() -> int:
             client, base_url, api_version, bearer_token, "?offset=0&limit=1"
         )
         activities = body.get("activities")
-        print(f"Response: {compact_json(body)}")
+        print(f"Response: {brief(body)}")
         print(f"HTTP Status: {code}")
         print()
         mark(
@@ -283,7 +285,7 @@ def main() -> int:
         stats.total += 1
         code, body = get_activities(client, base_url, api_version, bearer_token, "?limit=1")
         activities = body.get("activities")
-        print(f"Response: {compact_json(body)}")
+        print(f"Response: {brief(body)}")
         print(f"HTTP Status: {code}")
         print()
         if code != 200 or not isinstance(activities, list):
@@ -320,7 +322,7 @@ def main() -> int:
                 filter_code, filter_body = get_activities(
                     client, base_url, api_version, bearer_token, f"?url={activity_url}"
                 )
-                print(f"Response: {compact_json(filter_body)}")
+                print(f"Response: {brief(filter_body)}")
                 print(f"HTTP Status: {filter_code}")
                 print()
                 if filter_code == 200:
@@ -338,13 +340,12 @@ def main() -> int:
                         "",
                     )
 
-        # Tests 6-10: filters. CA v1 does not declare them (must be ignored), CA v2 does.
+        # Tests 6-10: filters, declared in CA v1 and v2.
         next_test = run_filter_tests(
             stats,
             lambda suffix: get_activities(client, base_url, api_version, bearer_token, suffix),
             first_test=6,
             id_fields=("areaId", "platformId"),
-            filters_declared=api_version != "v1",
         )
 
         print()

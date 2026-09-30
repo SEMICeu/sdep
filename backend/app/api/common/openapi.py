@@ -119,37 +119,49 @@ def remove_inapplicable_422_responses(
     return openapi_schema
 
 
-def extract_bulk_activity_item_schema(
+# (bulk request schema, list field, item schema) for every bulk endpoint.
+BULK_ITEM_SCHEMAS: tuple[tuple[str, str, str], ...] = (
+    ("ActivityBulkRequest", "activities", "ActivityRequest"),
+    ("ActivityBulkRequestV2", "activities", "ActivityRequestV2"),
+    ("ListingBulkRequest", "listings", "ListingRequest"),
+    ("ListingScreeningBulkRequest", "screenings", "ListingScreeningRequest"),
+    (
+        "ListingAcknowledgementBulkRequest",
+        "acknowledgements",
+        "ListingAcknowledgementRequest",
+    ),
+)
+
+
+def extract_bulk_item_schemas(
     openapi_schema: dict[str, Any],
 ) -> dict[str, Any]:
-    """Extract the inlined ActivityRequest item schema into components.
+    """Extract the inlined bulk item schemas into components.
 
-    `ActivityBulkRequest.activities` uses `SkipValidation[ActivityRequest]` so that
+    Every bulk request lists its items as `SkipValidation[ItemRequest]` so that
     items pass through without Pydantic validation at request-parse time. A
     side-effect is that FastAPI inlines the item schema instead of registering
-    `ActivityRequest` as a separate component. This hook moves the inlined schema
-    to `components.schemas["ActivityRequest"]` and replaces the inline with a
-    `$ref`, giving the common API contract a reusable, concretely-typed item
-    schema.
+    it as a separate component. This hook moves each inlined schema to
+    `components.schemas[<item schema>]` and replaces the inline with a `$ref`,
+    giving the API contract a reusable, concretely-typed item schema.
 
     Args:
         openapi_schema: The generated OpenAPI schema dictionary
 
     Returns:
-        Modified OpenAPI schema with ActivityRequest extracted and referenced
+        Modified OpenAPI schema with the item schemas extracted and referenced
     """
     schemas = openapi_schema.get("components", {}).get("schemas", {})
-    bulk = schemas.get("ActivityBulkRequest")
-    if not bulk:
-        return openapi_schema
-
-    activities = bulk.get("properties", {}).get("activities", {})
-    items = activities.get("items")
-    if not items or "$ref" in items:
-        return openapi_schema
-
-    schemas["ActivityRequest"] = items
-    activities["items"] = {"$ref": "#/components/schemas/ActivityRequest"}
+    for bulk_name, field, item_name in BULK_ITEM_SCHEMAS:
+        bulk = schemas.get(bulk_name)
+        if not bulk:
+            continue
+        items_field = bulk.get("properties", {}).get(field, {})
+        items = items_field.get("items")
+        if not items or "$ref" in items:
+            continue
+        schemas[item_name] = items
+        items_field["items"] = {"$ref": f"#/components/schemas/{item_name}"}
     return openapi_schema
 
 
@@ -286,8 +298,8 @@ def create_custom_openapi(app: FastAPI) -> Callable:
         # Remove 422 from endpoints that never emit it
         openapi_schema = remove_inapplicable_422_responses(openapi_schema)
 
-        # Extract inlined ActivityRequest item schema into components
-        openapi_schema = extract_bulk_activity_item_schema(openapi_schema)
+        # Extract inlined bulk item schemas into components
+        openapi_schema = extract_bulk_item_schemas(openapi_schema)
 
         # Sort schemas by namespace first, then alphabetically
         openapi_schema = sort_schemas_by_namespace(openapi_schema)

@@ -1,4 +1,4 @@
-<h1>Client-Signed JWT Authentication</h1>
+<h1>Client-signed JWT authentication</h1>
 
 This guide illustrates how to use **client-signed JWT authentication** with SDEP.
 
@@ -8,23 +8,23 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
 <h2>Table of Contents</h2>
 
 - [Overview](#overview)
-- [Step 1: Configure Environment (as admin)](#step-1-configure-environment-as-admin)
+- [Step 1: Configure environment (as admin)](#step-1-configure-environment-as-admin)
   - [1a. Local](#1a-local)
   - [1b. PRE](#1b-pre)
   - [1c. PRD](#1c-prd)
-- [Step 2: Configure Keypair (as admin)](#step-2-configure-keypair-as-admin)
+- [Step 2: Configure keypair (as admin)](#step-2-configure-keypair-as-admin)
   - [2a. Local](#2a-local)
   - [2b. PRE](#2b-pre)
   - [2c. PRD](#2c-prd)
-- [Step 3: Send Keypair (as admin)](#step-3-send-keypair-as-admin)
+- [Step 3: Send keypair (as admin)](#step-3-send-keypair-as-admin)
   - [3a. Local](#3a-local)
   - [3b. PRE](#3b-pre)
   - [3c. PRD](#3c-prd)
-- [Step 4: Receive Connection Info (as admin)](#step-4-receive-connection-info-as-admin)
+- [Step 4: Receive connection info (as admin)](#step-4-receive-connection-info-as-admin)
   - [4a. Local](#4a-local)
   - [4b. PRE](#4b-pre)
   - [4c. PRD](#4c-prd)
-- [Step 5: Create a Client-Signed JWT (as machine)](#step-5-create-a-client-signed-jwt-as-machine)
+- [Step 5: Create a client-signed JWT (as machine)](#step-5-create-a-client-signed-jwt-as-machine)
   - [5a. Local](#5a-local)
   - [5b. PRE](#5b-pre)
   - [5c. PRD](#5c-prd)
@@ -42,12 +42,14 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
   - [8c. PRD](#8c-prd)
   - [8d. Examples (CA)](#8d-examples-ca)
   - [8e. Examples (STR)](#8e-examples-str)
-  - [8f. Examples (REP)](#8f-examples-rep)
+  - [8f. Examples (STA)](#8f-examples-sta)
+  - [8g. Examples (LSA)](#8g-examples-lsa)
+  - [8h. Examples (LMA, AMA)](#8h-examples-lma-ama)
 - [Step 9: Authenticate (as admin, in Swagger)](#step-9-authenticate-as-admin-in-swagger)
   - [9a. Local](#9a-local)
   - [9b. PRE](#9b-pre)
   - [9c. PRD](#9c-prd)
-- [Step 10: Rotate Keys (admin)](#step-10-rotate-keys-admin)
+- [Step 10: Rotate keys (admin)](#step-10-rotate-keys-admin)
   - [10a. Local](#10a-local)
   - [10b. PRE](#10b-pre)
   - [10c. PRD](#10c-prd)
@@ -63,7 +65,7 @@ The Client Credentials Grant itself supports **two client authentication methods
 
 For SDEP, both authentication methods operate on the same `/token` endpoint.
 
-- See [Authentication and Authorization](./SECURITY.md#authentication-and-authorization) for more info on both authentication methods.
+- See [Authentication and authorization](./SECURITY.md#authentication-and-authorization) for more info on both authentication methods.
 - This document focuses on **client-signed JWT**.
 
 ---
@@ -91,7 +93,7 @@ The following actions are performed by **team SDEP** (e.g. SDEP-NL), and are fur
 - Create a Keycloak machine client (with required roles), containing the public key (identified by public key ID = `kid`)
 - Hand out the connection info (incl. `kid`) back to the client
 
-## Step 1: Configure Environment (as admin)
+## Step 1: Configure environment (as admin)
 
 ### 1a. Local
 
@@ -125,7 +127,7 @@ N/A.
 
 N/A.
 
-## Step 2: Configure Keypair (as admin)
+## Step 2: Configure keypair (as admin)
 
 ### 2a. Local
 
@@ -147,7 +149,13 @@ These commands use `scripts/generate-keycloak-machine-clients.py`, which configu
 ├───────────────────┼─────────────────────────────────┤
 │ sdep-test-str.jwt │ sdep_str, sdep_read, sdep_write │
 ├───────────────────┼─────────────────────────────────┤
-│ sdep-test-rep.jwt │ sdep_rep, sdep_read             │
+│ sdep-test-sta.jwt │ sdep_sta, sdep_read             │
+├───────────────────┼─────────────────────────────────┤
+│ sdep-test-lsa.jwt │ sdep_lsa, sdep_read, sdep_write │
+├───────────────────┼─────────────────────────────────┤
+│ sdep-test-lma.jwt │ sdep_lma, sdep_read             │
+├───────────────────┼─────────────────────────────────┤
+│ sdep-test-ama.jwt │ sdep_ama, sdep_read             │
 └───────────────────┴─────────────────────────────────┘
 ```
 
@@ -160,7 +168,7 @@ Generated configuration is as follows:
 Config:
 
 - `./tmp/sdep-test-str.jwt.private.pem`
-- `./tmp/sdep-test-rep.jwt.private.pem`
+- `./tmp/sdep-test-sta.jwt.private.pem`
 - `./tmp/sdep-test-ca.jwt.private.pem`
 
 These will be used to authenticate at the local SDEP `/token` endpoint.
@@ -172,7 +180,7 @@ These will be used to authenticate at the local SDEP `/token` endpoint.
 Config:
 
 - `./tmp/sdep-test-ca.jwt.public.yaml`
-- `./tmp/sdep-test-rep.jwt.public.yaml`
+- `./tmp/sdep-test-sta.jwt.public.yaml`
 - `./tmp/sdep-test-str.jwt.public.yaml`
 
 These are used to extend the default `keycloak/machine-clients.yaml`:
@@ -200,7 +208,7 @@ make keycloak-match-client-public-keys
 Or show the public key for a single client instead:
 
 ```bash
-make keycloak-show-client-public-key CLIENT_ID=sdep-test-str.jwt # sdep-test-ca.jwt, sdep-test-rep.jwt
+make keycloak-show-client-public-key CLIENT_ID=sdep-test-str.jwt # sdep-test-ca.jwt, sdep-test-sta.jwt
 ```
 
 ---
@@ -243,7 +251,7 @@ diff <(openssl pkey -in your.private.pem -pubout) your.public.pem \
 
 Same as PRE.
 
-## Step 3: Send Keypair (as admin)
+## Step 3: Send keypair (as admin)
 
 ### 3a. Local
 
@@ -269,7 +277,7 @@ Send the complete content the ` your.public.pem` you created in [step 2b.](#2b-p
 
 Same as PRE.
 
-## Step 4: Receive Connection Info (as admin)
+## Step 4: Receive connection info (as admin)
 
 Info comprises the public key ID to use (`kid`), as well as other connection details.
 
@@ -289,10 +297,10 @@ export SDEP_TOKEN_URL="${SDEP_BASE_URL%/}/api/auth/v1/token"
 export CLIENT_SIGNED_JWT_AUDIENCE="${BACKEND_KC_BASE_URL%/}/realms/sdep/protocol/openid-connect/token"
 ```
 
-And create exports based on either client-signed JWT test client as confiured in [step 2a.](#2a-local):
+Then create the exports for one of the client-signed JWT test clients, as configured in [step 2a.](#2a-local):
 
 ```bash
-export CLIENT_ID=sdep-test-str.jwt # sdep-test-ca.jwt, sdep-test-rep.jwt
+export CLIENT_ID=sdep-test-str.jwt # sdep-test-ca.jwt, sdep-test-sta.jwt
 export KEY_FILE="tmp/$CLIENT_ID.private.pem"
 export KID="$CLIENT_ID"
 ```
@@ -349,7 +357,7 @@ Explanation:
 
 Same as PRE.
 
-## Step 5: Create a Client-Signed JWT (as machine)
+## Step 5: Create a client-signed JWT (as machine)
 
 To prepare for authentication.
 
@@ -525,24 +533,24 @@ Example response:
 Remarks:
 
 - Results are scoped to the authenticated competent authority, based on the `client_id` in the access token
-- See `docs/API.md` for the full endpoint list, including area upload and delete
+- See `docs/API_TECH.md` for the full endpoint list, including area upload and delete
 
 ---
 
-**CA v2 (Beta): Activity Filters**
+**CA: Activity filters**
 
-`/api/ca/v2` serves the same area endpoints as v1, unchanged. Only the activity endpoints differ: they add four optional filters.
+The activity endpoints accept four optional filters.
 
 ```bash
 # Count the own activities created in June 2025
-curl -sS -G "$SDEP_BASE_URL/api/ca/v2/activities/count" \
+curl -sS -G "$SDEP_BASE_URL/api/ca/v1/activities/count" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   --data-urlencode "createdAtFrom=2025-06-01T00:00:00Z" \
   --data-urlencode "createdAtTo=2025-06-30T23:59:59Z" \
   | jq .
 
 # Get the own activities for one area and one platform (first 2)
-curl -sS -G "$SDEP_BASE_URL/api/ca/v2/activities" \
+curl -sS -G "$SDEP_BASE_URL/api/ca/v1/activities" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   --data-urlencode "areaId=58ff0814-3aa1-5019-9afb-3cd9f398602c" \
   --data-urlencode "platformId=8e70f1e2-4c61-477b-89b8-0dbf25ab8b21" \
@@ -561,7 +569,7 @@ Example response (count):
 Remarks:
 
 - Filters combine with AND, omitting a filter means no constraint on that dimension
-- `createdAtFrom` and `createdAtTo` are inclusive and must be UTC (`Z` or `+00:00`); a naive datetime or another offset returns HTTP 400
+- `createdAtFrom` and `createdAtTo` are inclusive and must be UTC (`Z` or `+00:00`); a datetime with no offset or another offset returns HTTP 400
 - `platformId` and `areaId` are exact-match functional IDs, an invalid format returns HTTP 400
 - Use `curl -G --data-urlencode` so the `:` in the timestamps is encoded for you
 - For OR semantics, call the endpoint per value and combine the results client-side
@@ -605,18 +613,18 @@ Example response:
 
 ---
 
-### 8f. Examples (REP)
+### 8f. Examples (STA)
 
-*Only when having "reporting and statistics offices" role (REP).*
+*Only when having "statistics authority" role (STA).*
 
 ```bash
 # Count all activities
-curl -sS "$SDEP_BASE_URL/api/rep/v1/activities/count" \
+curl -sS "$SDEP_BASE_URL/api/sta/v1/activities/count" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
 
 # Get all activities (first 2)
-curl -sS "$SDEP_BASE_URL/api/rep/v1/activities?limit=2" \
+curl -sS "$SDEP_BASE_URL/api/sta/v1/activities?limit=2" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
 ```
@@ -664,6 +672,122 @@ Remarks:
 - `limit` defaults to 1000, which is also the maximum - page with `offset` and `/activities/count`
 - Optional filters (AND semantics): `createdAtFrom`, `createdAtTo`, `platformId`, `areaId`, `competentAuthorityId`
 
+---
+
+### 8g. Examples (LSA)
+
+*Only when having "listing screening authority" role (LSA).*
+
+The screening authority reads the listings waiting to be screened, and posts the result back. Both
+steps are listings (random checks), see [Listing](./LISTING_FUNC.md).
+
+```bash
+# Count the listings waiting to be screened
+curl -sS "$SDEP_BASE_URL/api/lsa/v2/listings/count" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  | jq .
+
+# Get the listings waiting to be screened (first 2)
+curl -sS "$SDEP_BASE_URL/api/lsa/v2/listings?limit=2" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  | jq .
+```
+
+Example response:
+
+```json
+{
+  "listings": [
+    {
+      "listingId": "amsterdam-listing-0001",
+      "listingName": "Amsterdam Canal Apartment",
+      "status": "pending",
+      "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+      "areaName": "Amsterdam",
+      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+      "competentAuthorityName": "Gemeente Amsterdam",
+      "url": "http://example.com/amsterdam-myhouse-1",
+      "address": {
+        "thoroughfare": "Prinsengracht",
+        "locatorDesignatorNumber": 263,
+        "postCode": "1016GV",
+        "postName": "Amsterdam",
+        "fullAddress": "Prinsengracht 263, 1016GV Amsterdam"
+      },
+      "declaredAsShortTermRental": true,
+      "registrationNumber": "REG0001",
+      "flags": [],
+      "submittedAt": "2026-09-01T09:00:00Z",
+      "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+      "platformName": "Test STR 01 (interactive usage, persistent)",
+      "createdAt": "2026-09-01T09:00:00Z"
+    }
+    ...
+  ]
+}
+```
+
+Post the screening result. `createdAt` is the version you screened, copied from the
+response above:
+
+```bash
+curl -sS -X POST "$SDEP_BASE_URL/api/lsa/v2/listing-screenings/bulk" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "screenings": [
+          {
+            "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+            "listingId": "amsterdam-listing-0001",
+            "createdAt": "2026-09-01T09:00:00Z",
+            "flags": ["UNK"]
+          }
+        ]
+      }' \
+  | jq .
+```
+
+Remarks:
+
+- The read is fixed to `pending` listings across every platform: the scope is not a filter and cannot be widened
+- An empty `flags` array is a valid result: it moves the listing to `clear`
+- `createdAt` is the concurrency token. If the platform corrected the listing in the meantime, the item is refused with `conflict_error` on `createdAt`, and the corrected listing shows up in your next read
+- Optional filters (AND semantics): `createdAtFrom`, `createdAtTo`, `areaId`, `platformId`
+
+---
+
+### 8h. Examples (LMA, AMA)
+
+*Only when having "listing monitoring authority" (LMA) or "activity monitoring authority" (AMA) role.*
+
+Both are read-only and unscoped, like STA. LMA reads listings in every lifecycle status,
+AMA reads activities:
+
+```bash
+# LMA: all listings, any status (first 2)
+curl -sS "$SDEP_BASE_URL/api/lma/v2/listings?limit=2" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  | jq .
+
+# LMA: only the flagged ones
+curl -sS -G "$SDEP_BASE_URL/api/lma/v2/listings" \
+  --data-urlencode "status=flagged" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  | jq .
+
+# AMA: all activities (first 2)
+curl -sS "$SDEP_BASE_URL/api/ama/v1/activities?limit=2" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  | jq .
+```
+
+The response shapes are the same as 8f and 8g.
+
+Remarks:
+
+- LMA adds two filters the other audiences do not have: `status` and `flags` (comma-separated flag codes)
+- AMA serves the same read as STA, behind its own role
+
 ## Step 9: Authenticate (as admin, in Swagger)
 
 ### 9a. Local
@@ -684,7 +808,7 @@ N/A - in PRE, Swagger authorization is always performed using client ID & secret
 
 In Swagger UI, select **Authorize** and paste the Bearer token you programmatically obtained in [step 5](#step-5-create-a-client-signed-jwt-as-machine).
 
-## Step 10: Rotate Keys (admin)
+## Step 10: Rotate keys (admin)
 
 ### 10a. Local
 

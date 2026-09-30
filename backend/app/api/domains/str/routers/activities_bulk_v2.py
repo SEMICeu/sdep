@@ -10,14 +10,14 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.common.auth_dependencies import NamedClientDependency, RequireRoles
+from app.api.common.bulk_json import bulk_json_response
 from app.api.common.security import Role
 from app.api.domains.str.routers.activities_bulk_docs import (
     BULK_DESCRIPTION_V2,
     BULK_OPENAPI_EXTRA,
-    BULK_RESPONSES,
+    BULK_RESPONSES_V2,
     BULK_SUMMARY,
 )
-from app.api.domains.str.routers.activities_bulk_shared import bulk_json_response
 from app.db.config import get_async_db
 from app.schemas.activity import ActivityRequestV2
 from app.schemas.activity_bulk import ActivityBulkRequestV2, ActivityBulkResponse
@@ -33,14 +33,14 @@ router = APIRouter(tags=["str"])
     operation_id="postActivitiesBulkV2",
     response_model=ActivityBulkResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=BULK_RESPONSES,
+    responses=BULK_RESPONSES_V2,
     openapi_extra=BULK_OPENAPI_EXTRA,
     dependencies=[Depends(RequireRoles(Role.STR, Role.WRITE))],
 )
 async def post_activities_bulk(
     request: ActivityBulkRequestV2,
     client: NamedClientDependency,
-    session: AsyncSession = Depends(get_async_db),
+    session: AsyncSession = Depends(get_async_db, scope="function"),
 ) -> Response:
     """
     Submit rental activities in bulk.

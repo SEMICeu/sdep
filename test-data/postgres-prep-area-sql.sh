@@ -36,36 +36,38 @@ encode_file_to_hex() {
 }
 
 # Define area
-# Format: "competent_authority_area_id|filename|zipfile|competent_authority_id|comment"
+# Format: "competent_authority_area_id|filename|zipfile|competent_authority_id|regulation|comment"
+# regulation: listing | activity | all (see docs/DATAMODEL_TECH.md, Area). Two areas are
+# listing-only, so the STR v2 regulation_error example resolves against the seed.
 declare -a AREAS=(
-    "amsterdam-area0363|Amsterdam.zip|Amsterdam.zip|c4ac8ccf-a281-5789-bad7-28dfac20ca7f|Amsterdam area"
-    "rotterdam-area0599|Rotterdam.zip|Rotterdam.zip|a30df3a7-7e38-534c-b9c0-7666bad077d2|Rotterdam area"
-    "denhaag-area0518|Den-Haag.zip|Den-Haag-dummy.zip|363ce948-b057-54f3-a916-5dd127a93986|Den Haag area"
-    "amstelveen-area0362|Amstelveen.zip|Amstelveen-dummy.zip|05cd4276-7fb6-58f9-ba53-b4b8bb841800|Amstelveen area"
-    "bergen-area0373|Bergen.zip|Bergen-dummy.zip|4c2cae62-415c-5e4f-8365-64867c97acd1|Bergen (Noord-Holland) area"
-    "delft-area0503|Delft.zip|Delft.zip|a296eb87-dcef-5edc-a173-f749bde80f11|Delft area"
-    "diemen-area0384|Diemen.zip|Diemen.zip|67fed8cf-b536-507e-8489-af4e1cb04ba5|Diemen area"
-    "gouda-area0513|Gouda.zip|Gouda.zip|843c21a2-10d0-51a7-81c7-510a7d265b6e|Gouda area"
-    "groningen-area0014|Groningen.zip|Groningen.zip|8c1f41c4-0d6f-516a-b626-89cea0370f15|Groningen area"
-    "haarlem-area0392|Haarlem.zip|Haarlem.zip|3d648d22-19f5-5c6f-bef3-d2ac6ad6d514|Haarlem area"
-    "katwijk-area0537|Katwijk.zip|Katwijk.zip|51658261-9835-5e57-8089-ff7b14097e5a|Katwijk area"
-    "landsmeer-area0415|Landsmeer.zip|Landsmeer.zip|2c43298f-c4f2-5dbf-b8dc-9506e4606fda|Landsmeer area"
-    "leiden-area0546|Leiden.zip|Leiden.zip|6499b306-44a4-5379-9a16-190acaa0475b|Leiden area"
-    "maastricht-area0935|Maastricht.zip|Maastricht.zip|6df9eba2-b88d-502e-8ae4-92ded9684460|Maastricht area"
-    "middelburg-area0687|Middelburg.zip|Middelburg.zip|3f9f0b48-a7de-5a8f-bb39-192970cc3478|Middelburg area"
-    "noordwijk-area0575|Noordwijk.zip|Noordwijk.zip|ace23ca2-f935-53c4-a239-d6cb06d3c042|Noordwijk area"
-    "pijnackernootdorp-area1926|Pijnacker-Nootdorp-dummy.zip|Pijnacker-Nootdorp-dummy.zip|303daae2-4e70-553f-bc7d-c9af7b5c89ac|Pijnacker-Nootdorp area"
-    "renkum-area0274|Renkum.zip|Renkum.zip|d7e79bbe-4dff-5ffe-8d9a-d22930d12545|Renkum area"
-    "sluis-area1714|Sluis.zip|Sluis.zip|20a03a70-7bab-5cc0-b1f4-396f2f11760c|Sluis area"
-    "schouwenduiveland-area1676|Schouwen-Duiveland.zip|Schouwen-Duiveland.zip|08dea277-4956-52df-95d7-8113d1a6e8cc|Schouwen-Duiveland area"
-    "texel-area0448|Texel.zip|Texel.zip|703b2f59-8aca-5812-b96d-09a6be47e183|Texel area"
-    "utrecht-area0344|Utrecht.zip|Utrecht.zip|7a4039df-9ca4-55f7-9b21-2aa28f4c9da6|Utrecht area"
-    "vlissingen-area0718|Vlissingen.zip|Vlissingen.zip|acd71d83-5105-5a0e-8dbc-20d5bf761f69|Vlissingen area"
-    "voorschoten-area0626|Voorschoten-dummy.zip|Voorschoten-dummy.zip|5fc653b6-ada0-527b-86f1-21a01bebd650|Voorschoten area"
-    "waterland-area0852|Waterland.zip|Waterland.zip|e416d9f1-be38-560e-8f50-89af3b935e8f|Waterland area"
-    "zaanstad-area0479|Zaanstad.zip|Zaanstad.zip|2e665ac8-b3e2-511a-995d-5dfb7a349554|Zaanstad area"
-    "zandvoort-area0473|Zandvoort.zip|Zandvoort.zip|524dde6b-e353-525e-ac6e-fa56d58222e1|Zandvoort area"
-    "zwolle-area0193|Zwolle.zip|Zwolle.zip|10f2b986-802c-537f-82d2-8069a25c6c11|Zwolle area"
+    "amsterdam-area0363|Amsterdam.zip|Amsterdam.zip|c4ac8ccf-a281-5789-bad7-28dfac20ca7f|all|Amsterdam area"
+    "rotterdam-area0599|Rotterdam.zip|Rotterdam.zip|a30df3a7-7e38-534c-b9c0-7666bad077d2|all|Rotterdam area"
+    "denhaag-area0518|Den-Haag.zip|Den-Haag-dummy.zip|363ce948-b057-54f3-a916-5dd127a93986|all|Den Haag area"
+    "amstelveen-area0362|Amstelveen.zip|Amstelveen-dummy.zip|05cd4276-7fb6-58f9-ba53-b4b8bb841800|listing|Amstelveen area"
+    "bergen-area0373|Bergen.zip|Bergen-dummy.zip|4c2cae62-415c-5e4f-8365-64867c97acd1|listing|Bergen (Noord-Holland) area"
+    "delft-area0503|Delft.zip|Delft.zip|a296eb87-dcef-5edc-a173-f749bde80f11|all|Delft area"
+    "diemen-area0384|Diemen.zip|Diemen.zip|67fed8cf-b536-507e-8489-af4e1cb04ba5|all|Diemen area"
+    "gouda-area0513|Gouda.zip|Gouda.zip|843c21a2-10d0-51a7-81c7-510a7d265b6e|all|Gouda area"
+    "groningen-area0014|Groningen.zip|Groningen.zip|8c1f41c4-0d6f-516a-b626-89cea0370f15|all|Groningen area"
+    "haarlem-area0392|Haarlem.zip|Haarlem.zip|3d648d22-19f5-5c6f-bef3-d2ac6ad6d514|all|Haarlem area"
+    "katwijk-area0537|Katwijk.zip|Katwijk.zip|51658261-9835-5e57-8089-ff7b14097e5a|all|Katwijk area"
+    "landsmeer-area0415|Landsmeer.zip|Landsmeer.zip|2c43298f-c4f2-5dbf-b8dc-9506e4606fda|all|Landsmeer area"
+    "leiden-area0546|Leiden.zip|Leiden.zip|6499b306-44a4-5379-9a16-190acaa0475b|all|Leiden area"
+    "maastricht-area0935|Maastricht.zip|Maastricht.zip|6df9eba2-b88d-502e-8ae4-92ded9684460|all|Maastricht area"
+    "middelburg-area0687|Middelburg.zip|Middelburg.zip|3f9f0b48-a7de-5a8f-bb39-192970cc3478|all|Middelburg area"
+    "noordwijk-area0575|Noordwijk.zip|Noordwijk.zip|ace23ca2-f935-53c4-a239-d6cb06d3c042|all|Noordwijk area"
+    "pijnackernootdorp-area1926|Pijnacker-Nootdorp-dummy.zip|Pijnacker-Nootdorp-dummy.zip|303daae2-4e70-553f-bc7d-c9af7b5c89ac|all|Pijnacker-Nootdorp area"
+    "renkum-area0274|Renkum.zip|Renkum.zip|d7e79bbe-4dff-5ffe-8d9a-d22930d12545|all|Renkum area"
+    "sluis-area1714|Sluis.zip|Sluis.zip|20a03a70-7bab-5cc0-b1f4-396f2f11760c|all|Sluis area"
+    "schouwenduiveland-area1676|Schouwen-Duiveland.zip|Schouwen-Duiveland.zip|08dea277-4956-52df-95d7-8113d1a6e8cc|all|Schouwen-Duiveland area"
+    "texel-area0448|Texel.zip|Texel.zip|703b2f59-8aca-5812-b96d-09a6be47e183|all|Texel area"
+    "utrecht-area0344|Utrecht.zip|Utrecht.zip|7a4039df-9ca4-55f7-9b21-2aa28f4c9da6|all|Utrecht area"
+    "vlissingen-area0718|Vlissingen.zip|Vlissingen.zip|acd71d83-5105-5a0e-8dbc-20d5bf761f69|all|Vlissingen area"
+    "voorschoten-area0626|Voorschoten-dummy.zip|Voorschoten-dummy.zip|5fc653b6-ada0-527b-86f1-21a01bebd650|all|Voorschoten area"
+    "waterland-area0852|Waterland.zip|Waterland.zip|e416d9f1-be38-560e-8f50-89af3b935e8f|all|Waterland area"
+    "zaanstad-area0479|Zaanstad.zip|Zaanstad.zip|2e665ac8-b3e2-511a-995d-5dfb7a349554|all|Zaanstad area"
+    "zandvoort-area0473|Zandvoort.zip|Zandvoort.zip|524dde6b-e353-525e-ac6e-fa56d58222e1|all|Zandvoort area"
+    "zwolle-area0193|Zwolle.zip|Zwolle.zip|10f2b986-802c-537f-82d2-8069a25c6c11|all|Zwolle area"
 )
 
 # Start writing the SQL file
@@ -85,7 +87,7 @@ EOF
 
 # Generate SQL for each area
 for area_def in "${AREAS[@]}"; do
-    IFS='|' read -r competent_authority_area_id filename zipfile ca_id comment <<< "${area_def}"
+    IFS='|' read -r competent_authority_area_id filename zipfile ca_id regulation comment <<< "${area_def}"
 
     zipfile_path="${SHAPEFILE_DIR}/${zipfile}"
 
@@ -116,7 +118,7 @@ VALUES (
   (SELECT id FROM competent_authority WHERE competent_authority_id = '${ca_id}'),
   '${area_uuid}',
   '${area_name}',
-  'all',
+  '${regulation}',
   '${filename}',
   ${hex_bytea},
   '2025-01-01 00:00:00+00'::timestamptz

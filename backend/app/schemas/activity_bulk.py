@@ -6,41 +6,17 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation, model_serializer
 
-from app.schemas.activity import (  # noqa: TC001
-    ActivityRequest,
+from app.schemas.activity import (
     ActivityRequestV2,
     ActivityResponse,
 )
-from app.schemas.error import ErrorResponse  # noqa: TC001
+from app.schemas.error import ErrorResponse
 
 __all__ = [
-    "ActivityBulkRequest",
     "ActivityBulkRequestV2",
     "ActivityBulkResponse",
     "ActivityBulkResultItem",
 ]
-
-
-class ActivityBulkRequest(BaseModel):
-    """Bulk activity request schema.
-
-    The `activities` field is typed as `list[ActivityRequest]` for the OpenAPI
-    contract, but item-level validation is skipped at request-parse time (via
-    `SkipValidation`). This preserves the Application-First Validation flow:
-    each item is validated individually in the service layer, so one invalid
-    item is marked NOK without failing the whole batch.
-    """
-
-    model_config = ConfigDict(
-        title="Activity.BulkRequest",
-    )
-
-    activities: list[SkipValidation[ActivityRequest]] = Field(
-        ...,
-        min_length=1,
-        max_length=1000,
-        description="Array of activity objects to process (1-1000 items per batch)",
-    )
 
 
 class ActivityBulkRequestV2(BaseModel):
@@ -169,7 +145,7 @@ class ActivityBulkResponse(BaseModel):
                     "activity": {
                         "activityId": "550e8400-e29b-41d4-a716-446655440000",
                         "status": "finished",
-                        "areaId": "3ab7c2b9-5c8d-4100-bc3e-00ac115f0495",
+                        "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
                         "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
                         "competentAuthorityName": "Gemeente Amsterdam",
                         "url": "http://example.com/amsterdam-myhouse-1",

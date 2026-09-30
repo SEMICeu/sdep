@@ -1,13 +1,10 @@
 """STR areas endpoints shared by every version: count and shapefile download."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.common.area_download import area_zip_response
 from app.api.common.auth_dependencies import RequireRoles
-from app.api.common.filename import (
-    content_disposition_header,
-    sanitize_download_filename,
-)
 from app.api.common.security import Role
 from app.db.config import get_async_db_read_only
 from app.schemas.area import AreaCountResponse
@@ -92,18 +89,4 @@ async def get_area(
     # Call business service with technical area id
     area_data = await area.get_area_by_id(session, areaId)
 
-    if area_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Area with areaId '{areaId}' not found",
-        )
-
-    # Return raw binary data (or empty bytes if filedata is None)
-    binary_data = area_data.filedata if area_data.filedata is not None else b""
-    filename = sanitize_download_filename(area_data.filename)
-
-    return Response(
-        content=binary_data,
-        media_type="application/zip",
-        headers={"Content-Disposition": content_disposition_header(filename)},
-    )
+    return area_zip_response(area_data, areaId)

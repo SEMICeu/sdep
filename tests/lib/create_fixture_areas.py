@@ -57,6 +57,8 @@ def auth_token(client: httpx.Client, base_url: str, api_version: str, client_id:
 def main() -> int:
     count = int(sys.argv[1]) if len(sys.argv) > 1 else 3
     prefix = sys.argv[2] if len(sys.argv) > 2 else "sdep-test-fixture-area"
+    # Optional: listing | activity | all (the API defaults to all when omitted)
+    regulation = sys.argv[3] if len(sys.argv) > 3 else None
 
     base_url = env("BACKEND_BASE_URL")
     api_version = os.getenv("API_VERSION", "v1")
@@ -78,10 +80,13 @@ def main() -> int:
 
         for area_id in area_ids:
             with SHAPEFILE_PATH.open("rb") as shapefile:
+                form = {"areaId": area_id}
+                if regulation:
+                    form["regulation"] = regulation
                 response = client.post(
                     f"{base_url}/api/ca/{api_version}/areas",
                     headers={"Authorization": f"Bearer {ca_token}"},
-                    data={"areaId": area_id},
+                    data=form,
                     files={"file": ("Amsterdam.zip", shapefile, "application/zip")},
                 )
             if response.status_code != 201:

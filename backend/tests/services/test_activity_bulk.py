@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from app.crud import activity as activity_crud
+from app.crud import platform as platform_crud
 from app.exceptions.business import InvalidOperationError
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.services import activity_bulk
@@ -53,7 +54,7 @@ class TestActivityBulkService:
             activity_bulk, "_item_adapter", lambda item_model: fake_adapter
         )
         monkeypatch.setattr(
-            activity_bulk.platform_crud,
+            platform_crud,
             "get_by_client_id",
             AsyncMock(
                 return_value=type(
@@ -89,12 +90,12 @@ class TestActivityBulkService:
     ):
         session = cast("AsyncSession", object())
         monkeypatch.setattr(
-            activity_bulk.platform_crud,
+            platform_crud,
             "get_by_client_id",
             AsyncMock(return_value=None),
         )
         monkeypatch.setattr(
-            activity_bulk.platform_crud,
+            platform_crud,
             "exists_any_by_client_id",
             AsyncMock(return_value=True),
         )
@@ -125,17 +126,17 @@ class TestActivityBulkService:
         bulk_create = AsyncMock()
 
         monkeypatch.setattr(
-            activity_bulk.platform_crud,
+            platform_crud,
             "get_by_client_id",
             AsyncMock(return_value=platform),
         )
         monkeypatch.setattr(
-            activity_bulk.platform_crud,
+            platform_crud,
             "mark_as_ended_by_client_id",
             mark_as_ended,
         )
         monkeypatch.setattr(
-            activity_bulk.platform_crud,
+            platform_crud,
             "create",
             AsyncMock(return_value=created_platform),
         )
@@ -209,7 +210,7 @@ class TestActivityBulkService:
         bulk_create = AsyncMock()
 
         monkeypatch.setattr(
-            activity_bulk.platform_crud,
+            platform_crud,
             "get_by_client_id",
             AsyncMock(return_value=platform),
         )
@@ -478,7 +479,7 @@ async def test_create_activities_bulk_rejects_listing_only_area_when_required(
     session = cast("AsyncSession", object())
     listing_area = SimpleNamespace(id=1, regulation=Regulation.listing)
     monkeypatch.setattr(
-        activity_bulk.platform_crud,
+        platform_crud,
         "get_by_client_id",
         AsyncMock(return_value=SimpleNamespace(id=1, platform_name="Platform")),
     )

@@ -13,9 +13,13 @@ import re
 from pathlib import Path
 
 import pytest
+from app.api.domains.ama.v1 import app_ama_v1
 from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.ca.v2 import app_ca_v2
-from app.api.domains.rep.v1 import app_rep_v1
+from app.api.domains.lma.v2 import app_lma_v2
+from app.api.domains.lsa.v2 import app_lsa_v2
+from app.api.domains.sta.v1 import app_sta_v1
+from app.api.domains.sta.v2 import app_sta_v2
 from app.api.domains.str.v1 import app_str_v1
 from app.api.domains.str.v2 import app_str_v2
 
@@ -91,11 +95,21 @@ def valid_area_ids() -> set[str]:
 
 @pytest.fixture(scope="module")
 def openapi_specs() -> list[dict]:
-    # Every version that carries activity examples, so a new version cannot ship
-    # examples that do not resolve against the seed data.
+    # Every version that carries activity or listing examples, so a new version
+    # cannot ship examples that do not resolve against the seed data.
     return [
         app.openapi()
-        for app in (app_ca_v1, app_ca_v2, app_str_v1, app_str_v2, app_rep_v1)
+        for app in (
+            app_ca_v1,
+            app_ca_v2,
+            app_str_v1,
+            app_str_v2,
+            app_lsa_v2,
+            app_lma_v2,
+            app_ama_v1,
+            app_sta_v1,
+            app_sta_v2,
+        )
     ]
 
 

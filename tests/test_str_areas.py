@@ -64,6 +64,20 @@ def compact_json(data: Any) -> str:
     return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
 
 
+# Log form of a response body: a collection becomes its item count (lists grow
+# with "keep" runs), anything else is cut at `limit` characters.
+COLLECTION_KEYS = ("activities", "areas", "listings")
+
+
+def brief(data: Any, limit: int = 300) -> str:
+    if isinstance(data, dict):
+        counts = [f"{key}: {len(data[key])} items" for key in COLLECTION_KEYS if isinstance(data.get(key), list)]
+        if counts:
+            return ", ".join(counts)
+    text = compact_json(data)
+    return text if len(text) <= limit else f"{text[:limit]}..."
+
+
 def load_bearer_token() -> str:
     token = os.getenv("BEARER_TOKEN", "")
     if token:
@@ -172,7 +186,7 @@ def main() -> int:
             body = response.json()
         except json.JSONDecodeError:
             body = {"raw": response.text}
-        print(f"Response: {compact_json(body)}")
+        print(f"Response: {brief(body)}")
         print(f"HTTP Status: {response.status_code}")
         print()
         if response.status_code == 200:
@@ -205,7 +219,7 @@ def main() -> int:
             body = response.json()
         except json.JSONDecodeError:
             body = {"raw": response.text}
-        print(f"Response (first 500 chars): {compact_json(body)[:500]}...")
+        print(f"Response: {brief(body)}")
         print(f"HTTP Status: {response.status_code}")
         print()
         if response.status_code == 200:
@@ -244,7 +258,7 @@ def main() -> int:
                 body = response.json()
             except json.JSONDecodeError:
                 body = {"raw": response.text}
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {response.status_code}")
             print()
             if response.status_code == 200:
@@ -276,7 +290,7 @@ def main() -> int:
                 body = response.json()
             except json.JSONDecodeError:
                 body = {"raw": response.text}
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {response.status_code}")
             print()
             if response.status_code == 200:
@@ -365,7 +379,7 @@ def main() -> int:
                 body = response.json()
             except json.JSONDecodeError:
                 body = {"raw": response.text}
-            print(f"Response: {compact_json(body)}")
+            print(f"Response: {brief(body)}")
             print(f"HTTP Status: {response.status_code}")
             print()
             mark(

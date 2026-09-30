@@ -2,11 +2,12 @@
 
 import asyncio
 import os
-from collections.abc import AsyncGenerator, Generator
-from typing import TYPE_CHECKING
+from collections.abc import AsyncGenerator, AsyncIterator, Generator
+from contextlib import asynccontextmanager
 
 import pytest
 import pytest_asyncio
+from app.db import config as db_config
 from app.db.config import Base
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
@@ -16,12 +17,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-if TYPE_CHECKING:
-    from _pytest.reports import TestReport
-    from _pytest.terminal import TerminalReporter
 
-
-def _first_message_line(report: "TestReport") -> str:
+def _first_message_line(report: pytest.TestReport) -> str:
     """First line of a failure message, which is where a test puts its remediation hint."""
     reprcrash = getattr(report.longrepr, "reprcrash", None)
     message = getattr(reprcrash, "message", None) or report.longreprtext
@@ -30,7 +27,7 @@ def _first_message_line(report: "TestReport") -> str:
 
 
 @pytest.hookimpl(trylast=True)  # after the coverage report, so `tail` keeps it
-def pytest_terminal_summary(terminalreporter: "TerminalReporter") -> None:
+def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
     """Repeat each failure message at the very end of the run.
 
     Pytest drops the message from its own summary line when the line does not fit the
@@ -305,3 +302,25 @@ async def db_session(async_engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
     await session.close()
     await transaction.rollback()
     await connection.close()
+
+
+@pytest.fixture
+def write_transaction(
+    async_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Let the real `get_async_db` run on the test session: commit or roll back.
+
+    A savepoint stands in for its transaction, so the test data still rolls back
+    at the end. Remove the `get_async_db` override for this to take effect.
+    """
+
+    @asynccontextmanager
+    async def _begin() -> AsyncIterator[AsyncSession]:
+        async with async_session.begin_nested():
+            yield async_session
+
+    class _SessionFactory:
+        def begin(self):
+            return _begin()
+
+    monkeypatch.setattr(db_config, "AsyncSessionLocal", _SessionFactory())

@@ -28,6 +28,7 @@ from app.enums import Regulation
 if TYPE_CHECKING:
     from app.models.activity import Activity
     from app.models.competent_authority import CompetentAuthority
+    from app.models.listing import Listing
 
 
 class Area(Base):
@@ -119,6 +120,10 @@ class Area(Base):
 
     activities: Mapped[list[Activity]] = relationship(
         "Activity", back_populates="area"
+    )  # Zero to many
+
+    listings: Mapped[list[Listing]] = relationship(
+        "Listing", back_populates="area"
     )  # Zero to many
 
     def __repr__(self) -> str:

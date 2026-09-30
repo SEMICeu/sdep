@@ -39,13 +39,41 @@ clients:
       - sdep_read
       - sdep_write
 
-  # 1c. Reporting / statistics office (REP)
-  - id: "sdep-test-rep.01"
-    secret: "sdep-test-rep.01"
-    name: "Test REP-01 (client id & secret, ephemeral)"
+  # 1c. Statistics authority (STA)
+  - id: "sdep-test-sta.01"
+    secret: "sdep-test-sta.01"
+    name: "Test STA-01 (client id & secret, ephemeral)"
     description: "For test automation (ephemeral data)"
     service_account_roles:
-      - sdep_rep
+      - sdep_sta
+      - sdep_read
+
+  # 1d. Listing screening authority (LSA)
+  - id: "sdep-test-lsa.01"
+    secret: "sdep-test-lsa.01"
+    name: "Test LSA-01 (client id & secret, ephemeral)"
+    description: "For test automation (ephemeral data)"
+    service_account_roles:
+      - sdep_lsa
+      - sdep_read
+      - sdep_write
+
+  # 1e. Listing monitoring authority (LMA)
+  - id: "sdep-test-lma.01"
+    secret: "sdep-test-lma.01"
+    name: "Test LMA-01 (client id & secret, ephemeral)"
+    description: "For test automation (ephemeral data)"
+    service_account_roles:
+      - sdep_lma
+      - sdep_read
+
+  # 1f. Activity monitoring authority (AMA)
+  - id: "sdep-test-ama.01"
+    secret: "sdep-test-ama.01"
+    name: "Test AMA-01 (client id & secret, ephemeral)"
+    description: "For test automation (ephemeral data)"
+    service_account_roles:
+      - sdep_ama
       - sdep_read
 
   # 2. Test clients (client id & secret) whose test data remains unaffected after automated test runs
@@ -86,13 +114,41 @@ clients:
       - sdep_read
       - sdep_write
 
-  # 2c. Reporting / statistics office (REP)
-  - id: "sdep-rep.01"
-    secret: "sdep-rep.01"
-    name: "Test REP-01 (client id & secret, persistent)"
+  # 2c. Statistics authority (STA)
+  - id: "sdep-sta.01"
+    secret: "sdep-sta.01"
+    name: "Test STA-01 (client id & secret, persistent)"
     description: "For interactive testing (persistent data)"
     service_account_roles:
-      - sdep_rep
+      - sdep_sta
+      - sdep_read
+
+  # 2d. Listing screening authority (LSA)
+  - id: "sdep-lsa.01"
+    secret: "sdep-lsa.01"
+    name: "Test LSA-01 (client id & secret, persistent)"
+    description: "For interactive testing (persistent data)"
+    service_account_roles:
+      - sdep_lsa
+      - sdep_read
+      - sdep_write
+
+  # 2e. Listing monitoring authority (LMA)
+  - id: "sdep-lma.01"
+    secret: "sdep-lma.01"
+    name: "Test LMA-01 (client id & secret, persistent)"
+    description: "For interactive testing (persistent data)"
+    service_account_roles:
+      - sdep_lma
+      - sdep_read
+
+  # 2f. Activity monitoring authority (AMA)
+  - id: "sdep-ama.01"
+    secret: "sdep-ama.01"
+    name: "Test AMA-01 (client id & secret, persistent)"
+    description: "For interactive testing (persistent data)"
+    service_account_roles:
+      - sdep_ama
       - sdep_read
 
   # 3. Test clients (client id & secret) whose test data remains unaffected after automated test runs, deployed with predefined test data

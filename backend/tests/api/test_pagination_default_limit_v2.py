@@ -1,7 +1,7 @@
-"""STR v2 and CA v2 list endpoints return at most 1000 records per call.
+"""STR v2 and CA (v1, v2) list endpoints return at most 1000 records per call.
 
-Proven with 1001 rows: the v2 apps return 1000 without a `limit`, the v1 apps
-return everything. The contract (declared default) is checked alongside.
+Proven with 1001 rows: these apps return 1000 without a `limit`, STR v1 returns
+everything. The contract (declared default) is checked alongside.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -68,7 +68,12 @@ class TestDefaultLimit:
             app.dependency_overrides[get_async_db] = override_get_db
             app.dependency_overrides[get_async_db_read_only] = override_get_db
         yield
-        for app in (app_str_v1, app_str_v2, app_ca_v1, app_ca_v2):
+        for app in (
+            app_str_v1,
+            app_str_v2,
+            app_ca_v1,
+            app_ca_v2,
+        ):
             app.dependency_overrides.clear()
 
     @pytest_asyncio.fixture
@@ -132,8 +137,8 @@ class TestDefaultLimit:
 
     @pytest.mark.parametrize(
         "app,expected",
-        [(app_ca_v1, ROWS), (app_ca_v2, 1000)],
-        ids=["ca-v1-unlimited", "ca-v2-capped"],
+        [(app_ca_v1, 1000), (app_ca_v2, 1000)],
+        ids=["ca-v1-capped", "ca-v2-capped"],
     )
     async def test_ca_areas_default_limit(
         self, setup_overrides, many_areas, app, expected
@@ -142,8 +147,8 @@ class TestDefaultLimit:
 
     @pytest.mark.parametrize(
         "app,expected",
-        [(app_ca_v1, ROWS), (app_ca_v2, 1000)],
-        ids=["ca-v1-unlimited", "ca-v2-capped"],
+        [(app_ca_v1, 1000), (app_ca_v2, 1000)],
+        ids=["ca-v1-capped", "ca-v2-capped"],
     )
     async def test_ca_activities_default_limit(
         self, setup_overrides, many_activities, app, expected
@@ -171,9 +176,9 @@ class TestDefaultLimitContract:
         [
             (app_str_v1, "/areas", None),
             (app_str_v2, "/areas", 1000),
-            (app_ca_v1, "/areas", None),
+            (app_ca_v1, "/areas", 1000),
             (app_ca_v2, "/areas", 1000),
-            (app_ca_v1, "/activities", None),
+            (app_ca_v1, "/activities", 1000),
             (app_ca_v2, "/activities", 1000),
         ],
         ids=[

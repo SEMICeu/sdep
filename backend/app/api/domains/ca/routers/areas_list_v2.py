@@ -8,7 +8,7 @@ from app.api.common.auth_dependencies import ClientDependency, RequireRoles
 from app.api.common.pagination import LimitedPaginationDependency
 from app.api.common.security import Role
 from app.api.domains.ca.routers.areas_docs import (
-    OWN_AREAS_DESCRIPTION_V2,
+    OWN_AREAS_DESCRIPTION,
     OWN_AREAS_RESPONSES,
     OWN_AREAS_SUMMARY,
 )
@@ -22,7 +22,7 @@ router = APIRouter(tags=["ca"])
 @router.get(
     "/areas",
     summary=OWN_AREAS_SUMMARY,
-    description=OWN_AREAS_DESCRIPTION_V2,
+    description=OWN_AREAS_DESCRIPTION,
     operation_id="getOwnAreasV2",
     response_model=AreaListResponse,
     status_code=status.HTTP_200_OK,

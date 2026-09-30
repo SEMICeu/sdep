@@ -9,7 +9,7 @@
 # ///
 """Generate the local Keycloak client-signed JWT test client files.
 
-One client-signed JWT test client is generated per role (CA, STR, REP), so every
+One client-signed JWT test client is generated per role (CA, STR, STA, LSA, LMA, AMA), so every
 role can be exercised through the client_signed_jwt flow, not only STR. Each
 client gets its own RSA key pair; the private key stays local (tmp/, gitignored)
 and the derived public key is declared in the generated machine-client YAML.
@@ -50,7 +50,7 @@ class JwtClientSpec:
 
 
 # Roles mirror their client-secret counterparts in keycloak/machine-clients.yaml:
-# CA and STR are read-write, REP is read-only.
+# CA, STR and LSA are read-write, STA, LMA and AMA are read-only.
 JWT_CLIENT_SPECS: tuple[JwtClientSpec, ...] = (
     JwtClientSpec(
         client_id="sdep-test-ca.jwt",
@@ -65,10 +65,28 @@ JWT_CLIENT_SPECS: tuple[JwtClientSpec, ...] = (
         service_account_roles=("sdep_str", "sdep_read", "sdep_write"),
     ),
     JwtClientSpec(
-        client_id="sdep-test-rep.jwt",
-        name="Test REP-JWT (client-signed JWT, ephemeral)",
+        client_id="sdep-test-sta.jwt",
+        name="Test STA-JWT (client-signed JWT, ephemeral)",
         description="For test automation (ephemeral data)",
-        service_account_roles=("sdep_rep", "sdep_read"),
+        service_account_roles=("sdep_sta", "sdep_read"),
+    ),
+    JwtClientSpec(
+        client_id="sdep-test-lsa.jwt",
+        name="Test LSA-JWT (client-signed JWT, ephemeral)",
+        description="For test automation (ephemeral data)",
+        service_account_roles=("sdep_lsa", "sdep_read", "sdep_write"),
+    ),
+    JwtClientSpec(
+        client_id="sdep-test-lma.jwt",
+        name="Test LMA-JWT (client-signed JWT, ephemeral)",
+        description="For test automation (ephemeral data)",
+        service_account_roles=("sdep_lma", "sdep_read"),
+    ),
+    JwtClientSpec(
+        client_id="sdep-test-ama.jwt",
+        name="Test AMA-JWT (client-signed JWT, ephemeral)",
+        description="For test automation (ephemeral data)",
+        service_account_roles=("sdep_ama", "sdep_read"),
     ),
 )
 

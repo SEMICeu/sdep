@@ -12,8 +12,10 @@ from app.config import settings
 app_auth_v1 = FastAPI(
     title=AUTH_V1.title,
     description=AUTH_V1.description_with_status,
-    version=settings.api_version_label,
+    version=settings.api_version,
+    contact=settings.api_contact,
     root_path=AUTH_V1.root_path,
+    redirect_slashes=AUTH_V1.redirect_slashes,
     redoc_url=None,
     responses={
         500: {

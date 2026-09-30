@@ -343,7 +343,7 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Claude
+# Local developer tooling state
 **/settings.local.json
 **/worktrees
 

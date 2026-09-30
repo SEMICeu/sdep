@@ -26,9 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import activity as activity_crud
 from app.crud import area as area_crud
-from app.crud import platform as platform_crud
 from app.enums import Regulation
-from app.exceptions.business import InvalidOperationError
 from app.schemas.activity import (
     ActivityBulkCreate,
     ActivityRequest,
@@ -36,6 +34,7 @@ from app.schemas.activity import (
 )
 from app.schemas.activity_bulk import ActivityBulkResponse, ActivityBulkResultItem
 from app.schemas.error import ErrorDetail, ErrorResponse
+from app.services.platform import ensure_platform
 
 logger = logging.getLogger(__name__)
 
@@ -120,33 +119,7 @@ async def create_activities_bulk(
         valid_indexes.append(i)
 
     # ── Platform resolution (once per batch) ────────────────────────────
-    platform = await platform_crud.get_by_client_id(session, client_id)
-
-    if platform is None:
-        # Check if deactivated
-        platform_deactivated = await platform_crud.exists_any_by_client_id(
-            session, client_id
-        )
-        if platform_deactivated:
-            raise InvalidOperationError(
-                f"Platform client '{client_id}' has been deactivated"
-            )
-        platform = await platform_crud.create(
-            session=session,
-            client_id=client_id,
-            platform_name=platform_name,
-        )
-    elif platform.platform_name != platform_name:
-        # Name changed in JWT claim → version: mark old as ended, create new
-        public_platform_id = platform.platform_id
-        await platform_crud.mark_as_ended_by_client_id(session, client_id)
-        platform = await platform_crud.create(
-            session=session,
-            platform_id=public_platform_id,
-            client_id=client_id,
-            platform_name=platform_name,
-        )
-    # else: platform exists and name unchanged → reuse as-is
+    platform = await ensure_platform(session, client_id, platform_name)
 
     # ── Intra-batch duplicate handling (last-wins) ──────────────────────
     # Pass 1: record the latest position for each activity_id
