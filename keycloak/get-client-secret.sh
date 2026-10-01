@@ -32,9 +32,12 @@ get_client_secret() {
         return 1
     fi
 
+    # Fail fast when Keycloak is unreachable (curl waits 300s by default) and retry short outages.
+    local CURL_OPTS=(--connect-timeout 10 --max-time 30 --retry 3 --retry-delay 5)
+
     echo "🔐 Authenticating with ${KC_APP_REALM_ADMIN_ID}..."
 
-    local TOKEN_RESPONSE=$(curl -s -X POST "${KC_BASE_URL}/realms/${REALM_NAME}/protocol/openid-connect/token" \
+    local TOKEN_RESPONSE=$(curl -s "${CURL_OPTS[@]}" -X POST "${KC_BASE_URL}/realms/${REALM_NAME}/protocol/openid-connect/token" \
         -H "Content-Type: application/x-www-form-urlencoded" \
         -d "client_id=${KC_APP_REALM_ADMIN_ID}" \
         -d "client_secret=${KC_APP_REALM_ADMIN_SECRET}" \
@@ -45,6 +48,9 @@ get_client_secret() {
     if [ -z "$TOKEN" ]; then
         echo "❌ Failed to authenticate" >&2
         echo "Response: $TOKEN_RESPONSE" >&2
+        if [ -z "$TOKEN_RESPONSE" ]; then
+            echo "   Empty response: Keycloak did not answer (network, DNS or timeout)" >&2
+        fi
         echo "" >&2
         echo "Configuration used:" >&2
         echo "  KC_BASE_URL: ${KC_BASE_URL}" >&2
@@ -62,7 +68,7 @@ get_client_secret() {
     echo "🔍 Looking up client ${KC_APP_REALM_CLIENT_ID}..."
 
     # Get the client UUID
-    local CLIENT_CHECK=$(curl -s -H "Authorization: Bearer $TOKEN" \
+    local CLIENT_CHECK=$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer $TOKEN" \
         "${KC_BASE_URL}/admin/realms/${REALM_NAME}/clients?clientId=${KC_APP_REALM_CLIENT_ID}")
 
     if [ "$(echo "$CLIENT_CHECK" | jq 'length')" -eq 0 ]; then
@@ -75,7 +81,7 @@ get_client_secret() {
 
     # Retrieve the client secret
     echo "🔑 Retrieving client secret for ${KC_APP_REALM_CLIENT_ID}..."
-    local CLIENT_SECRET_RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" \
+    local CLIENT_SECRET_RESPONSE=$(curl -s "${CURL_OPTS[@]}" -H "Authorization: Bearer $TOKEN" \
         "${KC_BASE_URL}/admin/realms/${REALM_NAME}/clients/${CLIENT_UUID}/client-secret")
 
     KC_APP_REALM_CLIENT_SECRET=$(echo "$CLIENT_SECRET_RESPONSE" | jq -r '.value')

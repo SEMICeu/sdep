@@ -1,3 +1,4 @@
+from datetime import datetime
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock
@@ -6,8 +7,12 @@ import pytest
 from app.crud import activity as activity_crud
 from app.crud import platform as platform_crud
 from app.exceptions.business import InvalidOperationError
+from app.exceptions.handlers import is_unique_violation
+from app.models.activity import Activity
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.services import activity_bulk
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.fixtures.factories import ActivityFactory, AreaFactory, PlatformFactory
@@ -412,7 +417,9 @@ class TestActivityBulkService:
             platform_id=platform.id,
             area_id=area.id,
         )
-        await activity_crud.mark_as_ended(async_session, ended.activity_id, platform.id)
+        await activity_crud.mark_as_ended(
+            async_session, ended.activity_id, platform.platform_id
+        )
 
         response = await activity_bulk.create_activities_bulk(
             session=async_session,
@@ -530,3 +537,103 @@ async def test_create_activities_bulk_rejects_listing_only_area_when_required(
         ]
     )
     bulk_create.assert_not_awaited()
+
+
+def _activity(activity_id: str, area_id: str) -> dict:
+    return {
+        "activityId": activity_id,
+        "areaId": area_id,
+        "url": f"http://example.com/{activity_id}",
+        "registrationNumber": "REG-1",
+        "address": {
+            "thoroughfare": "Street",
+            "locatorDesignatorNumber": 4,
+            "postCode": "1234AB",
+            "postName": "City",
+            "fullAddress": "Street 4, 1234AB City",
+        },
+        "numberOfGuests": 1,
+        "countryOfGuests": ["NLD"],
+        "temporal": {
+            "startDatetime": "2025-06-01T14:00:00Z",
+            "endDatetime": "2025-06-07T11:00:00Z",
+        },
+    }
+
+
+async def _current_count(session: AsyncSession, activity_id: str) -> int:
+    rows = await session.execute(
+        select(Activity).where(
+            Activity.activity_id == activity_id, Activity.ended_at.is_(None)
+        )
+    )
+    return len(rows.scalars().all())
+
+
+@pytest.mark.database
+@pytest.mark.asyncio
+class TestActivityVersioningAcrossPlatforms:
+    async def test_resubmit_after_platform_rename_keeps_one_current_version(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session, area_id="rename-area")
+        # Backdated, so the rename's new platform version gets another created_at
+        await PlatformFactory.create_async(
+            async_session,
+            client_id="str-1",
+            platform_name="STR 1",
+            created_at=datetime(2026, 1, 1),
+        )
+        for name in ("STR 1", "STR 1 renamed"):
+            response = await activity_bulk.create_activities_bulk(
+                async_session, [_activity("a-1", area.area_id)], "str-1", name
+            )
+            assert response.results[0].status == "OK", response.results[0]
+        assert await _current_count(async_session, "a-1") == 1
+
+    async def test_deactivation_guard_is_per_platform(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session, area_id="guard-area")
+        other = await PlatformFactory.create_async(
+            async_session, platform_id="p-other", client_id="str-other"
+        )
+        ended = await ActivityFactory.create_async(
+            async_session, activity_id="a-shared", platform_id=other.id, area_id=area.id
+        )
+        await activity_crud.mark_as_ended(
+            async_session, ended.activity_id, other.platform_id
+        )
+
+        response = await activity_bulk.create_activities_bulk(
+            async_session, [_activity("a-shared", area.area_id)], "str-1", "STR 1"
+        )
+        assert response.results[0].status == "OK", response.results[0]
+
+    async def test_non_object_item_is_nok_not_500(self, async_session: AsyncSession):
+        response = await activity_bulk.create_activities_bulk(
+            async_session, cast("list[dict]", [123]), "str-1", "STR 1"
+        )
+        assert response.failed == 1
+        assert response.results[0].activity_id is None
+
+    async def test_second_current_version_is_refused_by_the_database(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session, area_id="race-area")
+        platform = await PlatformFactory.create_async(async_session)
+        await ActivityFactory.create_async(
+            async_session,
+            activity_id="a-race",
+            platform_id=platform.id,
+            area_id=area.id,
+        )
+        # What a lost race inserts: a second current row for the same key
+        with pytest.raises(IntegrityError) as exc:
+            await ActivityFactory.create_async(
+                async_session,
+                activity_id="a-race",
+                platform_id=platform.id,
+                area_id=area.id,
+            )
+        assert is_unique_violation(exc.value)

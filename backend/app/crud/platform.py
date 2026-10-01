@@ -12,7 +12,7 @@ Pattern:
 - CRUD layer: Data access (flush only, no commits)
 """
 
-from sqlalchemy import func, select, update
+from sqlalchemy import Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.platform import Platform
@@ -99,6 +99,15 @@ async def get_current_by_platform_ids(
     )
     result = await session.execute(stmt)
     return {platform.platform_id: platform for platform in result.scalars().all()}
+
+
+def all_version_ids(platform_id: str) -> Select[int]:
+    """Technical IDs of every version of a platform, by its public platformId.
+
+    A listing or activity keeps pointing at the platform version it was written
+    under, so a rename (a new platform version) must still find it.
+    """
+    return select(Platform.id).where(Platform.platform_id == platform_id)
 
 
 async def get_by_id(session: AsyncSession, platform_id: int) -> Platform | None:

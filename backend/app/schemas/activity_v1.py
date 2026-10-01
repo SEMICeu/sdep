@@ -3,7 +3,7 @@
 v1 is stable and its contract must not change. The base schemas in
 app/schemas/activity.py and app/schemas/address.py carry the v2 field maximums
 (`url` 2048, `fullAddress` 328, documented response maximums); this module
-re-declares the affected fields with the v1 values, so the v1 OpenAPI stays unchanged.
+redeclares the affected fields with the v1 values, so the v1 OpenAPI stays unchanged.
 
 The class names are kept on purpose: the OpenAPI component key is the class name
 (`ActivityRequest`, `ActivityResponse`, `ActivityBulkResponse`), not the module. The

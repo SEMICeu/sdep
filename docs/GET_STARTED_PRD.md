@@ -4,7 +4,7 @@ Welcome to the **SDEP-NL Production (PRD) environment**. As an **integration par
 
 > **Disclaimer**: For production use per country, always contact your **national SDEP representative** regarding national deployment and operational responsibilities.
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Introduction](#introduction)
   - [SDEP](#sdep)
@@ -82,10 +82,13 @@ Also include in the email:
 
 - **Your public key**: used to authenticate your client through client-signed JWT
   - See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
-- **Your Role**: used to grant the appropriate API permissions
+- **Your role**: used to grant the appropriate API permissions
   - Competent authority (CA)
   - Short-term rental platform (STR)
   - Statistics authority (STA)
+  - Listing screening authority (LSA)
+  - Listing monitoring authority (LMA)
+  - Activity monitoring authority (AMA)
 
 ---
 

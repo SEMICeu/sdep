@@ -4,6 +4,27 @@
 
 *See also the [API design](./docs/API_TECH.md) and the [version differences](./docs/API_DIFF_TECH.md).*
 
+<h1>1.8.0</h1>
+
+- Added a [test suites config](./tests/suites.txt), to steer tests over versions and over environments
+- Fixed a slow Keycloak key fetch that could block all backend requests
+- Changed NLgov REST API Design Rules `/core/publish-openapi` from roadmap to [deviation](./docs/API_TECH.md#nlgov-rest-api-design-rules)
+- Fixed: a platform rename (changed `client_name`) preserves references from listings and activities
+- Improved status codes:
+  - An unknown signing key (`kid`) gives `401` (was `503`)
+  - A Keycloak `5xx` on `/token` gives `503` (was `401`)
+  - A malware scanner outage gives `503` (was `400`)
+  - A bulk item that is not a JSON object is NOK (was `500`)
+  - **No impact on the API schemas** (status codes only, as documented in [HTTP status codes](./docs/API_TECH.md#http-status-codes))
+- The area upload size limit is checked before the body is parsed (optization)
+- Parallel backend replicas (if any) no longer race on the database migration at start-up
+- Removed Node.js and pyright from the backend image build, upgraded `uv`
+- Integration test totals show skipped tests
+- Added and applied spellcheck to support Oxford English (en-GB-oxendict)
+  - Prose gets British English spelling
+  - Code names like authorization stay the same as in libraries
+- Improved documentation
+
 <h1>1.7.0</h1>
 
 - Introduced random checks/flagged listings (v2, alpha)
@@ -120,7 +141,7 @@ v2:
   - Activity timestamps must be UTC (offset `Z` or `+00:00`); other offsets (e.g. CET `+01:00`), no offset and date-only values are rejected
   - Activities are rejected for areas that are regulated for listing only, per item (`regulation_error`)
   - `GET /areas` returns at most 1000 areas per call (`limit` defaults to 1000, the maximum)
-  - Impact on API contract: new STR `/v2` endpoints; STR `v1` behavior unchanged
+  - Impact on API contract: new STR `/v2` endpoints; STR `v1` behaviour unchanged
 - Widened `url` to 2048 and `fullAddress` to 328 characters
   - No impact on STR `v1` (POST request maximums are relaxed, contract widening, backward compatible)
   - Impact on CA and STA `v1`: responses may carry longer values, so clients that size their own storage from the documented maximums should widen it
@@ -187,7 +208,7 @@ v2:
 - Renamed `CLIENT_CREDENTIALS_FLOW_ENABLED` to `CLIENT_SECRET_AUTH_ENABLED`
   - Clarified that optional client-secret authentication and always-enabled client-signed JWT authentication are both authentication methods within the Client Credentials flow
   - No impact on the API contract
-- Improved Makefile test targets and preserving the optional "keep testdata" behavior
+- Improved Makefile test targets and preserving the optional "keep testdata" behaviour
 - Made `tests/test_auth_client_jwt.py` reusable against deployed environments
 - Remediated two dependency CVEs and refreshed the CVE allowlist
   - Raised `cryptography` to `>=50.0.0` (CVE-2026-69247, a Bleichenbacher oracle in the PKCS7 decrypt helpers) and `python-dotenv` to `>=1.2.2` (CVE-2026-28684, symlink following in `set_key()` / `unset_key()`); SDEP reaches neither code path, so both floors are defense in depth
@@ -293,7 +314,7 @@ v2:
 - Narrowed Basic Auth parser exception handling on `/api/auth/v1/token` (previously a bare `except Exception` could mask unrelated errors)
 - Optimized audit middleware by reusing the verified JWT payload from `request.state` instead of re-verifying the token
 - Removed the no-op `add_done_callback` on the audit-write background task and replaced it with strong task references (so the task is not garbage-collected mid-flight)
-- Refactored intra-batch deduplication in `services/activity_bulk.py` into a clearer two-pass form (build last-index map, then mark superseded items NOK); behavior unchanged
+- Refactored intra-batch deduplication in `services/activity_bulk.py` into a clearer two-pass form (build last-index map, then mark superseded items NOK); behaviour unchanged
 - Removed empty `AuditLogMiddleware.__init__` override
 - Implemented fail fast for oversized area uploads (HTTP 413 when `Content-Length` exceeds the configured limit
   - Technically narrows the CA v1 contract, but does not demand for a CA `/v2` yet
@@ -341,7 +362,7 @@ v2:
   - CA remains the same at runtime (does not require upgrade to /v2); but generated clients may see a spec diff
   - STR remains untouched
 - Restricted area file uploads to `.zip` only ([#73](https://github.com/SEMICeu/sdep/issues/73))
-  - Aligns POST behavior with the existing `application/zip`-only GET endpoint
+  - Aligns POST behaviour with the existing `application/zip`-only GET endpoint
   - Technically narrows the CA v1 contract, but does not require a CA `/v2`: only zipped shapefiles were practically supported already
 - Sanitized user-supplied filenames in `Content-Disposition` headers
   - Previously, unsanitized filenames allowed header injection via `"`, `\r`, `\n`

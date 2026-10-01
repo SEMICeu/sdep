@@ -84,7 +84,7 @@ async def acknowledge_listings_bulk(
         current_by_id = await listing_crud.get_current_by_listing_ids(
             session,
             [validated_items[i].listing_id for i in valid_indexes],
-            platform.id,
+            platform.platform_id,
             for_update=True,
         )
 
@@ -126,23 +126,25 @@ async def acknowledge_listings_bulk(
             ids_to_end.append(acknowledgement.listing_id)
             accepted.append((i, current))
 
+    new_versions: list[Listing] = []
     if platform is not None:
-        await listing_crud.bulk_mark_as_ended(session, ids_to_end, platform.id)
+        await listing_crud.bulk_mark_as_ended(session, ids_to_end, platform.platform_id)
 
-    # Build after the last UPDATE: a version built earlier sits in the
-    # relationship collections during autoflush without being in the session.
-    batch_created_at = datetime.now(UTC)
-    new_versions = [
-        listing_crud.build_next_version(
-            current,
-            created_at=batch_created_at,
-            status=ListingStatus.acknowledged,
-            flags=list(current.flags),
-            screened_at=current.screened_at,
-            acknowledged_at=batch_created_at,
-        )
-        for _, current in accepted
-    ]
+        # Build after the last UPDATE: a version built earlier sits in the
+        # relationship collections during autoflush without being in the session.
+        batch_created_at = datetime.now(UTC)
+        new_versions = [
+            listing_crud.build_next_version(
+                current,
+                platform=platform,
+                created_at=batch_created_at,
+                status=ListingStatus.acknowledged,
+                flags=list(current.flags),
+                screened_at=current.screened_at,
+                acknowledged_at=batch_created_at,
+            )
+            for _, current in accepted
+        ]
     created = await listing_crud.bulk_create(session, new_versions)
 
     # ── Step 4: Feedback ────────────────────────────────────────────────

@@ -4,7 +4,7 @@ SDEP is an **API-first application** designed for **machine-to-machine (M2M) int
 
 The following security considerations apply.
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Identification](#identification)
 - [Authentication and authorization](#authentication-and-authorization)
@@ -136,11 +136,11 @@ Supported scopes (roles) are:
 
 JWT Claims used by the application:
 
-| Claim                | Maps to                                       |
-| :------------------- | :-------------------------------------------- |
-| `client_id`          | Platform or Competent Authority functional ID |
-| `client_name`        | Platform or Competent Authority display name  |
-| `realm_access.roles` | Role-based authorization                      |
+| Claim                | Maps to                                                                                                                                    |
+| :------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+| `client_id`          | Private client ID of the Platform or Competent Authority, linked to its public `platformId` or `competentAuthorityId` but separate from it |
+| `client_name`        | Platform or Competent Authority display name                                                                                               |
+| `realm_access.roles` | Role-based authorization                                                                                                                   |
 
 ## Smaller platforms
 
@@ -207,7 +207,7 @@ Together, the database table and stdout output provide complementary access path
 
 ---
 
-For more details, see section [Audit Log (Details)](#audit-log-details).
+For more details, see section [Audit log (details)](#audit-log-details).
 
 ## OWASP
 
@@ -324,7 +324,7 @@ File uploads are protected by:
 
 - **Format:** only `.zip` files are accepted (validated by filename extension and ZIP magic bytes `PK\x03\x04`); non-zip uploads return `422`
 - **Size:** max 1 MiB (`MAX_FILE_SIZE = 1_048_576`); oversized uploads return `422`
-- **Malware scanning:** uploads are scanned with ClamAV before being accepted; infected files return `400`
+- **Malware scanning:** uploads are scanned with ClamAV before being accepted; infected files return `400`. A scan that could not run (ClamAV unreachable, timeout, ClamAV `ERROR`) returns `503`: the file is still refused, but the client learns to retry later instead of that its file is suspect
 - **Filename sanitization at upload time:** the uploaded filename is sanitized before it is stored in the database, using the shared [`filename.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common/filename.py) utility (`sanitize_upload_filename`). Malicious filenames are never persisted. Sanitization:
   - Path separators are stripped (extracts basename from Unix `/` and Windows `\` paths)
   - Control characters (C0 range `\x00`-`\x1f`, CR, LF), double quotes, and backslashes are removed
@@ -479,7 +479,7 @@ Dependencies are declared with flexible lower bounds (`>=`) in `pyproject.toml` 
 **Docker Base Images**
 
 - The Python base image is pinned to a minor version (`python:3.14-slim`) via `ARG PYTHON_IMAGE`
-- The `uv` installer is pinned to a specific release (`ghcr.io/astral-sh/uv:0.5.4`)
+- The `uv` installer is pinned to a specific release (`ghcr.io/astral-sh/uv:0.12.21`)
 - PostgreSQL, Keycloak and ClamAV versions are externalized via environment variables in `docker-compose.yml`
 
 **Keeping Dependencies Up to Date**

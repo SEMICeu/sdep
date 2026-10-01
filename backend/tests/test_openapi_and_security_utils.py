@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import socket
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,6 +12,7 @@ from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common.security import OAuth2ClientCredentials
 from app.api.domains.ca.v1 import app_ca_v1
 from app.security.audit import _extract_jwt_roles
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.openapi.models import OAuthFlows
 from fastapi.security import OAuth2
@@ -18,8 +22,10 @@ from jwt import (
     ExpiredSignatureError,
     InvalidAudienceError,
     InvalidTokenError,
+    PyJWKClient,
     PyJWKClientError,
 )
+from jwt.algorithms import RSAAlgorithm
 from starlette.requests import Request
 
 
@@ -257,6 +263,7 @@ def test_get_jwks_client_creates_client_with_correct_url(monkeypatch):
             "https://kc.example/realms/sdep/protocol/openid-connect/certs",
             cache_jwk_set=True,
             lifespan=common_security.JWKS_CACHE_TTL,
+            timeout=common_security.JWKS_FETCH_TIMEOUT,
         )
         assert client is mock_cls.return_value
 
@@ -461,6 +468,73 @@ async def test_protected_endpoint_maps_jwt_errors_to_http_status_end_to_end(
 
 
 @pytest.mark.asyncio
+async def test_slow_jwks_fetch_does_not_block_other_requests(monkeypatch):
+    """A slow JWKS fetch must not freeze the event loop.
+
+    The key fetch blocks until the health request has been answered. If token
+    validation ran on the event loop, the health request could not run first.
+    """
+    app = FastAPI()
+    register_exception_handlers(app)
+    health_answered = threading.Event()
+
+    @app.get("/protected")
+    async def _protected(_payload=Depends(common_security.verify_bearer_token)):
+        return {"ok": True}
+
+    @app.get("/health")
+    async def _health():
+        return {"ok": True}
+
+    def _slow_fetch(_token):
+        # Timeout only so a regression fails instead of hanging the test run.
+        if not health_answered.wait(timeout=3):
+            raise PyJWKClientError("health request was blocked by the key fetch")
+        return MagicMock(key="k")
+
+    mock_client = MagicMock()
+    mock_client.get_signing_key_from_jwt.side_effect = _slow_fetch
+    monkeypatch.setattr(common_security, "_get_jwks_client", lambda: mock_client)
+    monkeypatch.setattr(common_security.jwt, "decode", lambda *a, **kw: {"sub": "ok"})
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        protected = asyncio.create_task(
+            client.get("/protected", headers={"Authorization": "Bearer dummy-token"})
+        )
+        await asyncio.sleep(0.1)  # Let the protected request reach the key fetch.
+        health = await asyncio.wait_for(client.get("/health"), timeout=1)
+        health_answered.set()
+        protected_response = await protected
+
+    assert health.status_code == status.HTTP_200_OK
+    assert protected_response.status_code == status.HTTP_200_OK
+
+
+# Header {"alg": "RS256", "kid": "k1"}, payload {}, dummy signature. PyJWT reads
+# the kid without verifying, then fetches the keys to look it up.
+_UNSIGNED_TOKEN_WITH_KID = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImsxIn0.e30.c2ln"
+
+
+def test_hanging_jwks_endpoint_times_out_as_operational_error(monkeypatch):
+    """A JWKS endpoint that never answers fails within the fetch timeout, as 503."""
+    # The listening socket accepts the connection (backlog) but never replies.
+    with socket.socket() as server:
+        server.bind(("127.0.0.1", 0))
+        server.listen(1)
+        port = server.getsockname()[1]
+        client = PyJWKClient(f"http://127.0.0.1:{port}/certs", timeout=0.2)
+        monkeypatch.setattr(common_security, "_get_jwks_client", lambda: client)
+
+        with pytest.raises(
+            common_security.AuthorizationServerOperationalError,
+            match="Failed to fetch signing keys from Keycloak",
+        ):
+            common_security.validate_jwt_token(_UNSIGNED_TOKEN_WITH_KID)
+
+
+@pytest.mark.asyncio
 async def test_create_verify_bearer_token_dependency_and_oauth2_client_credentials(
     monkeypatch,
 ):
@@ -585,3 +659,20 @@ def test_extract_jwt_roles_reads_from_request_state():
         "realm_access": {"roles": ["role-a", "role-b"]}
     }
     assert _extract_jwt_roles(request_with_roles) == "role-a,role-b"
+
+
+def test_unknown_kid_is_a_bad_token_not_an_outage(monkeypatch):
+    """A key set without the token's `kid` means a bad token (401), not a Keycloak outage."""
+    other_key = RSAAlgorithm.to_jwk(
+        rsa.generate_private_key(public_exponent=65537, key_size=2048).public_key(),
+        as_dict=True,
+    )
+    client = PyJWKClient("http://keycloak.invalid/certs")
+    monkeypatch.setattr(
+        client, "fetch_data", lambda: {"keys": [{**other_key, "kid": "other"}]}
+    )
+    monkeypatch.setattr(common_security, "_get_jwks_client", lambda: client)
+
+    with pytest.raises(HTTPException) as exc:
+        common_security.validate_jwt_token(_UNSIGNED_TOKEN_WITH_KID)
+    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED

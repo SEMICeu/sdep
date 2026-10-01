@@ -487,7 +487,7 @@ def render_version_diff() -> str:
     for old_name, new_name in VERSION_PAIRS:
         body += _render_pair(old_name, new_name)
 
-    lines += ["<h2>Table of Contents</h2>", "", *_table_of_contents(body), ""]
+    lines += ["<h2>Table of contents</h2>", "", *_table_of_contents(body), ""]
     lines += body
 
     return "\n".join(lines).rstrip("\n") + "\n"

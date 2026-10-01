@@ -171,7 +171,11 @@ async def post_auth_token(
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
 
-            # Handle Keycloak errors
+            # Keycloak 5xx is an outage (503, retry later); 4xx means bad credentials (401)
+            if response.status_code >= 500:
+                raise AuthorizationServerOperationalError(
+                    f"Keycloak token endpoint returned HTTP {response.status_code}"
+                )
             if response.status_code != 200:
                 error_detail = "Authentication failed"
                 try:

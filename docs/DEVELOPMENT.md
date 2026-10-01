@@ -5,7 +5,7 @@ This document covers the development workflow, testing strategy, and key configu
 For architecture and request flow, see [Technical architecture](./ARCHITECTURE_TECH.md). \
 For database dialect compatibility, see [Database dialects](./DATABASE_DIALECTS.md).
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Development workflow](#development-workflow)
 - [Testing strategy](#testing-strategy)
@@ -40,12 +40,12 @@ make
 
 ### Integration tests (`tests/`)
 
-- Shell scripts using curl
+- Python scripts using `httpx`, one per suite in `tests/suites.txt`
 - Test OAuth 2.0 flows
 - Test API endpoints with single-item and bulk POST payloads
 - Test security headers (OWASP compliance)
 - Test validation (Pydantic + business logic)
-- **Run:** `make test`
+- **Run:** `make test-full`
 - See [Integration tests](INTEGRATION_TESTS.md) for detailed test documentation
 
 ---

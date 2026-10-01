@@ -10,7 +10,7 @@ Reference links:
 
 The generic patterns behind the choices below are in [Architecture](./ARCHITECTURE_TECH.md) and [API](./API_TECH.md#code-structure).
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Characteristics](#characteristics)
 - [Data](#data)
@@ -356,7 +356,7 @@ Every new version gets a new `createdAt` (the version timestamp). The actor time
 | `POST /listing-screenings/bulk` (correction) | LSA   | `clear` or `flagged`; version matches | `clear` or `flagged`, `screenedAt` |
 | `POST /listing-acknowledgements/bulk`        | STR   | `flagged`; version matches            | `acknowledged`, `acknowledgedAt`   |
 
-There is no "acknowledgement (correction)": it carries no data. A accidentally retried acknowledgement carries the `flagged` version's `createdAt`, which is no longer current, and is refused with `conflict_error`; the platform treats that as "already acknowledged".
+There is no "acknowledgement (correction)": it carries no data. An accidentally retried acknowledgement carries the `flagged` version's `createdAt`, which is no longer current, and is refused with `conflict_error`; the platform treats that as "already acknowledged".
 
 A failed precondition is a per-item NOK (`conflict_error`), see [Concurrency](#concurrency).
 
@@ -383,7 +383,7 @@ All three POST (writes) use the four-step flow of `POST /activities/bulk`:
 3. Versioning: checks on the locked current version (`SELECT ... FOR UPDATE`, as `get_current_by_activity_ids` does for activities), then mark it ended and insert the new version
 4. Feedback: per-item OK/NOK with the resulting `Listing.Response` (a NOK item does not fail the batch)
 
-The response is 200 with `succeeded`/`failed` counts and per-item feedback.
+The response is 201 (all items OK), 200 (some OK) or 422 (all failed), with `succeeded`/`failed` counts and per-item feedback.
 
 Intra-batch duplicates are last-wins in all three writes, as for activities: of repeated keys in one batch only the last is processed, the earlier ones are NOK (`duplicate_error`). The key is `listingId`, for screenings `(platformId, listingId)`.
 

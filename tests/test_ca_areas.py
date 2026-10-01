@@ -11,7 +11,7 @@
 # Reads the bearer token written by test_auth_client (./tmp/.bearer_token).
 # Optionally accepts API_VERSION environment variable (defaults to v1).
 # Tests POST /ca/areas endpoint with file upload (multipart/form-data) and related
-# read/delete/isolation behavior.
+# read/delete/isolation behaviour.
 
 from __future__ import annotations
 

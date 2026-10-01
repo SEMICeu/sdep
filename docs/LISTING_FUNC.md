@@ -10,7 +10,7 @@ Reference links:
 
 - [Listing (technical)](./LISTING_TECH.md)
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Goal](#goal)
 - [Sequence](#sequence)
@@ -59,7 +59,7 @@ sequenceDiagram
 Legend:
 
 - **STR** - Short-Term Rental Platform
-- **SDEP** - Single Digital Entrypoint
+- **SDEP** - Single Digital Entry Point
 - **CA** - Competent Authority
 - **Host** - Short-Term Rental [Host](./HOST_FUNC.md)
 - **LMA** - Listing Monitoring Authority
@@ -169,10 +169,10 @@ To be discussed:
 
 | Context                                                           | Issue                                                       | Proposal                                              | Verdict |
 | ----------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------- | ------- |
-| Github issues                                                     | **[4]**                                                     |                                                       |         |
+| GitHub issues                                                     | **[4]**                                                     |                                                       |         |
 | Address screening                                                 | How to match a listing address within a registration system | Literal, not fuzzy (but do match case-insensitively?) |         |
-| A listing is selected and flagged again in a subsequent screening | The host gets double notified, how to manage this           | This is a CA responsibiliy                            |         |
-| Platform acknowledges flagged listing and wants to inform host    | Do we want to insert an extra CA-acknowlegdement?           |                                                       |         |
+| A listing is selected and flagged again in a subsequent screening | The host gets double notified, how to manage this           | This is a CA responsibility                           |         |
+| Platform acknowledges flagged listing and wants to inform host    | Do we want to insert an extra CA-acknowledgement?           |                                                       |         |
 
 [4] https://github.com/SEMICeu/sdep/issues
 

@@ -18,6 +18,7 @@ from app.api.domains.sta.routers import activities_v1 as sta_activities
 from app.api.domains.str.routers import activities_bulk_v1 as str_activities_bulk
 from app.api.domains.str.routers import areas as str_areas
 from app.api.domains.str.routers import areas_list_v1 as str_areas_list
+from app.exceptions import MalwareScannerOperationalError
 from app.models.address import Address
 from app.models.temporal import Temporal
 from app.schemas.activity import ActivityFilters
@@ -25,17 +26,12 @@ from app.schemas.activity_bulk import ActivityBulkResponse, ActivityBulkResultIt
 from app.schemas.activity_v1 import ActivityBulkRequest
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.security.malware_scan import ScanResult
-from fastapi import HTTPException, Request, UploadFile
+from fastapi import HTTPException, UploadFile
 
 from tests.api.zip_stub import ZIP
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-
-
-def _stub_request(headers: dict[str, str] | None = None) -> Request:
-    """Minimal Request stub for direct router calls — only `.headers.get(...)` is exercised."""
-    return cast("Request", SimpleNamespace(headers=headers or {}))
 
 
 @pytest.mark.asyncio
@@ -170,7 +166,6 @@ async def test_ca_areas_direct_branches(monkeypatch):
 
     with pytest.raises(HTTPException, match="at most 64 characters"):
         await ca_areas.post_area(
-            request=_stub_request(),
             client=NamedClient(id="ca-1", name="CA"),
             session=session,
             areaId=None,
@@ -197,7 +192,6 @@ async def test_ca_areas_direct_branches(monkeypatch):
         ),
     )
     created = await ca_areas.post_area(
-        request=_stub_request(),
         client=NamedClient(id="ca-1", name="CA"),
         session=session,
         areaId=None,
@@ -210,7 +204,6 @@ async def test_ca_areas_direct_branches(monkeypatch):
     monkeypatch.setattr(ca_areas, "sanitize_upload_filename", lambda raw: ".zip")
     with pytest.raises(HTTPException, match=r"must contain a name before the \.zip"):
         await ca_areas.post_area(
-            request=_stub_request(),
             client=NamedClient(id="ca-1", name="CA"),
             session=session,
             areaId=None,
@@ -230,7 +223,6 @@ async def test_ca_areas_direct_branches(monkeypatch):
     )
     with pytest.raises(HTTPException, match="may contain malicious content"):
         await ca_areas.post_area(
-            request=_stub_request(),
             client=NamedClient(id="ca-1", name="CA"),
             session=session,
             areaId=None,
@@ -239,31 +231,21 @@ async def test_ca_areas_direct_branches(monkeypatch):
             file=UploadFile(filename="area.zip", file=io.BytesIO(b"data")),
         )
 
-    # Content-Length fail-fast: advertised size above the envelope cap → 413
-    oversize = ca_areas.MAX_REQUEST_SIZE + 1
-    with pytest.raises(HTTPException) as oversize_exc:
+    # A scan that could not complete is an outage (503 via its handler), not a verdict
+    async def failed_scan(filedata: bytes) -> ScanResult:
+        return ScanResult(
+            passed_malware_scan=False, message="clamav down", scan_completed=False
+        )
+
+    monkeypatch.setattr(ca_areas, "scan_file_for_malware", failed_scan)
+    with pytest.raises(MalwareScannerOperationalError, match="clamav down"):
         await ca_areas.post_area(
-            request=_stub_request(headers={"content-length": str(oversize)}),
             client=NamedClient(id="ca-1", name="CA"),
             session=session,
             areaId=None,
             areaName=None,
             regulation=None,
             file=UploadFile(filename="area.zip", file=io.BytesIO(ZIP)),
-        )
-    assert oversize_exc.value.status_code == 413
-
-    # Malformed Content-Length is ignored (falls through to body-length check);
-    # the rest of the validation pipeline still runs.
-    with pytest.raises(HTTPException, match="may contain malicious content"):
-        await ca_areas.post_area(
-            request=_stub_request(headers={"content-length": "not-a-number"}),
-            client=NamedClient(id="ca-1", name="CA"),
-            session=session,
-            areaId=None,
-            areaName=None,
-            regulation=None,
-            file=UploadFile(filename="area.zip", file=io.BytesIO(b"data")),
         )
 
     monkeypatch.setattr(

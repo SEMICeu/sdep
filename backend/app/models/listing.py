@@ -11,10 +11,12 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy import (
     Enum as SAEnum,
@@ -63,6 +65,25 @@ class Listing(Base):
             "OR (status IN ('pending', 'clear') AND coalesce(array_length(flags, 1), 0) = 0)",
             name="ck_listing_status_flags",
         ).ddl_if(dialect="postgresql"),
+        # At most one current version per (id, platform version), as for areas
+        # (models/area.py). A lost race on a new ID gets a unique violation,
+        # which the API returns as 409 (see exceptions/handlers.py).
+        Index(
+            "uq_listing_current_listing_id_platform",
+            "listing_id",
+            "platform_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL"),
+            sqlite_where=text("ended_at IS NULL"),
+        ),
+        # The reads page through current rows, newest first.
+        Index(
+            "ix_listing_current_created_at",
+            "created_at",
+            "id",
+            postgresql_where=text("ended_at IS NULL"),
+            sqlite_where=text("ended_at IS NULL"),
+        ),
     )
 
     # Primary key (technical ID, database-internal)

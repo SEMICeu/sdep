@@ -12,14 +12,14 @@
 // Applies to the <h1> title, to level-2 and level-3 ATX headings, and to the link texts
 // of the table of contents, which mirror the headings: every "#anchor" link above the
 // first "##" heading, whatever the list is called (broader than toc-complete.cjs, which
-// needs the "Table of Contents" marker). Anchors are unaffected: GitHub slugs are
+// needs the "Table of contents" marker). Anchors are unaffected: GitHub slugs are
 // lowercase anyway.
 //
 // The <h1> is HTML (the h1-html house rule requires that form), so markdownit never
 // reports it as a heading and it is matched on the raw line instead. A link to a document
 // carries that document's title, so titles and link texts stay in step. The <h2> HTML
-// form is left alone: it only ever holds the "Table of Contents" marker, which
-// toc-complete.cjs matches literally.
+// form is left alone: it only ever holds the "Table of contents" marker, which
+// toc-complete.cjs matches.
 //
 // Autofix replaces only the heading text, not the whole line, so it composes with the
 // "---" insert of hr-before-h3 on the same line in one --fix pass (markdownlint skips

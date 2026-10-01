@@ -4,7 +4,7 @@
 //
 // Autofix inserts "\n---\n\n" before a heading that lacks the break; the leading blank
 // line prevents the inserted "---" from turning the previous line into a setext heading.
-// mdformat normalises the surrounding blank lines afterwards.
+// mdformat normalizes the surrounding blank lines afterwards.
 //
 // Uses the markdown-it token stream: tokens[i - 1] is the preceding block-level token, so
 // an "hr" there means a thematic break already precedes the heading, and a "heading_close"

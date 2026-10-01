@@ -4,13 +4,9 @@
 from app.security.audit import AuditLogMiddleware
 
 # Import security headers middleware
-from app.security.headers import (
-    ApiSecurityHeadersMiddleware,
-    SecurityHeadersMiddleware,
-)
+from app.security.headers import SecurityHeadersMiddleware
 
 __all__ = [
-    "ApiSecurityHeadersMiddleware",
     "AuditLogMiddleware",
     "SecurityHeadersMiddleware",
 ]

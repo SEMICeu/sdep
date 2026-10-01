@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import Select
 
+from app.crud.platform import all_version_ids
 from app.enums import ActivityStatus
 from app.models.activity import Activity
 from app.models.area import Area
@@ -411,7 +412,7 @@ async def exists_any_by_activity_id(
 async def mark_as_ended(
     session: AsyncSession,
     activity_id: str,
-    platform_id: int,
+    platform_id: str,
 ) -> None:
     """
     Mark the current version of an activity as ended (set ended_at = now()).
@@ -419,13 +420,13 @@ async def mark_as_ended(
     Args:
         session: Async database session
         activity_id: Activity functional ID
-        platform_id: Platform technical ID (foreign key)
+        platform_id: Platform public ID, matches every platform version
     """
     stmt = (
         update(Activity)
         .where(
             Activity.activity_id == activity_id,
-            Activity.platform_id == platform_id,
+            Activity.platform_id.in_(all_version_ids(platform_id)),
             Activity.ended_at.is_(None),
         )
         .values(ended_at=func.now())
@@ -437,7 +438,7 @@ async def mark_as_ended(
 async def bulk_mark_as_ended(
     session: AsyncSession,
     activity_ids: list[str],
-    platform_id: int,
+    platform_id: str,
 ) -> None:
     """
     Batch mark current versions of activities as ended (set ended_at = now()).
@@ -448,7 +449,7 @@ async def bulk_mark_as_ended(
     Args:
         session: Async database session
         activity_ids: List of activity functional IDs to mark as ended
-        platform_id: Platform technical ID (foreign key)
+        platform_id: Platform public ID, matches every platform version
     """
     if not activity_ids:
         return
@@ -457,7 +458,7 @@ async def bulk_mark_as_ended(
         update(Activity)
         .where(
             Activity.activity_id.in_(activity_ids),
-            Activity.platform_id == platform_id,
+            Activity.platform_id.in_(all_version_ids(platform_id)),
             Activity.ended_at.is_(None),
         )
         .values(ended_at=func.now())
@@ -526,7 +527,7 @@ async def bulk_create(
 async def get_current_by_activity_ids(
     session: AsyncSession,
     activity_ids: list[str],
-    platform_id: int,
+    platform_id: str,
     *,
     for_update: bool = False,
 ) -> dict[str, bool]:
@@ -539,7 +540,7 @@ async def get_current_by_activity_ids(
     Args:
         session: Async database session
         activity_ids: List of activity functional IDs
-        platform_id: Platform technical ID
+        platform_id: Platform public ID, matches every platform version
         for_update: If True, acquire row-level locks (SELECT ... FOR UPDATE)
 
     Returns:
@@ -550,7 +551,7 @@ async def get_current_by_activity_ids(
 
     stmt = select(Activity.activity_id).where(
         Activity.activity_id.in_(activity_ids),
-        Activity.platform_id == platform_id,
+        Activity.platform_id.in_(all_version_ids(platform_id)),
         Activity.ended_at.is_(None),
     )
     if for_update:
@@ -562,16 +563,19 @@ async def get_current_by_activity_ids(
 async def get_deactivated_activity_ids(
     session: AsyncSession,
     activity_ids: list[str],
+    platform_id: str,
 ) -> set[str]:
     """
-    Find activity IDs that are deactivated (exist but have NO current version).
+    Find activity IDs of a platform that are deactivated (no current version).
 
     An activity is deactivated if it has at least one version but all versions
     have ended_at set. Creating a new version for a deactivated entity is rejected.
+    Scoped per platform: another platform may use the same activityId.
 
     Args:
         session: Async database session
         activity_ids: List of activity functional IDs to check
+        platform_id: Platform public ID, matches every platform version
 
     Returns:
         Set of activity_ids that are deactivated
@@ -582,7 +586,10 @@ async def get_deactivated_activity_ids(
     # Find IDs that exist in the database at all
     stmt_any = (
         select(Activity.activity_id)
-        .where(Activity.activity_id.in_(activity_ids))
+        .where(
+            Activity.activity_id.in_(activity_ids),
+            Activity.platform_id.in_(all_version_ids(platform_id)),
+        )
         .distinct()
     )
     result_any = await session.execute(stmt_any)
@@ -593,6 +600,7 @@ async def get_deactivated_activity_ids(
         select(Activity.activity_id)
         .where(
             Activity.activity_id.in_(activity_ids),
+            Activity.platform_id.in_(all_version_ids(platform_id)),
             Activity.ended_at.is_(None),
         )
         .distinct()

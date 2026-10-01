@@ -4,7 +4,7 @@ This document provides SDEP definitions, in alphabetical order.
 
 *Informal definitions, for conceptual purposes only. They are simplified interpretations used to describe the functional architecture and should not be treated as the formal legal definitions set out in [Regulation (EU) 2024/1028](https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng).*
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Activity](#activity)
 - [Activity monitoring](#activity-monitoring)
@@ -38,7 +38,7 @@ The process of overseeing compliance with activity regulations.
 
 An authority responsible for monitoring compliance with activity regulations.
 
-This authority is typically a statistics authority (STA).
+This authority is typically an inspection or enforcement authority.
 
 *In SDEP-NL: Inspectie Leefomgeving en Transport (ILT).*
 
@@ -94,7 +94,7 @@ A synonym for Short-Term Rental Platform.
 
 A system in which short-term rental addresses are registered and assigned a unique registration number.
 
-*In SDEP-NL, there are multiple RSs, from which one is the Registratiesysteem Toeristische Verhuur (RVV).*
+*In SDEP-NL, there are multiple RSs, from which one is the Registratiesysteem Toeristische Verhuur (RVV). RVV is the original name of the system, still in use, although it does not match the full name (which would abbreviate to RTV).*
 
 ## Regulated area
 
@@ -118,4 +118,4 @@ An authority responsible for statistics.
 
 *In SDEP-NL: Centraal Bureau voor de Statistiek (CBS).*
 
-*In the EU: EuroStat.*
+*In the EU: Eurostat.*

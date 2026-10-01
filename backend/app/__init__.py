@@ -1,1 +1,1 @@
-"""Single Digital Entrypoint"""
+"""Single Digital Entry Point"""

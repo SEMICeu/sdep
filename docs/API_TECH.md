@@ -2,7 +2,7 @@
 
 This document describes the SDEP API.
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Principle](#principle)
 - [Patterns](#patterns)
@@ -70,25 +70,25 @@ This document describes the SDEP API.
 
 ## Patterns
 
-| #          | Decision                                                                                          | Motivation/example                                                                                                       |
-| :--------- | :------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------- |
-| **API 01** | Support OpenAPI 3.1.0                                                                             | Swagger 2.0 is legacy - <https://swagger.io/specification/>                                                              |
-| **API 02** | All endpoints are self-explanatory/well-documented                                                |                                                                                                                          |
-| **API 03** | Use noun instead of verbs                                                                         | Best practice, for example <https://logius-standaarden.github.io/API-Design-Rules/>                                      |
-| **API 04** | Use plural nouns for collections and query parameters (with pagination) for filtering collections | Best practice, for example <https://learn.microsoft.com/en-sg/azure/architecture/best-practices/api-design/>             |
-| **API 05** | Consistent datamodel                                                                              | Avoid code duplication, e.g. have unified `Activity`, `Listing`, `Area` and error responses                              |
-| **API 06** | Consistent endpoints                                                                              | Collection endpoints, explicit "bulk" qualification where needed: `POST /ca/areas` vs. `POST /str/listings/bulk` **[1]** |
-| **API 07** | Consistent pagination                                                                             | Have `offset` and `limit` for all endpoints with (potential) many records                                                |
-| **API 08** | Syntax validation                                                                                 | Example: `postal code`                                                                                                   |
-| **API 09** | Semantical validation                                                                             | Example: `begin timestamp < end timestamp`                                                                               |
-| **API 10** | Integrity validation                                                                              | Example: can only submit activities or listings for existing areas that are regulated for that purpose **[2]**           |
-| **API 11** | Bulk POST                                                                                         | Every write is a bulk write, up to 1000 items per batch **[1]**                                                          |
-| **API 12** | Logical ordering => readability                                                                   | For POST, request and response follow the same ordering, extra data in response (e.g. `createdAt`) is moved to the end   |
-| **API 13** | Essentiality                                                                                      | Example: in `/str/activities/bulk` and `/str/listings/bulk`, only `areaId`, but no `competentAuthorityId` **[3]**        |
-| **API 14** | Essentiality/security                                                                             | Example: in POST activities, no need to include `platformId`                                                             |
-| **API 15** | Consistent HTTP response codes                                                                    | See [HTTP status codes](#http-status-codes) below                                                                        |
-| **API 16** | STR and CA: manage area change                                                                    | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                           |
-| **API 17** | Unified response format                                                                           | Example: `ActivityResponse` (for STR and CA), and one `ListingResponse` for all five reading audiences **[4]**           |
+| #          | Decision                                                                                          | Motivation/example                                                                                                               |
+| :--------- | :------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------- |
+| **API 01** | Support OpenAPI 3.1.0                                                                             | Swagger 2.0 is legacy - <https://swagger.io/specification/>                                                                      |
+| **API 02** | All endpoints are self-explanatory/well-documented                                                |                                                                                                                                  |
+| **API 03** | Use noun instead of verbs                                                                         | Best practice, for example <https://logius-standaarden.github.io/API-Design-Rules/>                                              |
+| **API 04** | Use plural nouns for collections and query parameters (with pagination) for filtering collections | Best practice, for example <https://learn.microsoft.com/en-sg/azure/architecture/best-practices/api-design/>                     |
+| **API 05** | Consistent datamodel                                                                              | Avoid code duplication, e.g. have unified `Activity`, `Listing`, `Area` and error responses                                      |
+| **API 06** | Consistent endpoints                                                                              | Collection endpoints, explicit "bulk" qualification where needed: `POST /ca/areas` vs. `POST /str/listings/bulk` **[1]**         |
+| **API 07** | Consistent pagination                                                                             | Have `offset` and `limit` for all endpoints with (potential) many records                                                        |
+| **API 08** | Syntax validation                                                                                 | Example: `postal code`                                                                                                           |
+| **API 09** | Semantical validation                                                                             | Example: `begin timestamp < end timestamp`                                                                                       |
+| **API 10** | Integrity validation                                                                              | Example: can only submit activities or listings for existing areas that are regulated for that purpose **[2]**                   |
+| **API 11** | Bulk POST                                                                                         | Every platform and screening write is a bulk write, up to 1000 items per batch **[1]**; `POST /ca/areas` is single (file upload) |
+| **API 12** | Logical ordering => readability                                                                   | For POST, request and response follow the same ordering, extra data in response (e.g. `createdAt`) is moved to the end           |
+| **API 13** | Essentiality                                                                                      | Example: in `/str/activities/bulk` and `/str/listings/bulk`, only `areaId`, but no `competentAuthorityId` **[3]**                |
+| **API 14** | Essentiality/security                                                                             | Example: in POST activities, no need to include `platformId`                                                                     |
+| **API 15** | Consistent HTTP response codes                                                                    | See [HTTP status codes](#http-status-codes) below                                                                                |
+| **API 16** | STR and CA: manage area change                                                                    | Areas may change over time, SDEP only administrates the changes and exposes the latest "truth"                                   |
+| **API 17** | Unified response format                                                                           | Example: `ActivityResponse` (for STR and CA), and one `ListingResponse` for all five reading audiences **[4]**                   |
 
 [1] `POST /str/activities/bulk`, `POST /str/listings/bulk`, `POST /lsa/listing-screenings/bulk` and `POST /str/listing-acknowledgements/bulk`.
 
@@ -96,7 +96,7 @@ This document describes the SDEP API.
 
 [3] Wrong example, see GitHub issue [#95](https://github.com/SEMICeu/sdep/issues/95)
 
-[3] Scope narrows **which** listings an audience sees, never which fields: no field is audience-confidential. Audience-only data would get its own schema.
+[4] Scope narrows **which** listings an audience sees, never which fields: no field is audience-confidential. Audience-only data would get its own schema.
 
 ## Domains
 
@@ -454,15 +454,16 @@ Shared vs. version-specific code (CA domain as example):
   - `common/activity_examples.py` - response examples and error-response constants,
     imported by every version
   - `schemas/activity.py`, `services/activity.py`, `crud/activity.py` - the data
-    layers; newer behavior (e.g. filters) is added here and gated by the routers
+    layers; newer behaviour (e.g. filters) is added here and gated by the routers
 - Version-specific (one small file per version):
   - `routers/activities_vN.py` - the route declarations and any version-only query
     parameters (e.g. v2 adds the `filter*` inputs via an `activity_filters()` dependency)
   - `vN.py` - a one-line call to the factory wiring the version's router
 
 Adding a version is therefore cheap: define a new `activities_vN.py`, a one-line
-`vN.py`, mount it in `main.py`, register the version in `domain_registry.py`, and add its
-`/docs` + `/openapi.json` paths to the audit skip-list and CSP allowlist.
+`vN.py`, mount it in `main.py`, and register the version in `domain_registry.py`. The
+audit skip-list and the CSP allowlist follow `API_DOMAINS`, so its `/docs` and
+`/openapi.json` paths need no manual step.
 
 The contract of every version is frozen in `backend/tests/api/fixtures/`, and the
 difference between consecutive versions is generated into [API version diff](API_DIFF_TECH.md).
@@ -488,7 +489,7 @@ Rules:
 
 - A version is only deprecated once its successor is stable. Clients are never asked to migrate onto a contract that may still change.
 - A next version (N+1, alpha) may start from step 3 on, the short overlap in [Design](#design). Once the old version is removed (step 4), the table starts again with N as the old version and N+1 as the new one.
-- A deprecated version keeps its contract. Deprecation announces intent, it does not change behavior.
+- A deprecated version keeps its contract. Deprecation announces intent, it does not change behaviour.
 - Proposal, requires discussion in the technical working group: the deprecation period is at least **six months** between the `Sunset` announcement and removal, the transition period the Dutch government API guidance recommends (NLgov REST API Design Rules `/core/transition-period`). The `Sunset` header carries that fixed date. Measured use may extend the period, never shorten it: the audit log records the request path, so it shows how much a version is still called.
 - Removal is a separate, later step.
 
@@ -504,7 +505,7 @@ All signals derive from the version's status in the domain registry (`backend/ap
 
 Remarks:
 
-- The operation flag is applied per sub-application while the OpenAPI document is generated, never on a router. Routers are shared between versions (e.g. the CA area endpoints, see [Operation Ids](#operation-ids)), so a flag on a router would deprecate the successor as well.
+- The operation flag is applied per sub-application while the OpenAPI document is generated, never on a router. Routers are shared between versions (e.g. the CA area endpoints, see [Operation ids](#operation-ids)), so a flag on a router would deprecate the successor as well.
 - `Deprecation` carries the date the version became deprecated ([RFC 9745](https://www.rfc-editor.org/rfc/rfc9745.html)), `Sunset` the date it is removed ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594.html)), and `Link` points at the successor with `rel="successor-version"` ([RFC 5829](https://www.rfc-editor.org/rfc/rfc5829.html)).
 - The [Actual versions diff](#actual-versions-diff) reports the flag flip between two versions, so a deprecation shows up in the generated version comparison.
 
@@ -512,7 +513,7 @@ Remarks:
 
 - The sub-application is unmounted and its version-specific routers are deleted. Shared code stays for the remaining versions.
 - The removed paths then return a routing-level [404](#client-errors). No separate "gone" handling is added.
-- The version also leaves the [Actual versions](#actual-versions) table, the audit skip-list, and the CSP allowlist.
+- The version also leaves the [Actual versions](#actual-versions) table. The audit skip-list and the CSP allowlist follow `API_DOMAINS`, so they need no manual step.
 
 ---
 
@@ -614,31 +615,31 @@ Rule: every ID that an API filters on can be looked up in that same API. So the 
 | HTTP Status | Meaning    | When                                                                                                |
 | ----------- | ---------- | --------------------------------------------------------------------------------------------------- |
 | 200         | OK         | GET request completed successfully; bulk POST with partial success (created multiple new resources) |
-| 201         | Created    | POST request created a single new resource                                                          |
+| 201         | Created    | POST request created a single new resource; bulk POST with every item OK                            |
 | 204         | No Content | DELETE request completed successfully (e.g. deactivate area)                                        |
 
 ---
 
 ### Client errors
 
-| HTTP Status | Meaning               | When                                                                                                                                                                              |
-| ----------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400         | Bad Request           | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`), or missing client credentials                                                                        |
-| 401         | Unauthorized          | Missing, invalid, or expired authentication token; missing required token claims (`client_id`, `client_name`)                                                                     |
-| 403         | Forbidden             | Authenticated but missing a required role (`sdep_ca`, `sdep_str`, `sdep_lsa`, `sdep_lma`, `sdep_ama`, `sdep_sta`, `sdep_read`, `sdep_write`)                                      |
-| 404         | Not Found             | Requested resource does not exist, is unavailable, or has been deleted                                                                                                            |
-| 409         | Conflict              | Duplicate resource (unique constraint violation)                                                                                                                                  |
-| 413         | Payload Too Large     | Upload exceeds the per-endpoint size limit (e.g. `POST /api/ca/v1/areas` rejects requests whose `Content-Length` exceeds the 1 MiB file-size cap plus a small multipart envelope) |
-| 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field) or business rule violation (e.g. start time > end time)                                                      |
+| HTTP Status | Meaning               | When                                                                                                                                                                   |
+| ----------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400         | Bad Request           | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`), or missing client credentials                                                             |
+| 401         | Unauthorized          | Missing, invalid, or expired authentication token; missing required token claims (`client_id`, `client_name`)                                                          |
+| 403         | Forbidden             | Authenticated but missing a required role (`sdep_ca`, `sdep_str`, `sdep_lsa`, `sdep_lma`, `sdep_ama`, `sdep_sta`, `sdep_read`, `sdep_write`)                           |
+| 404         | Not Found             | Requested resource does not exist, is unavailable, or has been deleted                                                                                                 |
+| 409         | Conflict              | Duplicate resource; or a concurrent request wrote the same record first (e.g. the first write of a new `listingId`), retry the request                                 |
+| 413         | Payload Too Large     | Upload exceeds the per-endpoint size limit (e.g. the CA area upload: above the 1 MiB file-size cap plus a small multipart envelope), checked before the body is parsed |
+| 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field) or business rule violation (e.g. start time > end time)                                           |
 
 ---
 
 ### Server errors
 
-| HTTP Status | Meaning               | When                                                                     |
-| ----------- | --------------------- | ------------------------------------------------------------------------ |
-| 500         | Internal Server Error | Unexpected condition that prevented fulfilling the request (catch-all)   |
-| 503         | Service Unavailable   | Database or authorization server (e.g. Keycloak) temporarily unavailable |
+| HTTP Status | Meaning               | When                                                                                               |
+| ----------- | --------------------- | -------------------------------------------------------------------------------------------------- |
+| 500         | Internal Server Error | Unexpected condition that prevented fulfilling the request (catch-all)                             |
+| 503         | Service Unavailable   | Database, authorization server (e.g. Keycloak) or malware scanner (ClamAV) temporarily unavailable |
 
 For the mapping between application exceptions and HTTP status codes, see [Exceptions](ARCHITECTURE_TECH.md#exceptions) in the Technical Architecture document.
 
@@ -744,7 +745,7 @@ The bulk endpoint's request body is `ActivityBulkRequest`, whose `activities` fi
 
 **1. Swagger UI (Schema tab)**
 
-Swagger UI shows the request body as `ActivityBulkRequest (object)`. The `activities*` property is labeled:
+Swagger UI shows the request body as `ActivityBulkRequest (object)`. The `activities*` property is labelled:
 
 ```
 activities*   array<object>   [1, 1000] items
@@ -834,8 +835,8 @@ Checked on 24 September 2026:
 | Compliance    | Meaning                                             | #      |
 | ------------- | --------------------------------------------------- | ------ |
 | **OK**        | The rule holds                                      | **27** |
-| **Roadmap**   | The rule does not hold yet, a fix can be considered | **3**  |
-| **Deviation** | The rule does not hold on purpose > **explain**     | **4**  |
+| **Roadmap**   | The rule does not hold yet, a fix can be considered | **2**  |
+| **Deviation** | The rule does not hold on purpose > **explain**     | **5**  |
 | **N/A**       | The rule does not apply                             | **2**  |
 | Total         |                                                     | 36     |
 
@@ -865,7 +866,7 @@ Verdict per rule, with some \[footnotes\]:
 | `/core/doc-openapi`                      | OK        | OpenAPI 3.1, one document per version                                                                                                            |
 | `/core/doc-openapi-contact`              | OK        | `info.contact` (`name`, `url`, `email`) in every document, from settings `API_CONTACT_*`; also the landing-page footer                           |
 | `/core/doc-language`                     | Deviation | English **[2]**                                                                                                                                  |
-| `/core/publish-openapi`                  | Roadmap   | Published at `/api/{domain}/v{N}/openapi.json` without login, but other websites cannot read it yet **[6]**                                      |
+| `/core/publish-openapi`                  | Deviation | Published at `/api/{domain}/v{N}/openapi.json` without login; other websites cannot read it, deny by default **[6]**                             |
 | `/core/deprecation-schedule`             | OK        | [Implementation (deprecation)](#implementation-deprecation): badge, `deprecated: true`, `Deprecation`/`Sunset`/`Link` headers; not yet exercised |
 | `/core/transition-period`                | OK        | Proposal: at least six months between the `Sunset` announcement and removal; measured use may extend it, never shorten it                        |
 | `/core/uri-version`                      | OK        | `servers[].url` is `/api/{domain}/v{N}` (major only, `v` prefix); backend test on the served document                                            |
@@ -905,7 +906,8 @@ Verdict per rule, with some \[footnotes\]:
 
 - This is the strictest setting, on purpose: the API has machine clients only, and Swagger UI runs on the same website
 - `/core/publish-openapi` asks one exception: `openapi.json` should send `Access-Control-Allow-Origin: *`, so browser tools on other websites can read the API description
-- Fix: add that header on `openapi.json` only; the rest of the API keeps the strict setting
+- SDEP does not make that exception: deny by default, until a use case arises for tools on other websites
+- Until then, such a tool can load a downloaded copy of `openapi.json` (e.g. with `curl`)
 - The policy is described in [Security](./SECURITY.md#security-headers)
 
 [7] The release version is the image tag (`0.0.0-dev` locally). The environment (DTAP) is a separate landing-page badge, so the version string stays parseable.
@@ -1001,17 +1003,17 @@ Why a sub-app and not one app with version prefixes:
 `app/api/domain_registry.py` is the **single source of truth** for what a domain version
 is. One frozen `ApiDomain` dataclass per version, and `API_DOMAINS` holds them all.
 
-| Field                                   | What it drives                                                                           |
-| --------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `label`, `name`                         | Docs landing page row, and the acronym spelled out                                       |
-| `root_path`                             | Mount path in `main.py`, and the OpenAPI `servers` entry                                 |
-| `title`, `description`                  | OpenAPI `info.title` and `info.description`                                              |
-| `status`                                | Lifecycle badge, and whether PRD serves it, see [Design](#design)                        |
-| `scope`                                 | EU-harmonized or country-specific, the grouping on the landing page                      |
-| `group`                                 | Authentication, activities or listings, the section on the landing page                  |
-| `supersedes_path`, `superseded_by_path` | The "replaces / replaced by" sentences in the OpenAPI description                        |
-| `changes`, `diff_url`                   | What this version adds, and the link to the generated diff                               |
-| `redirect_slashes`                      | Trailing-slash behavior, see [NLgov REST API Design Rules](#nlgov-rest-api-design-rules) |
+| Field                                   | What it drives                                                                            |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `label`, `name`                         | Docs landing page row, and the acronym spelled out                                        |
+| `root_path`                             | Mount path in `main.py`, and the OpenAPI `servers` entry                                  |
+| `title`, `description`                  | OpenAPI `info.title` and `info.description`                                               |
+| `status`                                | Lifecycle badge, and whether PRD serves it, see [Design](#design)                         |
+| `scope`                                 | EU-harmonized or country-specific, the grouping on the landing page                       |
+| `group`                                 | Authentication, activities or listings, the section on the landing page                   |
+| `supersedes_path`, `superseded_by_path` | The "replaces / replaced by" sentences in the OpenAPI description                         |
+| `changes`, `diff_url`                   | What this version adds, and the link to the generated diff                                |
+| `redirect_slashes`                      | Trailing-slash behaviour, see [NLgov REST API Design Rules](#nlgov-rest-api-design-rules) |
 
 Anything that needs the list of domains reads `API_DOMAINS`, never a hard-coded list:
 the landing page, the audit middleware skip list, the security headers, and the frozen

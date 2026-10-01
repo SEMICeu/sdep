@@ -16,11 +16,11 @@ from app.models.platform import Platform
 async def test_activity_crud_empty_bulk_helpers_return_early():
     session = AsyncMock()
 
-    await activity_crud.bulk_mark_as_ended(session, [], 1)
+    await activity_crud.bulk_mark_as_ended(session, [], "p")
     platform = Platform(client_id="client-id", platform_name="Platform")
     created = await activity_crud.bulk_create(session, [], platform, {})
-    current = await activity_crud.get_current_by_activity_ids(session, [], 1)
-    deactivated = await activity_crud.get_deactivated_activity_ids(session, [])
+    current = await activity_crud.get_current_by_activity_ids(session, [], "p")
+    deactivated = await activity_crud.get_deactivated_activity_ids(session, [], "p")
 
     session.execute.assert_not_called()
     session.flush.assert_not_called()

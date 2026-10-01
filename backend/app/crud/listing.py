@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import Select
 
+from app.crud.platform import all_version_ids
 from app.enums import ListingFlag, ListingStatus
 from app.models.area import Area
 from app.models.competent_authority import CompetentAuthority
@@ -152,7 +153,7 @@ async def count_current_listings(
 async def get_current_by_listing_ids(
     session: AsyncSession,
     listing_ids: list[str],
-    platform_id: int,
+    platform_id: str,
     *,
     for_update: bool = False,
 ) -> dict[str, Listing]:
@@ -165,7 +166,7 @@ async def get_current_by_listing_ids(
     Args:
         session: Async database session
         listing_ids: List of listing functional IDs
-        platform_id: Platform technical ID
+        platform_id: Platform public ID, matches every platform version
         for_update: If True, acquire row-level locks (SELECT ... FOR UPDATE)
 
     Returns:
@@ -182,7 +183,7 @@ async def get_current_by_listing_ids(
         )
         .where(
             Listing.listing_id.in_(listing_ids),
-            Listing.platform_id == platform_id,
+            Listing.platform_id.in_(all_version_ids(platform_id)),
             Listing.ended_at.is_(None),
         )
     )
@@ -195,7 +196,7 @@ async def get_current_by_listing_ids(
 async def bulk_mark_as_ended(
     session: AsyncSession,
     listing_ids: list[str],
-    platform_id: int,
+    platform_id: str,
 ) -> None:
     """
     Batch mark current versions of listings as ended (set ended_at = now()).
@@ -206,7 +207,7 @@ async def bulk_mark_as_ended(
     Args:
         session: Async database session
         listing_ids: List of listing functional IDs to mark as ended
-        platform_id: Platform technical ID (foreign key)
+        platform_id: Platform public ID, matches every platform version
     """
     if not listing_ids:
         return
@@ -215,7 +216,7 @@ async def bulk_mark_as_ended(
         update(Listing)
         .where(
             Listing.listing_id.in_(listing_ids),
-            Listing.platform_id == platform_id,
+            Listing.platform_id.in_(all_version_ids(platform_id)),
             Listing.ended_at.is_(None),
         )
         .values(ended_at=func.now())
@@ -261,6 +262,7 @@ def build_from_request(
 def build_next_version(
     current: Listing,
     *,
+    platform: Platform,
     created_at: datetime,
     status: ListingStatus,
     flags: list[str],
@@ -270,14 +272,16 @@ def build_next_version(
     """Build the next version of a listing: business data copied, lifecycle fields set.
 
     `submitted_at` is always copied forward (it belongs to the platform's write).
+    `platform` is the current platform version, which differs from
+    `current.platform` after a rename.
     """
     return Listing(
         listing_id=current.listing_id,
         listing_name=current.listing_name,
         status=status,
-        platform_id=current.platform_id,
+        platform_id=platform.id,
         area_id=current.area_id,
-        platform=current.platform,
+        platform=platform,
         area=current.area,
         url=current.url,
         address_thoroughfare=current.address_thoroughfare,

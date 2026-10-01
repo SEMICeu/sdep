@@ -114,7 +114,7 @@ async def create_listings_bulk(
     # A correction is only allowed while the platform still owns the state.
     listing_ids = [validated_items[i].validated_listing_id for i in valid_indexes]
     current_by_id = await listing_crud.get_current_by_listing_ids(
-        session, listing_ids, platform.id, for_update=True
+        session, listing_ids, platform.platform_id, for_update=True
     )
 
     still_valid = []
@@ -139,7 +139,7 @@ async def create_listings_bulk(
         for i in valid_indexes
         if validated_items[i].validated_listing_id in current_by_id
     ]
-    await listing_crud.bulk_mark_as_ended(session, ids_to_end, platform.id)
+    await listing_crud.bulk_mark_as_ended(session, ids_to_end, platform.platform_id)
 
     # One timestamp for the whole batch: the version token and the submission time
     batch_created_at = datetime.now(UTC)

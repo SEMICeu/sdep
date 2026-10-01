@@ -13,3 +13,9 @@ class AuthorizationServerOperationalError(SDEPError):
     """Raised when the authorization server (Keycloak) is temporarily unavailable or unreachable."""
 
     pass
+
+
+class MalwareScannerOperationalError(SDEPError):
+    """Raised when the malware scanner (ClamAV) cannot complete a scan."""
+
+    pass

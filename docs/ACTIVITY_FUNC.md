@@ -8,7 +8,7 @@ Reference links:
 
 - [Activity (technical)](./ACTIVITY_TECH.md)
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Goal](#goal)
 - [Sequence](#sequence)
@@ -50,7 +50,7 @@ sequenceDiagram
 Legend:
 
 - **STR** - Short-Term Rental Platform
-- **SDEP** - Single Digital Entrypoint
+- **SDEP** - Single Digital Entry Point
 - **CA** - Competent Authority
 - **Host** - Short-Term Rental Host
 - **AMA** - Activity Monitoring Authority

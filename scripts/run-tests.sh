@@ -20,10 +20,10 @@ RESULTS_FILE=$(mktemp)
 FAILED_TESTS_FILE=$(mktemp)
 OUTPUT_FILE=$(mktemp)
 SUITE_RESULTS_FILE=$(mktemp)
-BEFORE_RAW_COUNTS_FILE=$(mktemp)
-BEFORE_COUNTS_FILE=$(mktemp)
+BASELINE_COUNTS_FILE=$(mktemp)
+RAW_COUNTS_FILE=$(mktemp)
 AFTER_COUNTS_FILE=$(mktemp)
-trap "rm -f $RESULTS_FILE $FAILED_TESTS_FILE $OUTPUT_FILE $SUITE_RESULTS_FILE $BEFORE_RAW_COUNTS_FILE $BEFORE_COUNTS_FILE $AFTER_COUNTS_FILE" EXIT
+trap "rm -f $RESULTS_FILE $FAILED_TESTS_FILE $OUTPUT_FILE $SUITE_RESULTS_FILE $BASELINE_COUNTS_FILE $RAW_COUNTS_FILE $AFTER_COUNTS_FILE" EXIT
 
 echo "🧪 Running all tests..."
 echo ""
@@ -33,30 +33,31 @@ run_suite() {
   local suite_name="$1"
 
   if make --no-print-directory "$suite_name" 2>&1 | tee "$OUTPUT_FILE"; then
-    grep -E "^\s*(Total|Passed|Failed):" "$OUTPUT_FILE" >> "$RESULTS_FILE" || true
+    grep -E "^\s*(Total|Passed|Failed|Skipped):" "$OUTPUT_FILE" >> "$RESULTS_FILE" || true
   else
-    grep -E "^\s*(Total|Passed|Failed):" "$OUTPUT_FILE" >> "$RESULTS_FILE" || true
+    grep -E "^\s*(Total|Passed|Failed|Skipped):" "$OUTPUT_FILE" >> "$RESULTS_FILE" || true
     echo "$suite_name" >> "$FAILED_TESTS_FILE"
   fi
 
   S_TOTAL=$(grep "Total:" "$OUTPUT_FILE" 2>/dev/null | awk '{sum += $2} END {print sum+0}')
   S_PASSED=$(grep "Passed:" "$OUTPUT_FILE" 2>/dev/null | awk '{sum += $2} END {print sum+0}')
   S_FAILED=$(grep "Failed:" "$OUTPUT_FILE" 2>/dev/null | awk '{sum += $2} END {print sum+0}')
+  S_SKIPPED=$(awk '/Skipped:/ {sum += $2} END {print sum+0}' "$OUTPUT_FILE" 2>/dev/null)
 
-  if [ "$S_FAILED" -gt 0 ] 2>/dev/null; then S_ICON="❌"; else S_ICON="✅"; fi
-  printf "📋 %-18s %3d total, %3d passed, %d failed %s\n" "$suite_name:" "$S_TOTAL" "$S_PASSED" "$S_FAILED" "$S_ICON"
-  printf "%s|%d|%d|%d\n" "$suite_name" "$S_TOTAL" "$S_PASSED" "$S_FAILED" >> "$SUITE_RESULTS_FILE"
+  if [ "$S_FAILED" -gt 0 ] 2>/dev/null; then S_ICON="❌"; elif [ "$S_SKIPPED" -gt 0 ]; then S_ICON="⚠️"; else S_ICON="✅"; fi
+  printf "📋 %-18s %3d total, %3d passed, %d failed, %d skipped %s\n" "$suite_name:" "$S_TOTAL" "$S_PASSED" "$S_FAILED" "$S_SKIPPED" "$S_ICON"
+  printf "%s|%d|%d|%d|%d\n" "$suite_name" "$S_TOTAL" "$S_PASSED" "$S_FAILED" "$S_SKIPPED" >> "$SUITE_RESULTS_FILE"
   echo ""
 }
 
 # --- Capture PRE-test row counts (RAW, before any cleanup) ---
 echo "📊 Capturing BEFORE-test row counts (includes any leftover sdep-test-* rows)..."
 docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
-  -t -A -F'|' < postgres/count-app.sql > "$BEFORE_COUNTS_FILE"
+  -t -A -F'|' < postgres/count-app.sql > "$RAW_COUNTS_FILE"
 
 while IFS='|' read -r tname tcount; do
   printf "    %-25s %s\n" "$tname:" "$tcount"
-done < "$BEFORE_COUNTS_FILE"
+done < "$RAW_COUNTS_FILE"
 echo ""
 
 # --- Pre-clean leftover sdep-test-* data (unless KEEP_TEST_DATA=true) ---
@@ -70,17 +71,13 @@ fi
 
 # Internal baseline (post pre-clean) used for the isolation check.
 docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAME" \
-  -t -A -F'|' < postgres/count-app.sql > "$BEFORE_RAW_COUNTS_FILE"
+  -t -A -F'|' < postgres/count-app.sql > "$BASELINE_COUNTS_FILE"
 
 # --- Run test suites ---
-run_suite test-smoke
-run_suite test-security
-run_suite test-str
-run_suite test-ca
-run_suite test-sta
-run_suite test-lsa
-run_suite test-lma
-run_suite test-ama
+# One make target per suite in tests/suites.txt (DEV column), in file order.
+for suite in $(scripts/suites.sh dev | awk '{ print $1 }' | uniq); do
+  run_suite "test-$suite"
+done
 
 # --- Clean test data (unless KEEP_TEST_DATA=true) ---
 if [ "${KEEP_TEST_DATA:-false}" = "true" ]; then
@@ -106,6 +103,7 @@ SUITE_COUNT=$(grep -c "Total:" "$RESULTS_FILE" 2>/dev/null || echo 0)
 GRAND_TOTAL=$(grep "Total:" "$RESULTS_FILE" 2>/dev/null | awk '{sum += $2} END {print sum+0}')
 GRAND_PASSED=$(grep "Passed:" "$RESULTS_FILE" 2>/dev/null | awk '{sum += $2} END {print sum+0}')
 GRAND_FAILED=$(grep "Failed:" "$RESULTS_FILE" 2>/dev/null | awk '{sum += $2} END {print sum+0}')
+GRAND_SKIPPED=$(awk '/Skipped:/ {sum += $2} END {print sum+0}' "$RESULTS_FILE" 2>/dev/null)
 SUITES_FAILED=$(if [ -s "$FAILED_TESTS_FILE" ]; then wc -l < "$FAILED_TESTS_FILE"; else echo 0; fi)
 ISOLATION_OK=true
 
@@ -113,9 +111,9 @@ echo ""
 echo "══ TEST RESULTS ══════════════════════════════"
 echo ""
 echo "  Suite Results:"
-while IFS='|' read -r SNAME STOT SPAS SFAI; do
-  SICO=$(if [ "$SFAI" -gt 0 ] 2>/dev/null; then echo "❌"; else echo "✅"; fi)
-  printf "    %-18s %3d total, %3d passed, %d failed %s\n" "$SNAME:" "$STOT" "$SPAS" "$SFAI" "$SICO"
+while IFS='|' read -r SNAME STOT SPAS SFAI SSKI; do
+  SICO=$(if [ "$SFAI" -gt 0 ] 2>/dev/null; then echo "❌"; elif [ "$SSKI" -gt 0 ]; then echo "⚠️"; else echo "✅"; fi)
+  printf "    %-18s %3d total, %3d passed, %d failed, %d skipped %s\n" "$SNAME:" "$STOT" "$SPAS" "$SFAI" "$SSKI" "$SICO"
 done < "$SUITE_RESULTS_FILE"
 
 echo ""
@@ -124,21 +122,27 @@ echo "    Test suites:  $SUITE_COUNT"
 echo "    Total tests:  $GRAND_TOTAL"
 echo "    Tests passed: $GRAND_PASSED ✅"
 echo "    Tests failed: $GRAND_FAILED ❌"
+# A skip (no sample data, no credentials) is not a failure, but is shown so it is noticed
+echo "    Tests skipped: $GRAND_SKIPPED ⚠️"
 echo ""
 if [ "${KEEP_TEST_DATA:-false}" = "true" ]; then
   echo "  Test Isolation: skipped (KEEP_TEST_DATA=true)"
 else
+  # BEFORE is the baseline after the pre-clean, the number that AFTER is compared with.
+  # The raw count (leftovers of an earlier keep run included) is shown only when it differs.
   echo "  Test Isolation (BEFORE/AFTER row counts):"
-  while IFS='|' read -r BEFORE_NAME BEFORE_COUNT; do
-    BASELINE_COUNT=$(grep "^$BEFORE_NAME|" "$BEFORE_RAW_COUNTS_FILE" | cut -d'|' -f2)
-    AFTER_COUNT=$(grep "^$BEFORE_NAME|" "$AFTER_COUNTS_FILE" | cut -d'|' -f2)
+  while IFS='|' read -r TABLE_NAME BASELINE_COUNT; do
+    RAW_COUNT=$(grep "^$TABLE_NAME|" "$RAW_COUNTS_FILE" | cut -d'|' -f2)
+    AFTER_COUNT=$(grep "^$TABLE_NAME|" "$AFTER_COUNTS_FILE" | cut -d'|' -f2)
+    RAW_NOTE=""
+    if [ "$RAW_COUNT" != "$BASELINE_COUNT" ]; then RAW_NOTE=" (before pre-clean: $RAW_COUNT)"; fi
     if [ "$BASELINE_COUNT" = "$AFTER_COUNT" ]; then
-      printf "    %-25s BEFORE=%-5s AFTER=%-5s ✅\n" "$BEFORE_NAME:" "$BEFORE_COUNT" "$AFTER_COUNT"
+      printf "    %-25s BEFORE=%-5s AFTER=%-5s ✅%s\n" "$TABLE_NAME:" "$BASELINE_COUNT" "$AFTER_COUNT" "$RAW_NOTE"
     else
-      printf "    %-25s BEFORE=%-5s AFTER=%-5s ❌\n" "$BEFORE_NAME:" "$BEFORE_COUNT" "$AFTER_COUNT"
+      printf "    %-25s BEFORE=%-5s AFTER=%-5s ❌%s\n" "$TABLE_NAME:" "$BASELINE_COUNT" "$AFTER_COUNT" "$RAW_NOTE"
       ISOLATION_OK=false
     fi
-  done < "$BEFORE_COUNTS_FILE"
+  done < "$BASELINE_COUNTS_FILE"
 fi
 
 echo ""

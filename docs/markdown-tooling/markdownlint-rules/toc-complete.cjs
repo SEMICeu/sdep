@@ -1,10 +1,10 @@
-// House rule: in a document with a "Table of Contents", every level-2 (##) and level-3
+// House rule: in a document with a "Table of contents", every level-2 (##) and level-3
 // (###) heading below it has a TOC link to its anchor. A heading added without its TOC
 // entry is invisible to the reader who navigates by the TOC.
 //
-// The TOC is the region from the "Table of Contents" heading to the first "##" heading;
+// The TOC is the region from the "Table of contents" heading to the first "##" heading;
 // the anchors are the "#..." link targets found there. The marker must BE a heading
-// (`<h2>Table of Contents</h2>`, or an ATX `## Table of Contents`), not any line holding
+// (`<h2>Table of contents</h2>`, or an ATX `## Table of contents`), not any line holding
 // those words: a document that describes this rule mentions them in its prose, and a
 // substring match would take that sentence for the start of a TOC.
 //
@@ -14,9 +14,10 @@
 // on GitLab), so a repo hosted there links the collapsed form; both count as the entry.
 // No autofix: where the entry belongs in the TOC is the author's call.
 
-// The TOC marker: a heading whose only text is "Table of Contents", in the HTML form the
-// h1-html house rule produces or as a plain ATX heading.
-const TOC_HEADING = /^\s*(?:<h[1-3]>\s*Table of Contents\s*<\/h[1-3]>|#{1,3}\s+Table of Contents\s*)$/;
+// The TOC marker: a heading whose only text is "Table of contents" (sentence case, older
+// documents: "Table of Contents"), in the HTML form the h1-html house rule produces or as
+// a plain ATX heading.
+const TOC_HEADING = /^\s*(?:<h[1-3]>\s*Table of contents\s*<\/h[1-3]>|#{1,3}\s+Table of contents\s*)$/i;
 
 const slug = (text) => {
   let s = text.replace(/<[^>]+>/g, "");
@@ -30,7 +31,7 @@ const slug = (text) => {
 module.exports = {
   names: ["toc-complete"],
   description:
-    "Each level-2 (##) and level-3 (###) heading below a 'Table of Contents' must have a TOC link to its anchor",
+    "Each level-2 (##) and level-3 (###) heading below a 'Table of contents' must have a TOC link to its anchor",
   tags: ["custom", "headings"],
   parser: "markdownit",
   function: function tocComplete(params, onError) {

@@ -102,6 +102,7 @@ run_docs_checks() {
   step md-validate-links make --no-print-directory md-validate-links || return 1
   step architecture-tree python3 scripts/check_architecture_tree.py || return 1
   step docs-consistency bash -c 'cd backend && API_MODE=internal uv run python ../scripts/check_docs_consistency.py' || return 1
+  step test-suites make --no-print-directory test-suites || return 1
   warn changelog ./scripts/check_changelog.sh
 }
 
@@ -115,6 +116,7 @@ run_api() {
 run_markdown() {
   step md-format make --no-print-directory md-format || return 1
   step md-lint make --no-print-directory md-lint || return 1
+  step spell-check make --no-print-directory spell-check || return 1
 }
 
 # Same order as `make all`: backend test and image scan (Docker only), then the stack

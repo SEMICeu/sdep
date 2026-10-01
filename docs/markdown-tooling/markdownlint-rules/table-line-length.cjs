@@ -2,7 +2,7 @@
 // every cell to the widest one in its column, so one long cell stretches the whole
 // table and the raw source stops being readable side by side. Shorten the cell, or
 // move the detail to a footnote below the table ("**[1]**" in the cell, "[1] ..."
-// paragraph after it, see docs/LISTING_FUNC.md). Not auto-fixable: it needs judgment.
+// paragraph after it, see docs/LISTING_FUNC.md). Not auto-fixable: it needs judgement.
 //
 // Dependency-free on purpose: must load inside the davidanson/markdownlint-cli2 Docker
 // image, which does not ship extra npm packages.

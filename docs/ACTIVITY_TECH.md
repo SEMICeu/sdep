@@ -10,7 +10,7 @@ Reference links:
 
 The generic patterns behind the choices below are in [Architecture](./ARCHITECTURE_TECH.md) and [API](./API_TECH.md#code-structure).
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Characteristics](#characteristics)
 - [Data](#data)
@@ -130,7 +130,7 @@ A. Inputs:
     - `activityName` (optional, length \<= 64)
     - `status` (optional enum, defaults to `finished`; may also be `cancelled`)
     - `areaId` (required functional id, must reference an existing area)
-    - `url` (length \<= 128)
+    - `url` (length \<= 2048; STR v1: \<= 128)
     - `address` (composite: `thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)
     - `registrationNumber` (length \<= 32)
     - `numberOfGuests` (1-1024)
@@ -171,7 +171,7 @@ B. Steps:
    - `activityId` was auto-generated in step 1: defer to step 6 (no versioning lookup; brand-new functional id)
    - `activityId` is supplied and no active row exists for `(activityId, platformId)`: defer to step 6 (insert using the supplied functional id)
    - `activityId` is supplied and an active row exists for `(activityId, platformId)`: mark the current Activity as ended (`endedAt = now()`); the new version is inserted in step 6
-   - `activityId` is supplied and only ended rows exist (across any platform): reject as deactivated
+   - `activityId` is supplied and only ended rows exist for this platform: reject as deactivated
 
 6. Bulk insert all remaining valid items in a single multi-row INSERT, using one `batch_created_at` (= `now()` at INSERT time) for the whole batch. Each new `activity` row:
 

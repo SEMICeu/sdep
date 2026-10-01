@@ -21,7 +21,6 @@ from fastapi import (
     Form,
     HTTPException,
     Path,
-    Request,
     Response,
     UploadFile,
     status,
@@ -38,6 +37,7 @@ from app.api.common.auth_dependencies import (
 from app.api.common.filename import sanitize_upload_filename
 from app.api.common.security import Role
 from app.db.config import get_async_db, get_async_db_read_only
+from app.exceptions import MalwareScannerOperationalError
 from app.schemas.area import (
     AreaCountResponse,
     AreaResponse,
@@ -56,6 +56,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ca"])
 
 MAX_FILE_SIZE = 1048576  # 1 MiB
+# The request size limit is enforced before parsing, see security/upload_size.py.
 # Multipart envelope adds boundary markers and per-part headers around the file.
 # 64 KiB headroom is far larger than any realistic single-field multipart overhead
 # (~hundreds of bytes), and keeps us from false-rejecting borderline uploads.
@@ -119,7 +120,6 @@ ZIP_MAGIC = b"PK\x03\x04"
     dependencies=[Depends(RequireRoles(Role.CA, Role.WRITE))],
 )
 async def post_area(
-    request: Request,
     client: NamedClientDependency,
     session: AsyncSession = Depends(get_async_db, scope="function"),
     areaId: Annotated[OptionalFunctionalId, Form()] = None,
@@ -135,24 +135,6 @@ async def post_area(
     - Competent authority ID extracted from token's "client_id" claim
     - Competent authority name extracted from token's "client_name" claim
     """
-    # Fail fast on oversize uploads using the advertised Content-Length, before
-    # buffering the body. The exact file-size check still runs after read()
-    # because Content-Length covers the whole multipart envelope, not the file.
-    content_length_header = request.headers.get("content-length")
-    if content_length_header is not None:
-        try:
-            advertised_length = int(content_length_header)
-        except ValueError:
-            advertised_length = None
-        if advertised_length is not None and advertised_length > MAX_REQUEST_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail=(
-                    f"Request body exceeds maximum size of 1 MiB ({MAX_FILE_SIZE} bytes). "
-                    f"Advertised Content-Length: {advertised_length} bytes."
-                ),
-            )
-
     # Read and validate file
     raw_filename = file.filename or "unnamed"
     filename = sanitize_upload_filename(raw_filename)
@@ -183,6 +165,8 @@ async def post_area(
             detail=f"File exceeds maximum size of 1 MiB ({MAX_FILE_SIZE} bytes). Received {len(filedata)} bytes.",
         )
     malware_scan_results = await scan_file_for_malware(filedata)
+    if not malware_scan_results.scan_completed:
+        raise MalwareScannerOperationalError(malware_scan_results.message)
     if not malware_scan_results.passed_malware_scan:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -325,7 +309,7 @@ async def get_own_area(
     summary="Delete (deactivate) an area from the areas collection for the currently authenticated competent authority",
     description="""Delete (deactivate) an area by marking it as ended (now, UTC).
 
-**Behavior:**
+**Behaviour:**
 - Deletes (deactivates) the area
 - The area will no longer appear in area listings
 - Deleting an already-deleted area returns 404

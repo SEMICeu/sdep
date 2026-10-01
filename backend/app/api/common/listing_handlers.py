@@ -1,4 +1,4 @@
-"""Shared listing list/count endpoint behavior across API domains.
+"""Shared listing list/count endpoint behaviour across API domains.
 
 One read handler serves every audience (STR, LSA, CA, LMA, STA). The router
 fixes the ``scope`` (owner and/or lifecycle status, see ``ListingScope``); the

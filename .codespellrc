@@ -1,0 +1,14 @@
+# Spell check (`make spell-check`): common typos plus British English, Oxford spelling
+# (en-GB-oxendict): "-ize" as in "organize", but "behaviour", "colour", "analyse".
+# A line with "codespell:ignore" is not checked, use it for examples of wrong spellings.
+[codespell]
+builtin = clear,rare,en_to_en-OX
+# Dot files too, e.g. the CI/CD pipeline config.
+check-hidden = true
+# LICENSE.md: the official EUPL text, keep verbatim. Snapshots and PDFs: generated
+# from the code, which is checked itself. uv.lock: hashes and package names.
+skip = LICENSE.md,*.pdf,*.zip,*.png,*.snapshot.json,uv.lock
+# Names that code and tools dictate: the CI/CD "artifacts" keyword, fastapi.routing,
+# CSS and terminal colors, FastAPI's Dependant class. "organizational" is Oxford
+# spelling (wrong in the builtin list). Listing type codes MIS, UNX. "activit(y/ies)".
+ignore-words-list = artifact,artifacts,routing,color,colors,dependant,organizational,mis,unx,activit

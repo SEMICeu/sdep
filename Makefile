@@ -10,12 +10,13 @@ SHELL := /bin/bash
         keycloak-up keycloak-down .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles keycloak-generate-machine-clients keycloak-configure keycloak-show-client-public-key keycloak-match-client-public-keys .get-client-credentials \
         backend-up backend-down backend-restart \
         up down restart status \
-        .is-up .ensure-up test-smoke test-full test-full-keep test-full-verbose test-ca test-str test-sta test-lsa test-lma test-ama test-security \
+        .is-up .ensure-up test-smoke test-full test-full-keep test-full-verbose test-suites test-ca test-str test-sta test-lsa test-lma test-ama test-security \
         .postgres-up-unless-ci test-migrations \
         test-perf test-perf-keep test-perf-verbose \
         test-malware test-cve test-cve-offline \
         test test-keep \
         md-lint md-format md-validate-links \
+        spell-check \
         all ci-gate dod dod-continue \
         postgres-logs keycloak-logs backend-logs dbgate-logs fullstack-logs \
         help
@@ -32,9 +33,9 @@ export POSTGRES_HOST POSTGRES_PORT POSTGRES_DB_NAME POSTGRES_DB_USER POSTGRES_DB
 
 DOCKER_COMPOSE := docker compose --env-file .env $(if $(wildcard .env.extra),--env-file .env.extra,)
 # Client-signed JWT test clients. The generator emits one client per role (CA,
-# STR, STA) into KEYCLOAK_JWT_CLIENT_DIR, named "<client-id>.private.pem" and
-# "<client-id>.public.yaml", so any client's key path follows from its id and
-# needs no variable of its own. Keep MACHINE_CLIENTS_EXTENDED_YAML in sync with
+# STR, STA, LSA, LMA, AMA) into KEYCLOAK_JWT_CLIENT_DIR, named
+# "<client-id>.private.pem" and "<client-id>.public.yaml", so any client's key
+# path follows from its id and needs no variable of its own. Keep MACHINE_CLIENTS_EXTENDED_YAML in sync with
 # KC_APP_REALM_MACHINE_CLIENT_YAML in .env - both name the same file.
 KEYCLOAK_JWT_CLIENT_DIR ?= tmp
 MACHINE_CLIENTS_EXTENDED_YAML ?= tmp/machine-clients-extended.yaml
@@ -327,7 +328,7 @@ keycloak-down: ## Stop and remove keycloak (including volumes)
 	export KC_APP_REALM_ADMIN_SECRET=$$(cat ./tmp/KC_APP_REALM_ADMIN_SECRET.txt) && \
 	./keycloak/add-realm-roles.sh
 
-keycloak-generate-machine-clients: ## Generate machine clients (from keycloak/machine-clients.yaml, adding client-signed JWT key pairs for CA, STR, STA)
+keycloak-generate-machine-clients: ## Generate machine clients (from keycloak/machine-clients.yaml, adding client-signed JWT key pairs for CA, STR, STA, LSA, LMA, AMA)
 	@uv run --script scripts/generate-keycloak-machine-clients.py \
 		--output-dir "$(KEYCLOAK_JWT_CLIENT_DIR)" \
 		--static-clients-file keycloak/machine-clients.yaml \
@@ -514,165 +515,60 @@ status: ## Show status
 .ensure-up: ## Start the stack only if it is not already running and healthy
 	@$(MAKE) --no-print-directory .is-up >/dev/null 2>&1 || $(MAKE) --no-print-directory up
 
-# Run a test once per API version listed in tests/api-versions.txt (fail fast).
-# For the test-* recipes below, which define OUTPUT_FILE. Usage: $(call run_versioned_test,test_ca_areas)
-run_versioned_test = versions=$$(scripts/api-versions.sh $(1)) && \
-	for v in $$versions; do API_VERSION=$$v uv run --script tests/$(1).py 2>&1 | tee $$OUTPUT_FILE || exit 1; done
-
+# The test-<suite> targets run one suite of tests/suites.txt (DEV column), see scripts/run-suite.sh.
 test-smoke: .ensure-up ## Test smoke (audit-excluded, no auth needed; no test data created)
 	@set -a && source ./.env && set +a && \
-	echo "🧪 Testing smoke endpoints..." && \
-	uv run --script tests/test_smoketest.py && \
-	echo "✅ Smoke endpoints tested!"
+	scripts/run-suite.sh smoke
 
+# Quiet: one 📋 line per suite as it finishes (see run_suite in scripts/run-tests.sh), then the summary.
 test-full: .ensure-up ## Test fullstack (quiet)
 	@set -a && source ./.env && set +a && \
 	set -o pipefail && \
-	$(MAKE) --no-print-directory test-full-verbose 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
+	$(MAKE) --no-print-directory test-full-verbose 2>&1 | sed -un '/^📋 /p; /^══ TEST RESULTS/,$$p'
 
 test-full-keep: .ensure-up .get-client-credentials ## Test fullstack (quiet, keep generated test-data; not idempotent, adds up until a test run without "keep", or until postgres-clean-testrun)
 	@set -a && source ./.env && set +a && \
 	set -o pipefail && \
-	KEEP_TEST_DATA=true $(CURDIR)/scripts/run-tests.sh 2>&1 | sed -n '/^══ TEST RESULTS/,$$p'
+	KEEP_TEST_DATA=true $(CURDIR)/scripts/run-tests.sh 2>&1 | sed -un '/^📋 /p; /^══ TEST RESULTS/,$$p'
 
 test-full-verbose: .ensure-up .get-client-credentials ## Test fullstack (verbose)
 	@$(CURDIR)/scripts/run-tests.sh
 
+# Every runner reads tests/suites.txt, so a test that is missing there never runs.
+test-suites: ## Test that tests/suites.txt lists every test and is well-formed (offline)
+	@echo "🧪 Checking tests/suites.txt..."
+	@uv run --script tests/test_suites.py
+
 test-ca: .ensure-up .get-client-credentials # Helper - Test only CA endpoints
-	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
-	OUTPUT_FILE=$$(mktemp) && \
-	trap "rm -f $$OUTPUT_FILE" EXIT && \
-	echo "🧪 Testing CA endpoints..." && \
-	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
-	echo "" && \
-	if CLIENT_ID=$$CA1_CLIENT_ID CLIENT_SECRET=$$CA1_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
-		echo "✅ CA client authorized"; \
-	else \
-		echo "❌ CA client authorization failed"; \
-		exit 1; \
-	fi && \
-	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
-	$(call run_versioned_test,test_ca_areas) && \
-	$(call run_versioned_test,test_ca_activities) && \
-	$(call run_versioned_test,test_ca_listings) && \
-	$(call run_versioned_test,test_reference_data) && \
-	echo "✅ CA endpoints tested!"
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && \
+	scripts/run-suite.sh ca
 
 test-str: .ensure-up .get-client-credentials # Helper - Test only STR endpoints
-	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
-	OUTPUT_FILE=$$(mktemp) && \
-	trap "rm -f $$OUTPUT_FILE" EXIT && \
-	echo "🧪 Testing STR endpoints..." && \
-	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
-	echo "" && \
-	if CLIENT_ID=$$STR_CLIENT_ID CLIENT_SECRET=$$STR_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
-		echo "✅ STR client authorized"; \
-	else \
-		echo "❌ STR client authorization failed"; \
-		exit 1; \
-	fi && \
-	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
-	$(call run_versioned_test,test_str_areas) && \
-	$(call run_versioned_test,test_str_activities_bulk) && \
-	$(call run_versioned_test,test_str_listings) && \
-	echo "✅ STR endpoints tested!"
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && \
+	scripts/run-suite.sh str
 
 test-sta: .ensure-up .get-client-credentials # Helper - Test only STA endpoints
-	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
-	OUTPUT_FILE=$$(mktemp) && \
-	trap "rm -f $$OUTPUT_FILE" EXIT && \
-	echo "🧪 Testing STA endpoints..." && \
-	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
-	echo "" && \
-	if CLIENT_ID=$$STA_CLIENT_ID CLIENT_SECRET=$$STA_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
-		echo "✅ STA client authorized"; \
-	else \
-		echo "❌ STA client authorization failed"; \
-		exit 1; \
-	fi && \
-	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
-	$(call run_versioned_test,test_sta_activities) && \
-	$(call run_versioned_test,test_sta_listings) && \
-	$(call run_versioned_test,test_reference_data) && \
-	echo "✅ STA endpoints tested!"
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && \
+	scripts/run-suite.sh sta
 
-# The LSA suite runs the whole random-check lifecycle (submit, screen, acknowledge,
-# read), so it needs the STR and CA credentials next to its own.
 test-lsa: .ensure-up .get-client-credentials # Helper - Test only LSA endpoints (incl. the listing lifecycle)
-	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
-	OUTPUT_FILE=$$(mktemp) && \
-	trap "rm -f $$OUTPUT_FILE" EXIT && \
-	echo "🧪 Testing LSA endpoints..." && \
-	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
-	echo "" && \
-	if CLIENT_ID=$$LSA_CLIENT_ID CLIENT_SECRET=$$LSA_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
-		echo "✅ LSA client authorized"; \
-	else \
-		echo "❌ LSA client authorization failed"; \
-		exit 1; \
-	fi && \
-	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
-	$(call run_versioned_test,test_lsa_listings) && \
-	$(call run_versioned_test,test_reference_data) && \
-	echo "✅ LSA endpoints tested!"
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && \
+	scripts/run-suite.sh lsa
 
 test-lma: .ensure-up .get-client-credentials # Helper - Test only LMA endpoints
-	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
-	OUTPUT_FILE=$$(mktemp) && \
-	trap "rm -f $$OUTPUT_FILE" EXIT && \
-	echo "🧪 Testing LMA endpoints..." && \
-	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
-	echo "" && \
-	if CLIENT_ID=$$LMA_CLIENT_ID CLIENT_SECRET=$$LMA_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
-		echo "✅ LMA client authorized"; \
-	else \
-		echo "❌ LMA client authorization failed"; \
-		exit 1; \
-	fi && \
-	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
-	$(call run_versioned_test,test_lma_listings) && \
-	$(call run_versioned_test,test_reference_data) && \
-	echo "✅ LMA endpoints tested!"
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && \
+	scripts/run-suite.sh lma
 
 test-ama: .ensure-up .get-client-credentials # Helper - Test only AMA endpoints
-	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
-	OUTPUT_FILE=$$(mktemp) && \
-	trap "rm -f $$OUTPUT_FILE" EXIT && \
-	echo "🧪 Testing AMA endpoints..." && \
-	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
-	echo "" && \
-	if CLIENT_ID=$$AMA_CLIENT_ID CLIENT_SECRET=$$AMA_CLIENT_SECRET uv run --script tests/test_auth_client_bootstrap.py; then \
-		echo "✅ AMA client authorized"; \
-	else \
-		echo "❌ AMA client authorization failed"; \
-		exit 1; \
-	fi && \
-	uv run --script tests/test_health_ping.py 2>&1 | tee $$OUTPUT_FILE && \
-	$(call run_versioned_test,test_ama_activities) && \
-	$(call run_versioned_test,test_reference_data) && \
-	echo "✅ AMA endpoints tested!"
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && \
+	scripts/run-suite.sh ama
 
+# test_auth_client_jwt is not in a suite: it provisions its own client-jwt clients here.
 test-security: .ensure-up .get-client-credentials # Helper - Test only security (headers, unauthorized, credentials)
-	@set -a && source ./.env && source ./tmp/.credentials && set +a && set -o pipefail && \
-	OUTPUT_FILE=$$(mktemp) && \
-	trap "rm -f $$OUTPUT_FILE" EXIT && \
-	echo "🧪 Testing security..." && \
-	echo "BACKEND_BASE_URL: $$BACKEND_BASE_URL" && \
-	echo "" && \
-	echo "Testing security headers..." && \
-	$(call run_versioned_test,test_auth_headers) && \
-	echo "" && \
-	echo "Testing unauthorized access..." && \
-	uv run --script tests/test_auth_unauthorized.py 2>&1 | tee $$OUTPUT_FILE && \
-	echo "" && \
-	echo "Testing client-secret credentials..." && \
-	uv run --script tests/test_auth_client_secret.py 2>&1 | tee $$OUTPUT_FILE && \
-	echo "" && \
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && \
+	scripts/run-suite.sh security && \
 	echo "Testing client-signed-JWT credentials..." && \
-	JWT_PROVISION_CLIENTS=true uv run --script tests/test_auth_client_jwt.py 2>&1 | tee $$OUTPUT_FILE && \
-	echo "" && \
-	echo "Testing client-ID regex..." && \
-	uv run --script tests/test_client_id_regex.py 2>&1 | tee $$OUTPUT_FILE && \
+	JWT_PROVISION_CLIENTS=true uv run --script tests/test_auth_client_jwt.py && \
 	echo "✅ Security tested!"
 
 ##@ Tests (migrations)
@@ -686,6 +582,7 @@ test-migrations: .postgres-up-unless-ci ## Test alembic migrations in postgresql
 	@echo "🧪 Running migration tests..."
 	@cd backend && uv run python scripts/wait_for_postgres.py
 	@$(MAKE) -C backend --no-print-directory upgrade
+	@cd backend && PYTHONPATH=. uv run python scripts/check_db_matches_models.py
 	@uv run --script tests/test_postgres_check_constraints.py
 	@echo "✅ Migration tests completed!"
 
@@ -709,7 +606,7 @@ PERF_ENV = PERF_ACTIVITIES_TARGET=$(PERF_ACTIVITIES_TARGET) \
            PERF_STOP_ON_TARGET=$(PERF_STOP_ON_TARGET) \
            PERF_AUTO_CONFIRM=$(PERF_AUTO_CONFIRM)
 
-test-perf: .ensure-up .get-client-credentials ## Test bulk performance
+test-perf: .ensure-up .get-client-credentials ## Test performance (STR activities)
 	@$(PERF_ENV) $(CURDIR)/scripts/run-tests-perf.sh
 	@$(MAKE) --no-print-directory postgres-count
 
@@ -856,18 +753,33 @@ md-validate-links: ## Check that every relative Markdown link and heading anchor
 	@python3 scripts/check_dead_links.py --quiet docs README.md CHANGELOG.md
 	@echo "✅ No dead links!"
 
+##@ Spelling
+
+# codespell (Python, run on demand via uvx like mdformat): common typos plus British English,
+# Oxford spelling. For config, skipped files and accepted words, see .codespellrc.
+# Checks every file git knows (private paths too), binary files are skipped.
+# Fix with `codespell -w <file>`.
+CODESPELL := uvx codespell@2.4.3
+
+spell-check: ## Check spelling in src and doc (typos + British English, Oxford spelling)
+	@echo "🔍 Checking spelling..."
+	@git ls-files --cached --others --exclude-standard -z | xargs -0 $(CODESPELL)
+	@echo "✅ Spelling check passed!"
+
 ##@ All
 
 # Gate order, shared by all, ci-gate and dod: cheap and Docker-only steps first (markdown,
 # backend test, CVE), the stack-bound suites last, so a failure that needs a docs or allowlist
 # fix costs seconds, not the full cycle.
-all: ## Markdown format/lint + backend test + CVE offline + CVE scan + migrations + fullstack + performance + malware
-	@echo "🧪 Running: md-format + md-lint + backend test + test-cve-offline + test-cve + test-migrations + test-full + test-perf + test-malware"
+all: ## Markdown format/lint + spell-check + backend test + CVE offline + suites + CVE scan + migrations + fullstack + performance + malware
+	@echo "🧪 Running: md-format + md-lint + spell-check + backend test + test-cve-offline + test-suites + test-cve + test-migrations + test-full + test-perf + test-malware"
 	@echo ""
 	@$(MAKE) --no-print-directory md-format
 	@$(MAKE) --no-print-directory md-lint
+	@$(MAKE) --no-print-directory spell-check
 	@$(MAKE) -C backend --no-print-directory test
 	@$(MAKE) --no-print-directory test-cve-offline
+	@$(MAKE) --no-print-directory test-suites
 	@$(MAKE) --no-print-directory test-cve
 	@$(MAKE) --no-print-directory test-migrations
 	@$(MAKE) --no-print-directory test-full
@@ -880,8 +792,10 @@ all: ## Markdown format/lint + backend test + CVE offline + CVE scan + migration
 #   test:backend             -> make -C backend test (pytest + coverage)
 #   test:database-migrations -> test-migrations
 #   test:malware             -> test-malware
+#   test:suites              -> test-suites
 #   trivy:scan + trivy:gate  -> test-cve            (scan the image, then check the report against the allowlist)
 #   markdown:lint            -> md-lint
+#   spelling:check           -> spell-check
 # Split by cost, not by pipeline shape: the image scan is the slow check and lives here, while
 # the offline smoketest of the allowlist script lives in `make all`. The pipeline's
 # test:cve-offline job therefore has no counterpart in this target - run `make all` (or
@@ -889,11 +803,13 @@ all: ## Markdown format/lint + backend test + CVE offline + CVE scan + migration
 # Note: CI does NOT run the fullstack (test-full) suite on push; that lives in `make all`/`make test`.
 # test-perf is included here by choice, so a local run exercises the bulk path before pushing,
 # even though the pipeline does not. Consider to keep this target in sync with continuous integration (pipeline) jobs.
-ci-gate: ## Markdown        lint + backend test               + CVE scan + migrations             + performance + malware
-	@echo "🧪 Running CI checks (mirrors pipeline gates): md-lint + backend test + test-cve + test-migrations + test-perf + test-malware"
+ci-gate: ## Markdown        lint + spell-check + backend test               + suites + CVE scan + migrations             + performance + malware
+	@echo "🧪 Running CI checks (mirrors pipeline gates): md-lint + spell-check + backend test + test-suites + test-cve + test-migrations + test-perf + test-malware"
 	@echo ""
 	@$(MAKE) --no-print-directory md-lint
+	@$(MAKE) --no-print-directory spell-check
 	@$(MAKE) -C backend --no-print-directory test
+	@$(MAKE) --no-print-directory test-suites
 	@$(MAKE) --no-print-directory test-cve
 	@$(MAKE) --no-print-directory test-migrations
 	@$(MAKE) --no-print-directory test-perf PERF_AUTO_CONFIRM=true
@@ -902,7 +818,7 @@ ci-gate: ## Markdown        lint + backend test               + CVE scan + migra
 	@echo "✅ CI checks completed"
 
 # Definition of Done = docs checks + API snapshots/diff + `all` (with the keep sequences):
-#   docs checks -> forbidden references, dead links, architecture tree, docs consistency, changelog
+#   docs checks -> forbidden references, dead links, architecture tree, docs consistency, test suites, changelog
 #   API         -> api-snapshot-update + api-diff-update (before the backend test that freezes them)
 #   all         -> as the `all` target, with the stack started and Keycloak provisioned before the
 #                  suites, and the fullstack and performance suites each run clean, keep, keep, clean:

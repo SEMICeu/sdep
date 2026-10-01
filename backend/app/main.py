@@ -1,4 +1,4 @@
-"""Single Digital Entrypoint"""
+"""Single Digital Entry Point"""
 
 import asyncio
 import contextlib
@@ -26,6 +26,7 @@ from app.api.domain_registry import (
 )
 from app.api.domains.ama.v1 import app_ama_v1
 from app.api.domains.auth.v1 import app_auth_v1
+from app.api.domains.ca.routers.areas import MAX_REQUEST_SIZE
 from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.ca.v2 import app_ca_v2
 from app.api.domains.lma.v2 import app_lma_v2
@@ -38,6 +39,7 @@ from app.config import settings
 from app.db.config import async_engine
 from app.security import AuditLogMiddleware, SecurityHeadersMiddleware
 from app.security.audit_retention import audit_log_cleanup_loop
+from app.security.upload_size import UploadSizeLimitMiddleware
 
 # Configure dedicated audit logger - message-only formatter so JSON lines are clean
 _audit_logger = logging.getLogger("audit")
@@ -81,25 +83,24 @@ register_exception_handlers(app)
 # ============================================================================
 # MIDDLEWARE
 # ============================================================================
-# Add security headers middleware for OWASP compliance
-# This provides defense-in-depth against XSS, clickjacking, and other attacks
-#
-# CSP Policy explanation:
-# - default-src 'self': Only load resources from same origin
-# - script-src: Allow same-origin scripts + inline + CDN for Swagger UI
-# - style-src: Allow same-origin styles + inline + CDN for Swagger UI
-# - img-src 'self' data:: Allow images from same origin and data URIs
-# - font-src: Allow fonts from CDN (for Swagger UI)
-# - connect-src 'self': Allow API calls to same origin
-# - frame-ancestors 'none': Prevent framing (clickjacking protection)
-# - base-uri 'self': Restrict <base> tag URLs
-# - object-src 'none': Block <object>, <embed>, <applet>
-# - form-action 'self': Restrict form submission targets
+# Upload size limit for the area upload (1 MiB file plus multipart envelope), checked
+# before the body is parsed. Added first, so it runs innermost: its 413 still gets
+# the security headers and the audit log.
+app.add_middleware(
+    UploadSizeLimitMiddleware,
+    max_bytes=MAX_REQUEST_SIZE,
+    path_pattern=r"/api/ca/v[0-9]+/areas",
+)
+
 # Add audit log middleware for request tracking
 # Starlette LIFO: last added = outermost = runs first
 # AuditLogMiddleware runs after SecurityHeadersMiddleware (added after = runs inside)
 app.add_middleware(AuditLogMiddleware)
 
+# Security headers (OWASP), with one CSP per kind of page:
+# - Main (API responses): strict, same origin only ('self')
+# - Landing page (/api/docs): adds inline styles
+# - Swagger UI pages: add inline scripts/styles and the jsdelivr CDN (Swagger UI assets)
 app.add_middleware(
     SecurityHeadersMiddleware,
     enable_csp=True,

@@ -11,6 +11,7 @@ from .business import (
 from .infrastructure import (
     AuthorizationServerOperationalError,
     DatabaseOperationalError,
+    MalwareScannerOperationalError,
 )
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "DuplicateResourceError",
     "InvalidOperationError",
     "InvalidTokenError",
+    "MalwareScannerOperationalError",
     "ResourceNotFoundError",
     "SDEPError",
 ]

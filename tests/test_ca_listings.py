@@ -31,6 +31,7 @@ class TestStats:
     total: int = 0
     passed: int = 0
     failed: int = 0
+    skipped: int = 0
 
 
 def env(name: str) -> str:
@@ -104,6 +105,13 @@ def mark(stats: TestStats, ok: bool, passed_message: str, failed_message: str) -
         stats.failed += 1
 
 
+def skip(stats: TestStats, message: str) -> None:
+    """A test that could not run (no sample data, no credentials): counted, not passed."""
+    stats.total += 1
+    print(message)
+    stats.skipped += 1
+
+
 def main() -> int:
     base_url = env("BACKEND_BASE_URL")
     api_version = os.getenv("API_VERSION", "v2")
@@ -134,7 +142,7 @@ def main() -> int:
         print("Test 3: Every listing matches the fixed scope and carries the listing fields")
         print("------------------------------------------------")
         if sample is None:
-            mark(stats, True, "Test 3 passed: No data available to test", "")
+            skip(stats, "Test 3 skipped: No data available to test")
         else:
             fields = ("listingId", "status", "flags", "areaId", "competentAuthorityId", "platformId", "submittedAt", "createdAt", "declaredAsShortTermRental")
             missing = [f for f in fields if f not in sample]
@@ -145,7 +153,7 @@ def main() -> int:
         print("Test 4: Filters narrow the result (areaId, flags, createdAtFrom/To; /count matches list length)")
         print("------------------------------------------------")
         if sample is None:
-            mark(stats, True, "Test 4 passed: No data available to test", "")
+            skip(stats, "Test 4 skipped: No data available to test")
         else:
             params = {"areaId": sample.get("areaId"), "createdAtFrom": sample.get("createdAt"), "createdAtTo": sample.get("createdAt")}
             if sample.get("flags"):
@@ -186,13 +194,14 @@ def main() -> int:
             print(f"HTTP Status: {code}")
             mark(stats, code == 403, "Test 7 passed: Other role is refused with 403", f"Test 7 failed: Expected 403, got {code}")
         else:
-            print("Skipping Test 7 (STR_CLIENT_ID/STR_CLIENT_SECRET not set)")
+            skip(stats, "Skipping Test 7 (STR_CLIENT_ID/STR_CLIENT_SECRET not set)")
         print()
 
     print("=======================================")
     print("Test Summary (CA listings):")
     print(f"  Total:  {stats.total}")
     print(f"  Passed: {stats.passed} OK")
+    print(f"  Skipped: {stats.skipped} SKIP")
     print(f"  Failed: {stats.failed} FAIL")
     print("=======================================")
     if stats.failed == 0:

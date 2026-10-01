@@ -82,6 +82,8 @@ services:
       # Use public Docker Hub image for local development (avoids dependency on custom image registry)
       args:
         PYTHON_IMAGE: python:3.14-slim
+    # Local development only, the deployments set their own DNS. Public resolvers plus
+    # an internal one (10.10.12.5), kept on purpose for the local network setup.
     dns:
       - 8.8.8.8
       - 8.8.4.4

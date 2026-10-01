@@ -1,0 +1,48 @@
+# Integration test suites: which test runs, for which client, API version and environment.
+# Read by scripts/suites.sh (runners), scripts/api-versions.sh and tests/test_suites.py (check).
+#
+# - suite:    runs as one group, in file order; `make test-<suite>` runs one suite locally
+# - client:   logs in as <client>_CLIENT_ID/_SECRET (tmp/.credentials) before the suite, - = no login
+# - version:  sets API_VERSION, one line per version, - = unversioned
+# - DEV..PRD: x = runs in that environment (DEV = local docker-compose stack), - = not
+#
+# OTAP environments are typical and by example, adjust to your own needs.
+# PRD typically only runs the smoke suite: production usually has no test clients and takes no test data
+# (checked by tests/test_suites.py).
+#
+# suite    client  test                      version  DEV  TST  ACC  PRE  PRD
+smoke      -       test_smoketest                  -  x    x    x    x    x
+security   -       test_auth_headers              v1  x    x    x    x    -
+security   -       test_auth_headers              v2  x    x    x    x    -
+security   -       test_auth_unauthorized          -  x    x    x    x    -
+security   -       test_auth_client_secret         -  x    x    x    x    -
+security   -       test_client_id_regex            -  x    -    -    -    -
+str        STR     test_health_ping                -  x    x    x    x    -
+str        STR     test_str_areas                 v1  x    x    x    x    -
+str        STR     test_str_areas                 v2  x    x    x    x    -
+str        STR     test_str_activities            v1  x    x    x    x    -
+str        STR     test_str_activities            v2  x    x    x    x    -
+str        STR     test_str_listings              v2  x    x    x    x    -
+ca         CA1     test_health_ping                -  x    x    x    x    -
+ca         CA1     test_ca_areas                  v1  x    x    x    x    -
+ca         CA1     test_ca_areas                  v2  x    x    x    x    -
+ca         CA1     test_ca_activities             v1  x    x    x    x    -
+ca         CA1     test_ca_activities             v2  x    x    x    x    -
+ca         CA1     test_ca_listings               v2  x    x    x    x    -
+ca         CA1     test_reference_data            v2  x    x    x    x    -
+sta        STA     test_health_ping                -  x    x    x    x    -
+sta        STA     test_sta_activities            v1  x    x    x    x    -
+sta        STA     test_sta_activities            v2  x    x    x    x    -
+sta        STA     test_sta_listings              v2  x    x    x    x    -
+sta        STA     test_reference_data            v1  x    x    x    x    -
+sta        STA     test_reference_data            v2  x    x    x    x    -
+lsa        LSA     test_health_ping                -  x    x    x    x    -
+lsa        LSA     test_lsa_listings              v2  x    x    x    x    -
+lsa        LSA     test_reference_data            v2  x    x    x    x    -
+lma        LMA     test_health_ping                -  x    x    x    x    -
+lma        LMA     test_lma_listings              v2  x    x    x    x    -
+lma        LMA     test_reference_data            v2  x    x    x    x    -
+# AMA has v1 only (no listings, so no v2), see AMA_V1 in backend/app/api/domain_registry.py
+ama        AMA     test_health_ping                -  x    x    x    x    -
+ama        AMA     test_ama_activities            v1  x    x    x    x    -
+ama        AMA     test_reference_data            v1  x    x    x    x    -

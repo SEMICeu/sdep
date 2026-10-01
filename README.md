@@ -159,7 +159,7 @@ In Swagger UI, use **Authorize** to activate either of the following **client au
 
 - **Client-signed JWT** ("client signed JWT auth")
 
-  - This provides a more secure way to test production behavior
+  - This provides a more secure way to test production behaviour
   - It uses **client-signed JWT** to acquire a `Bearer` token, that is used in turn to invoke the other (authenticated) endpoints
   - It requires an additional private/public keypair to generate the client-signed JWT
   - Credentials for all roles are explained in the guidance, so you can test how client-signed JWT authentication works for your role (CA, STR, STA, LSA, LMA, AMA)
@@ -210,10 +210,11 @@ make test-full
 The tests cover the cases as described in the [integration test documentation](./docs/INTEGRATION_TESTS.md).
 
 - Tests are executed against the complete Dockerized stack
-- Test suites run sequentially: `test-smoke`, `test-security`, `test-str`, `test-ca`, and `test-sta` - each exercising the live API over HTTP (Python `httpx`)
+- Test suites run sequentially, in the order of `tests/suites.txt` - each exercising the live API over HTTP (Python `httpx`)
 - Test data uses the `sdep-test-*` naming convention; this data is automatically detected and removed after each test run (`postgres/clean-testrun.sql`)
 - Test isolation is enforced by comparing table row counts before and after execution (PRE/POST); any discrepancy causes the build to fail
-- A consolidated summary report presents per-suite and overall totals (executed/passed/failed) and exits with a non-zero status if any test fails
+- A consolidated summary report presents per-suite and overall totals (executed/passed/failed/skipped) and exits with a non-zero status if any test fails
+  - A skipped test (no sample data, no credentials) does not fail the run, but is shown with ⚠️
 
 > Fullstack tests can be reused in Test or Production environments (contact team SDEP-NL for more info).
 
@@ -228,7 +229,8 @@ make test-migrations
 ```
 
 - Applies all migrations to an empty database (`make -C backend upgrade`)
-- Verifies the resulting check constraints match the models
+- Verifies that the models and the database agree: `alembic check` for tables, columns, indexes and unique constraints, `backend/scripts/check_db_matches_models.py` for the CHECK constraints and partial-index predicates, which Alembic does not compare
+- Verifies that the check constraints reject bad rows
 - Runs without the full stack, so it is also usable as a CI/CD pipeline gate
 
 ---
@@ -337,19 +339,15 @@ Lint:
 make md-lint
 ```
 
-Format (also part of `make dod`, the definition of done):
+---
+
+Format:
 
 ```
 make md-format
 ```
 
-Validate links, every relative Markdown link and heading anchor (also part of `make dod`):
-
-```
-make md-validate-links
-```
-
-Style, applied by the tooling above (config and custom rules in `docs/markdown-tooling/`):
+The applied style is as follows (config and custom rules in `docs/markdown-tooling/`):
 
 - Level 1 headings as `<h1>`, so the title stays out of the table of contents
 - Max heading depth 3 (`###`); deeper levels become a `---` line plus bold text
@@ -361,6 +359,25 @@ Style, applied by the tooling above (config and custom rules in `docs/markdown-t
 - `-` list markers (iso. `*`)
 - Plain hyphens (no en or em dash)
 - Rightmost `# ...` alignment in directory trees
+
+---
+
+Validate links, every relative Markdown link and heading anchor:
+
+```
+make md-validate-links
+```
+
+---
+
+Language is Oxford English (en-GB-oxendict):
+
+- Prose gets British spelling
+- Code names like authorization stay the same as in libraries (`.codespellrc`)
+
+```
+make spell-check
+```
 
 ---
 

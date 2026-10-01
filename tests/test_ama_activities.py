@@ -43,6 +43,7 @@ class TestStats:
     total: int = 0
     passed: int = 0
     failed: int = 0
+    skipped: int = 0
 
 
 # One list call returns one page: at most PAGE_LIMIT items (the default and max limit).
@@ -128,6 +129,12 @@ def mark(stats: TestStats, ok: bool, passed_message: str, failed_message: str) -
         stats.failed += 1
 
 
+def skip(stats: TestStats, message: str) -> None:
+    """A test that could not run (no sample data, no credentials): counted, not passed."""
+    print(message)
+    stats.skipped += 1
+
+
 def run_filter_tests(
     stats: TestStats,
     get: Callable[[str], tuple[int, dict[str, Any]]],
@@ -172,7 +179,7 @@ def run_filter_tests(
         print("------------------------------------------------")
         stats.total += 1
         if sample is None and matches is not None:
-            mark(stats, True, f"Test {n} passed: No data available to test", "")
+            skip(stats, f"Test {n} skipped: No data available to test")
         else:
             code, body = get(f"?{query}")
             items = body.get("activities") if isinstance(body, dict) else None
@@ -206,7 +213,7 @@ def run_filter_tests(
     print("------------------------------------------------")
     stats.total += 1
     if sample is None:
-        mark(stats, True, f"Test {n} passed: No data available to test", "")
+        skip(stats, f"Test {n} skipped: No data available to test")
     else:
         query = urlencode({"areaId": sample.get("areaId")})
         code_list, list_body = get(f"?{query}&limit={PAGE_LIMIT}")
@@ -305,12 +312,7 @@ def main() -> int:
         if code != 200 or not isinstance(activities, list):
             mark(stats, False, "", f"Test 4 failed: Expected HTTP 200, got {code}")
         elif not activities:
-            mark(
-                stats,
-                True,
-                "Test 4 passed: No data available to test response structure",
-                "",
-            )
+            skip(stats, "Test 4 skipped: No data available to test response structure")
         else:
             raw = compact_json(activities[0])
             missing = [field for field in ACCEPTANCE_FIELDS if f'"{field}"' not in raw]
@@ -361,7 +363,8 @@ def main() -> int:
                     f"Test 6 failed: Expected 403, got {code}",
                 )
         else:
-            print("Test 6 skipped: CA1_CLIENT_ID/CA1_CLIENT_SECRET not set")
+            stats.total += 1
+            skip(stats, "Test 6 skipped: CA1_CLIENT_ID/CA1_CLIENT_SECRET not set")
         print()
 
         # Tests 7-12: AMA v1 declares all five filters (as STA v1).
@@ -376,6 +379,7 @@ def main() -> int:
     print("Test Summary (ama activities):")
     print(f"  Total:  {stats.total}")
     print(f"  Passed: {stats.passed} OK")
+    print(f"  Skipped: {stats.skipped} SKIP")
     print(f"  Failed: {stats.failed} FAIL")
     print("=======================================")
 

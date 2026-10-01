@@ -4,7 +4,7 @@ Simulates a configurable number of activities/day brought back to activities/sec
 for a configurable duration, using the isolated testdata approach (sdep-test-perf-* naming).
 
 Configuration via environment variables (set by Makefile):
-    PERF_BATCH_SIZE: Number of activities per bulk request (default: 500)
+    PERF_BATCH_SIZE: Number of activities per bulk request (default: 1000)
     BACKEND_BASE_URL: API base URL (default: http://localhost:8000)
     API_VERSION: API version (default: v1)
     STR_CLIENT_ID: OAuth2 client ID for STR platform
@@ -23,6 +23,7 @@ import random
 import string
 import time
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import gevent
 import requests as http_requests
@@ -35,7 +36,7 @@ CA_CLIENT_ID = os.environ.get("CA_CLIENT_ID", "")
 CA_CLIENT_SECRET = os.environ.get("CA_CLIENT_SECRET", "")
 
 # Configuration from environment
-BATCH_SIZE = int(os.environ.get("PERF_BATCH_SIZE", "500"))
+BATCH_SIZE = int(os.environ.get("PERF_BATCH_SIZE", "1000"))
 API_VERSION = os.environ.get("API_VERSION", "v1")
 STR_CLIENT_ID = os.environ.get("STR_CLIENT_ID", "sdep-test-str.01")
 STR_CLIENT_SECRET = os.environ.get("STR_CLIENT_SECRET", "")
@@ -381,6 +382,12 @@ def on_quit(exit_code, **kwargs):
     print()
 
 
+def _add_nights(timestamp: str, nights: int) -> str:
+    """The ISO 8601 UTC timestamp `nights` days later."""
+    start = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    return (start + timedelta(days=nights)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _generate_activity(area_id: str, timestamp: str) -> dict:
     """Generate a realistic activity dict for performance testing."""
     unique = uuid.uuid4().hex[:12]
@@ -407,7 +414,8 @@ def _generate_activity(area_id: str, timestamp: str) -> dict:
         },
         "temporal": {
             "startDatetime": timestamp,
-            "endDatetime": "2027-12-31T23:59:59Z",
+            # A stay of 1-14 nights from now, so the end never falls in the past
+            "endDatetime": _add_nights(timestamp, random.randint(1, 14)),
         },
         "areaId": area_id,
         "numberOfGuests": number_of_guests,
@@ -415,8 +423,8 @@ def _generate_activity(area_id: str, timestamp: str) -> dict:
     }
 
 
-class BulkActivityUser(HttpUser):
-    """Simulates an STR platform submitting bulk activities."""
+class StrActivityUser(HttpUser):
+    """Simulates an STR platform submitting activities (bulk endpoint)."""
 
     wait_time = between(0.1, 0.5)
     _token = None

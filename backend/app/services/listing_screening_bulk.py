@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
     from app.models.listing import Listing
+    from app.models.platform import Platform
 
 from app.crud import listing as listing_crud
 from app.crud import platform as platform_crud
@@ -95,13 +96,13 @@ async def screen_listings_bulk(
             indexes_by_platform[platform_id].append(i)
 
     # ── Step 3: Versioning under lock (per platform), then bulk insert ──
-    accepted: list[tuple[int, Listing, list[str]]] = []
+    accepted: list[tuple[int, Listing, list[str], Platform]] = []
     for platform_id, indexes in indexes_by_platform.items():
         platform = platforms[platform_id]
         current_by_id = await listing_crud.get_current_by_listing_ids(
             session,
             [validated_items[i].listing_id for i in indexes],
-            platform.id,
+            platform.platform_id,
             for_update=True,
         )
         ids_to_end: list[str] = []
@@ -137,8 +138,9 @@ async def screen_listings_bulk(
                 )
             else:
                 ids_to_end.append(screening.listing_id)
-                accepted.append((i, current, [flag.value for flag in screening.flags]))
-        await listing_crud.bulk_mark_as_ended(session, ids_to_end, platform.id)
+                flags = [flag.value for flag in screening.flags]
+                accepted.append((i, current, flags, platform))
+        await listing_crud.bulk_mark_as_ended(session, ids_to_end, platform.platform_id)
 
     # Build after the last UPDATE: a version built earlier sits in the
     # relationship collections during autoflush without being in the session.
@@ -146,18 +148,19 @@ async def screen_listings_bulk(
     new_versions = [
         listing_crud.build_next_version(
             current,
+            platform=platform,
             created_at=batch_created_at,
             status=ListingStatus.flagged if flags else ListingStatus.clear,
             flags=flags,
             screened_at=batch_created_at,
             acknowledged_at=None,
         )
-        for _, current, flags in accepted
+        for _, current, flags, platform in accepted
     ]
     created = await listing_crud.bulk_create(session, new_versions)
 
     # ── Step 4: Feedback ────────────────────────────────────────────────
-    for (i, _, _), listing in zip(accepted, created, strict=True):
+    for (i, _, _, _), listing in zip(accepted, created, strict=True):
         results[i] = ok_item(
             ListingScreeningBulkResultItem, i, client_supplied_ids[i], listing
         )

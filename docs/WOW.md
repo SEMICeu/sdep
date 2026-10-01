@@ -22,7 +22,7 @@ Each issue is assigned exactly one label:
 | **Label**       | **Description**                                                           |
 | --------------- | ------------------------------------------------------------------------- |
 | *(Empty)*       | Newly created issue; intake/triage pending                                |
-| **Analyze**     | Requires analysis by Team SDEP (NL)                                       |
+| **Analyse**     | Requires analysis by Team SDEP (NL)                                       |
 | **Propose**     | Requires discussion and proposal by the Technical Working Group (**TWG**) |
 | **Agreed**      | Reviewed and agreed upon by the Technical Working Group (**TWG**) [1]     |
 | **EC**          | Pending decision by the European Commission                               |

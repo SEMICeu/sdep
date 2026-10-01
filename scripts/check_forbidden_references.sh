@@ -25,6 +25,14 @@ FORBIDDEN_PATTERNS=(
   "(^|[^-])\\bag""ents?\\b"
 )
 
+# References to the upstream public issue tracker (a GitHub issue link, or the
+# short owner/repo form with an issue number) are allowed: a reader of the mirror
+# can follow them. They are listed as a warning, so each stays a conscious choice.
+WARNING_PATTERNS=(
+  "github\\.com/[^/[:space:]]+/[^/[:space:]]+/issues/[0-9]+"
+  "[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[0-9]+"
+)
+
 # CHANGELOG.md is the documented exception for issue numbers: the release trail.
 ISSUE_NUMBER_EXEMPT="CHANGELOG.md"
 
@@ -48,8 +56,19 @@ for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
   fi
 done
 
+warned=0
+mapfile -t warn_scan < <(printf '%s\n' "${files[@]}" | grep -vx "$ISSUE_NUMBER_EXEMPT")
+for pattern in "${WARNING_PATTERNS[@]}"; do
+  if hits=$(grep -IEn -- "$pattern" "${warn_scan[@]}" 2>/dev/null); then
+    echo "⚠️  Upstream issue reference \"$pattern\" (allowed, listed for review):"
+    printf '%s\n' "$hits"
+    echo ""
+    warned=$((warned + $(printf '%s\n' "$hits" | wc -l)))
+  fi
+done
+
 if [ "$found" -ne 0 ]; then
   echo "Rephrase so the text stands on its own for a reader of the public mirror."
   exit 1
 fi
-echo "No forbidden references in $(( ${#files[@]} )) public files"
+echo "No forbidden references in $(( ${#files[@]} )) public files ($warned upstream issue references listed above)"

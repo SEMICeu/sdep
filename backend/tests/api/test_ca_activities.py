@@ -343,7 +343,7 @@ class TestCAActivitiesAPI:
     ):
         """v2 silently drops the STA-only competentAuthorityId query param.
 
-        The authenticated CA is 0363; if the param were honored, filtering by
+        The authenticated CA is 0363; if the param were honoured, filtering by
         0518 would intersect to an empty result. Ignoring it returns the full
         CA-scoped result set.
         """

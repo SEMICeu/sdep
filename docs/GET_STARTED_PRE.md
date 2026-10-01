@@ -7,7 +7,7 @@ Welcome to the **SDEP-NL Pre-Production (PRE) environment**. As an **integration
 
 > **Disclaimer**: For end-to-end testing per country, always contact your **national SDEP representative** for guidance on deployment, integrations, and operations.
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Introduction](#introduction)
   - [SDEP](#sdep)
@@ -62,7 +62,7 @@ SDEP-NL PRE supports both authentication methods.
   - This is the most secure option.
   - It requires you to setup a private/public key pair upfront, and submit the public key to team SDEP-NL.
   - It still allows you to authenticate and use the Swagger UI (after you programmatically acquired a `Bearer` token).
-  - It is used to test (simulate) the behavior in the production environment.
+  - It is used to test (simulate) the behaviour in the production environment.
   - See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance.
 
 > Contrary to PRE, the SDEP-NL production environment (PRD) only supports client-signed JWT authentication: see [Getting started in PRD](./GET_STARTED_PRD.md).
@@ -96,10 +96,13 @@ Also include in the email:
 
 - **Your public key**: used to authenticate your client through client-signed JWT
   - See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
-- **Your Role**: used to grant the appropriate API permissions
+- **Your role**: used to grant the appropriate API permissions
   - Competent authority (CA)
   - Short-term rental platform (STR)
   - Statistics authority (STA)
+  - Listing screening authority (LSA)
+  - Listing monitoring authority (LMA)
+  - Activity monitoring authority (AMA)
 
 ---
 

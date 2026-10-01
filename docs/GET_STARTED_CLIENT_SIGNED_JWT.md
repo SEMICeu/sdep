@@ -5,7 +5,7 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
 - Practice in a local environment (**Local**)
 - Deploy against SDEP pre-production (**PRE**) and production (**PRD**)
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Overview](#overview)
 - [Step 1: Configure environment (as admin)](#step-1-configure-environment-as-admin)
@@ -208,7 +208,7 @@ make keycloak-match-client-public-keys
 Or show the public key for a single client instead:
 
 ```bash
-make keycloak-show-client-public-key CLIENT_ID=sdep-test-str.jwt # sdep-test-ca.jwt, sdep-test-sta.jwt
+make keycloak-show-client-public-key CLIENT_ID=sdep-test-str.jwt # or any other client in the table of step 2a
 ```
 
 ---
@@ -221,20 +221,20 @@ As admin, on the client system, generate a keypair:
 openssl genpkey \
   -algorithm RSA \
   -pkeyopt rsa_keygen_bits:2048 \
-  -out  your.private.pem
+  -out your.private.pem
 
-chmod 600  your.private.pem
+chmod 600 your.private.pem
 
 openssl pkey \
-  -in  your.private.pem \
+  -in your.private.pem \
   -pubout \
-  -out  your.public.pem
+  -out your.public.pem
 ```
 
 This creates:
 
-- ` your.private.pem`: a private key that will be used by your client to authenticate (by signing token requests at the `/token` endpoint)
-- ` your.public.pem`: a public key that you will send to SDEP, to onboard your client in keycloak
+- `your.private.pem`: a private key that will be used by your client to authenticate (by signing token requests at the `/token` endpoint)
+- `your.public.pem`: a public key that you will send to SDEP, to onboard your client in keycloak
 
 Smoke test (pair):
 
@@ -300,7 +300,7 @@ export CLIENT_SIGNED_JWT_AUDIENCE="${BACKEND_KC_BASE_URL%/}/realms/sdep/protocol
 Then create the exports for one of the client-signed JWT test clients, as configured in [step 2a.](#2a-local):
 
 ```bash
-export CLIENT_ID=sdep-test-str.jwt # sdep-test-ca.jwt, sdep-test-sta.jwt
+export CLIENT_ID=sdep-test-str.jwt # or any other client in the table of step 2a
 export KEY_FILE="tmp/$CLIENT_ID.private.pem"
 export KID="$CLIENT_ID"
 ```
@@ -322,7 +322,7 @@ For example as follows.
 Create an export based on the private key file that you created in [step 2b](#2b-pre):
 
 ```bash
-export KEY_FILE=" your.private.pem";  echo KEY_FILE $KEY_FILE
+export KEY_FILE="your.private.pem";  echo KEY_FILE $KEY_FILE
 ```
 
 ---
@@ -333,7 +333,7 @@ Create exports based on the values from team SDEP:
 
 ```bash
 export SDEP_BASE_URL="as_received";               echo SDEP_BASE_URL $SDEP_BASE_URL
-export SDEP_TOKEN_URL"as_received";               echo SDEP_TOKEN_URL $SDEP_TOKEN_URL
+export SDEP_TOKEN_URL="as_received";              echo SDEP_TOKEN_URL $SDEP_TOKEN_URL
 export CLIENT_ID="as_received";                   echo CLIENT_ID $CLIENT_ID
 export KID="as_received";                         echo KID $KID
 export CLIENT_SIGNED_JWT_AUDIENCE="as_received";  echo CLIENT_SIGNED_JWT_AUDIENCE $CLIENT_SIGNED_JWT_AUDIENCE
@@ -341,13 +341,13 @@ export CLIENT_SIGNED_JWT_AUDIENCE="as_received";  echo CLIENT_SIGNED_JWT_AUDIENC
 
 Explanation:
 
-| Value                        | Purpose                                         | Wiill appear in JWT as |
-| ---------------------------- | ----------------------------------------------- | ---------------------- |
-| `SDEP_BASE_URL`              | SDEP API base URL                               |                        |
-| `SDEP_TOKEN_URL`             | SDEP API token endpoint (to authenticate)       |                        |
-| `CLIENT_ID`                  | Client-signed JWT payload: issuer and subject   | `iss`, `sub`           |
-| `KID`                        | Client-signed JWT header: public key identifier | `kid`                  |
-| `CLIENT_SIGNED_JWT_AUDIENCE` | Client-signed JWT payload: audience **[1]**     | `aud`                  |
+| Value                        | Purpose                                         | Will appear in JWT as |
+| ---------------------------- | ----------------------------------------------- | --------------------- |
+| `SDEP_BASE_URL`              | SDEP API base URL                               |                       |
+| `SDEP_TOKEN_URL`             | SDEP API token endpoint (to authenticate)       |                       |
+| `CLIENT_ID`                  | Client-signed JWT payload: issuer and subject   | `iss`, `sub`          |
+| `KID`                        | Client-signed JWT header: public key identifier | `kid`                 |
+| `CLIENT_SIGNED_JWT_AUDIENCE` | Client-signed JWT payload: audience **[1]**     | `aud`                 |
 
 [1] This identifies the intended recipient of the JWT (the authorization server, e.g. Keycloak)
 
@@ -785,7 +785,7 @@ The response shapes are the same as 8f and 8g.
 
 Remarks:
 
-- LMA adds two filters the other audiences do not have: `status` and `flags` (comma-separated flag codes)
+- LMA and STA v2 have the `status` and `flags` filters (comma-separated flag codes), CA v2 has `flags` only; AMA has neither
 - AMA serves the same read as STA, behind its own role
 
 ## Step 9: Authenticate (as admin, in Swagger)
@@ -794,19 +794,19 @@ Remarks:
 
 Make sure your environment is prepared for client-signed JWT (see [step 1](#1a-local)).
 
-In Swagger UI, select **Authorize** and paste the Bearer token you programmatically obtained in [step 5](#step-5-create-a-client-signed-jwt-as-machine).
+In Swagger UI, select **Authorize** and paste the Bearer token you programmatically obtained in [step 6](#step-6-authenticate-as-machine).
 
 ---
 
 ### 9b. PRE
 
-N/A - in PRE, Swagger authorization is always performed using client ID & secret.
+N/A - in PRE, Swagger authorization is always performed using client ID & secret, not by a Bearer token that is acquired by a client-signed JWT. Thus in PRE, in Swagger, keep using a client ID & secret instead.
 
 ---
 
 ### 9c. PRD
 
-In Swagger UI, select **Authorize** and paste the Bearer token you programmatically obtained in [step 5](#step-5-create-a-client-signed-jwt-as-machine).
+In Swagger UI, select **Authorize** and paste the Bearer token you programmatically obtained in [step 6](#step-6-authenticate-as-machine).
 
 ## Step 10: Rotate keys (admin)
 

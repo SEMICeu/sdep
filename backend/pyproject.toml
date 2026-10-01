@@ -35,7 +35,9 @@ dependencies = [
     "email-validator>=2.2.0",
     "pydantic-extra-types[pycountry]>=2.0.0",
     # Authentication and security
-    "pyjwt[crypto]>=2.13.0",
+    # >=2.15.0 - PyJWKClient locks around the key fetch (one fetch at a time) and keeps
+    # the cached keys on a failed fetch; see verify_bearer_token in security.py.
+    "pyjwt[crypto]>=2.15.0",
     # Configuration
     # >=1.2.2 - CVE-2026-28684: set_key()/unset_key() followed symlinks when rewriting
     # .env files, allowing arbitrary file overwrite. SDEP only reads .env, but the floor

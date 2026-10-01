@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     # Application settings
     APP_NAME: str = Field(
-        default="Single Digital Entrypoint",
+        default="Single Digital Entry Point",
         description="Application name",
     )
 

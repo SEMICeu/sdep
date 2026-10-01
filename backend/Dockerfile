@@ -10,7 +10,7 @@ ARG PYTHON_IMAGE=python:3.14-slim
 FROM ${PYTHON_IMAGE} AS builder
 LABEL "maintainer"="ICTU"
 
-# The installer requires curl (and certificates) to download the release archive
+# Build tools, for packages that have no prebuilt wheel
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
@@ -20,26 +20,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js (required for pyright)
-# Download to a file with retries: a piped `curl | bash` hides a failed download,
-# so the build fails later on a misleading "Unable to locate package nodejs".
-RUN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
-        -o /tmp/nodesource_setup.sh https://deb.nodesource.com/setup_lts.x \
-    && bash /tmp/nodesource_setup.sh \
-    && rm /tmp/nodesource_setup.sh \
-    && apt-get install -y nodejs
-
-# Copy uv binary from the official image (cached locally by Docker after first pull)
-COPY --from=ghcr.io/astral-sh/uv:0.5.4 /uv /uvx /usr/local/bin/
+# Copy uv binary from the official image (cached locally by Docker after first pull).
+# Into /bin, not /usr/local/bin: the runtime stage copies /usr/local/bin and needs no uv.
+COPY --from=ghcr.io/astral-sh/uv:0.12.21 /uv /uvx /bin/
 
 # Ensure that all uv commands compile bytecode
 ENV UV_COMPILE_BYTECODE=1
-
-# Always use the latest pyright version
-ENV PYRIGHT_PYTHON_FORCE_VERSION="latest"
-
-# Install pyright globally
-RUN npm install -g pyright
 
 # Install packages
 WORKDIR /backend

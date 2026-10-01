@@ -34,7 +34,7 @@ Quick reference:
 
 | Target                   | Description                                                                            |
 | ------------------------ | -------------------------------------------------------------------------------------- |
-| `make test-perf`         | Run bulk performance test with various configuration options                           |
+| `make test-perf`         | Run the performance test (STR activities) with various configuration options           |
 | `make test-perf-keep`    | Same as `test-perf`, but keep test data in the database (also runs correctness checks) |
 | `make test-perf-verbose` | Same as `test-perf`, with periodic Locust statistics printed during the run            |
 
@@ -80,7 +80,7 @@ Both are invoked via `make test-perf`.
 
 ### Test data generation
 
-No fixture files are used - all test data is generated at runtime by `_generate_activity()` in `locustfile.py`. Each Locust task iteration generates `PERF_BATCH_SIZE` activities (default: 500) per HTTP request.
+No fixture files are used - all test data is generated at runtime by `_generate_activity()` in `locustfile.py`. Each Locust task iteration generates `PERF_BATCH_SIZE` activities (default: 1000) per HTTP request.
 
 Each activity contains the following fields:
 
@@ -90,7 +90,7 @@ Each activity contains the following fields:
 | `url`                | Fake URL using the same unique ID (e.g. `http://sdep-test-perf.example.com/<id>`)                                                         |
 | `registrationNumber` | `REGPERF` + 8 uppercase hex characters                                                                                                    |
 | `address`            | Random Dutch street name (`Prinsengracht`, `Keizersgracht`, etc.), house number (1-999), postcode, and city from hardcoded lists          |
-| `temporal`           | `startDatetime` = current UTC timestamp; `endDatetime` = fixed (`2027-12-31T23:59:59Z`)                                                   |
+| `temporal`           | `startDatetime` = current UTC timestamp; `endDatetime` = 1-14 nights later                                                                |
 | `areaId`             | Randomly picked from `PERF_AREA_IDS` (created by the Makefile via `lib/create_fixture_areas.py`)                                          |
 | `numberOfGuests`     | Random integer 1-10                                                                                                                       |
 | `countryOfGuests`    | List of length `numberOfGuests`, each element sampled with replacement from `NLD`, `DEU`, `BEL`, `FRA`, `GBR`, `ESP`, `ITA`, `USA`, `N/A` |

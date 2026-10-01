@@ -476,7 +476,9 @@ class TestActivityCRUD:
             activity_id="ended-activity-id",
             platform_id=platform.id,
         )
-        await activity.mark_as_ended(async_session, "ended-activity-id", platform.id)
+        await activity.mark_as_ended(
+            async_session, "ended-activity-id", platform.platform_id
+        )
 
         # Act
         result = await activity.exists_any_by_activity_id(
@@ -515,12 +517,14 @@ class TestActivityCRUD:
             platform_id=platform.id,
             area_id=area.id,
         )
-        await activity.mark_as_ended(async_session, ended.activity_id, platform.id)
+        await activity.mark_as_ended(
+            async_session, ended.activity_id, platform.platform_id
+        )
 
         result = await activity.get_current_by_activity_ids(
             async_session,
             [current.activity_id, ended.activity_id, "missing-activity-id"],
-            platform.id,
+            platform.platform_id,
         )
 
         assert result == {current.activity_id: True}
@@ -542,11 +546,14 @@ class TestActivityCRUD:
             platform_id=platform.id,
             area_id=area.id,
         )
-        await activity.mark_as_ended(async_session, "ended-activity-id", platform.id)
+        await activity.mark_as_ended(
+            async_session, "ended-activity-id", platform.platform_id
+        )
 
         result = await activity.get_deactivated_activity_ids(
             async_session,
             ["current-activity-id", "ended-activity-id", "missing-activity-id"],
+            platform.platform_id,
         )
 
         assert result == {"ended-activity-id"}
@@ -589,10 +596,12 @@ class TestActivityCRUD:
         await activity.bulk_mark_as_ended(
             async_session,
             [reg_one.activity_id, reg_two.activity_id],
-            platform.id,
+            platform.platform_id,
         )
         ended_ids = await activity.get_deactivated_activity_ids(
-            async_session, [reg_one.activity_id, reg_two.activity_id]
+            async_session,
+            [reg_one.activity_id, reg_two.activity_id],
+            platform.platform_id,
         )
         assert reg_one.activity_id in ended_ids
         assert reg_two.activity_id in ended_ids
@@ -681,6 +690,9 @@ class TestActivityCRUD:
 
         # Wait to ensure different timestamp (1 second to guarantee SQLite timestamp difference)
         await asyncio.sleep(1.0)
+
+        # End version 1 first: only one current version per (activity_id, platform)
+        await activity.mark_as_ended(async_session, activity_id, platform.platform_id)
 
         # Act - Create second activity with same activity_id (should work due to different created_at)
         act2 = await activity.create(

@@ -83,7 +83,9 @@ async def create_activities_bulk(
     # ── Step 1: Pydantic validation (per item) ──────────────────────────
     for i, raw in enumerate(activities_raw):
         # Track client-supplied activityId before any processing
-        client_supplied_ids[i] = raw.get("activityId")
+        client_supplied_ids[i] = (
+            raw.get("activityId") if isinstance(raw, dict) else None
+        )
 
         try:
             activity_req = item_adapter.validate_python(raw)
@@ -209,7 +211,7 @@ async def create_activities_bulk(
     if activity_ids_to_check:
         # Check for deactivated entities
         deactivated = await activity_crud.get_deactivated_activity_ids(
-            session, activity_ids_to_check
+            session, activity_ids_to_check, platform.platform_id
         )
         if deactivated:
             still_valid = []
@@ -244,11 +246,13 @@ async def create_activities_bulk(
 
         if ids_for_versioning:
             current_ids = await activity_crud.get_current_by_activity_ids(
-                session, ids_for_versioning, platform.id, for_update=True
+                session, ids_for_versioning, platform.platform_id, for_update=True
             )
             ids_to_end = [aid for aid in ids_for_versioning if aid in current_ids]
             if ids_to_end:
-                await activity_crud.bulk_mark_as_ended(session, ids_to_end, platform.id)
+                await activity_crud.bulk_mark_as_ended(
+                    session, ids_to_end, platform.platform_id
+                )
 
     # ── Step 3: Bulk Insert ─────────────────────────────────────────────
     # Use a single timestamp for all items in the batch

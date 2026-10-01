@@ -59,7 +59,7 @@
   // and configured globs would be linted on top of them. Tool output and third-party trees
   // are skipped (see "ignores"); mdformat reads "ignores" too, via mdformat-excludes.sh:
   // keep one quoted glob per line.
-  // CHANGELOG.md and LICENSE.md are ours but not ours to reformat. Private paths
+  // LICENSE.md is standard licence text, not ours to reformat. Private paths
   // (export-ignore in .gitattributes) never reach the tools: the Makefile passes
   // the public *.md files explicitly (scripts/public_files.sh).
   "ignores": [
@@ -68,7 +68,6 @@
     "**/.pytest_cache/**",
     "**/.git/**",
     "tmp/**",
-    "CHANGELOG.md",
     "LICENSE.md"
   ]
 }

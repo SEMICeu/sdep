@@ -9,7 +9,7 @@ from app.api.domain_registry import API_DOMAINS
 from app.main import app as root_app
 from app.main import lifespan, root
 from app.security.audit_retention import audit_log_cleanup_loop
-from app.security.headers import ApiSecurityHeadersMiddleware, SecurityHeadersMiddleware
+from app.security.headers import SecurityHeadersMiddleware
 from fastapi import FastAPI, Response
 from httpx import ASGITransport, AsyncClient
 
@@ -130,30 +130,6 @@ async def test_security_header_middlewares_cover_remaining_branches():
         response.headers["Strict-Transport-Security"]
         == "max-age=123; includeSubDomains; preload"
     )
-
-    api_app = FastAPI()
-    api_app.add_middleware(ApiSecurityHeadersMiddleware)
-
-    @api_app.get("/api/value")
-    async def api_value():
-        return {"ok": True}
-
-    @api_app.get("/public")
-    async def public_value():
-        return {"ok": True}
-
-    async with AsyncClient(
-        transport=ASGITransport(app=api_app), base_url="http://test"
-    ) as client:
-        api_response = await client.get("/api/value")
-        public_response = await client.get("/public")
-
-    assert (
-        api_response.headers["Cache-Control"]
-        == "no-store, no-cache, must-revalidate, private"
-    )
-    assert api_response.headers["X-Frame-Options"] == "DENY"
-    assert "Cache-Control" not in public_response.headers
 
 
 @pytest.mark.asyncio

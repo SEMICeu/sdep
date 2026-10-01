@@ -10,10 +10,12 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy import (
     Enum as SAEnum,
@@ -88,6 +90,25 @@ class Activity(Base):
             "activity_id ~ '^[A-Za-z0-9-]+$'",
             name="ck_activity_activity_id_format",
         ).ddl_if(dialect="postgresql"),
+        # At most one current version per (id, platform version), as for areas
+        # (models/area.py). A lost race on a new ID gets a unique violation,
+        # which the API returns as 409 (see exceptions/handlers.py).
+        Index(
+            "uq_activity_current_activity_id_platform",
+            "activity_id",
+            "platform_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL"),
+            sqlite_where=text("ended_at IS NULL"),
+        ),
+        # The reads page through current rows, newest first.
+        Index(
+            "ix_activity_current_created_at",
+            "created_at",
+            "id",
+            postgresql_where=text("ended_at IS NULL"),
+            sqlite_where=text("ended_at IS NULL"),
+        ),
     )
 
     # Primary key (technical ID, database-internal)

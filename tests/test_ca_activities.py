@@ -47,6 +47,7 @@ class TestStats:
     total: int = 0
     passed: int = 0
     failed: int = 0
+    skipped: int = 0
 
 
 # One list call returns one page: at most PAGE_LIMIT items (the default and max limit).
@@ -115,6 +116,12 @@ def mark(stats: TestStats, ok: bool, passed_message: str, failed_message: str) -
         stats.failed += 1
 
 
+def skip(stats: TestStats, message: str) -> None:
+    """A test that could not run (no sample data, no credentials): counted, not passed."""
+    print(message)
+    stats.skipped += 1
+
+
 def run_filter_tests(
     stats: TestStats,
     get: Callable[[str], tuple[int, dict[str, Any]]],
@@ -159,7 +166,7 @@ def run_filter_tests(
         print("------------------------------------------------")
         stats.total += 1
         if sample is None and matches is not None:
-            mark(stats, True, f"Test {n} passed: No data available to test", "")
+            skip(stats, f"Test {n} skipped: No data available to test")
         else:
             code, body = get(f"?{query}")
             items = body.get("activities") if isinstance(body, dict) else None
@@ -193,7 +200,7 @@ def run_filter_tests(
     print("------------------------------------------------")
     stats.total += 1
     if sample is None:
-        mark(stats, True, f"Test {n} passed: No data available to test", "")
+        skip(stats, f"Test {n} skipped: No data available to test")
     else:
         query = urlencode({"areaId": sample.get("areaId")})
         code_list, list_body = get(f"?{query}&limit={PAGE_LIMIT}")
@@ -291,7 +298,7 @@ def main() -> int:
         if code != 200 or not isinstance(activities, list):
             mark(stats, False, "", f"Test 4 failed: Unexpected HTTP status {code}")
         elif not activities:
-            mark(stats, True, "Test 4 passed: No data available to test", "")
+            skip(stats, "Test 4 skipped: No data available to test")
         else:
             raw = compact_json(activities[0])
             missing = [field for field in REQUIRED_FIELDS if f'"{field}"' not in raw]
@@ -316,7 +323,7 @@ def main() -> int:
         else:
             activity_url = activities[0].get("url") if activities else None
             if not activity_url:
-                mark(stats, True, "Test 5 passed: No data available to test", "")
+                skip(stats, "Test 5 skipped: No data available to test")
             else:
                 print(f"Found activity URL: {activity_url}")
                 filter_code, filter_body = get_activities(
@@ -373,6 +380,7 @@ def main() -> int:
     print("Test Summary (CA activities):")
     print(f"  Total:  {stats.total}")
     print(f"  Passed: {stats.passed} OK")
+    print(f"  Skipped: {stats.skipped} SKIP")
     print(f"  Failed: {stats.failed} FAIL")
     print("=======================================")
 

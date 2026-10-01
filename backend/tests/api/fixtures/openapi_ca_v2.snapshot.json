@@ -1504,7 +1504,7 @@
     },
     "/areas/{areaId}": {
       "delete": {
-        "description": "Delete (deactivate) an area by marking it as ended (now, UTC).\n\n**Behavior:**\n- Deletes (deactivates) the area\n- The area will no longer appear in area listings\n- Deleting an already-deleted area returns 404",
+        "description": "Delete (deactivate) an area by marking it as ended (now, UTC).\n\n**Behaviour:**\n- Deletes (deactivates) the area\n- The area will no longer appear in area listings\n- Deleting an already-deleted area returns 404",
         "operationId": "deleteOwnArea",
         "parameters": [
           {

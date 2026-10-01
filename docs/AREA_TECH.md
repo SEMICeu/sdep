@@ -10,7 +10,7 @@ Reference links:
 
 The generic patterns behind the choices below are in [Architecture](./ARCHITECTURE_TECH.md) and [API](./API_TECH.md#code-structure).
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Characteristics](#characteristics)
 - [Data](#data)
@@ -212,23 +212,23 @@ separate store would need its own consistency, lifecycle and access control.
 
 The size cap is enforced three times, cheapest first:
 
-1. `Content-Length` header, before the body is buffered - returns `413`
-2. Actual file size after `read()`, because `Content-Length` covers the whole multipart envelope - returns `422`
+1. Request size (1 MiB plus a multipart envelope), before the body is parsed - returns `413`. A middleware (`security/upload_size.py`) checks `Content-Length`, and counts the bytes of a body sent without it; a check in the endpoint would come too late, because FastAPI parses the form before the endpoint runs
+2. Actual file size after `read()`, because the request size covers the whole multipart envelope - returns `422`
 3. `ck_area_filedata_max_size` (`length(filedata) <= 1048576`) in the database, on both PostgreSQL and SQLite
 
 ---
 
 ## Upload validation
 
-`POST /areas` runs its checks in a deliberate order, in `ca/routers/areas.py` (`post_area`):
+`POST /areas` runs its checks in a deliberate order: step 1 in `security/upload_size.py`, the others in `ca/routers/areas.py` (`post_area`):
 
-| Step | Check                                                                  | Failure |
-| ---- | ---------------------------------------------------------------------- | ------- |
-| 1    | `Content-Length` within 1 MiB                                          | `413`   |
-| 2    | Filename sanitized, `.zip`, at most 64 characters, non-empty base name | `422`   |
-| 3    | Actual file size within 1 MiB                                          | `422`   |
-| 4    | Malware scan (ClamAV)                                                  | `400`   |
-| 5    | ZIP magic bytes (`PK\x03\x04`)                                         | `422`   |
+| Step | Check                                                                  | Failure                                       |
+| ---- | ---------------------------------------------------------------------- | --------------------------------------------- |
+| 1    | Request size within 1 MiB plus envelope, before parsing                | `413`                                         |
+| 2    | Filename sanitized, `.zip`, at most 64 characters, non-empty base name | `422`                                         |
+| 3    | Actual file size within 1 MiB                                          | `422`                                         |
+| 4    | Malware scan (ClamAV)                                                  | `400` malware found, `503` scan could not run |
+| 5    | ZIP magic bytes (`PK\x03\x04`)                                         | `422`                                         |
 
 Two things are worth knowing about the order:
 

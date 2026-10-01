@@ -21,8 +21,10 @@ from tests.fixtures.factories import (
 @pytest.mark.database
 class TestListingCRUD:
     async def test_empty_inputs_short_circuit(self, async_session: AsyncSession):
-        assert await listing_crud.get_current_by_listing_ids(async_session, [], 1) == {}
-        assert await listing_crud.bulk_mark_as_ended(async_session, [], 1) is None
+        assert (
+            await listing_crud.get_current_by_listing_ids(async_session, [], "p") == {}
+        )
+        assert await listing_crud.bulk_mark_as_ended(async_session, [], "p") is None
         assert await listing_crud.bulk_create(async_session, []) == []
 
     async def test_scope_and_filters(self, async_session: AsyncSession):
@@ -119,7 +121,7 @@ class TestListingCRUD:
         current = await listing_crud.get_current_by_listing_ids(
             async_session,
             ["l-flagged", "l-ended", "missing"],
-            platform_1.id,
+            platform_1.platform_id,
             for_update=True,
         )
         assert set(current) == {"l-flagged"}
@@ -165,9 +167,12 @@ class TestListingCRUD:
         assert "l-1" in repr(created)
 
         later = datetime(2026, 9, 8, 6, 0, tzinfo=UTC)
-        await listing_crud.bulk_mark_as_ended(async_session, ["l-1"], platform.id)
+        await listing_crud.bulk_mark_as_ended(
+            async_session, ["l-1"], platform.platform_id
+        )
         flagged = listing_crud.build_next_version(
             created,
+            platform=platform,
             created_at=later,
             status=ListingStatus.flagged,
             flags=["UNK"],
@@ -179,6 +184,6 @@ class TestListingCRUD:
         assert flagged.submitted_at.replace(tzinfo=UTC) == now
         assert flagged.address_thoroughfare == "Turfmarkt"
         current = await listing_crud.get_current_by_listing_ids(
-            async_session, ["l-1"], platform.id
+            async_session, ["l-1"], platform.platform_id
         )
         assert current["l-1"].id == flagged.id

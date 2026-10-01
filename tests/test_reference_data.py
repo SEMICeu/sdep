@@ -8,8 +8,9 @@
 """Reference data endpoints: platforms, competent authorities, areas.
 
 Runs for the domain of the bearer token (its audience role, e.g. `sdep_ama`) and
-for API_VERSION; a domain version that does not serve the reference data is
-skipped. The token is loaded from ./tmp/.bearer_token.
+for API_VERSION; a domain version that does not serve the reference data fails,
+so tests/suites.txt only lists runs that test something. The token is loaded from
+./tmp/.bearer_token.
 """
 
 from __future__ import annotations
@@ -109,7 +110,7 @@ def check_resource(client: httpx.Client, api: str, token: str, resource: str, st
     count = count_body.get("count") if isinstance(count_body, dict) else None
     print(f"HTTP Status: count {code_count} ({count}), list {code}")
     ok = code_count == 200 and code == 200 and isinstance(count, int) and isinstance(items, list) and len(items) == min(count, 1)
-    mark(stats, ok, f"Passed: /{resource} and /{resource}/count agree", f"Failed: {body}")
+    mark(stats, ok, f"Test passed: /{resource} and /{resource}/count agree", f"Test failed: {body}")
     print()
 
     print(f"Test: GET /{resource}/{{id}} is not served (404)")
@@ -117,7 +118,7 @@ def check_resource(client: httpx.Client, api: str, token: str, resource: str, st
     # No read by ID: the list item carries every field
     code, _ = call(client, f"{api}/{resource}/{items[0][id_field] if items else 'sdep-test-unknown-id'}", token)
     print(f"HTTP Status: {code}")
-    mark(stats, code == 404, f"Passed: /{resource}/{{id}} is not served", f"Failed: Expected 404, got {code}")
+    mark(stats, code == 404, f"Test passed: /{resource}/{{id}} is not served", f"Test failed: Expected 404, got {code}")
     print()
 
 
@@ -128,8 +129,8 @@ def main() -> int:
     domain = token_domain(token)
     resources = SERVED.get((domain, api_version)) if domain else None
     if resources is None:
-        print(f"Skipping reference data tests: {domain or 'this token'} {api_version} does not serve them")
-        return 0
+        print(f"❌ {domain or 'this token'} {api_version} does not serve reference data: remove this run from tests/suites.txt")
+        return 1
 
     api = f"{base_url}/api/{domain}/{api_version}"
     print(f"Testing reference data endpoints at: {api} ({', '.join(resources)})")
@@ -143,7 +144,7 @@ def main() -> int:
             print("Test: GET /competent-authorities is not served (404)")
             print("------------------------------------------------")
             code, _ = call(client, f"{api}/competent-authorities", token)
-            mark(stats, code == 404, "Passed: not served", f"Failed: Expected 404, got {code}")
+            mark(stats, code == 404, "Test passed: not served", f"Test failed: Expected 404, got {code}")
             print()
 
     print("=======================================")

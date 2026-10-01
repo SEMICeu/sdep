@@ -8,7 +8,7 @@ Reference links:
 
 - [Area (technical)](./AREA_TECH.md)
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Goal](#goal)
 - [Sequence](#sequence)
@@ -38,7 +38,7 @@ sequenceDiagram
 Legend:
 
 - **CA** - Competent Authority
-- **SDEP** - Single Digital Entrypoint
+- **SDEP** - Single Digital Entry Point
 - All actions happen periodically/asynchronously
 
 Area management is country-specific (not EU-harmonized).

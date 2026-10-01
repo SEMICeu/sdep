@@ -6,7 +6,7 @@ snapshots in `backend/tests/api/fixtures/`. Refresh with `make api-diff-update` 
 
 For the versioning rules behind these differences, see [API](API_TECH.md).
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [CA v1 to v2](#ca-v1-to-v2)
   - [Added and removed operations](#added-and-removed-operations)

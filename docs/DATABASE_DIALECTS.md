@@ -7,7 +7,7 @@ Reference links:
 - [Technical architecture](./ARCHITECTURE_TECH.md)
 - [Internal data model](./DATAMODEL_TECH.md)
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [SQLite vs PostgreSQL](#sqlite-vs-postgresql)
 - [Dialect differences](#dialect-differences)
@@ -76,7 +76,7 @@ A direct CRUD call on SQLite with manually mismatched lists would not be caught 
 Listings carry the same pattern for the agreement between `status` and `flags`:
 
 - **Model** (`backend/app/models/listing.py`) - `ck_listing_status_flags`: `flagged` and `acknowledged` carry at least one flag, `pending` and `clear` carry none. Declared `.ddl_if(dialect="postgresql")`, because it uses `array_length`
-- **Migration** (`backend/alembic/versions/008_add_listing.py`) - the same constraint inside an `if is_postgres:` guard
+- **Migration** (`backend/alembic/versions/008_add_listing.py`) - the same constraint, without an `if is_postgres:` guard: the whole migration is PostgreSQL-only (it uses `postgresql.ENUM` and `ARRAY`), and SQLite tests build the schema from the models
 - **Application fallback** - the caller never supplies `status`. It is derived from the write: `pending` on submission, `flagged` or `clear` from the screened flags (`listing_screening_bulk.py`), `acknowledged` on acknowledgement. A disagreeing pair cannot be constructed through the API, on either engine
 - **Format fallback** - `ck_listing_listing_id_format` and the address-letter check are PostgreSQL-only too; the equivalent Pydantic validators on `Listing.Request` cover every API path
 
@@ -88,5 +88,5 @@ Listings carry the same pattern for the agreement between `status` and `flags`:
 4. **Default-value functions** - confirm that any `server_default` / `func.*` calls resolve to a valid expression on the target engine (timestamps, UUIDs, sequence-style identifiers).
 5. **Migrations** - re-run the Alembic migrations against a clean instance of the target engine. Pay attention to operations that PostgreSQL allows but other engines do not (e.g. creating an enum type, transactional DDL, deferred constraints) and gate them with `op.get_bind().dialect.name` or `ddl_if(dialect=...)`.
 6. **Constraints** - verify that CHECK, UNIQUE, and FOREIGN KEY constraints are enforced (some older engine versions parse but ignore CHECK constraints).
-7. **Transaction & isolation semantics** - test concurrency-sensitive code paths (versioning, soft-delete, bulk insert) on a real instance of the target engine; isolation defaults and locking behavior vary considerably between engines.
-8. **Run the full test suite** - point the test config at a real instance of the target engine and run `make test`. SQLite-only validation is not enough to catch dialect-specific behavior.
+7. **Transaction & isolation semantics** - test concurrency-sensitive code paths (versioning, soft-delete, bulk insert) on a real instance of the target engine; isolation defaults and locking behaviour vary considerably between engines.
+8. **Run the full test suite** - point the test config at a real instance of the target engine and run `make test`. SQLite-only validation is not enough to catch dialect-specific behaviour.

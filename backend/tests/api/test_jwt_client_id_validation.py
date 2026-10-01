@@ -25,6 +25,7 @@ INVALID_CLIENT_IDS = [
     pytest.param("special!char", id="special-char"),
     pytest.param("slash/path", id="slash"),
     pytest.param("a" * 65, id="too-long-65-chars"),
+    pytest.param("valid-id\n", id="trailing-newline"),
 ]
 
 

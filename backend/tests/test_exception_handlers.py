@@ -17,17 +17,20 @@ from app.exceptions.handlers import (
     database_unavailable_exception_handler,
     general_exception_handler,
     http_exception_handler,
+    integrity_exception_handler,
+    malware_scanner_unavailable_exception_handler,
     resource_not_found_exception_handler,
     validation_exception_handler,
 )
 from app.exceptions.infrastructure import (
     AuthorizationServerOperationalError,
     DatabaseOperationalError,
+    MalwareScannerOperationalError,
 )
 from fastapi import FastAPI, HTTPException, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from starlette.requests import Request
 
 
@@ -218,6 +221,35 @@ async def test_authorization_server_unavailable_exception_handler_returns_503():
     assert b"Authorization server is temporarily unavailable" in response.body
 
 
+async def test_malware_scanner_unavailable_exception_handler_returns_503():
+    response = await malware_scanner_unavailable_exception_handler(
+        _request(), MalwareScannerOperationalError("clamav down")
+    )
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert b"Malware scanner is temporarily unavailable" in response.body
+
+
+class _PgUniqueViolationError(Exception):
+    sqlstate = "23505"
+
+
+async def test_integrity_exception_handler_maps_unique_violation_to_409():
+    sqlite_unique = IntegrityError(
+        "INSERT", {}, Exception("UNIQUE constraint failed: listing.listing_id")
+    )
+    pg_unique = IntegrityError("INSERT", {}, _PgUniqueViolationError("duplicate key"))
+    check = IntegrityError("INSERT", {}, Exception("CHECK constraint failed"))
+
+    for exc in (sqlite_unique, pg_unique):
+        response = await integrity_exception_handler(_request(method="POST"), exc)
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert b"conflict_error" in response.body
+
+    other = await integrity_exception_handler(_request(method="POST"), check)
+    assert other.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
 async def test_general_exception_handler_hides_internal_details():
     response = await general_exception_handler(
         _request(), RuntimeError("secret details")
@@ -257,6 +289,11 @@ def test_register_exception_handlers_registers_expected_mappings():
     assert (
         app.exception_handlers[OperationalError]
         is database_unavailable_exception_handler
+    )
+    assert app.exception_handlers[IntegrityError] is integrity_exception_handler
+    assert (
+        app.exception_handlers[MalwareScannerOperationalError]
+        is malware_scanner_unavailable_exception_handler
     )
     assert (
         app.exception_handlers[AuthorizationServerOperationalError]

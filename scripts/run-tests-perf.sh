@@ -27,7 +27,7 @@ P_STOP_ON_TARGET="${PERF_STOP_ON_TARGET:-true}"
 P_AUTO_CONFIRM="${PERF_AUTO_CONFIRM:-false}"
 
 # --- Show configuration ---
-echo "🚀 Bulk performance test"
+echo "🚀 Performance test (STR activities)"
 echo ""
 printf "   %-27s = %-10s (%s)\n" "PERF_ACTIVITIES_TARGET" "$P_ACTIVITIES_PER_DAY" "target volume"
 printf "   %-27s = %-10s (%s)\n" "PERF_USERS" "$P_USERS" "concurrent users to reach the target volume"

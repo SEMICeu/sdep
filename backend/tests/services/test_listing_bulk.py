@@ -145,6 +145,69 @@ class TestListingBulkServices:
         assert (detail.type, detail.loc) == ("conflict_error", ["listingId"])
         assert "already screened (status 'flagged')" in detail.msg
 
+    async def test_platform_rename_keeps_listing_findable(self, async_session, areas):
+        """A client_name change versions the platform; its listings stay one current row."""
+        # Backdated, so the rename's new platform version gets another created_at
+        await PlatformFactory.create_async(
+            async_session,
+            client_id="str-1",
+            platform_name="STR 1",
+            created_at=datetime(2026, 1, 1),
+        )
+        scope = ListingScope(platform_client_id="str-1")
+        await create_listings_bulk(
+            async_session,
+            [_listing(areas["all"], listingId=i) for i in ("l-1", "l-2")],
+            "str-1",
+            "STR 1",
+        )
+
+        # Resubmitting l-2 under the new name versions it, no second current row
+        resubmitted = await create_listings_bulk(
+            async_session,
+            [_listing(areas["all"], listingId="l-2", listingName="After rename")],
+            "str-1",
+            "STR 1 renamed",
+        )
+        assert resubmitted.results[0].status == "OK", resubmitted.results[0]
+        assert (
+            await listing_service.count_current_listings(async_session, scope=scope)
+            == 2
+        )
+
+        # l-1 still points at the previous platform version: screen and acknowledge it
+        [current] = [
+            row
+            for row in await listing_service.get_listing_list(
+                async_session, scope=scope
+            )
+            if row.listing_id == "l-1"
+        ]
+        screened = await screen_listings_bulk(
+            async_session,
+            [
+                {
+                    "platformId": current.platform.platform_id,
+                    "listingId": "l-1",
+                    "createdAt": _token(current) + "Z",
+                    "flags": ["UNK"],
+                }
+            ],
+        )
+        assert screened.results[0].status == "OK", screened.results[0]
+        flagged = screened.results[0].listing
+        assert flagged is not None
+        acknowledged = await acknowledge_listings_bulk(
+            async_session,
+            [{"listingId": "l-1", "createdAt": flagged.created_at.isoformat()}],
+            "str-1",
+        )
+        assert acknowledged.results[0].status == "OK", acknowledged.results[0]
+        assert (
+            await listing_service.count_current_listings(async_session, scope=scope)
+            == 2
+        )
+
     async def test_screening_covers_every_nok_branch(self, async_session, areas):
         platform = await PlatformFactory.create_async(
             async_session, platform_id="p-1", client_id="str-1"

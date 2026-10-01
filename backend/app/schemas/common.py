@@ -47,7 +47,7 @@ UtcDateTime = Annotated[datetime, AfterValidator(require_utc_datetime)]
 
 def validate_client_id(value: str) -> None:
     """Validate a private OAuth client identifier from a JWT claim."""
-    if not value or len(value) > 64 or not _CLIENT_ID_RE.match(value):
+    if not value or len(value) > 64 or not _CLIENT_ID_RE.fullmatch(value):
         raise ValueError(
             f"client_id must be 1-64 characters matching {CLIENT_ID_PATTERN}, got: '{value}'"
         )

@@ -346,6 +346,22 @@ class TestAuthRouter:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert response.json()["detail"][0]["msg"] == "Authentication failed"
 
+    async def test_token_treats_keycloak_5xx_as_service_unavailable(self, monkeypatch):
+        fake_client = _MockAsyncClient(response=_MockResponse(502))
+        monkeypatch.setattr(auth_router.settings, "KC_BASE_URL", "https://kc.example")
+        _enable_client_credentials_flow(monkeypatch)
+        monkeypatch.setattr(auth_router.httpx, "AsyncClient", lambda **_: fake_client)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_auth_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/token",
+                data={"client_id": "client-a", "client_secret": "secret-a"},
+            )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
     async def test_token_wraps_request_errors_as_service_unavailable(self, monkeypatch):
         request = httpx.Request("POST", "https://kc.example/token")
         fake_client = _MockAsyncClient(

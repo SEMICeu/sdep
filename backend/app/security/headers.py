@@ -130,29 +130,3 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     def _is_docs_landing_endpoint(self, path: str) -> bool:
         return path == "/api/docs"
-
-
-class ApiSecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """
-    Lightweight security headers middleware specifically for API endpoints.
-
-    Use this version if you want minimal overhead and Nginx handles most security.
-    """
-
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Add essential API security headers."""
-        response = await call_next(request)
-
-        # Only add headers to API endpoints
-        if request.url.path.startswith("/api/"):
-            # Prevent caching of API responses
-            response.headers["Cache-Control"] = (
-                "no-store, no-cache, must-revalidate, private"
-            )
-            response.headers["Pragma"] = "no-cache"
-
-            # Additional API-specific headers
-            response.headers["X-Content-Type-Options"] = "nosniff"
-            response.headers["X-Frame-Options"] = "DENY"
-
-        return response

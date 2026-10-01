@@ -12,6 +12,7 @@ from app.schemas.error import ErrorDetail, ErrorResponse
 if TYPE_CHECKING:
     from fastapi.exceptions import RequestValidationError
     from pydantic import ValidationError as PydanticValidationError
+    from sqlalchemy.exc import IntegrityError
     from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
 
     from app.exceptions.auth import (
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     from app.exceptions.infrastructure import (
         AuthorizationServerOperationalError,
         DatabaseOperationalError,
+        MalwareScannerOperationalError,
     )
 
 
@@ -245,6 +247,68 @@ async def authorization_server_unavailable_exception_handler(
     )
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=error_response.model_dump(mode="json", exclude_none=True),
+    )
+
+
+async def malware_scanner_unavailable_exception_handler(
+    request: Request, exc: MalwareScannerOperationalError
+) -> JSONResponse:
+    """Handle a malware scan that could not complete (ClamAV down) as 503."""
+    logger = _get_logger()
+    logger.error("Malware scanner unavailable on %s: %s", request.url.path, exc)
+
+    error_response = ErrorResponse(
+        detail=[
+            ErrorDetail(
+                msg="Malware scanner is temporarily unavailable",
+                type="service_unavailable",
+            )
+        ],
+    )
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=error_response.model_dump(mode="json", exclude_none=True),
+    )
+
+
+# PostgreSQL SQLSTATE for unique_violation; SQLite has no SQLSTATE, only the message.
+_UNIQUE_VIOLATION_SQLSTATE = "23505"
+
+
+def is_unique_violation(exc: IntegrityError) -> bool:
+    """Whether an IntegrityError is a unique violation (PostgreSQL or SQLite)."""
+    orig = exc.orig
+    return getattr(orig, "sqlstate", None) == _UNIQUE_VIOLATION_SQLSTATE or str(
+        orig
+    ).startswith("UNIQUE constraint failed")
+
+
+async def integrity_exception_handler(
+    request: Request, exc: IntegrityError
+) -> JSONResponse:
+    """Handle a unique violation as 409, any other integrity error as 500.
+
+    The application checks for existing rows first, so a unique violation means
+    a concurrent request wrote the same current row (or owner) first. A retry
+    then sees that row and versions it.
+    """
+    if not is_unique_violation(exc):
+        return await general_exception_handler(request, exc)
+
+    logger = _get_logger()
+    logger.warning("Concurrent write on %s: %s", request.url.path, exc.orig)
+
+    error_response = ErrorResponse(
+        detail=[
+            ErrorDetail(
+                msg="A concurrent request wrote the same record, retry the request",
+                type="conflict_error",
+            )
+        ],
+    )
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
         content=error_response.model_dump(mode="json", exclude_none=True),
     )
 

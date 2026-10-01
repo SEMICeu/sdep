@@ -1,4 +1,4 @@
-"""Shared activity list/count endpoint behavior across API domains.
+"""Shared activity list/count endpoint behaviour across API domains.
 
 These handlers back both the CA endpoints (scoped to the authenticated competent
 authority) and the STA endpoint (unscoped, across all competent authorities). The scope

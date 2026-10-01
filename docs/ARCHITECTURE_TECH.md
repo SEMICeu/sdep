@@ -2,7 +2,7 @@
 
 This document provides an overview of the SDEP (Single Digital Entry Point) technical architecture.
 
-<h2>Table of Contents</h2>
+<h2>Table of contents</h2>
 
 - [Overview](#overview)
 - [Technology stack](#technology-stack)
@@ -212,7 +212,8 @@ sdep-app/
 │   │   │   ├── audit.py                                         # Audit logging middleware
 │   │   │   ├── audit_retention.py                               # Background audit log cleanup
 │   │   │   ├── headers.py                                       # Security headers
-│   │   │   └── malware_scan.py                                  # ClamAV malware scanning
+│   │   │   ├── malware_scan.py                                  # ClamAV malware scanning
+│   │   │   └── upload_size.py                                   # Upload size limit, before the body is parsed
 │   │   ├── services/                                            # Business logic layer
 │   │   │   ├── activity.py
 │   │   │   ├── activity_bulk.py
@@ -234,6 +235,7 @@ sdep-app/
 │   │       ├── 001_initial.py                                   # Initial migration
 │   │       └── *.py                                             # Additional migrations on top
 │   ├── scripts/                                                 # Backend helper scripts
+│   │   ├── check_db_matches_models.py                           # CHECK constraints and partial indexes match the models (make test-migrations)
 │   │   └── wait_for_postgres.py                                 # Block until the database accepts connections
 │   ├── tests/                                                   # Unit tests (mirrors app/ structure)
 │   │   ├── api/                                                 # API layer tests
@@ -262,7 +264,7 @@ sdep-app/
 │   │   └── test_malware_scan.py                                 # ClamAV malware scan test
 │   ├── performance/                                             # Performance tests (Locust)
 │   │   └── locustfile.py                                        # Bulk activity load test
-│   ├── api-versions.txt                                         # API versions per versioned test
+│   ├── suites.txt                                               # Integration test runs per suite, client, API version and environment
 │   ├── test_auth_client_bootstrap.py                            # Bearer token acquisition utility (client secret)
 │   ├── test_auth_client_jwt.py                                  # Test client-signed JWT (private_key_jwt) + roles
 │   ├── test_auth_client_secret.py                               # Test client-secret authentication
@@ -282,9 +284,10 @@ sdep-app/
 │   ├── test_sta_activities.py                                   # Test STA activity endpoints
 │   ├── test_sta_listings.py                                     # Test STA listing endpoints
 │   ├── test_smoketest.py                                        # Smoke test audit-excluded endpoints
-│   ├── test_str_activities_bulk.py                              # Test STR bulk activity submission
+│   ├── test_str_activities.py                                   # Test STR activity submission (bulk endpoint)
 │   ├── test_str_listings.py                                     # Test STR listing endpoints
 │   ├── test_str_areas.py                                        # Test STR area query endpoints
+│   ├── test_suites.py                                           # Check that tests/suites.txt lists every test (make test-suites)
 │   └── test_trivy_allowlist.py                                  # Test CVE allowlist policy validation
 │
 ├── keycloak/                                                    # Keycloak config
@@ -294,7 +297,7 @@ sdep-app/
 │   ├── add-realm-roles.sh                                       # Configure roles
 │   ├── add-realm.sh                                             # Initialize realm
 │   ├── get-client-secret.sh                                     # Retrieve client secret
-│   ├── machine-clients.yaml                                     # Machine client definitions (CA, STR, STA)
+│   ├── machine-clients.yaml                                     # Machine client definitions (CA, STR, STA, LSA, LMA, AMA)
 │   ├── realm.yaml                                               # Realm configuration
 │   ├── roles.yaml                                               # Role definitions
 │   └── wait.sh                                                  # Wait for Keycloak startup
@@ -348,7 +351,7 @@ sdep-app/
 │       └── mdformat/                                            # mdformat plugin enforcing the project style rules
 │
 ├── scripts/                                                     # Utility scripts
-│   ├── api-versions.sh                                          # Print the API versions of a test (tests/api-versions.txt)
+│   ├── api-versions.sh                                          # Print the API versions of a test (tests/suites.txt)
 │   ├── check_architecture_tree.py                               # Check this directory tree against the filesystem (make dod)
 │   ├── check_changelog.sh                                       # Changelog currency against the git log (make dod)
 │   ├── check_cve_allowlist.py                                   # Reconcile Trivy report vs CVE_EXPLAINS.md (own allowlist, not published)
@@ -360,12 +363,15 @@ sdep-app/
 │   ├── generate-keycloak-machine-clients.py                     # Generate client-signed JWT test clients (CA, STR, STA, LSA, LMA, AMA)
 │   ├── public_files.sh                                          # List the public files (git-known minus export-ignore), used by the gates and Markdown targets
 │   ├── run-dod.sh                                               # Definition of Done runner (make dod)
+│   ├── run-suite.sh                                             # Run one suite of tests/suites.txt locally (make test-<suite>)
 │   ├── run-tests.sh                                             # Integration test runner
 │   ├── run-tests-perf.sh                                        # Performance test runner (Locust)
 │   ├── run-trivy-scan.sh                                        # Run Trivy and emit the JSON report (scan only)
 │   ├── show-keycloak-client-jwks.py                             # Show a client's public key (JWKS) stored in Keycloak
+│   ├── suites.sh                                                # Print the test runs of one environment (tests/suites.txt)
 │   └── validate-client-key-pair.py                              # Verify a private key matches the configured public key
 │
+├── .codespellrc                                                 # Spell check config: typos and Oxford spelling (see `make spell-check`)
 ├── .env                                                         # Environment variables
 ├── .env.extra.example                                           # Template for `.env.extra`, the optional local override file
 ├── .gitignore                                                   # Git ignore rules
@@ -394,7 +400,7 @@ Forward compatibility:
 
 The deployed application (serving the contract) follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`):
 
-- **MAJOR** - incompatible changes (e.g. architectural overhaul, removed internal behavior)
+- **MAJOR** - incompatible changes (e.g. architectural overhaul, removed internal behaviour)
 - **MINOR** - backward-compatible new functionality
 - **PATCH** - backward-compatible bug fixes
 
@@ -550,13 +556,80 @@ See later in this document for more info on IDs.
 
 ### Versioning
 
-- Same functional ID can be resubmitted with new timestamp for versioning
-  - Entities use `(functionalId, createdAt)` as (part of a) unique constraint
-- Stacking
-  - Last becomes current (empty `endedAt`)
-  - Previous becomes ended (`endedAt`)
-- Enables historical tracking and updates without losing previous versions
-- Standard retrieve only yields the current
+Recall the standard attribute pattern from the [internal datamodel](./DATAMODEL_TECH.md#overview):
+
+- Technical id (`id`)
+- Functional id (`<class name>Id`)
+- Display name (`<class name>Name`)
+- ... (other attributes)
+- Creation timestamp (`createdAt`)
+- Ended-at timestamp (`endedAt`) (soft-delete)
+
+Versioning pattern:
+
+- A write never updates an existing row in place. Instead:
+  - the current row is closed by setting its `endedAt`
+  - a new row is inserted with a new `createdAt`
+  - this means every change creates a new version
+- For each functional id (e.g. an `areaId`) and owner (e.g. the CA that submitted it), there can be at most one current version:
+  - a current version is a row where `endedAt` is `null`
+  - a partial unique index enforces this rule in the database
+- The owner is the party that submitted the row:
+  - for a CA or platform, the owner is the logged-in client (`clientId`)
+  - for an area, the owner is the CA
+  - for a listing or activity, the owner is the platform
+- Areas, listings and activities belong to their owner:
+  - a CA owns its areas
+  - a platform owns its listings and activities
+- SDEP finds these records using the owner's **functional id**:
+  - `competentAuthorityId` for a CA
+  - `platformId` for a platform
+  - these ids stay the same across versions
+- SDEP does **not** use the owner's technical database id for lookup:
+  - the technical id changes whenever a new version of the owner is created
+  - using it would therefore break ownership lookups after an owner changes
+  - the technical database ids are solely used for referential integrity: a row points to another row by its technical id (foreign key, FK)
+- Example:
+  - suppose platform `P1` owns listing `L1`
+  - to find that listing, SDEP looks for the current row with:
+    - `listingId = L1`
+    - `platformId = P1`
+  - it does not look for a particular technical version of platform `P1`
+- When an owner gets a new version, its related data is not lost:
+  - for example, changing a platform's `client_name` creates a new platform version
+  - the platform keeps the same `platformId`
+  - its listings and activities can therefore still be found
+  - the same applies to a CA and its areas
+- Older rows keep pointing to the owner version that existed when those rows were written.
+  - new rows point to the owner's current version
+  - this preserves the history of which owner version was active at the time
+- There is one race condition to be aware of:
+  - two requests may try to create the first current version of the same new functional id at exactly the same time
+  - only one can win because of the partial unique index
+  - the other request receives HTTP `409 Conflict` and can retry
+- See also the versioning rules in [Datamodel](./DATAMODEL_TECH.md#classes).
+
+Versioned classes:
+
+| Class              | Functional id          | One current row per     | Finds its owner by          |
+| ------------------ | ---------------------- | ----------------------- | --------------------------- |
+| CompetentAuthority | `competentAuthorityId` | `clientId`              | (owner is the login client) |
+| Platform           | `platformId`           | `clientId`              | (owner is the login client) |
+| Area               | `areaId`               | `areaId` + CA           | `competentAuthorityId`      |
+| Listing            | `listingId`            | `listingId` + platform  | `platformId`                |
+| Activity           | `activityId`           | `activityId` + platform | `platformId`                |
+
+Example (area and activities):
+
+1. CA submits an area: a new row, with a technical `id` and the functional `areaId`
+2. STR gets the areas: this yields the functional `areaId`s
+3. STR submits activities for these `areaId`s: each activity row references the current area row by FK (`activity.area_id` → `area.id`, the area's technical `id`)
+4. CA gets its activities: this yields the activities of step 3
+5. CA updates the area (same `areaId`): the area gets a new current row (new technical `id`, same `areaId`); the previous row is ended
+6. CA gets its activities: this still yields the activities of step 3. They keep referencing the previous area row, but the read matches them through the CA's `client_id` and the functional `areaId`, not through the area's technical `id`
+7. STR gets the areas: this yields the current (updated) area, with the same `areaId`
+8. STR submits activities for the same `areaId`: these reference the new area row (FK to the new technical `id`)
+9. CA gets its activities: this yields the activities of steps 3 and 8
 
 ---
 
@@ -564,12 +637,20 @@ See later in this document for more info on IDs.
 
 ---
 
+Concept:
+
 **Soft-Delete**
 
 - When all versions of a functional ID have `endedAt` set, the entity is considered **deactivated**
 - Creating a new version with a deactivated functional ID is rejected (HTTP 422)
 - This prevents "resurrecting" soft-deleted entities
-- The guard applies to: `competentAuthorityId`, `platformId`, `areaId`, `activityId`, and `listingId`
+- The guard applies to: `competentAuthorityId`, `platformId`, `areaId` and `activityId`; listings have no guard, because a listing cannot be deleted
+
+When e.g. an area is deleted, and the CA retrieves activities, then:
+
+- The activities that were submitted for that area are still returned: they keep their FK to the (now ended) area row, and the read matches them through the CA's `client_id`, without filtering on the area's `endedAt`
+- STR can no longer submit new activities for that `areaId`: only current areas are found, so these items are NOK (`not_found_error`)
+- The CA cannot reuse that `areaId`: a new version of a deactivated `areaId` is rejected (HTTP 422)
 
 ---
 
@@ -577,9 +658,9 @@ See later in this document for more info on IDs.
 
 Hard-delete removes a row from the database (as opposed to soft-delete, which sets `endedAt`).
 
-When a parent row has child rows referencing it via a foreign key, the database must decide what to do with those children. The three standard behaviors are:
+When a parent row has child rows referencing it via a foreign key, the database must decide what to do with those children. The three standard behaviours are:
 
-| Behavior       | FK clause                                     | Effect                                                 | When to use                                                                                  |
+| Behaviour      | FK clause                                     | Effect                                                 | When to use                                                                                  |
 | :------------- | :-------------------------------------------- | :----------------------------------------------------- | :------------------------------------------------------------------------------------------- |
 | **Restricted** | `NO ACTION` / `RESTRICT` (PostgreSQL default) | Parent delete is **blocked** if children exist         | When children must not exist without their parent, and accidental deletion must be prevented |
 | **Nullified**  | `ON DELETE SET NULL`                          | Child FK column is set to `NULL`; children survive     | When children can exist independently (optional relationship)                                |
@@ -589,7 +670,7 @@ When a parent row has child rows referencing it via a foreign key, the database 
 
 All foreign keys use the PostgreSQL default (`NO ACTION`), which is **restricted delete**:
 
-| Parent             | Child         | FK column                     | Hard-delete behavior                     |
+| Parent             | Child         | FK column                     | Hard-delete behaviour                    |
 | :----------------- | :------------ | :---------------------------- | :--------------------------------------- |
 | CompetentAuthority | Area          | `area.competent_authority_id` | Restricted - blocked if Areas exist      |
 | Area               | Activity      | `activity.area_id`            | Restricted - blocked if Activities exist |
@@ -635,7 +716,7 @@ Pessimistic locking applies to:
 
 ---
 
-**Behavior During Concurrent Requests**
+**Behaviour During Concurrent Requests**
 
 If two requests attempt to version the same entity at the same time:
 
@@ -643,7 +724,9 @@ If two requests attempt to version the same entity at the same time:
 2. The second request waits until the first transaction commits
 3. The second request then continues safely using the updated state
 
-This guarantees consistent versioning without duplicate active records.
+A lock needs an existing row. The first write of a new functional ID (or the first contact of a new platform) has no row to lock yet. There the partial unique index on the current row decides: of two such writes at the same moment, one commits and the other gets HTTP 409 (`conflict_error`) and can retry, which then versions the committed row. The same holds for every versioned class, see [Datamodel](./DATAMODEL_TECH.md#classes).
+
+Together, this guarantees consistent versioning without duplicate active records.
 
 ---
 
@@ -705,7 +788,7 @@ Likelihood of contention - only occurs when:
 - Both contain overlapping activity IDs
 - Both are submitted simultaneously
 
-Different platforms never block each other because queries are filtered by `platform_id`.
+Different platforms never block each other because queries are filtered by `platformId`.
 
 Worst-case scenario:
 
@@ -744,16 +827,16 @@ Listings add a second dimension: several audiences read the same rows. There the
 
 **Activity operations (platform-scoped)**
 
-- **Create / update (bulk versioning):** `get_current_by_activity_ids()` and `bulk_mark_as_ended()` both filter by `platform_id`. Platform-A cannot version Platform-B's activities, even if they share the same `activityId`.
+- **Create / update (bulk versioning):** `get_current_by_activity_ids()` and `bulk_mark_as_ended()` both filter by the public `platformId`, across every version of that platform. Platform-A cannot version Platform-B's activities, even if they share the same `activityId`.
 - **Delete:** No delete endpoint exists for activities.
 - **DB constraint:** `UNIQUE(activity_id, platform_id, created_at)` allows the same `activityId` to be used independently by different platforms.
-- **Deactivation guard:** `get_deactivated_activity_ids()` operates globally (not platform-scoped) and is called on every bulk submission. However, no code path currently puts an activity into a deactivated state - there is no DELETE endpoint, and versioning always creates a new current version. The guard is defensive: if a DELETE endpoint is added in the future, it will prevent resurrection of deactivated activities. Compare with the equivalent Area guard (`exists_any_by_area_id`), which can trigger because areas can be soft-deleted via `DELETE /ca/areas/{areaId}`.
+- **Deactivation guard:** `get_deactivated_activity_ids()` is platform-scoped, as the Area guard is CA-scoped, and is called on every bulk submission. However, no code path currently puts an activity into a deactivated state - there is no DELETE endpoint, and versioning always creates a new current version. The guard is defensive: if a DELETE endpoint is added in the future, it will prevent resurrection of deactivated activities. Compare with the equivalent Area guard (`exists_any_by_area_id`), which can trigger because areas can be soft-deleted via `DELETE /ca/areas/{areaId}`.
 
 ---
 
 **Listing operations (platform-scoped write, audience-scoped read)**
 
-- **Create / update (bulk versioning):** `get_current_by_listing_ids()` and `bulk_mark_as_ended()` both filter by `platform_id`. Platform-A cannot version Platform-B's listings, even if they share the same `listingId`.
+- **Create / update (bulk versioning):** `get_current_by_listing_ids()` and `bulk_mark_as_ended()` both filter by the public `platformId`, across every version of that platform. Platform-A cannot version Platform-B's listings, even if they share the same `listingId`.
 - **Screening and acknowledgement:** both carry the `createdAt` of the version they refer to, checked on the locked current version. A stale token is refused per item (`conflict_error`), so one actor's write never lands on another actor's version.
 - **Screening scope:** the LSA writes for any platform, but it names the platform in its payload; the lookup still resolves through `platform_id`, so a screening cannot cross to another platform's listing by `listingId` alone.
 - **Read:** the router fixes the `ListingScope` from the bearer token - `platform_client_id` for STR, `competent_authority_client_id` for CA, neither for LSA/LMA/STA - plus a fixed lifecycle status per audience. The scope is keyword-only with no default, so an unscoped read has to be written out.
@@ -930,20 +1013,22 @@ All exceptions are handled by global exception handlers:
 
 The table below maps **application exceptions** to **HTTP status codes**:
 
-| Application Exception                 | Description                                                                                                                                                                     | HTTP Status Code                  |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `RequestValidationError`              | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`)                                                                                                     | 400                               |
-| `HTTPException`                       | Missing/invalid token claims, missing roles, missing credentials, inline input validation, resource not found, oversized upload (`Content-Length` exceeds the per-endpoint cap) | 400 / 401 / 403 / 404 / 413 / 422 |
-| `InvalidTokenError`                   | Invalid token (subtype of AuthenticationError)                                                                                                                                  | 401                               |
-| `AuthenticationError`                 | Invalid or expired token                                                                                                                                                        | 401                               |
-| `AuthorizationError`                  | Insufficient permissions                                                                                                                                                        | 403                               |
-| `ResourceNotFoundError`               | Resource not found                                                                                                                                                              | 404                               |
-| `DuplicateResourceError`              | Duplicate resource conflict                                                                                                                                                     | 409                               |
-| `RequestValidationError`              | Invalid request body on a POST request (e.g. missing required field or wrong value type)                                                                                        | 422                               |
-| `ApplicationValidationError`          | Business rule violations (e.g. start time later than end time is NOK )                                                                                                          | 422                               |
-| `Exception`                           | Catch-all (unexpected code failure)                                                                                                                                             | 500                               |
-| `DatabaseOperationalError`            | Database temporarily unavailable                                                                                                                                                | 503                               |
-| `AuthorizationServerOperationalError` | Authorization server temporarily unavailable                                                                                                                                    | 503                               |
+| Application Exception                 | Description                                                                                                                                            | HTTP Status Code                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| `RequestValidationError`              | Invalid query parameters on a GET request (e.g. `offset=-1` or `limit=abc`)                                                                            | 400                               |
+| `HTTPException`                       | Missing/invalid token claims, missing roles, missing credentials, inline input validation, resource not found, oversized upload (see `upload_size.py`) | 400 / 401 / 403 / 404 / 413 / 422 |
+| `InvalidTokenError`                   | Invalid token (subtype of AuthenticationError)                                                                                                         | 401                               |
+| `AuthenticationError`                 | Invalid or expired token                                                                                                                               | 401                               |
+| `AuthorizationError`                  | Insufficient permissions                                                                                                                               | 403                               |
+| `ResourceNotFoundError`               | Resource not found                                                                                                                                     | 404                               |
+| `DuplicateResourceError`              | Duplicate resource conflict                                                                                                                            | 409                               |
+| `IntegrityError` (unique violation)   | A concurrent request wrote the same current row first; other integrity errors are 500                                                                  | 409                               |
+| `RequestValidationError`              | Invalid request body on a POST request (e.g. missing required field or wrong value type)                                                               | 422                               |
+| `ApplicationValidationError`          | Business rule violations (e.g. start time later than end time is NOK )                                                                                 | 422                               |
+| `Exception`                           | Catch-all (unexpected code failure)                                                                                                                    | 500                               |
+| `DatabaseOperationalError`            | Database temporarily unavailable                                                                                                                       | 503                               |
+| `AuthorizationServerOperationalError` | Authorization server temporarily unavailable (also a Keycloak 5xx on `/token`)                                                                         | 503                               |
+| `MalwareScannerOperationalError`      | Malware scanner (ClamAV) could not complete the scan of an upload                                                                                      | 503                               |
 
 *For the complete list of HTTP status codes used by the API, see [HTTP status codes](API_TECH.md#http-status-codes).*
 
@@ -1017,7 +1102,7 @@ What each write does per field is in the resource documents:
 
 **Contract versus runtime**
 
-The wire contract (OpenAPI) and the runtime validation behavior are deliberately decoupled.
+The wire contract (OpenAPI) and the runtime validation behaviour are deliberately decoupled.
 `ActivityBulkRequest` is the worked example below; `ListingBulkRequest`,
 `ListingScreeningBulkRequest` and `ListingAcknowledgementBulkRequest` work identically.
 
@@ -1038,7 +1123,7 @@ Implementation:
 Result:
 
 - The contract is schema-concrete and reusable, for every bulk request
-- Runtime behavior preserves per-item NOK feedback unchanged
+- Runtime behaviour preserves per-item NOK feedback unchanged
 
 ---
 

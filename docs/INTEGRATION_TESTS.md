@@ -10,6 +10,7 @@ These tests verify API functionality, authentication, authorization, and securit
   - [Bearer tokens](#bearer-tokens)
   - [Exit codes](#exit-codes)
   - [Test data lifecycle](#test-data-lifecycle)
+  - [Test suites](#test-suites)
   - [API versions](#api-versions)
 - [Coverage](#coverage)
   - [`test-smoke`](#test-smoke)
@@ -108,7 +109,7 @@ Everything a test run creates is named `sdep-test-*` and owned by the `sdep-test
 - `KEEP_TEST_DATA=true` is the single flag for both runners (`test-full-keep`, `test-perf-keep`); it skips that run's **own** cleanup, and nothing more
 - Kept data of either kind is therefore removed by the next ordinary run of *either* kind - the two keep modes do not collide, they clear each other
 - No keep mode can outlive that next run. The cleanup deletes the `sdep-test-ca.01` competent authority and the `sdep-test-str.01` platform themselves, and the foreign keys take everything they own with them, whatever the rows are named
-- The isolation check is unaffected: its baseline is captured *after* the pre-clean, so leftover rows cannot cause a false failure. The displayed BEFORE count does include them
+- The isolation check is unaffected: its baseline is captured *after* the pre-clean, so leftover rows cannot cause a false failure. The displayed BEFORE count is that baseline; the count before the pre-clean is shown next to it when it differs
 - `make postgres-clean-testrun` is the manual recovery path, for a run that could not clean up (aborted, or the database was unreachable) or when you are done with kept data
 - Loaded and non-`sdep-test-*` data is never touched. `make postgres-drop` is the only thing that clears everything
 
@@ -118,15 +119,30 @@ Note that two of the four deletes match on the functional id (`area_id` / `activ
 
 ---
 
+### Test suites
+
+[`tests/suites.txt`](../tests/suites.txt) is the single list of integration test runs, for the local runner and the deployment runner alike.
+
+- One line per run: suite, client, test, API version, and an `x` per environment (DEV = local stack, TST, ACC, PRE, PRD)
+- A suite runs as one group, in file order; the runner logs in as the suite's client first (`-` = no login)
+- `scripts/suites.sh <env> [<suite>]` prints the runs of one environment; `make test-<suite>` runs one suite locally (`scripts/run-suite.sh`)
+- A new test means new lines in this file, and it runs everywhere its `x` says
+- The environment columns can be adjusted to your own needs. PRD only runs the `smoke` suite: production has no test clients and takes no test data.
+- `make test-suites` (also a CI/CD check) fails when a test script is in no suite and not deliberately excluded, or when the file is malformed
+
+`test_auth_client_jwt` is not in a suite: it needs a client and key per environment, so the runners call it separately (see [`test-security`](#test-security)).
+
+---
+
 ### API versions
 
 A versioned test runs once per API version that exists, so older versions stay tested (backwards compatibility).
 
-- [`tests/api-versions.txt`](../tests/api-versions.txt) lists the versions per test, one line per test
-- `scripts/api-versions.sh <test>` prints them; the Makefile (`run_versioned_test`) and the deployment test runner both read the list through this script
+- [`tests/suites.txt`](../tests/suites.txt) has one line per test and version (see [Test suites](#test-suites))
 - The runner passes each version to the test as `API_VERSION`
-- A test that is not listed fails, it is never skipped
-- A new API version means one changed line in that file, for both runners
+- An environment column can leave out a version, for example an alpha version where it is not served
+- `scripts/api-versions.sh <test>` prints the versions of one test, for consuming repositories that predate `scripts/suites.sh`
+- A new API version means new lines in that file, for both runners
 
 | Test                                                           | Versions | Note                                                        |
 | -------------------------------------------------------------- | -------- | ----------------------------------------------------------- |
@@ -135,10 +151,12 @@ A versioned test runs once per API version that exists, so older versions stay t
 | `test_ca_activities`                                           | v1, v2   | v1 and v2 declare the query filters                         |
 | `test_ca_listings`                                             | v2       | Listings exist only in v2                                   |
 | `test_str_areas`                                               | v1, v2   | v2 defaults `limit` to 1000                                 |
-| `test_str_activities_bulk`                                     | v1, v2   | v2 requires UTC timestamps                                  |
+| `test_str_activities`                                          | v1, v2   | v2 requires UTC timestamps                                  |
 | `test_str_listings`                                            | v2       | Listings exist only in v2                                   |
-| `test_sta_*`, `test_lsa_*`, `test_lma_*`, `test_ama_*`         | v1       | One version per API today                                   |
-| `test_reference_data`                                          | v1, v2   | Domain from the token role; skips a version that lacks it   |
+| `test_sta_activities`                                          | v1, v2   |                                                             |
+| `test_sta_listings`, `test_lsa_listings`, `test_lma_listings`  | v2       | Listings exist only in v2                                   |
+| `test_ama_activities`                                          | v1       | One version today                                           |
+| `test_reference_data`                                          | v1, v2   | Only the domain versions that serve reference data          |
 | `test_auth_client_secret`, `test_auth_client_jwt`              | v1       | Not listed: the auth API has one version                    |
 | `test_smoketest`, `test_health_ping`, `test_auth_unauthorized` | -        | Not versioned: they cover the versions they need themselves |
 
@@ -193,7 +211,7 @@ Test fullstack (quiet, keep test data). Same as `test-full` but skips cleanup of
 
 ### `test-full-verbose`
 
-Test fullstack (verbose). Runs all suites below via `scripts/run-tests.sh` with full output and PRE/POST row count isolation checks.
+Test fullstack (verbose). Runs all suites below via `scripts/run-tests.sh` with full output and PRE/POST row count isolation checks. A test that cannot run (no sample data, missing credentials) counts as skipped: it is shown in the totals with ⚠️, but does not fail the run.
 
 ---
 
@@ -292,7 +310,7 @@ Tests 6-10 behave the same in both versions: every returned activity matches the
 
 Test STR (Short-Term Rental) platform endpoints.
 
-**Scripts:** `test_str_areas.py`, `test_str_listings.py`, `test_str_activities_bulk.py`
+**Scripts:** `test_str_areas.py`, `test_str_listings.py`, `test_str_activities.py`
 
 ---
 
@@ -344,7 +362,7 @@ Test STR (Short-Term Rental) platform endpoints.
 
 ---
 
-**`test_str_activities_bulk.py`**
+**`test_str_activities.py`**
 
 **Setup:** Creates 3 fixture areas via the CA API before running tests.
 
@@ -488,7 +506,7 @@ Test AMA (activity monitoring authority) endpoints.
 
 **`test_reference_data.py`**
 
-Also run by `test-ca`, `test-sta`, `test-lsa` and `test-lma`. The domain comes from the audience role in the bearer token (e.g. `sdep_ama`), so the script needs no extra variable. A domain version that does not serve the reference data is skipped with a message.
+Also run by `test-ca`, `test-sta`, `test-lsa` and `test-lma`. The domain comes from the audience role in the bearer token (e.g. `sdep_ama`), so the script needs no extra variable. A domain version that does not serve the reference data fails, so [`tests/suites.txt`](../tests/suites.txt) only lists the versions that serve it: CA v2, STA v1 and v2, LSA v2, LMA v2, AMA v1.
 
 **What it tests:**
 

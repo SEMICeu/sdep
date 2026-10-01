@@ -23,6 +23,7 @@ from jwt import (
     PyJWKClient,
     PyJWKClientError,
 )
+from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
 from app.exceptions.infrastructure import AuthorizationServerOperationalError
@@ -32,6 +33,13 @@ _jwks_client: PyJWKClient | None = None
 _jwks_client_lock = threading.Lock()
 
 JWKS_CACHE_TTL = 300
+
+# Start of PyJWKClient's error message for a `kid` that is not in the key set.
+_UNKNOWN_KID_MESSAGE = "Unable to find a signing key that matches"
+
+# Short fetch timeout (PyJWT default is 30s): a slow Keycloak then fails fast
+# as 503, instead of holding worker threads and client requests for half a minute.
+JWKS_FETCH_TIMEOUT = 5
 
 
 class Role(StrEnum):
@@ -67,6 +75,7 @@ def _get_jwks_client() -> PyJWKClient:
                 certs_url,
                 cache_jwk_set=True,
                 lifespan=JWKS_CACHE_TTL,
+                timeout=JWKS_FETCH_TIMEOUT,
             )
         except Exception as e:
             raise AuthorizationServerOperationalError(
@@ -131,6 +140,15 @@ def validate_jwt_token(token: str) -> dict[str, Any]:
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
     except PyJWKClientError as e:
+        # Unknown `kid`: the key set was fetched but has no such key, so the token is
+        # bad (401). PyJWT uses the same error type for a bad key set, only the message
+        # differs; a test pins it. PyJWT's refresh cooldown limits refetches.
+        if str(e).startswith(_UNKNOWN_KID_MESSAGE):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: unknown signing key",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from None
         # To check that a token is genuine, we need Keycloak's public keys. Keycloak
         # publishes them as a JWKS (JSON Web Key Set) — basically a list of keys at a
         # public URL. This error means we couldn't get those keys (Keycloak is down,
@@ -175,7 +193,10 @@ def create_verify_bearer_token(
         Raises:
             HTTPException: If token is invalid
         """
-        payload = validate_jwt_token(token)
+        # Run in a worker thread: on an expired JWKS cache PyJWT fetches the keys with
+        # blocking urllib, which would freeze the event loop (health checks included).
+        # PyJWT's per-client lock lets one thread fetch, the others wait for it.
+        payload = await run_in_threadpool(validate_jwt_token, token)
         request.state.jwt_payload = payload
         return payload
 
