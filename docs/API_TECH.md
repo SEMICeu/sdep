@@ -304,7 +304,7 @@ under Common, linking the ping docs page and the health endpoint directly.
 
 ### Design
 
-The API contract version is part of the URL path:
+A version (API contract) is part of the URL path:
 
 `/api/{domain}/v1/...`
 
@@ -313,22 +313,13 @@ A new version is introduced when:
 - **A breaking change is required**, such as removing or renaming a field, changing its type, or changing its semantics.
 - **New functionality is released early** while still subject to change, for example random checks/flagged listings in `str/v2`.
 
-A domain typically exposes two active contracts, **N-1** and **N**, with a brief overlap during which **N+1** is introduced.
-
-| Version | Status                | Purpose                                                                                                 |
-| ------- | --------------------- | ------------------------------------------------------------------------------------------------------- |
-| **N-1** | stable → deprecated   | Previous contract. Remains supported until its defined sunset date.                                     |
-| **N**   | alpha → beta → stable | Current contract and primary version for consumers.                                                     |
-| **N+1** | alpha → beta          | Next contract, introduced during a short transition period while N-1 is deprecated and awaiting sunset. |
-
-This approach limits the number of concurrently supported contracts while giving consumers time to migrate between versions.
-
-Lifecycle:
+A version embodies a lifecycle (metadata):
 
 - **Alpha**:
   - New functionality is introduced and may change.
   - Intended for early feedback
-  - It is deployed up to **PRE** only, controlled by `API_ALPHA_ENABLED` (to prevent test data from polluting PRD).
+  - It is deployed up to **PRE** only
+  - In the reference implementation (this repo), this controlled by `API_ALPHA_ENABLED` (to prevent test data from polluting PRD)
 - **Beta**:
   - Feature-complete and changed only as needed to reach stable.
   - Intended for early integration and feedback.
@@ -340,7 +331,22 @@ Lifecycle:
 - **Deprecated**:
   - Once N becomes stable, N-1 may be deprecated and assigned a sunset date.
 
-A short overlap is allowed:
+A domain typically exposes two active versions, **N-1** and **N**,:
+
+| Active version | Lifecycle             | Purpose                                                             |
+| -------------- | --------------------- | ------------------------------------------------------------------- |
+| **N-1**        | stable → deprecated   | Previous contract. Remains supported until its defined sunset date. |
+| **N**          | alpha → beta → stable | Current contract and primary version for consumers.                 |
+
+With a possible brief overlap during which **N+1** is introduced.
+
+| Active version | Lifecycle    | Purpose                                                                                  |
+| -------------- | ------------ | ---------------------------------------------------------------------------------------- |
+| **N+1**        | alpha → beta | Introduced during a short transition period while N-1 is deprecated and awaiting sunset. |
+
+This approach limits the number of concurrently supported contracts while giving consumers time to migrate between versions.
+
+The use case for the short overlap is:
 
 - N+1 may enter alpha while N-1 is deprecated and awaiting sunset, temporarily exposing three contracts.
 - After N-1 is removed, the version roles shift: N becomes N-1 and N+1 becomes N.
