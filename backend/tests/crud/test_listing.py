@@ -6,6 +6,7 @@ import pytest
 from app.crud import listing as listing_crud
 from app.crud.listing import _flags_overlap
 from app.enums import ListingFlag, ListingStatus
+from app.models.identity import ListingIdentity
 from app.schemas.listing import ListingBulkCreate, ListingFilters, ListingScope
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from tests.fixtures.factories import (
     CompetentAuthorityFactory,
     ListingFactory,
     PlatformFactory,
+    claimed_id,
 )
 
 
@@ -137,6 +139,7 @@ class TestListingCRUD:
         platform = await PlatformFactory.create_async(async_session)
         area = await AreaFactory.create_async(async_session)
         now = datetime(2026, 9, 7, 8, 0, tzinfo=UTC)
+        await claimed_id(async_session, ListingIdentity, platform.platform_id, "l-1")
         row = ListingBulkCreate.model_validate(
             {
                 "listingId": "l-1",

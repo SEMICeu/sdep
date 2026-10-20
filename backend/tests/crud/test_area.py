@@ -5,9 +5,14 @@ from datetime import datetime
 import pytest
 from app.crud import area
 from app.enums import Regulation
+from app.models.identity import AreaIdentity
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.fixtures.factories import AreaFactory, CompetentAuthorityFactory
+from tests.fixtures.factories import (
+    AreaFactory,
+    CompetentAuthorityFactory,
+    claimed_id,
+)
 
 
 @pytest.mark.database
@@ -15,16 +20,19 @@ class TestAreaCRUD:
     """Test suite for Area CRUD operations."""
 
     async def test_create_area(self, async_session: AsyncSession):
-        """Test creating a new area with auto-generated area_id (UUID)."""
+        """Test creating a new area with a claimed area_id (UUID)."""
         # Arrange
         ca = await CompetentAuthorityFactory.create_async(async_session)
+        area_id = await claimed_id(
+            async_session, AreaIdentity, ca.competent_authority_id
+        )
         filename = "area1.zip"
         filedata = b"binary_geo_data"
 
         # Act
         result = await area.create(
             async_session,
-            area_id=None,
+            area_id=area_id,
             area_name=None,
             regulation=Regulation.all,
             competent_authority_id=ca.id,
@@ -35,8 +43,7 @@ class TestAreaCRUD:
         # Assert
         assert result.id is not None
         assert isinstance(result.id, int)
-        assert result.area_id is not None  # Should be auto-generated UUID
-        assert len(result.area_id) == 36  # UUID format
+        assert result.area_id == area_id
         assert result.area_name is None  # Should be None when not provided
         assert result.regulation == Regulation.all
         assert result.competent_authority_id == ca.id
@@ -49,7 +56,12 @@ class TestAreaCRUD:
         """Test creating a new area with explicit area_id (UUID) and area_name."""
         # Arrange
         ca = await CompetentAuthorityFactory.create_async(async_session)
-        explicit_area_id = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+        explicit_area_id = await claimed_id(
+            async_session,
+            AreaIdentity,
+            ca.competent_authority_id,
+            "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        )
         area_name = "Amsterdam Central District"
         filename = "area1.zip"
         filedata = b"binary_geo_data"
@@ -81,7 +93,9 @@ class TestAreaCRUD:
         ca = await CompetentAuthorityFactory.create_async(async_session)
         result = await area.create(
             async_session,
-            area_id=None,
+            area_id=await claimed_id(
+                async_session, AreaIdentity, ca.competent_authority_id
+            ),
             area_name=None,
             regulation=Regulation.listing,
             competent_authority_id=ca.id,
@@ -95,7 +109,9 @@ class TestAreaCRUD:
         ca = await CompetentAuthorityFactory.create_async(async_session)
         result = await area.create(
             async_session,
-            area_id=None,
+            area_id=await claimed_id(
+                async_session, AreaIdentity, ca.competent_authority_id
+            ),
             area_name=None,
             regulation=Regulation.activity,
             competent_authority_id=ca.id,
@@ -109,7 +125,9 @@ class TestAreaCRUD:
         ca = await CompetentAuthorityFactory.create_async(async_session)
         result = await area.create(
             async_session,
-            area_id=None,
+            area_id=await claimed_id(
+                async_session, AreaIdentity, ca.competent_authority_id
+            ),
             area_name=None,
             regulation=Regulation.all,
             competent_authority_id=ca.id,
@@ -504,21 +522,22 @@ class TestAreaCRUD:
         # Assert
         assert result is None
 
-    async def test_unique_constraint_area_id_competent_authority_id_created_at(
+    async def test_unique_constraint_area_id_created_at(
         self, async_session: AsyncSession
     ):
-        """Test unique constraint on (area_id, competent_authority_id, created_at).
+        """Test unique constraint on (area_id, created_at).
 
-        A new version reuses the same (area_id, competent_authority_id) with a
-        different created_at; the previous version must be ended first so the
-        partial unique index on the current row is not violated.
+        A new version reuses the same area_id with a different created_at; the
+        previous version must be ended first so the partial unique index on the
+        current row is not violated.
         """
         import asyncio
-        import uuid
 
         # Arrange
         ca = await CompetentAuthorityFactory.create_async(async_session)
-        area_id = str(uuid.uuid4())
+        area_id = await claimed_id(
+            async_session, AreaIdentity, ca.competent_authority_id
+        )
 
         # Act - Create first area
         a1 = await area.create(

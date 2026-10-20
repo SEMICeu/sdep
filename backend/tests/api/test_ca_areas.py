@@ -14,6 +14,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.api.zip_stub import ZIP, zip_named
+from tests.fixtures.factories import AreaFactory
 
 
 def mock_verify_bearer_token() -> dict[str, Any]:
@@ -553,6 +554,55 @@ class TestCAAreaAPI:
             data = response2.json()
             assert data["areaId"] == "versioned-area"
             assert data["filename"] == "Area_v2.zip"
+
+    async def test_post_area_id_of_another_ca_returns_409(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """An areaId of another CA is refused with 409 duplicate_error (do not retry)."""
+        await AreaFactory.create_async(
+            async_session, area_id="taken-area", competent_authority_id="other-ca"
+        )
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/areas",
+                files={"file": ("Area.zip", ZIP, "application/zip")},
+                data={"areaId": "taken-area"},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        detail = response.json()["detail"][0]
+        assert detail["type"] == "duplicate_error"
+        assert "another competent authority" in detail["msg"]
+
+    async def test_post_area_returns_own_id_as_submitted(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """An own areaId is stored and returned exactly as submitted (case-sensitive)."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
+        ) as client:
+            upper = await client.post(
+                "/areas",
+                files={"file": ("Area.zip", ZIP, "application/zip")},
+                data={"areaId": "Mixed-Case-ID"},
+                headers={"Authorization": "Bearer test_token"},
+            )
+            lower = await client.post(
+                "/areas",
+                files={"file": ("Area.zip", ZIP, "application/zip")},
+                data={"areaId": "mixed-case-id"},
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+        assert upper.status_code == status.HTTP_201_CREATED
+        assert upper.json()["areaId"] == "Mixed-Case-ID"
+        # A different case is a different ID: a new area, not a new version
+        assert lower.status_code == status.HTTP_201_CREATED
+        assert lower.json()["areaId"] == "mixed-case-id"
 
     # Tests for GET /ca/areas
 

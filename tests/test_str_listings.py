@@ -231,6 +231,24 @@ def main() -> int:
         mark(stats, code == 400, "Test 6 passed: 400 for a non-UTC filter", f"Test 6 failed: Expected 400, got {code}")
         print()
 
+        print("Test 7: A listingId has one owner (another platform gets duplicate_error)")
+        print("------------------------------------------------")
+        str2_client_id = os.getenv("STR2_CLIENT_ID")
+        str2_client_secret = os.getenv("STR2_CLIENT_SECRET")
+        if str2_client_id and str2_client_secret:
+            str2_token = auth_token(client, base_url, str2_client_id, str2_client_secret)
+            code, body = call(client, "POST", f"{api}/listings/bulk", str2_token, json={"listings": [listing(ok_id, listing_area)]})
+            print(f"HTTP Status: {code}: {brief(body)}")
+            mark(
+                stats,
+                code == 422 and error_types(body) == ["duplicate_error"],
+                "Test 7 passed: the second platform got duplicate_error",
+                f"Test 7 failed: Expected 422 duplicate_error, got {code} {error_types(body)}",
+            )
+        else:
+            print("Skipping Test 7 (requires STR2_CLIENT_ID, STR2_CLIENT_SECRET)")
+        print()
+
     print("=======================================")
     print("Test Summary (STR listings):")
     print(f"  Total:  {stats.total}")

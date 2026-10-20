@@ -20,6 +20,7 @@ clients:
       - sdep_ca
       - sdep_read
       - sdep_write
+
   - id: "sdep-test-ca.02"
     secret: "sdep-test-ca.02"
     name: "Test CA-02 (client id & secret, ephemeral)"
@@ -34,6 +35,15 @@ clients:
     secret: "sdep-test-str.01"
     name: "Test STR-01 (client id & secret, ephemeral)"
     description: "For test automation (ephemeral data)"
+    service_account_roles:
+      - sdep_str
+      - sdep_read
+      - sdep_write
+
+  - id: "sdep-test-str.02"
+    secret: "sdep-test-str.02"
+    name: "Test STR-02 (client id & secret, ephemeral)"
+    description: "For test automation of cross-platform isolation (ephemeral data)"
     service_account_roles:
       - sdep_str
       - sdep_read
@@ -87,6 +97,7 @@ clients:
       - sdep_ca
       - sdep_read
       - sdep_write
+
   - id: "833946726525.sdep.gov.local"
     secret: "833946726525"
     name: "Test CA-02 (client id & secret, persistent)"
@@ -105,6 +116,7 @@ clients:
       - sdep_str
       - sdep_read
       - sdep_write
+
   - id: "381028359011.sdep.gov.local"
     secret: "381028359011"
     name: "Test STR-02 (client id & secret, persistent)"
@@ -162,6 +174,7 @@ clients:
       - sdep_ca
       - sdep_read
       - sdep_write
+
   - id: "sdep-ca.0599"
     secret: "sdep-ca.0599"
     name: "Gemeente Rotterdam (CA, client id & secret)"
@@ -170,6 +183,7 @@ clients:
       - sdep_ca
       - sdep_read
       - sdep_write
+
   - id: "sdep-ca.0518"
     secret: "sdep-ca.0518"
     name: "Gemeente Den Haag (CA, client id & secret)"

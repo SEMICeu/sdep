@@ -5,10 +5,16 @@ from datetime import datetime
 import pytest
 from app.crud import activity
 from app.enums import ActivityStatus
+from app.models.identity import ActivityIdentity
 from app.schemas.activity import ActivityBulkCreate
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.fixtures.factories import ActivityFactory, AreaFactory, PlatformFactory
+from tests.fixtures.factories import (
+    ActivityFactory,
+    AreaFactory,
+    PlatformFactory,
+    claimed_id,
+)
 
 
 @pytest.mark.database
@@ -20,7 +26,12 @@ class TestActivityCRUD:
         # Arrange
         area = await AreaFactory.create_async(async_session)
         platform = await PlatformFactory.create_async(async_session)
-        activity_id = "550e8400-e29b-41d4-a716-446655440000"
+        activity_id = await claimed_id(
+            async_session,
+            ActivityIdentity,
+            platform.platform_id,
+            "550e8400-e29b-41d4-a716-446655440000",
+        )
         activity_name = "Amsterdam Summer Rental 2025"
         url = "http://example.com/listing-1"
         address_thoroughfare = "Main Street"
@@ -83,10 +94,8 @@ class TestActivityCRUD:
         assert result.created_at is not None
         assert isinstance(result.created_at, datetime)
 
-    async def test_create_activity_with_auto_generated_id(
-        self, async_session: AsyncSession
-    ):
-        """Test creating activity with auto-generated activity_id (UUID)."""
+    async def test_create_activity_with_claimed_id(self, async_session: AsyncSession):
+        """Test creating activity with a claimed activity_id (UUID)."""
         # Arrange
         area = await AreaFactory.create_async(async_session)
         platform = await PlatformFactory.create_async(async_session)
@@ -94,7 +103,9 @@ class TestActivityCRUD:
         # Act
         result = await activity.create(
             session=async_session,
-            activity_id=None,
+            activity_id=await claimed_id(
+                async_session, ActivityIdentity, platform.platform_id
+            ),
             activity_name=None,
             platform_id=platform.id,
             area_id=area.id,
@@ -114,7 +125,6 @@ class TestActivityCRUD:
         )
 
         # Assert
-        assert result.activity_id is not None  # Should be auto-generated UUID
         assert len(result.activity_id) == 36  # UUID format
         assert result.activity_name is None  # Should be None when not provided
         assert result.status == ActivityStatus.finished
@@ -128,7 +138,12 @@ class TestActivityCRUD:
 
         result = await activity.create(
             session=async_session,
-            activity_id="cancelled-activity-id",
+            activity_id=await claimed_id(
+                async_session,
+                ActivityIdentity,
+                platform.platform_id,
+                "cancelled-activity-id",
+            ),
             activity_name="Cancelled stay",
             platform_id=platform.id,
             area_id=area.id,
@@ -161,7 +176,9 @@ class TestActivityCRUD:
         # Act
         result = await activity.create(
             session=async_session,
-            activity_id=None,
+            activity_id=await claimed_id(
+                async_session, ActivityIdentity, platform.platform_id
+            ),
             activity_name=None,
             platform_id=platform.id,
             area_id=area.id,
@@ -197,7 +214,12 @@ class TestActivityCRUD:
         # Act
         result = await activity.create(
             session=async_session,
-            activity_id="7c9e6679-7425-40de-944b-e07fc1f90ae7",
+            activity_id=await claimed_id(
+                async_session,
+                ActivityIdentity,
+                platform.platform_id,
+                "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+            ),
             activity_name="Rotterdam Rental",
             platform_id=platform.id,
             area_id=area.id,
@@ -607,6 +629,12 @@ class TestActivityCRUD:
         assert reg_two.activity_id in ended_ids
 
         area_two = await AreaFactory.create_async(async_session)
+        await claimed_id(
+            async_session,
+            ActivityIdentity,
+            platform.platform_id,
+            "bulk-created-activity",
+        )
         created_objects = await activity.bulk_create(
             async_session,
             [
@@ -630,8 +658,8 @@ class TestActivityCRUD:
                         "numberOfGuests": 1,
                         "countryOfGuests": ["NLD"],
                         "temporal": {
-                            "startDatetime": "2025-08-01T12:00:00",
-                            "endDatetime": "2025-08-02T12:00:00",
+                            "startDatetime": "2025-08-01T12:00:00Z",
+                            "endDatetime": "2025-08-02T12:00:00Z",
                         },
                         "platform_technical_id": platform.id,
                         "area_technical_id": area_two.id,
@@ -652,18 +680,19 @@ class TestActivityCRUD:
         assert created_objects[0].platform is platform
         assert created_objects[0].area is area_two
 
-    async def test_unique_constraint_activity_id_platform_id_created_at(
+    async def test_unique_constraint_activity_id_created_at(
         self, async_session: AsyncSession
     ):
-        """Test unique constraint on (activity_id, platform_id, created_at)."""
+        """Test unique constraint on (activity_id, created_at)."""
         import asyncio
-        import uuid
         from datetime import datetime
 
         # Arrange
         area = await AreaFactory.create_async(async_session)
         platform = await PlatformFactory.create_async(async_session)
-        activity_id = str(uuid.uuid4())
+        activity_id = await claimed_id(
+            async_session, ActivityIdentity, platform.platform_id
+        )
 
         # Act - Create first activity
         act1 = await activity.create(
@@ -691,7 +720,7 @@ class TestActivityCRUD:
         # Wait to ensure different timestamp (1 second to guarantee SQLite timestamp difference)
         await asyncio.sleep(1.0)
 
-        # End version 1 first: only one current version per (activity_id, platform)
+        # End version 1 first: only one current version per activity_id
         await activity.mark_as_ended(async_session, activity_id, platform.platform_id)
 
         # Act - Create second activity with same activity_id (should work due to different created_at)

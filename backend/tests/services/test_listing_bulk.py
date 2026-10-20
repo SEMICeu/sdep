@@ -145,6 +145,52 @@ class TestListingBulkServices:
         assert (detail.type, detail.loc) == ("conflict_error", ["listingId"])
         assert "already screened (status 'flagged')" in detail.msg
 
+    async def test_listing_id_of_another_platform_is_refused(
+        self, async_session, areas
+    ):
+        """A listingId has one owner: another platform gets duplicate_error."""
+        await create_listings_bulk(
+            async_session, [_listing(areas["all"], listingId="l-own")], "str-1", "STR 1"
+        )
+
+        response = await create_listings_bulk(
+            async_session,
+            [_listing(areas["all"], listingId="l-own")],
+            "str-2",
+            "STR 2",
+        )
+
+        assert response.results[0].status == "NOK"
+        assert response.results[0].errors is not None
+        detail = response.results[0].errors.detail[0]
+        assert (detail.type, detail.loc) == ("duplicate_error", ["listingId"])
+        assert "another platform" in detail.msg
+        current = await listing_service.get_listing_list(
+            async_session, scope=ListingScope(platform_client_id="str-1")
+        )
+        assert [row.listing_id for row in current] == ["l-own"]
+
+    async def test_listing_id_is_case_sensitive(self, async_session, areas):
+        """`L-Case` and `l-case` are two listingIds, so two owners can each have one."""
+        first = await create_listings_bulk(
+            async_session,
+            [_listing(areas["all"], listingId="L-Case")],
+            "str-1",
+            "STR 1",
+        )
+        second = await create_listings_bulk(
+            async_session,
+            [_listing(areas["all"], listingId="l-case")],
+            "str-2",
+            "STR 2",
+        )
+
+        assert [r.status for r in (*first.results, *second.results)] == ["OK", "OK"]
+        assert [r.listing_id for r in (*first.results, *second.results)] == [
+            "L-Case",
+            "l-case",
+        ]
+
     async def test_platform_rename_keeps_listing_findable(self, async_session, areas):
         """A client_name change versions the platform; its listings stay one current row."""
         # Backdated, so the rename's new platform version gets another created_at

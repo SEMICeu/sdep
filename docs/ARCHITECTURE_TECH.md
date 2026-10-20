@@ -131,7 +131,7 @@ sdep-app/
 │   │   │       │   ├── v2.py                                    # CA domain sub-app v2 (with listings)
 │   │   │       │   └── routers/
 │   │   │       │       ├── activities_filters.py                # Shared query filters for the CA activity list and count (v1, v2)
-│   │   │       │       ├── activities_v1.py                     # CA activity endpoints v1 (frozen response schemas, limit default 1000)
+│   │   │       │       ├── activities_v1.py                     # CA activity endpoints v1 (limit default 1000)
 │   │   │       │       ├── activities_v2.py                     # CA activity endpoints v2 (limit default 1000)
 │   │   │       │       ├── areas.py                             # CA area endpoints shared by every version (post, count, get, delete)
 │   │   │       │       ├── areas_docs.py                        # Shared OpenAPI text and examples for the areas list
@@ -160,9 +160,9 @@ sdep-app/
 │   │   │           └── routers/
 │   │   │               ├── activities_bulk_docs.py              # Shared OpenAPI text and examples for the bulk endpoint
 │   │   │               ├── activities_bulk_v1.py                # STR bulk activity endpoint v1
-│   │   │               ├── activities_bulk_v2.py                # STR bulk activity endpoint v2 (UTC-only, regulation check)
+│   │   │               ├── activities_bulk_v2.py                # STR bulk activity endpoint v2 (same rules as v1)
 │   │   │               ├── areas.py                             # STR area endpoints shared by every version (count, get)
-│   │   │               ├── areas_list_v1.py                     # STR areas list v1 (unlimited by default)
+│   │   │               ├── areas_list_v1.py                     # STR areas list v1 (limit default 1000)
 │   │   │               ├── areas_list_v2.py                     # STR areas list v2 (limit default 1000)
 │   │   │               ├── listing_acknowledgements_bulk_v2.py  # STR bulk listing acknowledgements endpoint v2
 │   │   │               ├── listings_bulk_v2.py                  # STR bulk listings endpoint v2 (random checks)
@@ -172,6 +172,7 @@ sdep-app/
 │   │   │   ├── activity.py
 │   │   │   ├── area.py
 │   │   │   ├── competent_authority.py
+│   │   │   ├── identity.py                                      # Claim functional ids, read their owners
 │   │   │   ├── listing.py
 │   │   │   └── platform.py
 │   │   ├── db/                                                  # Database configuration
@@ -189,6 +190,7 @@ sdep-app/
 │   │   │   ├── area.py
 │   │   │   ├── audit_log.py                                     # Audit log record
 │   │   │   ├── competent_authority.py
+│   │   │   ├── identity.py                                      # Identity tables: one owner per functional id
 │   │   │   ├── listing.py
 │   │   │   ├── platform.py
 │   │   │   ├── temporal.py
@@ -196,7 +198,6 @@ sdep-app/
 │   │   ├── schemas/                                             # Pydantic schemas (request/response)
 │   │   │   ├── activity.py
 │   │   │   ├── activity_bulk.py
-│   │   │   ├── activity_v1.py                                   # Frozen STR v1 bulk and CA v1 response schemas (deleted with v1)
 │   │   │   ├── address.py
 │   │   │   ├── area.py
 │   │   │   ├── auth.py
@@ -478,7 +479,7 @@ POST /api/str/v1/activities/bulk (JSON body with activities array)
   │   ├── Platform resolution (once per batch, version on name change only)
   │   ├── Intra-batch dedup (last-wins)
   │   ├── Step 2: RI check → single SELECT for area IDs → Python dict
-  │   │     └── STR v2: area must be regulated for activities, else NOK (regulation_error)
+  │   │     └── Area must be regulated for activities, else NOK (regulation_error)
   │   ├── Activity versioning → batch UPDATE (mark-as-ended)
   │   ├── Step 3: Bulk INSERT (single multi-row INSERT)
   │   └── Step 4: Build per-item OK/NOK feedback
@@ -537,26 +538,73 @@ shape, the five audience reads the second. What differs per listing endpoint is 
 
 **Technical IDs**
 
-- Represent technical keys, on the **"inside"** (under the hood)
-- These are used for referential integrity within the database
+- Represent technical keys, on the **"inside"** (under the hood), never exposed in the API
+- Primary key of a version row: one per version, whereas a functional id repeats per version
+- Foreign key to one exact version: e.g. an activity keeps the area version that was current when it was submitted (see [Versioning](#versioning))
+- Tie-breaker in sorting: `ORDER BY created_at, id` gives a stable page order when two rows share a `createdAt`
+- An integer, so smaller and faster in indexes and joins than a functional id (up to 64 characters)
 
 **Functional IDs**
 
 - Represent business identifiers, on the **"outside"**
-- Are client-provided (optional), or auto-provisioned otherwise (UUIDv4 RFC 9562)
+- Are client-provided (optional), or auto-provisioned otherwise ([RFC 9562](https://datatracker.ietf.org/doc/rfc9562/) UUIDv4)
 - After a POST, functional IDs are always returned/made visible
-- This allows them to be reused in subsequent submissions
-- Functional IDs enable versioning (in combination with a timestamp)
+- Functional IDs be resubmitted to update or correct ([versioning](#versioning))
 
-https://datatracker.ietf.org/doc/rfc9562/
+**Functional IDs can be:**
 
-See later in this document for more info on IDs.
+- Defined and submitted by client **[1]**
+- Kept empty and generated by SDEP **[2]**
+
+---
+
+**[1] Functional IDs: defined and submitted by client**
+
+A CA or platform (STR) can submit its own ids (`areaId`, `listingId`, `activityId`), instead of letting SDEP generate them.
+
+- Purpose: to link/correlate submitted records to the client's own administration
+
+In SDEP:
+
+- An id belongs to one owner
+  - So to protect referential integrity
+  - For example: when a platform gets a shapefile by `areaId`, this unambiguously belongs to exactly one CA
+- A lowercase UUID is a safe choice
+  - It is unique, so no other party already uses it
+
+Two ways to generate a UUID ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562)):
+
+- **Random** (UUIDv4, section 5.4): generate a UUID and store it alongside your own ID (mapping table)
+- **Deterministic** (UUIDv5, section 5.5, or UUIDv8 with SHA-256, section 5.8): derive the UUID from your own ID (no mapping table needed)
+- When using UUIDv5, use a private namespace to avoid recomputation by others
+- When using UUIDv8, use a secret key with HMAC-SHA-256 for even stronger protection
+
+IDs are case-sensitive to support non-UUID identifiers as well:
+
+- Custom non-UUID identifiers that differ only in capitalization are treated as distinct IDs (e.g., `Amsterdam-Centrum` and `amsterdam-centrum`).
+- SDEP preserves and returns IDs exactly as submitted.
+
+Non-UUID identifiers are less recommended, because global uniqueness is not guaranteed (first come first served).
+
+---
+
+**[2] Functional IDs: kept empty and generated by SDEP**
+
+When no functional ID is submitted:
+
+- SDEP generates a random UUIDv4 and returns it
+- SDEP generates lowercase UUIDs
 
 ---
 
 ### Versioning
 
-Recall the standard attribute pattern from the [internal datamodel](./DATAMODEL_TECH.md#overview):
+Functional IDs are used for versioning:
+
+- When keeping the same id for the same object: resubmitting it creates a new version
+- Always resend UUIDs in lowercase, because e.g. `3F2A…` and `3f2a…` are regarded as two different ids (see above "IDs are case-sensitive to support non-UUID identifiers")
+
+Building upon the standard attribute pattern from the [internal datamodel](./DATAMODEL_TECH.md#overview):
 
 - Technical id (`id`)
 - Functional id (`<class name>Id`)
@@ -565,13 +613,16 @@ Recall the standard attribute pattern from the [internal datamodel](./DATAMODEL_
 - Creation timestamp (`createdAt`)
 - Ended-at timestamp (`endedAt`) (soft-delete)
 
-Versioning pattern:
+The versioning pattern is as follows:
 
 - A write never updates an existing row in place. Instead:
   - the current row is closed by setting its `endedAt`
   - a new row is inserted with a new `createdAt`
   - this means every change creates a new version
-- For each functional id (e.g. an `areaId`) and owner (e.g. the CA that submitted it), there can be at most one current version:
+- A functional id (e.g. an `areaId`) belongs to one owner, for good:
+  - an identity table records the owner, one row per functional id, see [Identity](./DATAMODEL_TECH.md#identity)
+  - another owner that submits the id is refused: `409` (`duplicate_error`), or item NOK in a bulk write
+- For each functional id, there can be at most one current version:
   - a current version is a row where `endedAt` is `null`
   - a partial unique index enforces this rule in the database
 - The owner is the party that submitted the row:
@@ -603,21 +654,22 @@ Versioning pattern:
 - Older rows keep pointing to the owner version that existed when those rows were written.
   - new rows point to the owner's current version
   - this preserves the history of which owner version was active at the time
-- There is one race condition to be aware of:
-  - two requests may try to create the first current version of the same new functional id at exactly the same time
-  - only one can win because of the partial unique index
-  - the other request receives HTTP `409 Conflict` and can retry
+  - the same holds for the area that a listing or activity references (its shape and `regulation` at the time)
+- Concurrent writes of the same functional id:
+  - every write first claims and locks the identity rows of its ids, also for a new id
+  - so two requests for the same id wait for each other, instead of both creating a current version
+  - a remaining unique violation (e.g. the first contact of a new client) gives HTTP `409` (`conflict_error`), and can be retried
 - See also the versioning rules in [Datamodel](./DATAMODEL_TECH.md#classes).
 
 Versioned classes:
 
-| Class              | Functional id          | One current row per     | Finds its owner by          |
-| ------------------ | ---------------------- | ----------------------- | --------------------------- |
-| CompetentAuthority | `competentAuthorityId` | `clientId`              | (owner is the login client) |
-| Platform           | `platformId`           | `clientId`              | (owner is the login client) |
-| Area               | `areaId`               | `areaId` + CA           | `competentAuthorityId`      |
-| Listing            | `listingId`            | `listingId` + platform  | `platformId`                |
-| Activity           | `activityId`           | `activityId` + platform | `platformId`                |
+| Class              | Functional id          | One current row per | Finds its owner by          |
+| ------------------ | ---------------------- | ------------------- | --------------------------- |
+| CompetentAuthority | `competentAuthorityId` | `clientId`          | (owner is the login client) |
+| Platform           | `platformId`           | `clientId`          | (owner is the login client) |
+| Area               | `areaId`               | `areaId`            | `competentAuthorityId`      |
+| Listing            | `listingId`            | `listingId`         | `platformId`                |
+| Activity           | `activityId`           | `activityId`        | `platformId`                |
 
 Example (area and activities):
 
@@ -709,7 +761,7 @@ This approach was chosen because:
 
 Pessimistic locking applies to:
 
-- `CompetentAuthority` versioning (single POST)
+- `CompetentAuthority` versioning (single POST), and `Platform` versioning on a rename (bulk POSTs)
 - `Area` versioning (single POST)
 - `Listing` bulk versioning (the three listing bulk POSTs: submit, screen, acknowledge)
 - `Activity` bulk versioning (bulk POST)
@@ -724,7 +776,7 @@ If two requests attempt to version the same entity at the same time:
 2. The second request waits until the first transaction commits
 3. The second request then continues safely using the updated state
 
-A lock needs an existing row. The first write of a new functional ID (or the first contact of a new platform) has no row to lock yet. There the partial unique index on the current row decides: of two such writes at the same moment, one commits and the other gets HTTP 409 (`conflict_error`) and can retry, which then versions the committed row. The same holds for every versioned class, see [Datamodel](./DATAMODEL_TECH.md#classes).
+A lock needs an existing row. For areas, listings and activities that row is the identity row: a write first inserts the identity rows of its new ids (`INSERT ... ON CONFLICT DO NOTHING`), then locks all its identity rows (`SELECT ... FOR UPDATE`, in sorted order, so concurrent writers do not deadlock). So also the first write of a new functional ID waits for a concurrent one, see [Identity](./DATAMODEL_TECH.md#identity). A CA or platform locks its identity row too, because a rename ends the version row: a concurrent request waits, and then reuses the new version. A platform locks only on a rename, so its other bulk writes stay parallel. This lock is `FOR NO KEY UPDATE`, so new IDs that reference the identity row do not wait (see `lock_client` in `app/crud/identity.py`). The first contact of a new client has no row to lock: there the unique index decides, one commits and the other gets HTTP 409 (`conflict_error`) and can retry.
 
 Together, this guarantees consistent versioning without duplicate active records.
 
@@ -818,30 +870,33 @@ Listings add a second dimension: several audiences read the same rows. There the
 
 **Area operations (CA-scoped)**
 
-- **Create / update (versioning):** The `mark-as-ended` + `create-new-version` lookup is scoped to the authenticated CA via `get_by_area_id_and_competent_authority_id_str()` with `SELECT ... FOR UPDATE`. Another CA may hold an area with the same `areaId` - it is not affected.
+- **Ownership:** an `areaId` belongs to one CA, recorded in `area_identity`. Another CA that submits it gets `409` (`duplicate_error`): it cannot version, take over or share the area, also not after a delete.
+- **Create / update (versioning):** The `mark-as-ended` + `create-new-version` lookup is scoped to the authenticated CA via `get_by_area_id_and_competent_authority_id_str()` with `SELECT ... FOR UPDATE`, after the identity row is locked.
 - **Delete (soft-delete):** Scoped lookup by `(areaId, competentAuthorityId)`. If the area belongs to a different CA, the operation returns 404.
-- **Deactivation guard:** `exists_any_by_area_id()` is CA-scoped. A deactivated `areaId` from one CA does not block another CA from using the same `areaId`.
-- **DB constraint:** `UNIQUE(area_id, competent_authority_id, created_at)` allows the same `areaId` to be used independently by different CAs.
+- **Deactivation guard:** `exists_any_by_area_id()` is CA-scoped. The owner cannot recreate a deactivated `areaId`.
+- **DB constraint:** the `area_identity` primary key on `area_id`, and one current row per `area_id`.
 
 ---
 
 **Activity operations (platform-scoped)**
 
-- **Create / update (bulk versioning):** `get_current_by_activity_ids()` and `bulk_mark_as_ended()` both filter by the public `platformId`, across every version of that platform. Platform-A cannot version Platform-B's activities, even if they share the same `activityId`.
+- **Ownership:** an `activityId` belongs to one platform, recorded in `activity_identity`. Another platform gets item NOK (`duplicate_error`).
+- **Create / update (bulk versioning):** `get_current_by_activity_ids()` and `bulk_mark_as_ended()` both filter by the public `platformId`, across every version of that platform.
 - **Delete:** No delete endpoint exists for activities.
-- **DB constraint:** `UNIQUE(activity_id, platform_id, created_at)` allows the same `activityId` to be used independently by different platforms.
+- **DB constraint:** the `activity_identity` primary key on `activity_id`, and one current row per `activity_id`.
 - **Deactivation guard:** `get_deactivated_activity_ids()` is platform-scoped, as the Area guard is CA-scoped, and is called on every bulk submission. However, no code path currently puts an activity into a deactivated state - there is no DELETE endpoint, and versioning always creates a new current version. The guard is defensive: if a DELETE endpoint is added in the future, it will prevent resurrection of deactivated activities. Compare with the equivalent Area guard (`exists_any_by_area_id`), which can trigger because areas can be soft-deleted via `DELETE /ca/areas/{areaId}`.
 
 ---
 
 **Listing operations (platform-scoped write, audience-scoped read)**
 
-- **Create / update (bulk versioning):** `get_current_by_listing_ids()` and `bulk_mark_as_ended()` both filter by the public `platformId`, across every version of that platform. Platform-A cannot version Platform-B's listings, even if they share the same `listingId`.
+- **Ownership:** a `listingId` belongs to one platform, recorded in `listing_identity`. Another platform gets item NOK (`duplicate_error`).
+- **Create / update (bulk versioning):** `get_current_by_listing_ids()` and `bulk_mark_as_ended()` both filter by the public `platformId`, across every version of that platform.
 - **Screening and acknowledgement:** both carry the `createdAt` of the version they refer to, checked on the locked current version. A stale token is refused per item (`conflict_error`), so one actor's write never lands on another actor's version.
 - **Screening scope:** the LSA writes for any platform, but it names the platform in its payload; the lookup still resolves through `platform_id`, so a screening cannot cross to another platform's listing by `listingId` alone.
 - **Read:** the router fixes the `ListingScope` from the bearer token - `platform_client_id` for STR, `competent_authority_client_id` for CA, neither for LSA/LMA/STA - plus a fixed lifecycle status per audience. The scope is keyword-only with no default, so an unscoped read has to be written out.
 - **Delete:** no delete endpoint exists for listings.
-- **DB constraint:** `UNIQUE(listing_id, platform_id, created_at)` allows the same `listingId` to be used independently by different platforms.
+- **DB constraint:** the `listing_identity` primary key on `listing_id`, and one current row per `listing_id`.
 
 ---
 
@@ -853,7 +908,7 @@ Listings add a second dimension: several audiences read the same rows. There the
 | **API**     | Passes `client.id` to service; not overridable by the body | Passes `client.id` to service; not overridable by the body | Router fixes the `ListingScope`; no filter can widen it           |
 | **Service** | Scoped lookups via `competent_authority_id_str`            | Scoped lookups via `platform_id`                           | Scoped lookups via `platform_id`, plus the version token          |
 | **CRUD**    | WHERE clauses include `competent_authority_id`             | WHERE clauses include `platform_id`                        | WHERE clauses include `platform_id` and/or the scope joins        |
-| **DB**      | `UNIQUE(area_id, competent_authority_id, created_at)` + FK | `UNIQUE(activity_id, platform_id, created_at)` + FK        | `UNIQUE(listing_id, platform_id, created_at)` + FK                |
+| **DB**      | `area_identity` (one owner per id) + FK                    | `activity_identity` (one owner per id) + FK                | `listing_identity` (one owner per id) + FK                        |
 
 ---
 
@@ -939,6 +994,8 @@ All functional IDs conform to a single pattern defined in `app/schemas/common.py
 ^[A-Za-z0-9-]+$    (1–64 characters, alphanumeric with hyphens)
 ```
 
+Functional IDs are case-sensitive, so that own IDs that are not UUIDs stay as the client knows them: `ABC` and `abc` are two IDs. SDEP generates lowercase UUIDs, see [ID management](#id-management).
+
 This pattern is expressed as two reusable types:
 
 | Type                   | Base type     | Used for                                                                                         |
@@ -950,15 +1007,17 @@ This pattern is expressed as two reusable types:
 
 ### Functional IDs (user-supplied)
 
-**Area and Activity functional IDs** are user-supplied.
+**Area, listing and activity functional IDs** can be user-supplied.
 
 These IDs are submitted by the caller in the request body or form fields and validated **declaratively by Pydantic** before the endpoint function body runs:
 
-| Endpoint                           | Field                 | Type                   | Pydantic validates?                                       | When omitted                                                |
-| ---------------------------------- | --------------------- | ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------- |
-| `POST /api/ca/v1/areas`            | `areaId` (form field) | `OptionalFunctionalId` | Yes - `Annotated[OptionalFunctionalId, Form()]`           | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
-| `POST /api/str/v2/listings/bulk`   | `listingId` per item  | `OptionalFunctionalId` | Yes - via `TypeAdapter(ListingRequest)` in service layer  | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
-| `POST /api/str/v1/activities/bulk` | `activityId` per item | `OptionalFunctionalId` | Yes - via `TypeAdapter(ActivityRequest)` in service layer | UUID generated by SQLAlchemy model default (`uuid.uuid4()`) |
+| Endpoint                           | Field                 | Type                   | Pydantic validates?                                       | When omitted                                           |
+| ---------------------------------- | --------------------- | ---------------------- | --------------------------------------------------------- | ------------------------------------------------------ |
+| `POST /api/ca/v1/areas`            | `areaId` (form field) | `OptionalFunctionalId` | Yes - `Annotated[OptionalFunctionalId, Form()]`           | UUID generated by the service (`uuid.uuid4()`) **[1]** |
+| `POST /api/str/v2/listings/bulk`   | `listingId` per item  | `OptionalFunctionalId` | Yes - via `TypeAdapter(ListingRequest)` in service layer  | UUID generated by the service (`uuid.uuid4()`) **[1]** |
+| `POST /api/str/v1/activities/bulk` | `activityId` per item | `OptionalFunctionalId` | Yes - via `TypeAdapter(ActivityRequest)` in service layer | UUID generated by the service (`uuid.uuid4()`) **[1]** |
+
+[1] Before the insert, because the id is claimed first (see [Identity](./DATAMODEL_TECH.md#identity)): `services/area.py`, `services/listing_bulk.py`, `services/activity_bulk.py`.
 
 **Why `POST /api/ca/v1/areas` uses `Form()` instead of a JSON body** (see implementation):
 
@@ -1021,7 +1080,7 @@ The table below maps **application exceptions** to **HTTP status codes**:
 | `AuthenticationError`                 | Invalid or expired token                                                                                                                               | 401                               |
 | `AuthorizationError`                  | Insufficient permissions                                                                                                                               | 403                               |
 | `ResourceNotFoundError`               | Resource not found                                                                                                                                     | 404                               |
-| `DuplicateResourceError`              | Duplicate resource conflict                                                                                                                            | 409                               |
+| `DuplicateResourceError`              | Functional id of another owner (`duplicate_error`), do not retry                                                                                       | 409                               |
 | `IntegrityError` (unique violation)   | A concurrent request wrote the same current row first; other integrity errors are 500                                                                  | 409                               |
 | `RequestValidationError`              | Invalid request body on a POST request (e.g. missing required field or wrong value type)                                                               | 422                               |
 | `ApplicationValidationError`          | Business rule violations (e.g. start time later than end time is NOK )                                                                                 | 422                               |

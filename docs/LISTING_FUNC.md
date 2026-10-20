@@ -101,6 +101,7 @@ See:
 
 - [External API](https://sdep.gov.nl/api/docs)
 - [Internal data model](./DATAMODEL_TECH.md)
+- [ID management](./ARCHITECTURE_TECH.md#id-management)
 
 ## Process
 

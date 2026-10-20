@@ -90,3 +90,29 @@ DELETE FROM area WHERE area_id LIKE 'sdep-test-%'
     );
 DELETE FROM platform WHERE client_id LIKE 'sdep-test-%';
 DELETE FROM competent_authority WHERE client_id LIKE 'sdep-test-%';
+
+-- Identity rows (see backend/app/models/identity.py): owned identities first, then
+-- the owner identities they reference. Only identities without a version row left,
+-- with an sdep-test-* id or owner. A test client keeps one public ID for good, so its
+-- identity must go together with its rows, or the next run cannot recreate it.
+DELETE FROM activity_identity i
+WHERE (i.activity_id LIKE 'sdep-test-%'
+       OR i.platform_id IN (
+            SELECT platform_id FROM platform_identity WHERE client_id LIKE 'sdep-test-%'
+          ))
+  AND NOT EXISTS (SELECT 1 FROM activity t WHERE t.activity_id = i.activity_id);
+DELETE FROM listing_identity i
+WHERE (i.listing_id LIKE 'sdep-test-%'
+       OR i.platform_id IN (
+            SELECT platform_id FROM platform_identity WHERE client_id LIKE 'sdep-test-%'
+          ))
+  AND NOT EXISTS (SELECT 1 FROM listing t WHERE t.listing_id = i.listing_id);
+DELETE FROM area_identity i
+WHERE (i.area_id LIKE 'sdep-test-%'
+       OR i.competent_authority_id IN (
+            SELECT competent_authority_id FROM competent_authority_identity
+            WHERE client_id LIKE 'sdep-test-%'
+          ))
+  AND NOT EXISTS (SELECT 1 FROM area t WHERE t.area_id = i.area_id);
+DELETE FROM platform_identity WHERE client_id LIKE 'sdep-test-%';
+DELETE FROM competent_authority_identity WHERE client_id LIKE 'sdep-test-%';

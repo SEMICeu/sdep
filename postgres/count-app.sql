@@ -10,4 +10,14 @@ UNION ALL
 SELECT 'activity', COUNT(*) FROM activity
 UNION ALL
 SELECT 'listing', COUNT(*) FROM listing
+UNION ALL
+SELECT 'competent_authority_identity', COUNT(*) FROM competent_authority_identity
+UNION ALL
+SELECT 'platform_identity', COUNT(*) FROM platform_identity
+UNION ALL
+SELECT 'area_identity', COUNT(*) FROM area_identity
+UNION ALL
+SELECT 'activity_identity', COUNT(*) FROM activity_identity
+UNION ALL
+SELECT 'listing_identity', COUNT(*) FROM listing_identity
 ORDER BY table_name;

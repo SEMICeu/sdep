@@ -55,7 +55,8 @@ async def count_areas(
     response_class=Response,
     status_code=status.HTTP_200_OK,
     summary="Get area (shapefile)",
-    description="Get area (shapefile) based on functional ID.",
+    description="Get area (shapefile) based on functional ID. "
+    "The `areaId` is case-sensitive: use it exactly as returned by `GET /areas`.",
     operation_id="getArea",
     responses={
         "200": {

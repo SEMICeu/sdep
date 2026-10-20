@@ -71,7 +71,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where this activity took place",
+            "description": "Functional ID referencing the area where this activity took place (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c",
               "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
@@ -169,8 +169,8 @@
             "title": "Platformname"
           },
           "registrationNumber": {
-            "description": "Registration number of the address (max 32 chars)",
-            "maxLength": 32,
+            "description": "Registration number of the address (max 128 chars)",
+            "maxLength": 128,
             "title": "Registrationnumber",
             "type": "string"
           },
@@ -630,7 +630,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where the listing is posted",
+            "description": "Functional ID referencing the area where the listing is posted (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c"
             ],
@@ -752,14 +752,14 @@
           "registrationNumber": {
             "anyOf": [
               {
-                "maxLength": 32,
+                "maxLength": 128,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Registration number shown on the listing (optional, max 32 chars)",
+            "description": "Registration number shown on the listing (optional, max 128 chars)",
             "title": "Registrationnumber"
           },
           "screenedAt": {
@@ -935,7 +935,7 @@
       "name": "Nationaal Coordinator SDEP",
       "url": "https://minvro.nl/"
     },
-    "description": "Endpoints for competent authorities to manage areas, to view activities and platforms, and to view acknowledged listings (random checks). Status: alpha. Changes from CA v1: the activity response documents the field maximums (e.g. `url` 2048, `fullAddress` 328); adds `GET /listings` and `GET /listings/count` (acknowledged listings in own areas, random checks); adds `GET /platforms` and `GET /platforms/count`; no other changes.",
+    "description": "Endpoints for competent authorities to manage areas, to view activities and platforms, and to view acknowledged listings (random checks). Status: alpha. Changes from CA v1: adds `GET /listings` and `GET /listings/count` (acknowledged listings in own areas, random checks); adds `GET /platforms` and `GET /platforms/count`; no other changes.",
     "title": "SDEP - Competent Authority (CA) API",
     "version": "<frozen-version>"
   },
@@ -1392,7 +1392,7 @@
         ]
       },
       "post": {
-        "description": "Submit a single area into the areas collection for the currently authenticated competent authority.\n\n**ID Pattern:**\n- `areaId`: provided by competent authority as business identifier (optional), otherwise generated as UUIDv4 (RFC 9562)\n\n**Versioning:**\n- Same `areaId` can be resubmitted \u2192 creates new version with different timestamp\n- Unique constraint: (areaId, createdAt, current authenticated competent authority)\n\n**Limiting:**\n- Only `.zip` files are accepted (validated by filename extension and file content)\n- Max. 1 MiB (1,048,576 bytes) per file\n- This is to ensure predictable performance, reduce abuse risk, and improve overall reliability\n\n**The request contains (multipart/form-data):**\n- `areaId`: Functional ID identifying this area (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `areaName`: Display name (optional, max 64 chars)\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all' (optional, defaults to 'all' when not supplied)\n- `file`: Shapefile upload (.zip only, max 1 MiB)\n\n**The response contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID of the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)",
+        "description": "Submit a single area into the areas collection for the currently authenticated competent authority.\n\n**ID Pattern:**\n- `areaId` is provided by the competent authority as an optional business identifier; otherwise, it is generated by SDEP as a UUIDv4 (RFC 9562).\n- `areaId`, whether supplied or generated, remains permanently associated with exactly one competent authority, even after the area is deleted, to ensure referential integrity.\n- When providing `areaId` as a business identifier, consider using RFC 9562 UUIDs to ensure global uniqueness (v4 for random generation or v5/v8 for deterministic generation).\n- `areaId` is case-sensitive and preserved exactly as submitted to support non-UUID identifiers as well. For example, `My3F2A` and `My3f2a` are treated as distinct IDs.\n\n**Versioning:**\n- Same `areaId` can be resubmitted by its owner \u2192 creates new version with different timestamp\n- Unique constraint: (areaId, createdAt)\n- An `areaId` of another competent authority \u2192 409 (`duplicate_error`), do not retry\n\n**Limiting:**\n- Only `.zip` files are accepted (validated by filename extension and file content)\n- Max. 1 MiB (1,048,576 bytes) per file\n- This is to ensure predictable performance, reduce abuse risk, and improve overall reliability\n\n**The request contains (multipart/form-data):**\n- `areaId`: Functional ID identifying this area (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `areaName`: Display name (optional, max 64 chars)\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all' (optional, defaults to 'all' when not supplied)\n- `file`: Shapefile upload (.zip only, max 1 MiB)\n\n**The response contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID of the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)",
         "operationId": "postArea",
         "requestBody": {
           "content": {
@@ -1427,6 +1427,16 @@
           },
           "403": {
             "description": "Forbidden - insufficient permissions"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - areaId of another competent authority (`duplicate_error`, do not retry), or a concurrent request (`conflict_error`, retry)"
           },
           "422": {
             "content": {
@@ -1568,7 +1578,7 @@
         ]
       },
       "get": {
-        "description": "Get area (shapefile) based on functional ID, scoped to the currently authenticated competent authority.",
+        "description": "Get area (shapefile) based on functional ID, scoped to the currently authenticated competent authority. The `areaId` is case-sensitive: use it exactly as returned.",
         "operationId": "getOwnArea",
         "parameters": [
           {

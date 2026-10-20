@@ -20,8 +20,7 @@ from app.api.common.pagination import PaginationParams
 from app.api.domains.ca.routers import areas_list_v2 as ca_areas_list_v2
 from app.api.domains.str.routers import activities_bulk_v2 as str_activities_bulk_v2
 from app.api.domains.str.routers import areas_list_v2 as str_areas_list_v2
-from app.schemas.activity import ActivityRequestV2
-from app.schemas.activity_bulk import ActivityBulkRequestV2, ActivityBulkResponse
+from app.schemas.activity_bulk import ActivityBulkRequest, ActivityBulkResponse
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,9 +41,7 @@ def _area_row():
 
 
 @pytest.mark.asyncio
-async def test_str_activities_bulk_v2_passes_the_v2_item_model_and_regulation_flag(
-    monkeypatch,
-):
+async def test_str_activities_bulk_v2_calls_the_shared_service(monkeypatch):
     service = AsyncMock(
         return_value=ActivityBulkResponse(
             totalReceived=1, succeeded=1, failed=0, results=[]
@@ -53,7 +50,7 @@ async def test_str_activities_bulk_v2_passes_the_v2_item_model_and_regulation_fl
     monkeypatch.setattr(
         str_activities_bulk_v2.activity_bulk_service, "create_activities_bulk", service
     )
-    request = ActivityBulkRequestV2.model_construct(activities=[{"any": "value"}])
+    request = ActivityBulkRequest.model_construct(activities=[{"any": "value"}])
 
     response = await str_activities_bulk_v2.post_activities_bulk(
         request,
@@ -64,9 +61,13 @@ async def test_str_activities_bulk_v2_passes_the_v2_item_model_and_regulation_fl
     assert response.status_code == 201
     service.assert_awaited_once()
     assert service.await_args is not None
-    kwargs = service.await_args.kwargs
-    assert kwargs["item_model"] is ActivityRequestV2
-    assert kwargs["require_activity_regulation"] is True
+    # v1 and v2 share the service, so no version switch is passed.
+    assert set(service.await_args.kwargs) == {
+        "session",
+        "activities_raw",
+        "client_id",
+        "platform_name",
+    }
 
 
 @pytest.mark.asyncio

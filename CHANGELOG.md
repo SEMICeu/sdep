@@ -2,7 +2,55 @@
 
 *No impact on the API contract, unless explicitly specified otherwise.*
 
-*See also the [API design](./docs/API_TECH.md) and the [version differences](./docs/API_DIFF_TECH.md).*
+*See also the [API](./docs/API_TECH.md) documentation and the [API version diff](./docs/API_DIFF_TECH.md).*
+
+<h1>1.9.0</h1>
+
+- Fixed a bug that resulted in a platforms referencing `areaId` to ambiguous competent authorities
+  - A functional id (`areaId`, `listingId`, `activityId`) now belongs to one owner ([#95](https://github.com/SEMICeu/sdep/issues/95))
+  - A functional id that is submitted by another owner will be refused (`409` with `duplicate_error` on `POST /areas`, or item NOK with `duplicate_error` on bulk writes)
+  - Clients may continue to provide their own IDs
+  - Clients may continue to version (update/correct) records using the same functional ID (no impact)
+  - Updated the documentation for [ID management](./docs/ARCHITECTURE_TECH.md#id-management): consider UUIDs as defined in [RFC 9562](https://www.rfc-editor.org/rfc/rfc9562) for global uniqueness (random UUIDv4 or deterministic UUIDv5/v8)
+  - Updated the documentation of the [internal datamodel](./docs/DATAMODEL_TECH.md#identity) (added the identity classes)
+  - Added a second STR test client (`sdep-test-str.02`), to test that a `listingId` or `activityId` of another platform (owner) is refused
+- Fixed: two concurrent requests right after a CA or platform rename now wait for each other; earlier a CA request was refused (`422`, "deactivated")
+- Backported `v2` fixes to `v1` ([#94](https://github.com/SEMICeu/sdep/issues/94))
+  - GET areas returns max 1000 areas (was unlimited), to avoid potential server overload ([#83](https://github.com/SEMICeu/sdep/issues/83))
+  - POST activities validates the temporal on UTC ([#81](https://github.com/SEMICeu/sdep/issues/81))
+  - POST activities validates the area on its regulation (must be `activity` or `all`, not `listing` only) ([#84](https://github.com/SEMICeu/sdep/issues/84))
+  - POST activities accepts a `url` of up to 2048 characters ([#80](https://github.com/SEMICeu/sdep/issues/80))
+  - POST activities accepts a `fullAddress` of up to 328 characters ([#75](https://github.com/SEMICeu/sdep/issues/75))
+- Widened `registrationNumber` from 32 to 128 characters, so legacy registration numbers fit ([#89](https://github.com/SEMICeu/sdep/issues/89))
+
+---
+
+**Impact**
+
+---
+
+v1:
+
+| Scope             | Domain             | Version | Meta     | Delta        | Notes                                                                                          |
+| ----------------- | ------------------ | ------- | -------- | ------------ | ---------------------------------------------------------------------------------------------- |
+| **EU-harmonized** | `STR`              | `v1`    | `stable` | **Narrowed** | GET areas: max 1000 iso. unlimited (to avoid potential server overload)                        |
+| **EU-harmonized** | `STR`              | `v1`    | `stable` | **Narrowed** | POST activities: validate temporal on UTC                                                      |
+| **EU-harmonized** | `STR`              | `v1`    | `stable` | **Narrowed** | POST activities: validate area on regulation (must be `activity` or `all`, not `listing` only) |
+| **EU-harmonized** | `STR`              | `v1`    | `stable` | **Widened**  | POST activities: `url` to 2048                                                                 |
+| **EU-harmonized** | `STR`              | `v1`    | `stable` | **Widened**  | POST activities: `fullAddress` to 328                                                          |
+| **EU-harmonized** | `STR`              | `v1`    | `stable` | **Widened**  | POST activities: `registrationNumber` to 128                                                   |
+| Country-specific  | `CA`, `STA`, `AMA` | `v1`    | `stable` | Narrowed     | GET activities: `registrationNumber` 128                                                       |
+
+---
+
+v2:
+
+| Scope             | Domain                    | Version | Meta    | Delta        | Notes                                                  |
+| ----------------- | ------------------------- | ------- | ------- | ------------ | ------------------------------------------------------ |
+| **EU-harmonized** | `STR`                     | `v2`    | `alpha` | **Widened**  | POST activities, listings: `registrationNumber` to 128 |
+| **EU-harmonized** | `STR`                     | `v2`    | `alpha` | **Narrowed** | GET listings: `registrationNumber` to 128              |
+| Country-specific  | `CA`, `STA`               | `v2`    | `alpha` | Narrowed     | GET activities: `registrationNumber` to 128            |
+| Country-specific  | `CA`, `STA`, `LSA`, `LMA` | `v2`    | `alpha` | Narrowed     | GET listings: `registrationNumber` to 128              |
 
 <h1>1.8.0</h1>
 
@@ -47,13 +95,13 @@
 
 v1:
 
-| Scope             | Code  | Version | Meta     | Delta                 | Notes                                               |
-| ----------------- | ----- | ------- | -------- | --------------------- | --------------------------------------------------- |
-| **EU-harmonized** | `STR` | `v1`    | `stable` | **No impact**         |                                                     |
-| Country-specific  | `CA`  | `v1`    | `stable` | Narrowed              | GET areas & activities: max 1000 iso. unlimited [1] |
-| Country-specific  | `CA`  | `v1`    | `stable` | Widened               | GET activities: additional query filters [1]        |
-| Country-specific  | `AMA` | `v1`    | `stable` | Alpha > beta > stable | Added activity monitoring authority                 |
-| Country-specific  | `STA` | `v1`    | `stable` | Alpha > beta > stable | Added statistics authority                          |
+| Scope             | Domain | Version | Meta     | Delta                 | Notes                                               |
+| ----------------- | ------ | ------- | -------- | --------------------- | --------------------------------------------------- |
+| **EU-harmonized** | `STR`  | `v1`    | `stable` | **No impact**         |                                                     |
+| Country-specific  | `CA`   | `v1`    | `stable` | Narrowed              | GET areas & activities: max 1000 iso. unlimited [1] |
+| Country-specific  | `CA`   | `v1`    | `stable` | Widened               | GET activities: additional query filters [1]        |
+| Country-specific  | `AMA`  | `v1`    | `stable` | Alpha > beta > stable | Added activity monitoring authority                 |
+| Country-specific  | `STA`  | `v1`    | `stable` | Alpha > beta > stable | Added statistics authority                          |
 
 [1] Backported from CA/v2 to CA/v1, because CA/v2 is now `alpha` and (for now) not yet in production anymore (to avoid alpha data pollution)
 
@@ -61,20 +109,20 @@ v1:
 
 v2:
 
-| Scope             | Code  | Version | Meta    | Delta            | Notes                                                                  |
-| ----------------- | ----- | ------- | ------- | ---------------- | ---------------------------------------------------------------------- |
-| **EU-harmonized** | `STR` | `v2`    | `alpha` | **Beta > alpha** | Was introduced in 1.6.0 as `beta`, but is re-introduced as `alpha` [2] |
-| **EU-harmonized** | `STR` | `v2`    | `alpha` | **Narrowed**     | GET areas: max 1000 iso. unlimited                                     |
-| **EU-harmonized** | `STR` | `v2`    | `alpha` | **Narrowed**     | POST activities: validate temporal on UTC                              |
-| **EU-harmonized** | `STR` | `v2`    | `alpha` | **Narrowed**     | POST activities: validate area on regulation (`activity` or `all`)     |
-| **EU-harmonized** | `STR` | `v2`    | `alpha` | **Widened**      | POST activities: `url` to 2048 characters                              |
-| **EU-harmonized** | `STR` | `v2`    | `alpha` | **Widened**      | POST activities: `fullAddress` to 328 characters                       |
-| Country-specific  | `CA`  | `v2`    | `alpha` | Beta > alpha     | Was introduced in 1.2.0 as `beta`, but is re-introduced as `alpha` [2] |
-| Country-specific  | `CA`  | `v2`    | `alpha` | Narrowed         | GET activities: `url` to 2048 characters                               |
-| Country-specific  | `CA`  | `v2`    | `alpha` | Narrowed         | GET activities: `fullAddress` to 328 characters                        |
-| Country-specific  | `LSA` | `v2`    | `alpha` | New              | Added listing screening authority                                      |
-| Country-specific  | `LMA` | `v2`    | `alpha` | New              | Added listing monitoring authority                                     |
-| Country-specific  | `STA` | `v2`    | `alpha` | New              | Added listings to statistics authority                                 |
+| Scope             | Domain | Version | Meta    | Delta            | Notes                                                                                          |
+| ----------------- | ------ | ------- | ------- | ---------------- | ---------------------------------------------------------------------------------------------- |
+| **EU-harmonized** | `STR`  | `v2`    | `alpha` | **Beta > alpha** | Was introduced in 1.6.0 as `beta`, but is re-introduced as `alpha` [2]                         |
+| **EU-harmonized** | `STR`  | `v2`    | `alpha` | **Narrowed**     | GET areas: max 1000 iso. unlimited                                                             |
+| **EU-harmonized** | `STR`  | `v2`    | `alpha` | **Narrowed**     | POST activities: validate temporal on UTC                                                      |
+| **EU-harmonized** | `STR`  | `v2`    | `alpha` | **Narrowed**     | POST activities: validate area on regulation (must be `activity` or `all`, not `listing` only) |
+| **EU-harmonized** | `STR`  | `v2`    | `alpha` | **Widened**      | POST activities: `url` to 2048 characters                                                      |
+| **EU-harmonized** | `STR`  | `v2`    | `alpha` | **Widened**      | POST activities: `fullAddress` to 328 characters                                               |
+| Country-specific  | `CA`   | `v2`    | `alpha` | Beta > alpha     | Was introduced in 1.2.0 as `beta`, but is re-introduced as `alpha` [2]                         |
+| Country-specific  | `CA`   | `v2`    | `alpha` | Narrowed         | GET activities: `url` to 2048 characters                                                       |
+| Country-specific  | `CA`   | `v2`    | `alpha` | Narrowed         | GET activities: `fullAddress` to 328 characters                                                |
+| Country-specific  | `LSA`  | `v2`    | `alpha` | New              | Added listing screening authority                                                              |
+| Country-specific  | `LMA`  | `v2`    | `alpha` | New              | Added listing monitoring authority                                                             |
+| Country-specific  | `STA`  | `v2`    | `alpha` | New              | Added listings to statistics authority                                                         |
 
 [2] Because v2 now focuses on listings (random checks), and is work in progress (WIP).
 
@@ -329,7 +377,7 @@ v2:
 
 ## 1.0.0
 
-- Added versioning policy to the [API documentation](./docs/API_TECH.md)
+- Added versioning policy to the [API](./docs/API_TECH.md) documentation
 - Added a smoke test that runs without test data, making it particularly useful for execution against production environments
 - Added postgres utility targets to Makefile
 

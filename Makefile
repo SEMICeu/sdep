@@ -180,11 +180,16 @@ postgres-count: ## Count rows in all tables
 	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c " \
 	  SELECT \
 	    (SELECT COUNT(*) FROM activity) AS activity, \
+	    (SELECT COUNT(*) FROM activity_identity) AS activity_identity, \
 	    (SELECT COUNT(*) FROM area) AS area, \
+	    (SELECT COUNT(*) FROM area_identity) AS area_identity, \
 	    (SELECT COUNT(*) FROM audit_log) AS audit_log, \
 	    (SELECT COUNT(*) FROM competent_authority) AS competent_authority, \
+	    (SELECT COUNT(*) FROM competent_authority_identity) AS competent_authority_identity, \
 	    (SELECT COUNT(*) FROM listing) AS listing, \
-	    (SELECT COUNT(*) FROM platform) AS platform;"
+	    (SELECT COUNT(*) FROM listing_identity) AS listing_identity, \
+	    (SELECT COUNT(*) FROM platform) AS platform, \
+	    (SELECT COUNT(*) FROM platform_identity) AS platform_identity;"
 
 postgres-auditlog: ## Show audit log
 	@set -a && source .env && set +a && \
@@ -387,6 +392,7 @@ keycloak-match-client-public-keys: ## Match client public keys to private keys (
 	CA1_CLIENT_ID=sdep-test-ca.01 && KC_APP_REALM_CLIENT_ID=$$CA1_CLIENT_ID && get_client_secret && CA1_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	CA2_CLIENT_ID=sdep-test-ca.02 && KC_APP_REALM_CLIENT_ID=$$CA2_CLIENT_ID && get_client_secret && CA2_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	STR_CLIENT_ID=sdep-test-str.01 && KC_APP_REALM_CLIENT_ID=$$STR_CLIENT_ID && get_client_secret && STR_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
+	STR2_CLIENT_ID=sdep-test-str.02 && KC_APP_REALM_CLIENT_ID=$$STR2_CLIENT_ID && get_client_secret && STR2_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	STA_CLIENT_ID=sdep-test-sta.01 && KC_APP_REALM_CLIENT_ID=$$STA_CLIENT_ID && get_client_secret && STA_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	LSA_CLIENT_ID=sdep-test-lsa.01 && KC_APP_REALM_CLIENT_ID=$$LSA_CLIENT_ID && get_client_secret && LSA_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
 	LMA_CLIENT_ID=sdep-test-lma.01 && KC_APP_REALM_CLIENT_ID=$$LMA_CLIENT_ID && get_client_secret && LMA_CLIENT_SECRET=$$KC_APP_REALM_CLIENT_SECRET && \
@@ -397,6 +403,8 @@ keycloak-match-client-public-keys: ## Match client public keys to private keys (
 	echo "export CA2_CLIENT_SECRET=$$CA2_CLIENT_SECRET" >> ./tmp/.credentials && \
 	echo "export STR_CLIENT_ID=$$STR_CLIENT_ID" >> ./tmp/.credentials && \
 	echo "export STR_CLIENT_SECRET=$$STR_CLIENT_SECRET" >> ./tmp/.credentials && \
+	echo "export STR2_CLIENT_ID=$$STR2_CLIENT_ID" >> ./tmp/.credentials && \
+	echo "export STR2_CLIENT_SECRET=$$STR2_CLIENT_SECRET" >> ./tmp/.credentials && \
 	echo "export STA_CLIENT_ID=$$STA_CLIENT_ID" >> ./tmp/.credentials && \
 	echo "export STA_CLIENT_SECRET=$$STA_CLIENT_SECRET" >> ./tmp/.credentials && \
 	echo "export LSA_CLIENT_ID=$$LSA_CLIENT_ID" >> ./tmp/.credentials && \
@@ -578,12 +586,19 @@ test-security: .ensure-up .get-client-credentials # Helper - Test only security 
 		$(MAKE) --no-print-directory postgres-up; \
 	fi
 
-test-migrations: .postgres-up-unless-ci ## Test alembic migrations in postgresql
+# The last step runs the backend tests that need PostgreSQL row locks; `make test`
+# (SQLite) skips them. The backend conftest.py creates and drops <db>_pytest itself, as
+# the superuser when set (locally the app user may not create databases; CI has none).
+test-migrations: export POSTGRES_SUPER_USER := $(POSTGRES_SUPER_USER)
+test-migrations: export POSTGRES_SUPER_PASSWORD := $(POSTGRES_SUPER_PASSWORD)
+test-migrations: .postgres-up-unless-ci ## Test alembic migrations in postgresql, plus the backend tests that need postgresql
 	@echo "🧪 Running migration tests..."
 	@cd backend && uv run python scripts/wait_for_postgres.py
 	@$(MAKE) -C backend --no-print-directory upgrade
 	@cd backend && PYTHONPATH=. uv run python scripts/check_db_matches_models.py
 	@uv run --script tests/test_postgres_check_constraints.py
+	@cd backend && DATABASE_URL="$$(uv run python -c 'import os; from sqlalchemy import URL; e = os.environ; print(URL.create("postgresql+asyncpg", username=e.get("POSTGRES_SUPER_USER") or e["POSTGRES_DB_USER"], password=e.get("POSTGRES_SUPER_PASSWORD") or e["POSTGRES_DB_PASSWORD"], host=e.get("POSTGRES_HOST") or "localhost", port=int(e.get("POSTGRES_PORT") or 5432), database=e["POSTGRES_DB_NAME"] + "_pytest").render_as_string(hide_password=False))')" \
+	  uv run pytest -q -n 0 tests/services/test_concurrent_rename.py
 	@echo "✅ Migration tests completed!"
 
 ##@ Tests (performance)
@@ -706,8 +721,10 @@ test-keep: ## Test fullstack + migrations + performance + security (malware); ke
 # Three tools do the work, each from its own ecosystem:
 #   - markdownlint-cli2 (Node)  checks the house rules; run on demand via npx
 #   - mdformat (Python)         rewrites the file; run on demand via uvx, with
-#                               mdformat-gfm for table alignment and the local
-#                               mdformat-house plugin for thematic breaks as "---"
+#                               mdformat-gfm for table alignment, mdformat-frontmatter
+#                               to leave YAML front matter ("---" block at the top of a
+#                               file) untouched, and the
+#                               local mdformat-house plugin for thematic breaks as "---"
 #   - format_tree_visualizations.py (Python, in the repo) aligns the `# comment`
 #                               column in directory-tree code blocks (--check to lint)
 # The first two are not vendored or installed into the repo: npx and uvx fetch the pinned
@@ -723,7 +740,7 @@ MARKDOWN_TOOLING := docs/markdown-tooling
 MARKDOWNLINT_VERSION := 0.18.1
 MARKDOWNLINT := npx --yes markdownlint-cli2@$(MARKDOWNLINT_VERSION) --config $(MARKDOWN_TOOLING)/.markdownlint-cli2.jsonc
 MARKDOWNLINT_FIX := $(MARKDOWNLINT) --fix
-MDFORMAT := uvx --from mdformat==1.0.0 --with mdformat-gfm==1.0.0 --with ./$(MARKDOWN_TOOLING)/mdformat mdformat --number
+MDFORMAT := uvx --from mdformat==1.0.0 --with mdformat-gfm==1.0.0 --with mdformat-frontmatter==2.1.2 --with ./$(MARKDOWN_TOOLING)/mdformat mdformat --number
 TREEFORMAT := python3 $(MARKDOWN_TOOLING)/format_tree_visualizations.py
 # Every public *.md in the repo (scripts/public_files.sh: git-known, minus the private
 # paths marked export-ignore in .gitattributes), minus the "ignores" of

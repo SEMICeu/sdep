@@ -1,15 +1,15 @@
-"""STR v1 areas list endpoint (unlimited by default)."""
+"""STR v1 areas list endpoint (limit defaults to 1000, backported from v2)."""
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.common.area_examples import (
-    AREAS_DESCRIPTION_V1,
+    AREAS_DESCRIPTION,
     AREAS_RESPONSES,
     AREAS_SUMMARY,
 )
 from app.api.common.auth_dependencies import RequireRoles
-from app.api.common.pagination import PaginationDependency
+from app.api.common.pagination import LimitedPaginationDependency
 from app.api.common.security import Role
 from app.db.config import get_async_db_read_only
 from app.schemas.area import AreaListResponse, AreaResponse
@@ -23,13 +23,13 @@ router = APIRouter(tags=["str"])
     response_model=AreaListResponse,
     status_code=status.HTTP_200_OK,
     summary=AREAS_SUMMARY,
-    description=AREAS_DESCRIPTION_V1,
+    description=AREAS_DESCRIPTION,
     operation_id="getAreas",
     responses=AREAS_RESPONSES,
     dependencies=[Depends(RequireRoles(Role.STR, Role.READ))],
 )
 async def get_areas(
-    pagination: PaginationDependency,
+    pagination: LimitedPaginationDependency,
     session: AsyncSession = Depends(get_async_db_read_only),
 ) -> AreaListResponse:
     """
@@ -40,7 +40,7 @@ async def get_areas(
 
     Pagination parameters:
     - offset: Number of records to skip (default: 0)
-    - limit: Maximum number of records to return (default: no limit, max: 1000)
+    - limit: Maximum number of records to return (default: 1000, max: 1000)
     """
     area_objects = await area.get_areas(
         session,

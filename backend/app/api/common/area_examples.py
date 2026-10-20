@@ -18,14 +18,9 @@ AREAS_ITEM_DESCRIPTION = (
     "- `createdAt`: Timestamp when this area version was created (UTC)"
 )
 
-AREAS_DESCRIPTION_V1 = (
-    "Get all areas. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.\n\n"
-    + AREAS_ITEM_DESCRIPTION
-)
-
-# STR v2: the limit defaults to the maximum, so one call never returns
-# more than 1000 areas. Clients page with offset/limit and use /areas/count.
-AREAS_DESCRIPTION_V2 = (
+# The limit defaults to the maximum, so one call never returns more than 1000
+# areas. Clients page with offset/limit and use /areas/count.
+AREAS_DESCRIPTION = (
     "Get all areas, maximum 1000 per page. `limit` defaults to 1000 (the maximum); use `offset` and `limit` to page through the result set, and `GET /areas/count` for the total.\n\n"
     + AREAS_ITEM_DESCRIPTION
 )

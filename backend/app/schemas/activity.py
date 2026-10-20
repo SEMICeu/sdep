@@ -27,7 +27,6 @@ from app.schemas.address import (
 from app.schemas.common import FunctionalId, OptionalFunctionalId
 from app.schemas.temporal import (
     CommonTemporalRequest,
-    CommonTemporalRequestV2,
     CommonTemporalResponse,
 )
 
@@ -62,7 +61,6 @@ __all__ = [
     "ActivityFilters",
     "ActivityListResponse",
     "ActivityRequest",
-    "ActivityRequestV2",
     "ActivityResponse",
 ]
 
@@ -129,7 +127,7 @@ class ActivityRequest(BaseModel):
     area_id: FunctionalId = Field(
         ...,
         alias="areaId",
-        description="Functional ID referencing the area where the activity took place",
+        description="Functional ID referencing the area where the activity took place (case-sensitive)",
         examples=[
             "58ff0814-3aa1-5019-9afb-3cd9f398602c",
             "58FF0814-3AA1-5019-9AFB-3CD9F398602C",
@@ -137,7 +135,6 @@ class ActivityRequest(BaseModel):
     )  # Functional ID reference
 
     # 2048 is a chosen pragmatic cap, not a browser limit. See docs/DATAMODEL_TECH.md, Activity.
-    # STR v1 keeps 128, see app/schemas/activity_v1.py.
     url: str = Field(
         ...,
         min_length=1,
@@ -151,12 +148,13 @@ class ActivityRequest(BaseModel):
         description="Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)",
     )  # Composite
 
+    # 128 leaves room for legacy registration numbers. See docs/DATAMODEL_TECH.md, Activity.
     registration_number: str = Field(
         ...,
         alias="registrationNumber",
         min_length=1,
-        max_length=32,
-        description="Registration number of the address (max 32 chars)",
+        max_length=128,
+        description="Registration number of the address (max 128 chars)",
         examples=["REG0001"],
     )  # Attribute
 
@@ -192,7 +190,7 @@ class ActivityRequest(BaseModel):
 
     temporal: CommonTemporalRequest = Field(
         ...,
-        description="Temporal composite (`startDatetime`, `endDatetime`)",
+        description="Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00`",
     )  # Composite
 
     @property
@@ -201,24 +199,6 @@ class ActivityRequest(BaseModel):
         if not isinstance(self.activity_id, str):
             raise RuntimeError("activity_id should be set after normalization")
         return self.activity_id
-
-
-class ActivityRequestV2(ActivityRequest):
-    """Activity request schema for STR v2.
-
-    Differs from v1 in three fields: timestamps must be UTC, and `url` and
-    `fullAddress` allow 2048 and 328 characters (v1: 128 and 318).
-    """
-
-    model_config = ConfigDict(
-        title="Activity.RequestV2",
-        populate_by_name=True,
-    )
-
-    temporal: CommonTemporalRequestV2 = Field(
-        ...,
-        description="Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00`",
-    )  # Composite
 
 
 class ActivityBulkCreate(ActivityRequest):
@@ -241,7 +221,7 @@ class ActivityFilters:
 
 
 # Field maximums mirror ActivityRequest, so clients can size their storage from the
-# response contract. CA v1 keeps the undocumented variant, see app/schemas/activity_v1.py.
+# response contract.
 class ActivityResponse(BaseModel):
     """Activity response schema."""
 
@@ -276,7 +256,7 @@ class ActivityResponse(BaseModel):
         serialization_alias="areaId",
         # The ORM model exposes a convenience property for the functional area ID.
         validation_alias="area_id_functional",
-        description="Functional ID referencing the area where this activity took place",
+        description="Functional ID referencing the area where this activity took place (case-sensitive)",
         examples=[
             "58ff0814-3aa1-5019-9afb-3cd9f398602c",
             "58FF0814-3AA1-5019-9AFB-3CD9F398602C",
@@ -317,8 +297,8 @@ class ActivityResponse(BaseModel):
     registration_number: str = Field(
         ...,
         serialization_alias="registrationNumber",
-        max_length=32,
-        description="Registration number of the address (max 32 chars)",
+        max_length=128,
+        description="Registration number of the address (max 128 chars)",
     )  # Attribute
     number_of_guests: int = Field(
         ...,

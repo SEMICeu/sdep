@@ -15,6 +15,9 @@ _CLIENT_ID_RE = re.compile(CLIENT_ID_PATTERN)
 UTC_DATETIME_VALIDATION_MESSAGE = (
     "Datetime must be expressed in UTC with offset Z or +00:00"
 )
+# FastAPI drops every None from the OpenAPI document (exclude_none), also inside
+# examples. Examples use this marker for a JSON null, see restore_null_examples.
+NULL_EXAMPLE = "__null__"
 
 FunctionalId = Annotated[
     str,
@@ -56,6 +59,7 @@ def validate_client_id(value: str) -> None:
 __all__ = [
     "CLIENT_ID_PATTERN",
     "FUNCTIONAL_ID_PATTERN",
+    "NULL_EXAMPLE",
     "UTC_DATETIME_VALIDATION_MESSAGE",
     "FunctionalId",
     "OptionalFunctionalId",

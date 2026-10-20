@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -39,17 +38,16 @@ class Area(Base):
     An area is expressed as a binary (shapefile).
 
     The area_id is a functional identifier that can be optionally
-    provided by the competent authority or auto-generated. Combined with created_at,
-    it enables versioning.
+    provided by the competent authority or auto-generated. It has one owner
+    (models/identity.py). Combined with created_at, it enables versioning.
     """
 
     __tablename__ = "area"
     __table_args__ = (
         UniqueConstraint(
             "area_id",
-            "competent_authority_id",
             "created_at",
-            name="uq_area_area_id_competent_authority_id_created_at",
+            name="uq_area_area_id_created_at",
         ),
         CheckConstraint(
             "length(filedata) <= 1048576",
@@ -59,14 +57,12 @@ class Area(Base):
             "area_id ~ '^[A-Za-z0-9-]+$'",
             name="ck_area_area_id_format",
         ).ddl_if(dialect="postgresql"),
-        # At most one current area (ended_at IS NULL) per (area_id,
-        # competent_authority) pair, so the current-row lookup
-        # (scalar_one_or_none) can never find duplicates. The same
-        # area_id under different CAs stays allowed.
+        # At most one current area (ended_at IS NULL) per area_id, so the
+        # current-row lookup (scalar_one_or_none) can never find duplicates.
+        # An area_id has one owner, see models/identity.py.
         Index(
-            "uq_area_current_area_id_ca",
+            "uq_area_current_area_id",
             "area_id",
-            "competent_authority_id",
             unique=True,
             postgresql_where=text("ended_at IS NULL"),
             sqlite_where=text("ended_at IS NULL"),
@@ -80,9 +76,8 @@ class Area(Base):
 
     area_id: Mapped[str] = mapped_column(
         String(64),
+        ForeignKey("area_identity.area_id"),
         nullable=False,
-        index=True,
-        default=lambda: str(uuid.uuid4()),
     )  # Functional ID (business-facing, API-exposed, alphanumeric with hyphens, max 64 chars) e.g., "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 
     area_name: Mapped[str | None] = mapped_column(

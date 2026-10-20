@@ -72,6 +72,7 @@
                 "status": "OK"
               },
               {
+                "activityId": null,
                 "activityIndex": 1,
                 "errors": {
                   "detail": [
@@ -144,7 +145,7 @@
                 "type": "null"
               }
             ],
-            "description": "Activity functional ID provided by the client in the request",
+            "description": "As supplied in the request item, or `null` when none was supplied",
             "examples": [
               "550e8400-e29b-41d4-a716-446655440000"
             ],
@@ -246,7 +247,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where the activity took place",
+            "description": "Functional ID referencing the area where the activity took place (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c",
               "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
@@ -286,11 +287,11 @@
             "type": "integer"
           },
           "registrationNumber": {
-            "description": "Registration number of the address (max 32 chars)",
+            "description": "Registration number of the address (max 128 chars)",
             "examples": [
               "REG0001"
             ],
-            "maxLength": 32,
+            "maxLength": 128,
             "minLength": 1,
             "title": "Registrationnumber",
             "type": "string"
@@ -306,14 +307,14 @@
           },
           "temporal": {
             "$ref": "#/components/schemas/CommonTemporalRequest",
-            "description": "Temporal composite (`startDatetime`, `endDatetime`)"
+            "description": "Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00`"
           },
           "url": {
-            "description": "URL of the originating listing/advertisement (max 128 chars)",
+            "description": "URL of the originating listing/advertisement (max 2048 chars)",
             "examples": [
               "http://example.com/amsterdam-myhouse-1"
             ],
-            "maxLength": 128,
+            "maxLength": 2048,
             "minLength": 1,
             "title": "Url",
             "type": "string"
@@ -364,7 +365,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where this activity took place",
+            "description": "Functional ID referencing the area where this activity took place (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c",
               "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
@@ -414,10 +415,12 @@
             "title": "Competentauthorityname"
           },
           "countryOfGuests": {
-            "description": "Array of country codes of guests (each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
+            "description": "Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
             "items": {
               "type": "string"
             },
+            "maxItems": 1024,
+            "minItems": 1,
             "title": "Countryofguests",
             "type": "array"
           },
@@ -429,6 +432,8 @@
           },
           "numberOfGuests": {
             "description": "Number of guests (1-1024)",
+            "maximum": 1024.0,
+            "minimum": 1.0,
             "title": "Numberofguests",
             "type": "integer"
           },
@@ -458,7 +463,8 @@
             "title": "Platformname"
           },
           "registrationNumber": {
-            "description": "Registration number of the address",
+            "description": "Registration number of the address (max 128 chars)",
+            "maxLength": 128,
             "title": "Registrationnumber",
             "type": "string"
           },
@@ -475,7 +481,8 @@
             "description": "Temporal composite (`startDatetime`, `endDatetime`)"
           },
           "url": {
-            "description": "URL of the originating listing/advertisement",
+            "description": "URL of the originating listing/advertisement (max 2048 chars)",
+            "maxLength": 2048,
             "title": "Url",
             "type": "string"
           }
@@ -640,11 +647,11 @@
         "description": "Address composite schema for activity requests (INSPIRE/STR-AP field names).\n\nValidation Layer:\n- All syntax validation (lengths, types, constraints) happens here\n- Service layer receives validated data",
         "properties": {
           "fullAddress": {
-            "description": "Full address as a single string (required, max 318 chars)",
+            "description": "Full address as a single string (required, max 328 chars)",
             "examples": [
               "Turfmarkt 147a-5h, 2500EA Den Haag"
             ],
-            "maxLength": 318,
+            "maxLength": 328,
             "title": "Fulladdress",
             "type": "string"
           },
@@ -739,58 +746,65 @@
         "description": "Address composite schema for activity responses (INSPIRE/STR-AP field names).",
         "properties": {
           "fullAddress": {
-            "description": "Full address as a single string",
+            "description": "Full address as a single string (max 328 chars)",
+            "maxLength": 328,
             "title": "Fulladdress",
             "type": "string"
           },
           "locatorDesignatorAddition": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Additional qualifier (optional)",
+            "description": "Additional qualifier (optional, max 128 chars)",
             "title": "Locatordesignatoraddition"
           },
           "locatorDesignatorLetter": {
             "anyOf": [
               {
+                "maxLength": 10,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Letter/character suffix (optional)",
+            "description": "Letter/character suffix (optional, max 10 chars)",
             "title": "Locatordesignatorletter"
           },
           "locatorDesignatorNumber": {
             "anyOf": [
               {
+                "minimum": 0.0,
                 "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Numeric house number component (optional)",
+            "description": "Numeric house number component (optional, >= 0 when provided)",
             "title": "Locatordesignatornumber"
           },
           "postCode": {
-            "description": "Postal code",
+            "description": "Postal code (max 10 chars)",
+            "maxLength": 10,
             "title": "Postcode",
             "type": "string"
           },
           "postName": {
-            "description": "City / town / village",
+            "description": "City / town / village (max 80 chars)",
+            "maxLength": 80,
             "title": "Postname",
             "type": "string"
           },
           "thoroughfare": {
-            "description": "Street / public space name",
+            "description": "Street / public space name (max 80 chars)",
+            "maxLength": 80,
             "title": "Thoroughfare",
             "type": "string"
           }
@@ -805,10 +819,10 @@
         "type": "object"
       },
       "CommonTemporalRequest": {
-        "description": "Temporal composite schema for activity requests.\n\nValidation Layer:\n- Validates datetime formats\n- Date-only and naive submissions are permitted, and are stored as UTC (date-only as 00:00:00Z)\n- Ensures start year is >= 2025\n- Ensures start is before end",
+        "description": "Temporal composite schema for activity requests.\n\nValidation Layer:\n- Both timestamps must carry the UTC offset `Z` or `+00:00`\n- Other offsets, no offset and date-only values are rejected\n- Ensures start year is >= 2025\n- Ensures start is before end",
         "properties": {
           "endDatetime": {
-            "description": "End date and time of the rental activity (must be after startDatetime)",
+            "description": "End date and time of the rental activity, in UTC with offset `Z` or `+00:00` (must be after startDatetime)",
             "examples": [
               "2025-06-07T11:00:00Z"
             ],
@@ -817,7 +831,7 @@
             "type": "string"
           },
           "startDatetime": {
-            "description": "Start date and time of the rental activity (year must be >= 2025)",
+            "description": "Start date and time of the rental activity, in UTC with offset `Z` or `+00:00` (year must be >= 2025)",
             "examples": [
               "2025-06-01T14:00:00Z"
             ],
@@ -954,7 +968,7 @@
   "paths": {
     "/activities/bulk": {
       "post": {
-        "description": "Submit 1-1000 activities into the activities collection for the currently authenticated platform.\n\n**ID Pattern:**\n- `activityId`: provided by the platform as business identifier (optional), otherwise generated as UUIDv4 (RFC 9562)\n\n**Versioning:**\n- Same `activityId` can be resubmitted \u2192 creates new version with different timestamp\n- Unique constraint: (`activityId`, `createdAt`, current authenticated platform)\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n   Failed items are marked NOK with the error reason; valid items continue.\n2. **Referential Integrity Check** - area IDs are verified. Items with unknown `areaId` are marked NOK; valid items continue.\n3. **Bulk Insert** - all remaining valid items are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `activityId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `activities`: Array of activity objects to process (1-1000 items per batch)\n\n**Each activity item in the request contains:**\n- `activityId`: Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `activityName`: Display name of the activity (optional, max 64 chars)\n- `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `url`: URL of the originating listing/advertisement (max 128 chars)\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 32 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or `N/A`, uppercase only); array length must equal `numberOfGuests`.\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n\n**The response contains:**\n- `totalReceived`: Total number of items received in the request\n- `succeeded`: Number of items successfully created (status OK)\n- `failed`: Number of items that failed validation or processing (status NOK)\n- `results`: Per-item results preserving the original request order\n\n**Each results item contains:**\n- `activityIndex`: Zero-based index of this item in the original request list\n- `activityId`: Activity functional ID provided by the client in the request\n- `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)\n- `activity`: The full activity object (present for OK items, omitted for NOK items)\n- `errors`: Structured error details (present for NOK items, omitted for OK items)\n\n**The activity object (for the OK items) contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where this activity took place\n- `areaName`: Display name (optional) of the area where this activity took place\n- `competentAuthorityId`: Functional ID of the competent authority that owns the referenced area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 32 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`); array length equals `numberOfGuests`.\n- `temporal`: Temporal composite (startDatetime, endDatetime)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)\n\n**Response HTTP status:**\n- 201: all items created successfully\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 422: all items failed",
+        "description": "Submit 1-1000 activities into the activities collection for the currently authenticated platform.\n\n**ID Pattern:**\n- `activityId` is provided by the platform as an optional business identifier; otherwise, it is generated by SDEP as a UUIDv4 (RFC 9562).\n- `activityId`, whether supplied or generated, remains permanently associated with exactly one platform, to ensure referential integrity.\n- When providing `activityId` as a business identifier, consider using RFC 9562 UUIDs to ensure global uniqueness (v4 for random generation or v5/v8 for deterministic generation).\n- `activityId` is case-sensitive and preserved exactly as submitted to support non-UUID identifiers as well. For example, `My3F2A` and `My3f2a` are treated as distinct IDs.\n\n**Versioning:**\n- Same `activityId` can be resubmitted by its owner \u2192 creates new version with different timestamp\n- Unique constraint: (`activityId`, `createdAt`)\n- An `activityId` of another platform \u2192 item NOK (`duplicate_error`)\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n   Failed items are marked NOK with the error reason; valid items continue.\n2. **Referential Integrity Check** - area IDs are verified. Items with unknown `areaId` are marked NOK; valid items continue.\n   Activities are rejected for areas that are regulated for listing only: such items are marked NOK with `regulation_error`.\n3. **Bulk Insert** - all remaining valid items are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `activityId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `activities`: Array of activity objects to process (1-1000 items per batch)\n\n**Each activity item in the request contains:**\n- `activityId`: Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `activityName`: Display name of the activity (optional, max 64 chars)\n- `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `url`: URL of the originating listing/advertisement (max 2048 chars)\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 128 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or `N/A`, uppercase only); array length must equal `numberOfGuests`.\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00` (e.g. `2025-06-01T14:00:00Z`); rejected are other offsets such as CET (`2025-06-01T15:00:00+01:00`), no offset (`2025-06-01T14:00:00`) and no time (`2025-06-01`)\n\n**The response contains:**\n- `totalReceived`: Total number of items received in the request\n- `succeeded`: Number of items successfully created (status OK)\n- `failed`: Number of items that failed validation or processing (status NOK)\n- `results`: Per-item results preserving the original request order\n\n**Each results item contains:**\n- `activityIndex`: Zero-based index of this item in the original request list\n- `activityId`: As supplied in the request item, or `null` when none was supplied\n- `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)\n- `activity`: The full activity object (present for OK items, omitted for NOK items)\n- `errors`: Structured error details (present for NOK items, omitted for OK items)\n\n**The activity object (for the OK items) contains:**\n- `activityId`: Functional ID identifying this activity: as supplied in the request, or generated by SDEP (UUIDv4) when none was supplied\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where this activity took place\n- `areaName`: Display name (optional) of the area where this activity took place\n- `competentAuthorityId`: Functional ID of the competent authority that owns the referenced area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 128 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`); array length equals `numberOfGuests`.\n- `temporal`: Temporal composite (startDatetime, endDatetime)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)\n\n**Response HTTP status:**\n- 201: all items created successfully\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 409: a concurrent request wrote the same record first (`conflict_error`), retry the request\n- 422: all items failed",
         "operationId": "postActivitiesBulk",
         "requestBody": {
           "content": {
@@ -1113,7 +1127,7 @@
             "content": {
               "application/json": {
                 "example": {
-                  "failed": 4,
+                  "failed": 5,
                   "results": [
                     {
                       "activity": {
@@ -1205,6 +1219,7 @@
                       "status": "NOK"
                     },
                     {
+                      "activityId": null,
                       "activityIndex": 3,
                       "errors": {
                         "detail": [
@@ -1248,10 +1263,26 @@
                         ]
                       },
                       "status": "NOK"
+                    },
+                    {
+                      "activityId": "aa4d3955-j74g-96i9-f26b-991100995555",
+                      "activityIndex": 6,
+                      "errors": {
+                        "detail": [
+                          {
+                            "loc": [
+                              "areaId"
+                            ],
+                            "msg": "Area with areaId '00c0748b-5782-5d7e-be01-7dd306841d89' is regulated for listing only",
+                            "type": "regulation_error"
+                          }
+                        ]
+                      },
+                      "status": "NOK"
                     }
                   ],
                   "succeeded": 2,
-                  "totalReceived": 6
+                  "totalReceived": 7
                 },
                 "schema": {
                   "$ref": "#/components/schemas/ActivityBulkResponse"
@@ -1358,6 +1389,16 @@
           "403": {
             "description": "Forbidden - insufficient permissions"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - a concurrent request wrote the same record first (`conflict_error`), retry the request"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1389,6 +1430,7 @@
                       "status": "NOK"
                     },
                     {
+                      "activityId": null,
                       "activityIndex": 1,
                       "errors": {
                         "detail": [
@@ -1441,7 +1483,7 @@
     },
     "/areas": {
       "get": {
-        "description": "Get all areas. By default, returns all areas (unlimited). Use optional pagination parameters to limit results.\n\n**Each area contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)",
+        "description": "Get all areas, maximum 1000 per page. `limit` defaults to 1000 (the maximum); use `offset` and `limit` to page through the result set, and `GET /areas/count` for the total.\n\n**Each area contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID referencing the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)",
         "operationId": "getAreas",
         "parameters": [
           {
@@ -1458,23 +1500,17 @@
             }
           },
           {
-            "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
+            "description": "Maximum number of records to return (default: 1000, max: 1000)",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "maximum": 1000,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Maximum number of records to return (default: unlimited, max: 1000 when specified)",
-              "title": "Limit"
+              "default": 1000,
+              "description": "Maximum number of records to return (default: 1000, max: 1000)",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
             }
           }
         ],
@@ -1600,7 +1636,7 @@
     },
     "/areas/{areaId}": {
       "get": {
-        "description": "Get area (shapefile) based on functional ID.",
+        "description": "Get area (shapefile) based on functional ID. The `areaId` is case-sensitive: use it exactly as returned by `GET /areas`.",
         "operationId": "getArea",
         "parameters": [
           {

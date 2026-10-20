@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.common import reference_examples as docs
 from app.api.common.area_examples import (
-    AREAS_DESCRIPTION_V2,
+    AREAS_DESCRIPTION,
     AREAS_RESPONSES,
     AREAS_SUMMARY,
 )
@@ -151,7 +151,7 @@ def areas_router(tag: str, audience: Role) -> APIRouter:
         response_model=AreaListResponse,
         status_code=status.HTTP_200_OK,
         summary=AREAS_SUMMARY,
-        description=AREAS_DESCRIPTION_V2,
+        description=AREAS_DESCRIPTION,
         operation_id="getAreas",
         responses=AREAS_RESPONSES,
         dependencies=roles,

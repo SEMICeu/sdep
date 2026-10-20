@@ -95,7 +95,7 @@ class ListingRequest(BaseModel):
     area_id: FunctionalId = Field(
         ...,
         alias="areaId",
-        description="Functional ID referencing the area where the listing is posted",
+        description="Functional ID referencing the area where the listing is posted (case-sensitive)",
         examples=[
             "58ff0814-3aa1-5019-9afb-3cd9f398602c",
             "974e2c23-b666-5044-a05c-9479a4c293a1",
@@ -127,8 +127,8 @@ class ListingRequest(BaseModel):
         None,
         alias="registrationNumber",
         min_length=1,
-        max_length=32,
-        description="Registration number shown on the listing (optional, max 32 chars)",
+        max_length=128,
+        description="Registration number shown on the listing (optional, max 128 chars)",
         examples=["REG0001"],
     )  # Attribute
 
@@ -151,7 +151,7 @@ class ListingScreeningRequest(BaseModel):
     platform_id: FunctionalId = Field(
         ...,
         alias="platformId",
-        description="Functional ID of the platform that submitted the listing (a `listingId` is only unique within a platform)",
+        description="Functional ID of the platform that submitted the listing",
         examples=["8e70f1e2-4c61-477b-89b8-0dbf25ab8b21"],
     )  # Functional ID reference
 
@@ -282,7 +282,7 @@ class ListingResponse(BaseModel):
         serialization_alias="areaId",
         # The ORM model exposes a convenience property for the functional area ID.
         validation_alias="area_id_functional",
-        description="Functional ID referencing the area where the listing is posted",
+        description="Functional ID referencing the area where the listing is posted (case-sensitive)",
         examples=["58ff0814-3aa1-5019-9afb-3cd9f398602c"],
     )  # Functional ID reference
     area_name: str | None = Field(
@@ -322,8 +322,8 @@ class ListingResponse(BaseModel):
     registration_number: str | None = Field(
         None,
         serialization_alias="registrationNumber",
-        max_length=32,
-        description="Registration number shown on the listing (optional, max 32 chars)",
+        max_length=128,
+        description="Registration number shown on the listing (optional, max 128 chars)",
     )  # Attribute
     submitted_at: UtcAwareDateTime = Field(
         ...,

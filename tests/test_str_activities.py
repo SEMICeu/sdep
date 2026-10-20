@@ -523,7 +523,7 @@ def main() -> int:
             print("Skipping Test 5 (requires STR BEARER_TOKEN)")
         print()
 
-        print("Test 6: POST activity with a naive startDatetime (v1 accepts, v2 rejects)")
+        print("Test 6: POST activity with a naive startDatetime (rejected, UTC required)")
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
@@ -544,24 +544,51 @@ def main() -> int:
             print(f"Response: {brief(body)}")
             print(f"HTTP Status: {status_code}")
             print()
-            if api_version == "v1":
-                mark(
-                    stats,
-                    status_code == 201,
-                    "Test 6 passed: v1 accepted the naive timestamp (201)",
-                    f"Test 6 failed: v1 should accept a naive timestamp, got {status_code}",
-                )
-            else:
-                errors = (body.get("results") or [{}])[0].get("errors", {}).get("detail", [])
-                utc_error = any("UTC" in error.get("msg", "") for error in errors)
-                mark(
-                    stats,
-                    status_code == 422 and utc_error,
-                    "Test 6 passed: v2 rejected the naive timestamp (422, UTC required)",
-                    f"Test 6 failed: v2 should reject a naive timestamp with a UTC error, got {status_code}",
-                )
+            errors = (body.get("results") or [{}])[0].get("errors", {}).get("detail", [])
+            utc_error = any("UTC" in error.get("msg", "") for error in errors)
+            mark(
+                stats,
+                status_code == 422 and utc_error,
+                "Test 6 passed: the naive timestamp was rejected (422, UTC required)",
+                f"Test 6 failed: a naive timestamp should be rejected with a UTC error, got {status_code}",
+            )
         else:
             print("Skipping Test 6 (requires authentication)")
+        print()
+
+        print("Test 7: An activityId has one owner (another platform gets duplicate_error)")
+        print("------------------------------------------------")
+        str2_client_id = os.getenv("STR2_CLIENT_ID")
+        str2_client_secret = os.getenv("STR2_CLIENT_SECRET")
+        if bearer_token and str2_client_id and str2_client_secret:
+            stats.total += 1
+            str2_token = auth_token(client, base_url, str2_client_id, str2_client_secret)
+            owned = {
+                "activities": [
+                    activity(
+                        f"sdep-test-bulk-owned-{timestamp}",
+                        "bulk-owned",
+                        "REGBULK007",
+                        area_id_1,
+                        start_time,
+                        end_time,
+                    )
+                ]
+            }
+            str1_code, _ = post_bulk(client, base_url, api_version, bearer_token, owned)
+            str2_code, str2_body = post_bulk(client, base_url, api_version, str2_token, owned)
+            errors = (str2_body.get("results") or [{}])[0].get("errors") or {}
+            str2_type = (errors.get("detail") or [{}])[0].get("type")
+            print(f"STR1 POST: {str1_code}  STR2 POST: {str2_code} ({str2_type})")
+            print()
+            mark(
+                stats,
+                str1_code == 201 and str2_code == 422 and str2_type == "duplicate_error",
+                "Test 7 passed: the second platform got duplicate_error",
+                f"Test 7 failed: Expected STR1 201, STR2 422 duplicate_error, got {str1_code}, {str2_code} {str2_type}",
+            )
+        else:
+            print("Skipping Test 7 (requires BEARER_TOKEN, STR2_CLIENT_ID, STR2_CLIENT_SECRET)")
         print()
 
     print("=======================================")

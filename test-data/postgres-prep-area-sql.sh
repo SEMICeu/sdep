@@ -110,9 +110,12 @@ for area_def in "${AREAS[@]}"; do
     # Extract area name from comment (e.g., "Amsterdam area" -> "Amsterdam")
     area_name=$(echo "${comment}" | sed 's/ area$//')
 
-    # Write SQL INSERT statement
+    # Write SQL INSERT statements: the identity row first (one owner per areaId)
     cat >> "${OUTPUT_FILE}" <<EOF
 -- ${comment}
+INSERT INTO area_identity (area_id, competent_authority_id, created_at)
+VALUES ('${area_uuid}', '${ca_id}', '2025-01-01 00:00:00+00'::timestamptz)
+ON CONFLICT (area_id) DO NOTHING;
 INSERT INTO area (competent_authority_id, area_id, area_name, regulation, filename, filedata, created_at)
 VALUES (
   (SELECT id FROM competent_authority WHERE competent_authority_id = '${ca_id}'),
@@ -122,7 +125,7 @@ VALUES (
   '${filename}',
   ${hex_bytea},
   '2025-01-01 00:00:00+00'::timestamptz
-) ON CONFLICT (area_id, competent_authority_id, created_at) DO NOTHING;
+) ON CONFLICT (area_id, created_at) DO NOTHING;
 
 EOF
 done

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -55,9 +54,8 @@ class Activity(Base):
     __table_args__ = (
         UniqueConstraint(
             "activity_id",
-            "platform_id",
             "created_at",
-            name="uq_activity_activity_id_platform_id_created_at",
+            name="uq_activity_activity_id_created_at",
         ),
         CheckConstraint(
             "number_of_guests >= 1 AND number_of_guests <= 1024",
@@ -90,13 +88,12 @@ class Activity(Base):
             "activity_id ~ '^[A-Za-z0-9-]+$'",
             name="ck_activity_activity_id_format",
         ).ddl_if(dialect="postgresql"),
-        # At most one current version per (id, platform version), as for areas
-        # (models/area.py). A lost race on a new ID gets a unique violation,
-        # which the API returns as 409 (see exceptions/handlers.py).
+        # At most one current version per activity_id, as for areas (models/area.py).
+        # A lost race on a new ID gets a unique violation, which the API
+        # returns as 409 (see exceptions/handlers.py).
         Index(
-            "uq_activity_current_activity_id_platform",
+            "uq_activity_current_activity_id",
             "activity_id",
-            "platform_id",
             unique=True,
             postgresql_where=text("ended_at IS NULL"),
             sqlite_where=text("ended_at IS NULL"),
@@ -118,9 +115,8 @@ class Activity(Base):
 
     activity_id: Mapped[str] = mapped_column(
         String(64),
+        ForeignKey("activity_identity.activity_id"),
         nullable=False,
-        index=True,
-        default=lambda: str(uuid.uuid4()),
     )  # Functional ID (business-facing, API-exposed, alphanumeric with hyphens, max 64 chars), e.g., "550e8400-e29b-41d4-a716-446655440000"
 
     activity_name: Mapped[str | None] = mapped_column(
@@ -168,8 +164,8 @@ class Activity(Base):
     )  # 318 (sum of the other address fields) + 5 separators of ", "
 
     registration_number: Mapped[str] = mapped_column(
-        String(32), nullable=False
-    )  # Required, for example "REG123456"
+        String(128), nullable=False
+    )  # Required, for example "REG123456"; 128 leaves room for legacy numbers
 
     number_of_guests: Mapped[int] = mapped_column(
         Integer, nullable=False

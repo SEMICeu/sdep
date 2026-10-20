@@ -71,7 +71,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where this activity took place",
+            "description": "Functional ID referencing the area where this activity took place (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c",
               "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
@@ -121,10 +121,12 @@
             "title": "Competentauthorityname"
           },
           "countryOfGuests": {
-            "description": "Array of country codes of guests (each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
+            "description": "Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
             "items": {
               "type": "string"
             },
+            "maxItems": 1024,
+            "minItems": 1,
             "title": "Countryofguests",
             "type": "array"
           },
@@ -136,6 +138,8 @@
           },
           "numberOfGuests": {
             "description": "Number of guests (1-1024)",
+            "maximum": 1024.0,
+            "minimum": 1.0,
             "title": "Numberofguests",
             "type": "integer"
           },
@@ -165,7 +169,8 @@
             "title": "Platformname"
           },
           "registrationNumber": {
-            "description": "Registration number of the address",
+            "description": "Registration number of the address (max 128 chars)",
+            "maxLength": 128,
             "title": "Registrationnumber",
             "type": "string"
           },
@@ -182,7 +187,8 @@
             "description": "Temporal composite (`startDatetime`, `endDatetime`)"
           },
           "url": {
-            "description": "URL of the originating listing/advertisement",
+            "description": "URL of the originating listing/advertisement (max 2048 chars)",
+            "maxLength": 2048,
             "title": "Url",
             "type": "string"
           }
@@ -396,58 +402,65 @@
         "description": "Address composite schema for activity responses (INSPIRE/STR-AP field names).",
         "properties": {
           "fullAddress": {
-            "description": "Full address as a single string",
+            "description": "Full address as a single string (max 328 chars)",
+            "maxLength": 328,
             "title": "Fulladdress",
             "type": "string"
           },
           "locatorDesignatorAddition": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Additional qualifier (optional)",
+            "description": "Additional qualifier (optional, max 128 chars)",
             "title": "Locatordesignatoraddition"
           },
           "locatorDesignatorLetter": {
             "anyOf": [
               {
+                "maxLength": 10,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Letter/character suffix (optional)",
+            "description": "Letter/character suffix (optional, max 10 chars)",
             "title": "Locatordesignatorletter"
           },
           "locatorDesignatorNumber": {
             "anyOf": [
               {
+                "minimum": 0.0,
                 "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Numeric house number component (optional)",
+            "description": "Numeric house number component (optional, >= 0 when provided)",
             "title": "Locatordesignatornumber"
           },
           "postCode": {
-            "description": "Postal code",
+            "description": "Postal code (max 10 chars)",
+            "maxLength": 10,
             "title": "Postcode",
             "type": "string"
           },
           "postName": {
-            "description": "City / town / village",
+            "description": "City / town / village (max 80 chars)",
+            "maxLength": 80,
             "title": "Postname",
             "type": "string"
           },
           "thoroughfare": {
-            "description": "Street / public space name",
+            "description": "Street / public space name (max 80 chars)",
+            "maxLength": 80,
             "title": "Thoroughfare",
             "type": "string"
           }
@@ -1031,7 +1044,7 @@
         ]
       },
       "post": {
-        "description": "Submit a single area into the areas collection for the currently authenticated competent authority.\n\n**ID Pattern:**\n- `areaId`: provided by competent authority as business identifier (optional), otherwise generated as UUIDv4 (RFC 9562)\n\n**Versioning:**\n- Same `areaId` can be resubmitted \u2192 creates new version with different timestamp\n- Unique constraint: (areaId, createdAt, current authenticated competent authority)\n\n**Limiting:**\n- Only `.zip` files are accepted (validated by filename extension and file content)\n- Max. 1 MiB (1,048,576 bytes) per file\n- This is to ensure predictable performance, reduce abuse risk, and improve overall reliability\n\n**The request contains (multipart/form-data):**\n- `areaId`: Functional ID identifying this area (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `areaName`: Display name (optional, max 64 chars)\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all' (optional, defaults to 'all' when not supplied)\n- `file`: Shapefile upload (.zip only, max 1 MiB)\n\n**The response contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID of the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)",
+        "description": "Submit a single area into the areas collection for the currently authenticated competent authority.\n\n**ID Pattern:**\n- `areaId` is provided by the competent authority as an optional business identifier; otherwise, it is generated by SDEP as a UUIDv4 (RFC 9562).\n- `areaId`, whether supplied or generated, remains permanently associated with exactly one competent authority, even after the area is deleted, to ensure referential integrity.\n- When providing `areaId` as a business identifier, consider using RFC 9562 UUIDs to ensure global uniqueness (v4 for random generation or v5/v8 for deterministic generation).\n- `areaId` is case-sensitive and preserved exactly as submitted to support non-UUID identifiers as well. For example, `My3F2A` and `My3f2a` are treated as distinct IDs.\n\n**Versioning:**\n- Same `areaId` can be resubmitted by its owner \u2192 creates new version with different timestamp\n- Unique constraint: (areaId, createdAt)\n- An `areaId` of another competent authority \u2192 409 (`duplicate_error`), do not retry\n\n**Limiting:**\n- Only `.zip` files are accepted (validated by filename extension and file content)\n- Max. 1 MiB (1,048,576 bytes) per file\n- This is to ensure predictable performance, reduce abuse risk, and improve overall reliability\n\n**The request contains (multipart/form-data):**\n- `areaId`: Functional ID identifying this area (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `areaName`: Display name (optional, max 64 chars)\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all' (optional, defaults to 'all' when not supplied)\n- `file`: Shapefile upload (.zip only, max 1 MiB)\n\n**The response contains:**\n- `areaId`: Functional ID identifying this area\n- `areaName`: Display name (optional) of the area\n- `regulation`: Regulation type of the area - 'listing', 'activity', or 'all'\n- `filename`: Name of the area shapefile (e.g., 'area.zip')\n- `competentAuthorityId`: Functional ID of the competent authority that owns the area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `createdAt`: Timestamp when this area version was created (UTC)",
         "operationId": "postArea",
         "requestBody": {
           "content": {
@@ -1066,6 +1079,16 @@
           },
           "403": {
             "description": "Forbidden - insufficient permissions"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - areaId of another competent authority (`duplicate_error`, do not retry), or a concurrent request (`conflict_error`, retry)"
           },
           "422": {
             "content": {
@@ -1207,7 +1230,7 @@
         ]
       },
       "get": {
-        "description": "Get area (shapefile) based on functional ID, scoped to the currently authenticated competent authority.",
+        "description": "Get area (shapefile) based on functional ID, scoped to the currently authenticated competent authority. The `areaId` is case-sensitive: use it exactly as returned.",
         "operationId": "getOwnArea",
         "parameters": [
           {

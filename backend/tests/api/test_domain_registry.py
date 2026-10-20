@@ -125,10 +125,7 @@ class TestServedDescriptions:
     def test_new_version_summarizes_what_it_changes(self) -> None:
         description = app_ca_v2.openapi()["info"]["description"]
 
-        assert (
-            "Status: alpha. Changes from CA v1: the activity response documents "
-            "the field maximums" in description
-        )
+        assert "Status: alpha. Changes from CA v1: adds `GET /listings`" in description
         assert description.endswith("no other changes.")
 
 

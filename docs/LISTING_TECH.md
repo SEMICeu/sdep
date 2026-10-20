@@ -410,7 +410,7 @@ For `POST /listing-acknowledgements/bulk`:
 - Step 3 - `createdAt` is the current version (`conflict_error`); a retried acknowledgement fails here, see [Transitions](#transitions)
 - Step 3 - state precondition: `flagged` (`conflict_error`)
 
-[1] The activity bulk RI check (STR v2) does the same for activity regulation. Both share the unfiltered `get_area_ca_map(session, ids)` lookup and check `Regulation.covers()` afterwards, so a regulation mismatch gets its own message (`regulation_error`) instead of `not_found_error`.
+[1] The activity bulk RI check does the same for activity regulation. Both share the unfiltered `get_area_ca_map(session, ids)` lookup and check `Regulation.covers()` afterwards, so a regulation mismatch gets its own message (`regulation_error`) instead of `not_found_error`.
 
 ---
 

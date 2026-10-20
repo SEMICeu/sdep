@@ -1,13 +1,13 @@
 {
   "components": {
     "schemas": {
-      "ActivityBulkRequestV2": {
-        "description": "Bulk activity request schema for STR v2 (items typed as ActivityRequestV2).\n\nSame SkipValidation pattern as ActivityBulkRequest; the service validates\neach item with the model the router passes as `item_model`.",
+      "ActivityBulkRequest": {
+        "description": "Bulk activity request schema.\n\nThe `activities` field is typed as `list[ActivityRequest]` for the OpenAPI\ncontract, but item-level validation is skipped at request-parse time (via\n`SkipValidation`). This preserves the Application-First Validation flow:\neach item is validated individually in the service layer, so one invalid\nitem is marked NOK without failing the whole batch.",
         "properties": {
           "activities": {
             "description": "Array of activity objects to process (1-1000 items per batch)",
             "items": {
-              "$ref": "#/components/schemas/ActivityRequestV2"
+              "$ref": "#/components/schemas/ActivityRequest"
             },
             "maxItems": 1000,
             "minItems": 1,
@@ -18,7 +18,7 @@
         "required": [
           "activities"
         ],
-        "title": "Activity.BulkRequestV2",
+        "title": "Activity.BulkRequest",
         "type": "object"
       },
       "ActivityBulkResponse": {
@@ -72,6 +72,7 @@
                 "status": "OK"
               },
               {
+                "activityId": null,
                 "activityIndex": 1,
                 "errors": {
                   "detail": [
@@ -144,7 +145,7 @@
                 "type": "null"
               }
             ],
-            "description": "Activity functional ID provided by the client in the request",
+            "description": "As supplied in the request item, or `null` when none was supplied",
             "examples": [
               "550e8400-e29b-41d4-a716-446655440000"
             ],
@@ -203,8 +204,8 @@
         "title": "Activity.BulkResultItem",
         "type": "object"
       },
-      "ActivityRequestV2": {
-        "description": "Activity request schema for STR v2.\n\nDiffers from v1 in three fields: timestamps must be UTC, and `url` and\n`fullAddress` allow 2048 and 328 characters (v1: 128 and 318).",
+      "ActivityRequest": {
+        "description": "Activity request schema for creating rental activities.\n\nActivity ID:\n- Optional: If not provided, will be auto-generated (RFC 9562 UUID)\n\nActivity Name:\n- Optional: Display name (max 64 chars)\n\nValidation Layer:\n- Validates all syntax constraints (lengths, ranges, types)\n\nConstraints (enforced at database level):\n- Unique constraint: (activityId, platformId, createdAt) for versioning support",
         "properties": {
           "activityId": {
             "anyOf": [
@@ -246,7 +247,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where the activity took place",
+            "description": "Functional ID referencing the area where the activity took place (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c",
               "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
@@ -286,11 +287,11 @@
             "type": "integer"
           },
           "registrationNumber": {
-            "description": "Registration number of the address (max 32 chars)",
+            "description": "Registration number of the address (max 128 chars)",
             "examples": [
               "REG0001"
             ],
-            "maxLength": 32,
+            "maxLength": 128,
             "minLength": 1,
             "title": "Registrationnumber",
             "type": "string"
@@ -305,7 +306,7 @@
             ]
           },
           "temporal": {
-            "$ref": "#/components/schemas/CommonTemporalRequestV2",
+            "$ref": "#/components/schemas/CommonTemporalRequest",
             "description": "Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00`"
           },
           "url": {
@@ -328,7 +329,7 @@
           "countryOfGuests",
           "temporal"
         ],
-        "title": "Activity.RequestV2",
+        "title": "Activity.Request",
         "type": "object"
       },
       "ActivityResponse": {
@@ -364,7 +365,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where this activity took place",
+            "description": "Functional ID referencing the area where this activity took place (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c",
               "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
@@ -462,8 +463,8 @@
             "title": "Platformname"
           },
           "registrationNumber": {
-            "description": "Registration number of the address (max 32 chars)",
-            "maxLength": 32,
+            "description": "Registration number of the address (max 128 chars)",
+            "maxLength": 128,
             "title": "Registrationnumber",
             "type": "string"
           },
@@ -817,8 +818,8 @@
         "title": "Common.AddressResponse",
         "type": "object"
       },
-      "CommonTemporalRequestV2": {
-        "description": "Temporal composite schema for STR v2 activity requests.\n\nTightens v1: both timestamps must carry the UTC offset `Z` or\n`+00:00`. Other offsets, no offset and date-only values are rejected. The\nstart-before-end and year >= 2025 rules are inherited.",
+      "CommonTemporalRequest": {
+        "description": "Temporal composite schema for activity requests.\n\nValidation Layer:\n- Both timestamps must carry the UTC offset `Z` or `+00:00`\n- Other offsets, no offset and date-only values are rejected\n- Ensures start year is >= 2025\n- Ensures start is before end",
         "properties": {
           "endDatetime": {
             "description": "End date and time of the rental activity, in UTC with offset `Z` or `+00:00` (must be after startDatetime)",
@@ -843,7 +844,7 @@
           "startDatetime",
           "endDatetime"
         ],
-        "title": "Common.TemporalRequestV2",
+        "title": "Common.TemporalRequest",
         "type": "object"
       },
       "CommonTemporalResponse": {
@@ -1045,7 +1046,7 @@
                 "type": "null"
               }
             ],
-            "description": "Listing functional ID provided by the client in the request",
+            "description": "As supplied in the request item (`null` only when the item is not a JSON object)",
             "examples": [
               "550e8400-e29b-41d4-a716-446655440000"
             ],
@@ -1226,7 +1227,7 @@
                 "type": "null"
               }
             ],
-            "description": "Listing functional ID provided by the client in the request",
+            "description": "As supplied in the request item, or `null` when none was supplied",
             "examples": [
               "550e8400-e29b-41d4-a716-446655440000"
             ],
@@ -1320,7 +1321,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where the listing is posted",
+            "description": "Functional ID referencing the area where the listing is posted (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c",
               "974e2c23-b666-5044-a05c-9479a4c293a1"
@@ -1377,7 +1378,7 @@
           "registrationNumber": {
             "anyOf": [
               {
-                "maxLength": 32,
+                "maxLength": 128,
                 "minLength": 1,
                 "type": "string"
               },
@@ -1385,7 +1386,7 @@
                 "type": "null"
               }
             ],
-            "description": "Registration number shown on the listing (optional, max 32 chars)",
+            "description": "Registration number shown on the listing (optional, max 128 chars)",
             "examples": [
               "REG0001"
             ],
@@ -1432,7 +1433,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where the listing is posted",
+            "description": "Functional ID referencing the area where the listing is posted (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c"
             ],
@@ -1554,14 +1555,14 @@
           "registrationNumber": {
             "anyOf": [
               {
-                "maxLength": 32,
+                "maxLength": 128,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Registration number shown on the listing (optional, max 32 chars)",
+            "description": "Registration number shown on the listing (optional, max 128 chars)",
             "title": "Registrationnumber"
           },
           "screenedAt": {
@@ -1653,7 +1654,7 @@
       "name": "Nationaal Coordinator SDEP",
       "url": "https://minvro.nl/"
     },
-    "description": "Endpoints for short-term rental platforms to view areas, to submit and acknowledge listings (random checks), and to submit activities. Status: alpha. Changes from STR v1: activity timestamps must be UTC (offset `Z` or `+00:00`; no other offsets, no date-only values); activity `url` and `fullAddress` allow 2048 and 328 characters (v1: 128 and 318); activities are rejected per item (`regulation_error`) for areas that are regulated for listing only; `GET /areas` returns at most 1000 areas per call (`limit` defaults to 1000); adds the listing endpoints for random checks (`POST /listings/bulk`, `GET /listings`, `GET /listings/count`, `POST /listing-acknowledgements/bulk`); no other changes.",
+    "description": "Endpoints for short-term rental platforms to view areas, to submit and acknowledge listings (random checks), and to submit activities. Status: alpha. Changes from STR v1: adds the listing endpoints for random checks (`POST /listings/bulk`, `GET /listings`, `GET /listings/count`, `POST /listing-acknowledgements/bulk`); no other changes.",
     "title": "SDEP - Short-Term Rental Platform (STR) API",
     "version": "<frozen-version>"
   },
@@ -1661,7 +1662,7 @@
   "paths": {
     "/activities/bulk": {
       "post": {
-        "description": "Submit 1-1000 activities into the activities collection for the currently authenticated platform.\n\n**ID Pattern:**\n- `activityId`: provided by the platform as business identifier (optional), otherwise generated as UUIDv4 (RFC 9562)\n\n**Versioning:**\n- Same `activityId` can be resubmitted \u2192 creates new version with different timestamp\n- Unique constraint: (`activityId`, `createdAt`, current authenticated platform)\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n   Failed items are marked NOK with the error reason; valid items continue.\n2. **Referential Integrity Check** - area IDs are verified. Items with unknown `areaId` are marked NOK; valid items continue.\n   Activities are rejected for areas that are regulated for listing only (`regulation` is `listing`): such items are marked NOK with `regulation_error`.\n3. **Bulk Insert** - all remaining valid items are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `activityId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `activities`: Array of activity objects to process (1-1000 items per batch)\n\n**Each activity item in the request contains:**\n- `activityId`: Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `activityName`: Display name of the activity (optional, max 64 chars)\n- `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `url`: URL of the originating listing/advertisement (max 2048 chars)\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 32 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or `N/A`, uppercase only); array length must equal `numberOfGuests`.\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00` (e.g. `2025-06-01T14:00:00Z`); rejected are other offsets such as CET (`2025-06-01T15:00:00+01:00`), no offset (`2025-06-01T14:00:00`) and no time (`2025-06-01`)\n\n**The response contains:**\n- `totalReceived`: Total number of items received in the request\n- `succeeded`: Number of items successfully created (status OK)\n- `failed`: Number of items that failed validation or processing (status NOK)\n- `results`: Per-item results preserving the original request order\n\n**Each results item contains:**\n- `activityIndex`: Zero-based index of this item in the original request list\n- `activityId`: Activity functional ID provided by the client in the request\n- `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)\n- `activity`: The full activity object (present for OK items, omitted for NOK items)\n- `errors`: Structured error details (present for NOK items, omitted for OK items)\n\n**The activity object (for the OK items) contains:**\n- `activityId`: Functional ID identifying this activity\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where this activity took place\n- `areaName`: Display name (optional) of the area where this activity took place\n- `competentAuthorityId`: Functional ID of the competent authority that owns the referenced area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 32 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`); array length equals `numberOfGuests`.\n- `temporal`: Temporal composite (startDatetime, endDatetime)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)\n\n**Response HTTP status:**\n- 201: all items created successfully\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 422: all items failed",
+        "description": "Submit 1-1000 activities into the activities collection for the currently authenticated platform.\n\n**ID Pattern:**\n- `activityId` is provided by the platform as an optional business identifier; otherwise, it is generated by SDEP as a UUIDv4 (RFC 9562).\n- `activityId`, whether supplied or generated, remains permanently associated with exactly one platform, to ensure referential integrity.\n- When providing `activityId` as a business identifier, consider using RFC 9562 UUIDs to ensure global uniqueness (v4 for random generation or v5/v8 for deterministic generation).\n- `activityId` is case-sensitive and preserved exactly as submitted to support non-UUID identifiers as well. For example, `My3F2A` and `My3f2a` are treated as distinct IDs.\n\n**Versioning:**\n- Same `activityId` can be resubmitted by its owner \u2192 creates new version with different timestamp\n- Unique constraint: (`activityId`, `createdAt`)\n- An `activityId` of another platform \u2192 item NOK (`duplicate_error`)\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n   Failed items are marked NOK with the error reason; valid items continue.\n2. **Referential Integrity Check** - area IDs are verified. Items with unknown `areaId` are marked NOK; valid items continue.\n   Activities are rejected for areas that are regulated for listing only: such items are marked NOK with `regulation_error`.\n3. **Bulk Insert** - all remaining valid items are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `activityId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `activities`: Array of activity objects to process (1-1000 items per batch)\n\n**Each activity item in the request contains:**\n- `activityId`: Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `activityName`: Display name of the activity (optional, max 64 chars)\n- `status`: Lifecycle status of the activity. Defaults to `finished` when omitted; may also be `cancelled`\n- `areaId`: Functional ID referencing the area where the activity took place\n- `url`: URL of the originating listing/advertisement (max 2048 chars)\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 128 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or `N/A`, uppercase only); array length must equal `numberOfGuests`.\n- `temporal`: Temporal composite (`startDatetime`, `endDatetime`), both in UTC with offset `Z` or `+00:00` (e.g. `2025-06-01T14:00:00Z`); rejected are other offsets such as CET (`2025-06-01T15:00:00+01:00`), no offset (`2025-06-01T14:00:00`) and no time (`2025-06-01`)\n\n**The response contains:**\n- `totalReceived`: Total number of items received in the request\n- `succeeded`: Number of items successfully created (status OK)\n- `failed`: Number of items that failed validation or processing (status NOK)\n- `results`: Per-item results preserving the original request order\n\n**Each results item contains:**\n- `activityIndex`: Zero-based index of this item in the original request list\n- `activityId`: As supplied in the request item, or `null` when none was supplied\n- `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)\n- `activity`: The full activity object (present for OK items, omitted for NOK items)\n- `errors`: Structured error details (present for NOK items, omitted for OK items)\n\n**The activity object (for the OK items) contains:**\n- `activityId`: Functional ID identifying this activity: as supplied in the request, or generated by SDEP (UUIDv4) when none was supplied\n- `activityName`: Display name (optional) of the activity\n- `status`: Lifecycle status of the activity: `finished` or `cancelled`\n- `areaId`: Functional ID referencing the area where this activity took place\n- `areaName`: Display name (optional) of the area where this activity took place\n- `competentAuthorityId`: Functional ID of the competent authority that owns the referenced area\n- `competentAuthorityName`: Display name (optional) of the competent authority\n- `url`: URL of the originating listing/advertisement\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `registrationNumber`: Registration number of the address (max 128 chars)\n- `numberOfGuests`: Number of guests (1-1024)\n- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`); array length equals `numberOfGuests`.\n- `temporal`: Temporal composite (startDatetime, endDatetime)\n- `platformId`: Functional ID referencing the platform that owns the activity\n- `platformName`: Display name (optional) of the platform\n- `createdAt`: Timestamp when this activity version was created (UTC)\n\n**Response HTTP status:**\n- 201: all items created successfully\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 409: a concurrent request wrote the same record first (`conflict_error`), retry the request\n- 422: all items failed",
         "operationId": "postActivitiesBulkV2",
         "requestBody": {
           "content": {
@@ -1809,7 +1810,7 @@
                 ]
               },
               "schema": {
-                "$ref": "#/components/schemas/ActivityBulkRequestV2"
+                "$ref": "#/components/schemas/ActivityBulkRequest"
               }
             }
           },
@@ -1912,6 +1913,7 @@
                       "status": "NOK"
                     },
                     {
+                      "activityId": null,
                       "activityIndex": 3,
                       "errors": {
                         "detail": [
@@ -2081,6 +2083,16 @@
           "403": {
             "description": "Forbidden - insufficient permissions"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - a concurrent request wrote the same record first (`conflict_error`), retry the request"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -2112,6 +2124,7 @@
                       "status": "NOK"
                     },
                     {
+                      "activityId": null,
                       "activityIndex": 1,
                       "errors": {
                         "detail": [
@@ -2317,7 +2330,7 @@
     },
     "/areas/{areaId}": {
       "get": {
-        "description": "Get area (shapefile) based on functional ID.",
+        "description": "Get area (shapefile) based on functional ID. The `areaId` is case-sensitive: use it exactly as returned by `GET /areas`.",
         "operationId": "getArea",
         "parameters": [
           {
@@ -2373,7 +2386,7 @@
     },
     "/listing-acknowledgements/bulk": {
       "post": {
-        "description": "Acknowledge 1-1000 flagged listings (= random check performed). Each acknowledged listing becomes a new `acknowledged` version; its flags are retained. The acknowledgement carries no further data.\n\n**Concurrency:**\n- `createdAt` is the `createdAt` of the flagged version, as returned by `GET /listings`\n- When that version is no longer current (for example, the listing was re-screened), the item is marked NOK with `conflict_error` and `loc` `[\"createdAt\"]`; the listing then reappears in `GET /listings` with its new version\n- A retried acknowledgement fails the same way: treat it as \"already acknowledged\"\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n2. **Referential Integrity Check** - the listing must exist for the currently authenticated platform (`not_found_error`).\n3. **Versioning and Bulk Insert** - the current version is locked and checked (`createdAt` current, status `flagged`), marked ended, and the `acknowledged` versions are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `listingId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `acknowledgements`: Array of acknowledgements to process (1-1000 items per batch)\n\n**Each acknowledgement item in the request contains:**\n- `listingId`: Functional ID of the flagged listing\n- `createdAt`: `createdAt` of the flagged listing version (UTC)\n\n**The response contains:**\n- `totalReceived`, `succeeded`, `failed`: Summary counts\n- `results`: Per-item results preserving the original request order (`listingIndex`, `listingId`, `status`, `listing` for OK items, `errors` for NOK items)\n\n**Response HTTP status:**\n- 201: all items acknowledged\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 422: all items failed",
+        "description": "Acknowledge 1-1000 flagged listings (= random check performed). Each acknowledged listing becomes a new `acknowledged` version; its flags are retained. The acknowledgement carries no further data.\n\n**Concurrency:**\n- `createdAt` is the `createdAt` of the flagged version, as returned by `GET /listings`\n- When that version is no longer current (for example, the listing was re-screened), the item is marked NOK with `conflict_error` and `loc` `[\"createdAt\"]`; the listing then reappears in `GET /listings` with its new version\n- A retried acknowledgement fails the same way: treat it as \"already acknowledged\"\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n2. **Referential Integrity Check** - the listing must exist for the currently authenticated platform (`not_found_error`).\n3. **Versioning and Bulk Insert** - the current version is locked and checked (`createdAt` current, status `flagged`), marked ended, and the `acknowledged` versions are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `listingId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `acknowledgements`: Array of acknowledgements to process (1-1000 items per batch)\n\n**Each acknowledgement item in the request contains:**\n- `listingId`: Functional ID of the flagged listing\n- `createdAt`: `createdAt` of the flagged listing version (UTC)\n\n**The response contains:**\n- `totalReceived`, `succeeded`, `failed`: Summary counts\n- `results`: Per-item results preserving the original request order (`listingIndex`, `listingId`, `status`, `listing` for OK items, `errors` for NOK items)\n\n**Response HTTP status:**\n- 201: all items acknowledged\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 409: a concurrent request wrote the same record first (`conflict_error`), retry the request\n- 422: all items failed",
         "operationId": "postListingAcknowledgementsBulkV2",
         "requestBody": {
           "content": {
@@ -2538,6 +2551,16 @@
           },
           "403": {
             "description": "Forbidden - insufficient permissions"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - a concurrent request wrote the same record first (`conflict_error`), retry the request"
           },
           "422": {
             "content": {
@@ -2800,7 +2823,7 @@
     },
     "/listings/bulk": {
       "post": {
-        "description": "Submit 1-1000 randomly selected listings for screening (random checks, see the functional design). Every submitted listing starts `pending`; the listing screening authority sets it to `clear` or `flagged`, and the platform acknowledges flagged listings via `POST /listing-acknowledgements/bulk`.\n\n**ID Pattern:**\n- `listingId`: provided by the platform as business identifier (optional), otherwise generated as UUIDv4 (RFC 9562)\n\n**Versioning:**\n- Same `listingId` can be resubmitted while the listing is `pending` \u2192 creates a new `pending` version (a correction)\n- A listing that is already screened (`clear`, `flagged`, `acknowledged`) cannot be corrected: such items are marked NOK with `conflict_error`. Submit it under a new `listingId` instead (a new random check)\n- Unique constraint: (`listingId`, `createdAt`, current authenticated platform)\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n   Failed items are marked NOK with the error reason; valid items continue.\n2. **Referential Integrity Check** - area IDs are verified. Items with unknown `areaId` are marked NOK (`not_found_error`).\n   Listings are rejected for areas that are regulated for activity only (`regulation` is `activity`): such items are marked NOK with `regulation_error`.\n3. **Versioning and Bulk Insert** - the current version is locked and checked (`pending`), marked ended, and all remaining valid items are inserted as new versions in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `listingId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `listings`: Array of listing objects to process (1-1000 items per batch)\n\n**Each listing item in the request contains:**\n- `listingId`: Functional ID identifying the listing (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `listingName`: Display name of the listing (optional, max 64 chars)\n- `areaId`: Functional ID referencing the area where the listing is posted\n- `url`: URL referencing the listing online (max 2048 chars)\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `declaredAsShortTermRental`: Host self-declaration (`true` or `false`)\n- `registrationNumber`: Registration number shown on the listing (optional, max 32 chars)\n\n**The response contains:**\n- `totalReceived`: Total number of items received in the request\n- `succeeded`: Number of items successfully created (status OK)\n- `failed`: Number of items that failed validation or processing (status NOK)\n- `results`: Per-item results preserving the original request order\n\n**Each results item contains:**\n- `listingIndex`: Zero-based index of this item in the original request list\n- `listingId`: Listing functional ID provided by the client in the request\n- `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)\n- `listing`: The listing as it now is (present for OK items, omitted for NOK items), see `GET /listings` for its fields\n- `errors`: Structured error details (present for NOK items, omitted for OK items)\n\n**Response HTTP status:**\n- 201: all items created successfully\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 422: all items failed",
+        "description": "Submit 1-1000 randomly selected listings for screening (random checks, see the functional design). Every submitted listing starts `pending`; the listing screening authority sets it to `clear` or `flagged`, and the platform acknowledges flagged listings via `POST /listing-acknowledgements/bulk`.\n\n**ID Pattern:**\n- `listingId` is provided by the platform as an optional business identifier; otherwise, it is generated by SDEP as a UUIDv4 (RFC 9562).\n- `listingId`, whether supplied or generated, remains permanently associated with exactly one platform, to ensure referential integrity.\n- When providing `listingId` as a business identifier, consider using RFC 9562 UUIDs to ensure global uniqueness (v4 for random generation or v5/v8 for deterministic generation).\n- `listingId` is case-sensitive and preserved exactly as submitted to support non-UUID identifiers as well. For example, `My3F2A` and `My3f2a` are treated as distinct IDs.\n\n**Versioning:**\n- Same `listingId` can be resubmitted while the listing is `pending` \u2192 creates a new `pending` version (a correction)\n- A listing that is already screened (`clear`, `flagged`, `acknowledged`) cannot be corrected: such items are marked NOK with `conflict_error`. Submit it under a new `listingId` instead (a new random check)\n- Unique constraint: (`listingId`, `createdAt`)\n- A `listingId` of another platform \u2192 item NOK (`duplicate_error`)\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually.\n   Failed items are marked NOK with the error reason; valid items continue.\n2. **Referential Integrity Check** - area IDs are verified. Items with unknown `areaId` are marked NOK (`not_found_error`).\n   Listings are rejected for areas that are regulated for activity only (`regulation` is `activity`): such items are marked NOK with `regulation_error`.\n3. **Versioning and Bulk Insert** - the current version is locked and checked (`pending`), marked ended, and all remaining valid items are inserted as new versions in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same `listingId` appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `listings`: Array of listing objects to process (1-1000 items per batch)\n\n**Each listing item in the request contains:**\n- `listingId`: Functional ID identifying the listing (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)\n- `listingName`: Display name of the listing (optional, max 64 chars)\n- `areaId`: Functional ID referencing the area where the listing is posted\n- `url`: URL referencing the listing online (max 2048 chars)\n- `address`: Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)\n- `declaredAsShortTermRental`: Host self-declaration (`true` or `false`)\n- `registrationNumber`: Registration number shown on the listing (optional, max 128 chars)\n\n**The response contains:**\n- `totalReceived`: Total number of items received in the request\n- `succeeded`: Number of items successfully created (status OK)\n- `failed`: Number of items that failed validation or processing (status NOK)\n- `results`: Per-item results preserving the original request order\n\n**Each results item contains:**\n- `listingIndex`: Zero-based index of this item in the original request list\n- `listingId`: As supplied in the request item, or `null` when none was supplied\n- `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)\n- `listing`: The listing as it now is (present for OK items, omitted for NOK items), see `GET /listings` for its fields\n- `errors`: Structured error details (present for NOK items, omitted for OK items)\n\n**Response HTTP status:**\n- 201: all items created successfully\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 409: a concurrent request wrote the same record first (`conflict_error`), retry the request\n- 422: all items failed",
         "operationId": "postListingsBulkV2",
         "requestBody": {
           "content": {
@@ -2906,6 +2929,7 @@
                           }
                         ]
                       },
+                      "listingId": null,
                       "listingIndex": 1,
                       "status": "NOK"
                     },
@@ -3011,6 +3035,7 @@
                         "submittedAt": "2026-09-07T08:00:00Z",
                         "url": "http://example.com/rotterdam-harbor-view"
                       },
+                      "listingId": null,
                       "listingIndex": 1,
                       "status": "OK"
                     }
@@ -3037,6 +3062,16 @@
           },
           "403": {
             "description": "Forbidden - insufficient permissions"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - a concurrent request wrote the same record first (`conflict_error`), retry the request"
           },
           "422": {
             "content": {

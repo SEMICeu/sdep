@@ -73,7 +73,7 @@ class CommonAddressRequest(BaseModel):
     )  # Attribute
 
     # 328 = sum of the other address field maximums (318) + 5 separators of ", ".
-    # See docs/DATAMODEL_TECH.md, Address. STR v1 keeps 318, see app/schemas/activity_v1.py.
+    # See docs/DATAMODEL_TECH.md, Address.
     full_address: str = Field(
         ...,
         alias="fullAddress",
@@ -106,7 +106,7 @@ class CommonAddressRequest(BaseModel):
 
 
 # Field maximums mirror CommonAddressRequest, so clients can size their storage from
-# the response contract. CA v1 keeps the undocumented variant, see app/schemas/activity_v1.py.
+# the response contract.
 class CommonAddressResponse(BaseModel):
     """Address composite schema for activity responses (INSPIRE/STR-AP field names)."""
 

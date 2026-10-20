@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 from app.crud import competent_authority
+from app.exceptions.business import DuplicateResourceError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,72 +36,46 @@ class TestCompetentAuthorityCRUD:
         assert result.created_at is not None
         assert isinstance(result.created_at, datetime)
 
-    async def test_create_competent_authority_allows_duplicate_competent_authority_id(
+    async def test_create_competent_authority_refuses_competent_authority_id_of_another_client(
         self, async_session: AsyncSession
     ):
-        """Test that duplicate public competent_authority_id values are allowed."""
-        # Arrange
-        duplicate_competent_authority_id = "duplicate-ca"
-
+        """A public competent_authority_id belongs to one client: another client is refused."""
         await competent_authority.create(
             session=async_session,
             client_id="duplicate-ca-client-1",
-            competent_authority_id=duplicate_competent_authority_id,
-            competent_authority_name="First CA",
+            competent_authority_id="duplicate-ca",
+            competent_authority_name="First",
         )
-        await async_session.flush()
 
-        # Act
-        second = await competent_authority.create(
-            session=async_session,
-            client_id="duplicate-ca-client-2",
-            competent_authority_id=duplicate_competent_authority_id,
-            competent_authority_name="Second CA",
-        )
-        await async_session.flush()
+        with pytest.raises(DuplicateResourceError):
+            await competent_authority.create(
+                session=async_session,
+                client_id="duplicate-ca-client-2",
+                competent_authority_id="duplicate-ca",
+                competent_authority_name="Second",
+            )
 
-        # Assert
-        assert second.competent_authority_id == duplicate_competent_authority_id
-
-    async def test_create_competent_authority_with_duplicate_client_id_created_at(
+    async def test_create_competent_authority_refuses_second_competent_authority_id_for_same_client(
         self, async_session: AsyncSession
     ):
-        """Same client can hold versions with different public IDs at one created_at.
-
-        The composite UNIQUE constraint permits this as long as only one row is
-        current; the first version must be ended first so the partial unique
-        index on the current row is not violated.
-        """
-        # Arrange
-        created_at = datetime(2026, 1, 1)
-
-        first = await competent_authority.create(
+        """A client keeps one public competent_authority_id, also after its row has ended."""
+        await competent_authority.create(
             session=async_session,
             client_id="duplicate-ca-client",
             competent_authority_id="duplicate-ca-1",
-            competent_authority_name="First CA",
+            competent_authority_name="First",
         )
-        first.created_at = created_at
-        await async_session.flush()
-
-        # End the first version so a new current version can be created.
         await competent_authority.mark_as_ended_by_client_id(
             async_session, "duplicate-ca-client"
         )
 
-        # Act
-        second = await competent_authority.create(
-            session=async_session,
-            client_id="duplicate-ca-client",
-            competent_authority_id="duplicate-ca-2",
-            competent_authority_name="Second CA",
-        )
-        second.created_at = created_at
-        await async_session.flush()
-
-        # Assert
-        assert second.client_id == first.client_id
-        assert second.competent_authority_id != first.competent_authority_id
+        with pytest.raises(DuplicateResourceError):
+            await competent_authority.create(
+                session=async_session,
+                client_id="duplicate-ca-client",
+                competent_authority_id="duplicate-ca-2",
+                competent_authority_name="Second",
+            )
 
     async def test_create_competent_authority_with_duplicate_client_public_id_created_at(
         self, async_session: AsyncSession

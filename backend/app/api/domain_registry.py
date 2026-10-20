@@ -183,8 +183,7 @@ CA_V2 = ApiDomain(
     group="listings",
     supersedes_path="/api/ca/v1",
     changes=(
-        "the activity response documents the field "
-        "maximums (e.g. `url` 2048, `fullAddress` 328); adds `GET /listings` and "
+        "adds `GET /listings` and "
         "`GET /listings/count` (acknowledged listings in own areas, random checks); "
         "adds `GET /platforms` and `GET /platforms/count`; "
         "no other changes."
@@ -221,11 +220,7 @@ STR_V2 = ApiDomain(
     group="listings",
     supersedes_path="/api/str/v1",
     changes=(
-        "activity timestamps must be UTC (offset `Z` or `+00:00`; no other offsets, no date-only values); "
-        "activity `url` and `fullAddress` allow 2048 and 328 characters (v1: 128 and 318); "
-        "activities are rejected per item (`regulation_error`) for areas that are "
-        "regulated for listing only; `GET /areas` returns at most 1000 areas per call "
-        "(`limit` defaults to 1000); adds the listing endpoints for random checks "
+        "adds the listing endpoints for random checks "
         "(`POST /listings/bulk`, `GET /listings`, `GET /listings/count`, "
         "`POST /listing-acknowledgements/bulk`); no other changes."
     ),

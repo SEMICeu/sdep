@@ -1,8 +1,7 @@
 """Competent authority activity endpoints for API v1.
 
-Uses the frozen response schemas from app.schemas.activity_v1, so the stable
-v1 contract does not pick up the documented field maximums of the base schemas.
-The optional query filters and the default limit of 1000 are backported from v2.
+The optional query filters, the default limit of 1000 and the documented field
+maximums are backported from v2.
 """
 
 from fastapi import APIRouter, Depends, status
@@ -18,8 +17,11 @@ from app.api.common.pagination import LimitedPaginationDependency
 from app.api.common.security import Role
 from app.api.domains.ca.routers.activities_filters import activity_filters
 from app.db.config import get_async_db_read_only
-from app.schemas.activity import ActivityCountResponse, ActivityFilters
-from app.schemas.activity_v1 import ActivityListResponse, ActivityResponse
+from app.schemas.activity import (
+    ActivityCountResponse,
+    ActivityFilters,
+    ActivityListResponse,
+)
 
 router = APIRouter(tags=["ca"])
 
@@ -86,8 +88,6 @@ async def get_activities(
         offset=pagination.offset,
         limit=pagination.limit,
         filters=filters,
-        list_model=ActivityListResponse,
-        item_model=ActivityResponse,
     )
 
 

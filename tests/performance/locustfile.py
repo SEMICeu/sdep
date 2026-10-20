@@ -10,6 +10,7 @@ Configuration via environment variables (set by Makefile):
     STR_CLIENT_ID: OAuth2 client ID for STR platform
     STR_CLIENT_SECRET: OAuth2 client secret for STR platform
     PERF_AREA_IDS: Comma-separated list of area IDs to use (created by Makefile)
+    PERF_ACTIVITIES_PER_MIN: Fixed load over all users (default: 0 = full speed)
 
 Usage:
     Typically invoked via `make test-perf`, not directly.
@@ -27,7 +28,7 @@ from datetime import UTC, datetime, timedelta
 
 import gevent
 import requests as http_requests
-from locust import HttpUser, between, events, task
+from locust import HttpUser, between, constant_throughput, events, task
 
 # Correctness verification: sample activities for post-test GET verification
 CORRECTNESS_SAMPLE_SIZE = 10
@@ -46,6 +47,9 @@ PERF_MAX_DURATION_SECONDS = int(os.environ.get("PERF_MAX_DURATION_SECONDS", "300
 PERF_ACTIVITIES_TARGET = int(os.environ.get("PERF_ACTIVITIES_TARGET", "500000"))
 KEEP_TEST_DATA = os.environ.get("KEEP_TEST_DATA", "false").lower() in ("true", "1", "yes")
 PERF_STOP_ON_TARGET = os.environ.get("PERF_STOP_ON_TARGET", "false").lower() in ("true", "1", "yes")
+# Fixed load: all users together send this many activities per minute. 0 = full speed,
+# each user pauses 0.1-0.5s between requests (a stress test). See StrActivityUser.wait_time.
+PERF_ACTIVITIES_PER_MIN = float(os.environ.get("PERF_ACTIVITIES_PER_MIN", "0"))
 # Always sdep-test-perf, keep-run or not. A separate "perf" prefix used to be used to
 # hide keep-run activities from the cleanup, but it never worked: the fixture areas and
 # both client accounts the perf data hangs off are sdep-test-*, and clean-testrun.sql
@@ -63,6 +67,8 @@ total_request_bytes = 0
 sampled_activities: list[dict] = []
 requests_per_endpoint: dict[str, int] = {}
 MAX_CONSECUTIVE_FAILURES = 10
+# Seconds before token expiry to fetch a new one, more than the slowest bulk request
+TOKEN_REFRESH_MARGIN_SECONDS = 30
 test_start_time = None
 
 
@@ -284,6 +290,7 @@ def _print_summary():
     print(_cfg("PERF_BATCH_SIZE", f"{BATCH_SIZE} (activities per HTTP request)"))
     print(_cfg("PERF_MAX_DURATION_SECONDS", f"{PERF_MAX_DURATION_SECONDS} ({PERF_MAX_DURATION_SECONDS / 60:.1f}m / {PERF_MAX_DURATION_SECONDS / 3600:.2f}h) (max. test duration)"))
     print(_cfg("PERF_STOP_ON_TARGET", f"{PERF_STOP_ON_TARGET} (stop early when target reached)"))
+    print(_cfg("PERF_ACTIVITIES_PER_MIN", f"{PERF_ACTIVITIES_PER_MIN:,.0f} (fixed load, 0 = full speed)"))
     print(_cfg("KEEP_TEST_DATA", f"{KEEP_TEST_DATA} (keep data in database)"))
     print("  Results:")
     print(f"    Total activities processed:  {total:,} ({_human(total)}) (succeeded + failed, incl. overshoot)")
@@ -426,8 +433,15 @@ def _generate_activity(area_id: str, timestamp: str) -> dict:
 class StrActivityUser(HttpUser):
     """Simulates an STR platform submitting activities (bulk endpoint)."""
 
-    wait_time = between(0.1, 0.5)
+    # Requests per second per user: the total rate split over the users. A slow response
+    # still delays the next request, so the rate is a ceiling, never a burst.
+    wait_time = (
+        constant_throughput(PERF_ACTIVITIES_PER_MIN / 60 / BATCH_SIZE / PERF_USERS)
+        if PERF_ACTIVITIES_PER_MIN > 0
+        else between(0.1, 0.5)
+    )
     _token = None
+    _token_expires_at = 0.0
 
     def on_start(self):
         """Authenticate via OAuth2 client credentials on start."""
@@ -450,7 +464,9 @@ class StrActivityUser(HttpUser):
             name="/auth/token",
         )
         if response.status_code == 200:
-            self._token = response.json().get("access_token")
+            body = response.json()
+            self._token = body.get("access_token")
+            self._token_expires_at = time.time() + body.get("expires_in", 300)
         else:
             raise RuntimeError(f"Auth failed: {response.status_code} {response.text}")
 
@@ -459,6 +475,11 @@ class StrActivityUser(HttpUser):
         """Submit a batch of activities."""
         if not self._token:
             return
+
+        # Refresh before expiry, as a real platform would: an expired token gives a 401,
+        # which Locust counts as a failed request. The 401 retry below is the fallback.
+        if time.time() >= self._token_expires_at - TOKEN_REFRESH_MARGIN_SECONDS:
+            self._refresh_token()
 
         if not PERF_AREA_IDS or PERF_AREA_IDS == [""]:
             raise RuntimeError("PERF_AREA_IDS not set. Run via 'make test-perf'.")

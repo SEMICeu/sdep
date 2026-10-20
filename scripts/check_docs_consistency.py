@@ -102,7 +102,8 @@ def check_datamodel() -> list[str]:
     findings: list[str] = []
     for mapper in Base.registry.mappers:
         model = mapper.class_
-        section = doc_section(model.__name__)
+        # The identity models (app/models/identity.py) share one section
+        section = doc_section("Identity" if model.__name__.endswith("Identity") else model.__name__)
         if section is None:
             findings.append(f"DATAMODEL_TECH.md: no section for model {model.__name__}")
             continue
@@ -110,8 +111,10 @@ def check_datamodel() -> list[str]:
             if column.key.startswith(COMPOSITE_PREFIXES):
                 continue
             name = column.key
-            if column.foreign_keys and name.endswith("_id"):
-                name = name[: -len("_id")]  # documented as a reference
+            # A foreign key to a technical id is documented as a reference; one to a
+            # functional id (an identity table) keeps the functional id name
+            if any(fk.column.name == "id" for fk in column.foreign_keys) and name.endswith("_id"):
+                name = name[: -len("_id")]
             if f"**{camel(name)}**" not in section:
                 findings.append(f"DATAMODEL_TECH.md: {model.__name__} has no row for {camel(name)}")
     return findings

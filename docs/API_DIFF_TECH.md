@@ -28,7 +28,7 @@ For the versioning rules behind these differences, see [API](API_TECH.md).
 | Category          | Added | Removed | Modified | Unchanged |
 | ----------------- | ----- | ------- | -------- | --------- |
 | Operations        | 4     | 0       | 3        | 4         |
-| Component schemas | 8     | 0       | 2        | 11        |
+| Component schemas | 8     | 0       | 0        | 13        |
 | Security schemes  | 0     | 0       | 0        | 1         |
 
 ---
@@ -74,33 +74,20 @@ For the versioning rules behind these differences, see [API](API_TECH.md).
 - Added `PlatformCountResponse`
 - Added `PlatformListResponse`
 - Added `PlatformResponse`
-- Changed `ActivityResponse`
-  - Property `countryOfGuests`: added `maxItems` `1024`, added `minItems` `1`, updated the description
-  - Property `numberOfGuests`: added `maximum` `1024`, added `minimum` `1`
-  - Property `registrationNumber`: added `maxLength` `32`, updated the description
-  - Property `url`: added `maxLength` `2048`, updated the description
-- Changed `CommonAddressResponse`
-  - Property `fullAddress`: added `maxLength` `328`, updated the description
-  - Property `locatorDesignatorAddition`: added `maxLength` `128`, updated the description
-  - Property `locatorDesignatorLetter`: added `maxLength` `10`, updated the description
-  - Property `locatorDesignatorNumber`: added `minimum` `0`, updated the description
-  - Property `postCode`: added `maxLength` `10`, updated the description
-  - Property `postName`: added `maxLength` `80`, updated the description
-  - Property `thoroughfare`: added `maxLength` `80`, updated the description
 
 ---
 
 ### API description
 
 - CA v1: Endpoints for competent authorities to manage areas and to view activities. Status: stable. Superseded by CA v2 (alpha).
-- CA v2: Endpoints for competent authorities to manage areas, to view activities and platforms, and to view acknowledged listings (random checks). Status: alpha. Changes from CA v1: the activity response documents the field maximums (e.g. `url` 2048, `fullAddress` 328); adds `GET /listings` and `GET /listings/count` (acknowledged listings in own areas, random checks); adds `GET /platforms` and `GET /platforms/count`; no other changes.
+- CA v2: Endpoints for competent authorities to manage areas, to view activities and platforms, and to view acknowledged listings (random checks). Status: alpha. Changes from CA v1: adds `GET /listings` and `GET /listings/count` (acknowledged listings in own areas, random checks); adds `GET /platforms` and `GET /platforms/count`; no other changes.
 
 ## STR v1 to v2
 
 | Category          | Added | Removed | Modified | Unchanged |
 | ----------------- | ----- | ------- | -------- | --------- |
 | Operations        | 4     | 0       | 2        | 2         |
-| Component schemas | 16    | 3       | 3        | 10        |
+| Component schemas | 13    | 0       | 0        | 16        |
 | Security schemes  | 0     | 0       | 0        | 1         |
 
 ---
@@ -121,25 +108,17 @@ For the versioning rules behind these differences, see [API](API_TECH.md).
 **`GET /areas`**
 
 - Renamed `operationId` from `getAreas` to `getAreasV2`
-- Changed parameter `limit`: added `default` `1000`, updated the description, no longer accepts null
-- Updated the endpoint description
 
 ---
 
 **`POST /activities/bulk`**
 
 - Renamed `operationId` from `postActivitiesBulk` to `postActivitiesBulkV2`
-- Changed the request body
-- Changed the `200` response
-- Updated the endpoint description
 
 ---
 
 ### Component schemas
 
-- Added `ActivityBulkRequestV2`
-- Added `ActivityRequestV2`
-- Added `CommonTemporalRequestV2`
 - Added `ListingAcknowledgementBulkRequest`
 - Added `ListingAcknowledgementBulkResponse`
 - Added `ListingAcknowledgementBulkResultItem`
@@ -153,31 +132,13 @@ For the versioning rules behind these differences, see [API](API_TECH.md).
 - Added `ListingRequest`
 - Added `ListingResponse`
 - Added `ListingStatus`
-- Removed `ActivityBulkRequest`
-- Removed `ActivityRequest`
-- Removed `CommonTemporalRequest`
-- Changed `ActivityResponse`
-  - Property `countryOfGuests`: added `maxItems` `1024`, added `minItems` `1`, updated the description
-  - Property `numberOfGuests`: added `maximum` `1024`, added `minimum` `1`
-  - Property `registrationNumber`: added `maxLength` `32`, updated the description
-  - Property `url`: added `maxLength` `2048`, updated the description
-- Changed `CommonAddressRequest`
-  - Property `fullAddress`: changed `maxLength` from `318` to `328`, updated the description
-- Changed `CommonAddressResponse`
-  - Property `fullAddress`: added `maxLength` `328`, updated the description
-  - Property `locatorDesignatorAddition`: added `maxLength` `128`, updated the description
-  - Property `locatorDesignatorLetter`: added `maxLength` `10`, updated the description
-  - Property `locatorDesignatorNumber`: added `minimum` `0`, updated the description
-  - Property `postCode`: added `maxLength` `10`, updated the description
-  - Property `postName`: added `maxLength` `80`, updated the description
-  - Property `thoroughfare`: added `maxLength` `80`, updated the description
 
 ---
 
 ### API description
 
 - STR v1: Endpoints for short-term rental platforms to view areas and to submit activities. Status: stable. Superseded by STR v2 (alpha).
-- STR v2: Endpoints for short-term rental platforms to view areas, to submit and acknowledge listings (random checks), and to submit activities. Status: alpha. Changes from STR v1: activity timestamps must be UTC (offset `Z` or `+00:00`; no other offsets, no date-only values); activity `url` and `fullAddress` allow 2048 and 328 characters (v1: 128 and 318); activities are rejected per item (`regulation_error`) for areas that are regulated for listing only; `GET /areas` returns at most 1000 areas per call (`limit` defaults to 1000); adds the listing endpoints for random checks (`POST /listings/bulk`, `GET /listings`, `GET /listings/count`, `POST /listing-acknowledgements/bulk`); no other changes.
+- STR v2: Endpoints for short-term rental platforms to view areas, to submit and acknowledge listings (random checks), and to submit activities. Status: alpha. Changes from STR v1: adds the listing endpoints for random checks (`POST /listings/bulk`, `GET /listings`, `GET /listings/count`, `POST /listing-acknowledgements/bulk`); no other changes.
 
 ## STA v1 to v2
 

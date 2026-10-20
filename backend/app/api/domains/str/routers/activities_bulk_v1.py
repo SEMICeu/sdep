@@ -1,5 +1,8 @@
 """STR v1 bulk activities endpoint.
 
+The UTC-only timestamps, the regulation check and the widened `url`,
+`fullAddress` and `registrationNumber` are backported from v2.
+
 Transaction Management Architecture (API Layer):
 - This API endpoint uses get_async_db for automatic transaction management
 - Transaction commits automatically on success, rolls back on exception
@@ -20,17 +23,13 @@ from app.api.common.auth_dependencies import NamedClientDependency, RequireRoles
 from app.api.common.bulk_json import bulk_json_response
 from app.api.common.security import Role
 from app.api.domains.str.routers.activities_bulk_docs import (
-    BULK_DESCRIPTION_V1,
+    BULK_DESCRIPTION,
     BULK_OPENAPI_EXTRA,
-    BULK_RESPONSES_V1,
+    BULK_RESPONSES,
     BULK_SUMMARY,
 )
 from app.db.config import get_async_db
-from app.schemas.activity_v1 import (
-    ActivityBulkRequest,
-    ActivityBulkResponse,
-    ActivityRequest,
-)
+from app.schemas.activity_bulk import ActivityBulkRequest, ActivityBulkResponse
 from app.services import activity_bulk as activity_bulk_service
 
 router = APIRouter(tags=["str"])
@@ -39,11 +38,11 @@ router = APIRouter(tags=["str"])
 @router.post(
     "/activities/bulk",
     summary=BULK_SUMMARY,
-    description=BULK_DESCRIPTION_V1,
+    description=BULK_DESCRIPTION,
     operation_id="postActivitiesBulk",
     response_model=ActivityBulkResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=BULK_RESPONSES_V1,
+    responses=BULK_RESPONSES,
     openapi_extra=BULK_OPENAPI_EXTRA,
     dependencies=[Depends(RequireRoles(Role.STR, Role.WRITE))],
 )
@@ -68,6 +67,5 @@ async def post_activities_bulk(
         activities_raw=cast("list[dict[str, Any]]", request.activities),
         client_id=client.id,
         platform_name=client.name,
-        item_model=ActivityRequest,
     )
     return bulk_json_response(result)

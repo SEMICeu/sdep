@@ -1,9 +1,8 @@
-"""Tests for POST /str/v2/activities/bulk: what v2 tightens versus v1.
+"""Tests for POST /str/{v1,v2}/activities/bulk: the rules that v1 backported from v2.
 
-UTC-only timestamps and the activity regulation check apply to v2 only; the
-v1 cases here prove v1 is unchanged. The widened
-`fullAddress` and `url`) apply to v1 as well and are proven round trip through
-the CA v1, CA v2 and STA v1 reads.
+UTC-only timestamps, the activity regulation check and the widened `url`,
+`fullAddress` and `registrationNumber` apply to both versions. The widened
+fields are proven round trip through the CA v1, CA v2 and STA v1 reads.
 """
 
 from typing import Any
@@ -86,8 +85,13 @@ async def _post(app, activities: list[dict[str, Any]]):
         )
 
 
+@pytest.fixture(params=[app_str_v1, app_str_v2], ids=["v1", "v2"])
+def str_app(request):
+    return request.param
+
+
 @pytest.mark.database
-class TestStrBulkV2:
+class TestStrBulk:
     @pytest.fixture
     def setup_overrides(self, async_session: AsyncSession):
         async def override_get_db():
@@ -131,9 +135,11 @@ class TestStrBulkV2:
 
     # ── Regulation check ─────────────────────────────────────
 
-    async def test_v2_rejects_listing_only_area_per_item(self, setup_overrides, areas):
+    async def test_rejects_listing_only_area_per_item(
+        self, setup_overrides, areas, str_app
+    ):
         response = await _post(
-            app_str_v2,
+            str_app,
             [
                 _activity(areas["listing"], "l"),
                 _activity(areas["activity"], "a"),
@@ -155,18 +161,15 @@ class TestStrBulkV2:
         ]
         assert [r["status"] for r in data["results"][1:]] == ["OK", "OK"]
 
-    async def test_v2_unknown_area_is_still_not_found(self, setup_overrides, areas):
+    async def test_unknown_area_is_still_not_found(
+        self, setup_overrides, areas, str_app
+    ):
         """The regulation check must not turn an unknown area into a regulation error."""
-        response = await _post(app_str_v2, [_activity("no-such-area", "n")])
+        response = await _post(str_app, [_activity("no-such-area", "n")])
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         error = response.json()["results"][0]["errors"]["detail"][0]
         assert error["type"] == "not_found_error"
-
-    async def test_v1_still_accepts_listing_only_area(self, setup_overrides, areas):
-        response = await _post(app_str_v1, [_activity(areas["listing"], "l1")])
-
-        assert response.status_code == status.HTTP_201_CREATED
 
     # ── UTC-only timestamps ──────────────────────────────────
 
@@ -179,11 +182,11 @@ class TestStrBulkV2:
         ],
         ids=["naive", "offset", "date-only"],
     )
-    async def test_v2_rejects_non_utc_timestamps(
-        self, setup_overrides, areas, start, end
+    async def test_rejects_non_utc_timestamps(
+        self, setup_overrides, areas, str_app, start, end
     ):
         response = await _post(
-            app_str_v2,
+            str_app,
             [
                 _activity(
                     areas["all"],
@@ -201,50 +204,27 @@ class TestStrBulkV2:
             for error in detail
         )
 
-    async def test_v2_accepts_utc_with_z_and_plus_zero(self, setup_overrides, areas):
-        response = await _post(app_str_v2, [_activity(areas["all"], "u")])
+    async def test_accepts_utc_with_z_and_plus_zero(
+        self, setup_overrides, areas, str_app
+    ):
+        response = await _post(str_app, [_activity(areas["all"], "u")])
 
         assert response.status_code == status.HTTP_201_CREATED
 
-    @pytest.mark.parametrize(
-        "start,end",
-        [
-            ("2025-06-01T14:00:00", "2025-06-07T11:00:00+02:00"),
-            ("2025-06-01", "2025-06-07T11:00:00Z"),
-        ],
-        ids=["naive-with-offset-end", "date-only"],
-    )
-    async def test_v1_still_accepts_naive_and_date_only(
-        self, setup_overrides, areas, start, end
-    ):
-        """Also covers the naive/aware comparison that used to raise TypeError in v1."""
-        response = await _post(
-            app_str_v1,
-            [
-                _activity(
-                    areas["all"],
-                    "n",
-                    temporal={"startDatetime": start, "endDatetime": end},
-                )
-            ],
-        )
+    # ── Widened maxima, round trip through every reader ──────
 
-        assert response.status_code == status.HTTP_201_CREATED
-
-    # ── Widened maxima (v2 only), round trip through every reader ──
-
-    async def test_widened_url_and_full_address_round_trip(
-        self, setup_overrides, areas
-    ):
+    async def test_widened_fields_round_trip(self, setup_overrides, areas, str_app):
         url = "http://example.com/" + "u" * (2048 - len("http://example.com/"))
         full_address = "F" * 328
+        registration_number = "R" * 128
         posted = await _post(
-            app_str_v2,
+            str_app,
             [
                 _activity(
                     areas["all"],
                     "w",
                     url=url,
+                    registrationNumber=registration_number,
                     address={
                         "thoroughfare": "T",
                         "postCode": "1234AB",
@@ -267,14 +247,10 @@ class TestStrBulkV2:
             activity = response.json()["activities"][0]
             assert activity["url"] == url
             assert activity["address"]["fullAddress"] == full_address
+            assert activity["registrationNumber"] == registration_number
 
-    @pytest.mark.parametrize(
-        ("app", "url_max", "full_address_max"),
-        [(app_str_v1, 128, 318), (app_str_v2, 2048, 328)],
-        ids=["v1", "v2"],
-    )
     async def test_maximum_is_accepted_and_one_over_is_rejected(
-        self, setup_overrides, areas, app, url_max: int, full_address_max: int
+        self, setup_overrides, areas, str_app
     ):
         def url(length: int) -> str:
             return "http://x/" + "u" * (length - len("http://x/"))
@@ -288,23 +264,25 @@ class TestStrBulkV2:
             }
 
         at_max = await _post(
-            app,
+            str_app,
             [
                 _activity(
                     areas["all"],
                     "m1",
-                    url=url(url_max),
-                    address=address(full_address_max),
+                    url=url(2048),
+                    address=address(328),
+                    registrationNumber="R" * 128,
                 )
             ],
         )
         assert at_max.status_code == status.HTTP_201_CREATED, at_max.text
 
         response = await _post(
-            app,
+            str_app,
             [
-                _activity(areas["all"], "o1", url=url(url_max + 1)),
-                _activity(areas["all"], "o2", address=address(full_address_max + 1)),
+                _activity(areas["all"], "o1", url=url(2049)),
+                _activity(areas["all"], "o2", address=address(329)),
+                _activity(areas["all"], "o3", registrationNumber="R" * 129),
             ],
         )
 
@@ -316,54 +294,37 @@ class TestStrBulkV2:
         ]
         assert ("url",) in locs
         assert ("address", "fullAddress") in locs
+        assert ("registrationNumber",) in locs
 
 
-class TestStrV2Contract:
+class TestStrContract:
     """Contract-level checks that need no database."""
 
-    def test_v2_openapi_documents_the_tightening(self):
-        schema = app_str_v2.openapi()
-        temporal = schema["components"]["schemas"]["CommonTemporalRequestV2"][
-            "properties"
-        ]
+    @pytest.mark.parametrize(
+        ("app", "operation_id"),
+        [(app_str_v1, "postActivitiesBulk"), (app_str_v2, "postActivitiesBulkV2")],
+        ids=["v1", "v2"],
+    )
+    def test_openapi_documents_the_rules(self, app, operation_id: str):
+        schema = app.openapi()
+        post = schema["paths"]["/activities/bulk"]["post"]
+        assert post["operationId"] == operation_id
+        assert "regulation_error" in post["description"]
+        schemas = schema["components"]["schemas"]
+        temporal = schemas["CommonTemporalRequest"]["properties"]
         assert "UTC" in temporal["startDatetime"]["description"]
-        assert (
-            schema["paths"]["/activities/bulk"]["post"]["operationId"]
-            == "postActivitiesBulkV2"
-        )
-        assert (
-            "regulation_error"
-            in schema["paths"]["/activities/bulk"]["post"]["description"]
-        )
-
-    def test_v1_openapi_keeps_its_operation_ids_and_maxima(self):
-        schema = app_str_v1.openapi()
-        assert (
-            schema["paths"]["/activities/bulk"]["post"]["operationId"]
-            == "postActivitiesBulk"
-        )
-        request = schema["components"]["schemas"]["ActivityRequest"]["properties"]
-        assert request["url"]["maxLength"] == 128
-        address = schema["components"]["schemas"]["CommonAddressRequest"]["properties"]
-        assert address["fullAddress"]["maxLength"] == 318
-
-    def test_v2_openapi_documents_the_widened_maxima(self):
-        schemas = app_str_v2.openapi()["components"]["schemas"]
-        assert schemas["ActivityRequestV2"]["properties"]["url"]["maxLength"] == 2048
+        request = schemas["ActivityRequest"]["properties"]
+        assert request["url"]["maxLength"] == 2048
+        assert request["registrationNumber"]["maxLength"] == 128
         address = schemas["CommonAddressRequest"]["properties"]
         assert address["fullAddress"]["maxLength"] == 328
 
-    def test_v1_responses_declare_no_maxima_but_v2_and_sta_v1_do(self):
-        for app in (app_ca_v1, app_str_v1):
-            v1 = app.openapi()["components"]["schemas"]
-            assert "maxLength" not in v1["ActivityResponse"]["properties"]["url"]
-            assert (
-                "maxLength"
-                not in v1["CommonAddressResponse"]["properties"]["fullAddress"]
-            )
-        for app in (app_ca_v2, app_str_v2, app_sta_v1):
+    def test_every_activity_response_declares_the_maxima(self):
+        for app in (app_ca_v1, app_ca_v2, app_str_v1, app_str_v2, app_sta_v1):
             schemas = app.openapi()["components"]["schemas"]
-            assert schemas["ActivityResponse"]["properties"]["url"]["maxLength"] == 2048
+            response = schemas["ActivityResponse"]["properties"]
+            assert response["url"]["maxLength"] == 2048
+            assert response["registrationNumber"]["maxLength"] == 128
             assert (
                 schemas["CommonAddressResponse"]["properties"]["fullAddress"][
                     "maxLength"

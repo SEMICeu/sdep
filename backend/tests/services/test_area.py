@@ -1,8 +1,14 @@
 """Tests for Area business service"""
 
+from datetime import UTC, datetime
+
 import pytest
 from app.enums import Regulation
-from app.exceptions.business import InvalidOperationError, ResourceNotFoundError
+from app.exceptions.business import (
+    DuplicateResourceError,
+    InvalidOperationError,
+    ResourceNotFoundError,
+)
 from app.services import area
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -647,11 +653,10 @@ class TestAreaService:
                 competent_authority_name="Gemeente Amsterdam",
             )
 
-    async def test_create_area_with_same_functional_id_for_different_cas_keeps_both(
+    async def test_create_area_refuses_area_id_of_another_ca(
         self, async_session: AsyncSession
     ):
-        """Two CAs creating areas with the same functional ID must each keep their own."""
-        # Arrange - CA #1 creates "shared-fid"
+        """An areaId has one owner: another CA gets 409 and the owner's area stays."""
         ca1_area = await area.create_area(
             session=async_session,
             area_id="shared-fid",
@@ -662,38 +667,31 @@ class TestAreaService:
             competent_authority_name="Gemeente Amsterdam",
         )
 
-        # Act - CA #2 creates an area with the SAME functional ID
-        ca2_area = await area.create_area(
-            session=async_session,
-            area_id="shared-fid",
-            area_name="CA2 area",
-            filename="CA2.zip",
-            filedata=b"ca2-data",
-            client_id="0364",
-            competent_authority_name="Gemeente Rotterdam",
-        )
+        with pytest.raises(
+            DuplicateResourceError,
+            match=r"areaId 'shared-fid' is already in use by another competent authority",
+        ):
+            await area.create_area(
+                session=async_session,
+                area_id="shared-fid",
+                area_name="CA2 area",
+                filename="CA2.zip",
+                filedata=b"ca2-data",
+                client_id="0364",
+                competent_authority_name="Gemeente Rotterdam",
+            )
 
-        # Assert - both areas exist, neither is ended, and each CA sees their own
-        assert ca1_area.id != ca2_area.id
-        assert ca1_area.ended_at is None
-        assert ca2_area.ended_at is None
+        # The owner's area is neither ended nor taken over
+        current = await area.get_area_by_id(async_session, "shared-fid")
+        assert current is not None
+        assert current.id == ca1_area.id
+        assert current.ended_at is None
+        assert await area.get_areas_by_client_id(async_session, "0364") == []
 
-        ca1_areas = await area.get_areas_by_client_id(async_session, "0363")
-        ca2_areas = await area.get_areas_by_client_id(async_session, "0364")
-
-        assert len(ca1_areas) == 1
-        assert ca1_areas[0].id == ca1_area.id
-        assert ca1_areas[0].filename == "CA1.zip"
-
-        assert len(ca2_areas) == 1
-        assert ca2_areas[0].id == ca2_area.id
-        assert ca2_areas[0].filename == "CA2.zip"
-
-    async def test_create_area_deactivated_for_one_ca_does_not_block_another_ca(
+    async def test_create_area_deleted_area_id_stays_with_its_owner(
         self, async_session: AsyncSession
     ):
-        """A deactivated area_id under one CA must not block a different CA from using it."""
-        # Arrange - CA #1 creates "shared-fid" then deactivates it
+        """A deleted areaId stays reserved: another CA cannot take it over."""
         await area.create_area(
             session=async_session,
             area_id="shared-fid",
@@ -703,33 +701,51 @@ class TestAreaService:
             client_id="0363",
             competent_authority_name="Gemeente Amsterdam",
         )
+        await area.delete_area_by_client_id(async_session, "shared-fid", "0363")
 
-        from app.crud import area as area_crud
+        with pytest.raises(DuplicateResourceError):
+            await area.create_area(
+                session=async_session,
+                area_id="shared-fid",
+                area_name=None,
+                filename="CA2.zip",
+                filedata=b"ca2-data",
+                client_id="0364",
+                competent_authority_name="Gemeente Rotterdam",
+            )
 
-        existing = await area_crud.get_by_area_id(async_session, "shared-fid")
-        assert existing is not None
-        await area_crud.mark_as_ended(
-            async_session, "shared-fid", existing.competent_authority_id
-        )
-
-        # Act - CA #2 must still be able to create an area with the same FID
-        ca2_area = await area.create_area(
+    async def test_create_area_after_ca_rename_versions_the_same_area(
+        self, async_session: AsyncSession
+    ):
+        """A CA rename creates a new CA version; its areaId stays its own."""
+        first = await area.create_area(
             session=async_session,
-            area_id="shared-fid",
+            area_id="rename-fid",
             area_name=None,
-            filename="CA2.zip",
-            filedata=b"ca2-data",
-            client_id="0364",
-            competent_authority_name="Gemeente Rotterdam",
+            filename="v1.zip",
+            filedata=b"v1",
+            client_id="0363",
+            competent_authority_name="Gemeente Amsterdam",
+        )
+        # Backdate, so the next versions get another created_at (SQLite seconds)
+        first.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+        first.competent_authority.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+        await async_session.flush()
+
+        second = await area.create_area(
+            session=async_session,
+            area_id="rename-fid",
+            area_name=None,
+            filename="v2.zip",
+            filedata=b"v2",
+            client_id="0363",
+            competent_authority_name="Gemeente Amsterdam (renamed)",
         )
 
-        # Assert
-        assert ca2_area.ended_at is None
-        ca2_areas = await area.get_areas_by_client_id(async_session, "0364")
-        assert len(ca2_areas) == 1
-        assert ca2_areas[0].id == ca2_area.id
-
-    # Tests for delete_area
+        assert second.competent_authority_id != first.competent_authority_id
+        current = await area.get_area_by_id(async_session, "rename-fid")
+        assert current is not None
+        assert current.id == second.id
 
     async def test_delete_area_success(self, async_session: AsyncSession):
         """Test soft-deleting an area sets ended_at and removes from count"""

@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 from app.crud import platform
+from app.exceptions.business import DuplicateResourceError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,77 +37,46 @@ class TestPlatformCRUD:
         assert result.created_at is not None
         assert isinstance(result.created_at, datetime)
 
-    async def test_create_platform_allows_duplicate_platform_id(
+    async def test_create_platform_refuses_platform_id_of_another_client(
         self, async_session: AsyncSession
     ):
-        """Test that duplicate public platform_id values are allowed."""
-        # Arrange
-        duplicate_platform_id = "duplicate-platform"
-
-        # Create first platform
+        """A public platform_id belongs to one client: another client is refused."""
         await platform.create(
             session=async_session,
             client_id="duplicate-platform-client-1",
-            platform_id=duplicate_platform_id,
-            platform_name="First Platform",
+            platform_id="duplicate-platform",
+            platform_name="First",
         )
-        await async_session.flush()
 
-        # Act
-        second = await platform.create(
-            session=async_session,
-            client_id="duplicate-platform-client-2",
-            platform_id=duplicate_platform_id,
-            platform_name="Second Platform",
-        )
-        await async_session.flush()
+        with pytest.raises(DuplicateResourceError):
+            await platform.create(
+                session=async_session,
+                client_id="duplicate-platform-client-2",
+                platform_id="duplicate-platform",
+                platform_name="Second",
+            )
 
-        # Assert
-        assert second.platform_id == duplicate_platform_id
-
-    async def test_create_platform_with_duplicate_client_id_created_at(
+    async def test_create_platform_refuses_second_platform_id_for_same_client(
         self, async_session: AsyncSession
     ):
-        """Same client can hold versions with different public IDs at one created_at.
-
-        The composite UNIQUE constraint (platform_id, client_id, created_at)
-        permits this as long as only one row is current; the first version must
-        be ended first so the partial unique index on the current row is not
-        violated.
-        """
-        # Arrange
-        created_at = datetime(2026, 1, 1)
-
+        """A client keeps one public platform_id, also after its row has ended."""
         await platform.create(
             session=async_session,
             client_id="duplicate-platform-client",
             platform_id="duplicate-platform-1",
-            platform_name="First Platform",
+            platform_name="First",
         )
-        first = await platform.get_by_client_id(
-            async_session,
-            "duplicate-platform-client",
+        await platform.mark_as_ended_by_client_id(
+            async_session, "duplicate-platform-client"
         )
-        assert first is not None
-        first.created_at = created_at
-        await async_session.flush()
 
-        # End the first version so a new current version can be created.
-        await platform.mark_as_ended(async_session, first.platform_id)
-
-        # Act
-        second = await platform.create(
-            session=async_session,
-            client_id="duplicate-platform-client",
-            platform_id="duplicate-platform-2",
-            platform_name="Second Platform",
-        )
-        second.created_at = created_at
-        await async_session.flush()
-
-        # Assert
-        assert second.client_id == first.client_id
-        assert second.platform_id != first.platform_id
+        with pytest.raises(DuplicateResourceError):
+            await platform.create(
+                session=async_session,
+                client_id="duplicate-platform-client",
+                platform_id="duplicate-platform-2",
+                platform_name="Second",
+            )
 
     async def test_create_platform_with_duplicate_client_public_id_created_at(
         self, async_session: AsyncSession
@@ -145,20 +115,22 @@ class TestPlatformCRUD:
     ):
         """Two current rows (ended_at IS NULL) for one client_id are rejected.
 
-        The public platform_id differs per row, so only the partial unique index
-        on the current row can catch this - not the existing UNIQUE constraint.
+        The name differs per row, so only the partial unique index on the
+        current row can catch this.
         """
-        await platform.create(
+        first = await platform.create(
             async_session,
             client_id="one-current-only",
             platform_name="First Platform",
         )
+        first.created_at = datetime(2026, 1, 1)
         await async_session.flush()
 
         with pytest.raises(IntegrityError):
             await platform.create(
                 async_session,
                 client_id="one-current-only",
+                platform_id=first.platform_id,
                 platform_name="Second Platform",
             )
             await async_session.flush()
@@ -172,11 +144,14 @@ class TestPlatformCRUD:
             client_id="versioned-client",
             platform_name="First Platform",
         )
+        first.created_at = datetime(2026, 1, 1)
+        await async_session.flush()
         await platform.mark_as_ended(async_session, first.platform_id)
 
         second = await platform.create(
             async_session,
             client_id="versioned-client",
+            platform_id=first.platform_id,
             platform_name="Second Platform",
         )
         await async_session.flush()

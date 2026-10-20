@@ -53,7 +53,7 @@ The Makefile retrieves secrets dynamically via `get_client_secret`:
 
 **STR Platform**
 
-- **Client ID:** `sdep-test-str.01`
+- **Client ID:** `sdep-test-str.01`, and `sdep-test-str.02` as a second platform for the cross-platform isolation tests
 - **Roles:** `sdep_str`, `sdep_write`, `sdep_read`
 - **Can access:** STR platform endpoints
 
@@ -150,8 +150,8 @@ A versioned test runs once per API version that exists, so older versions stay t
 | `test_ca_areas`                                                | v1, v2   |                                                             |
 | `test_ca_activities`                                           | v1, v2   | v1 and v2 declare the query filters                         |
 | `test_ca_listings`                                             | v2       | Listings exist only in v2                                   |
-| `test_str_areas`                                               | v1, v2   | v2 defaults `limit` to 1000                                 |
-| `test_str_activities`                                          | v1, v2   | v2 requires UTC timestamps                                  |
+| `test_str_areas`                                               | v1, v2   | Both default `limit` to 1000                                |
+| `test_str_activities`                                          | v1, v2   | Both require UTC timestamps                                 |
 | `test_str_listings`                                            | v2       | Listings exist only in v2                                   |
 | `test_sta_activities`                                          | v1, v2   |                                                             |
 | `test_sta_listings`, `test_lsa_listings`, `test_lma_listings`  | v2       | Listings exist only in v2                                   |
@@ -238,7 +238,7 @@ Test CA (Competent Authority) endpoints.
 - **Test 9:** DELETE nonexistent area → 404
 - **Test 10:** GET own area by ID → 200 OK
 - **Test 11:** GET nonexistent own area by ID → 404
-- **Test 12:** Cross-CA isolation - two CAs POSTing the same `areaId` each keep their own area (regression guard for cross-CA area isolation). Requires `CA2_CLIENT_ID`/`CA2_CLIENT_SECRET`; skipped otherwise.
+- **Test 12:** Cross-CA isolation - an `areaId` has one owner: the second CA gets `409` (`duplicate_error`), the first keeps its area. Requires `CA2_CLIENT_ID`/`CA2_CLIENT_SECRET`; skipped otherwise.
 
 **Endpoints:**
 
@@ -328,6 +328,7 @@ Test STR (Short-Term Rental) platform endpoints.
 - **Test 6:** GET another area by areaId
 - **Test 7:** GET non-existent area (should return 404)
 - **Test 8:** Verify Content-Disposition header contains filename
+- **Test 9:** The OpenAPI document declares `limit` default 1000 on `GET /areas`
 
 **Endpoints:**
 
@@ -355,6 +356,7 @@ Test STR (Short-Term Rental) platform endpoints.
 - **Test 4:** Acknowledging an unknown listing → 422 `not_found_error`
 - **Test 5:** An empty batch → 422
 - **Test 6:** A non-UTC `createdAtFrom` filter → 400
+- **Test 7:** Cross-platform isolation - a `listingId` has one owner: the second platform gets 422 (`duplicate_error`). Requires `STR2_CLIENT_ID`/`STR2_CLIENT_SECRET`; skipped otherwise.
 
 **Endpoints:** `POST /api/str/v2/listings/bulk`, `GET /api/str/v2/listings`, `GET /api/str/v2/listings/count`, `POST /api/str/v2/listing-acknowledgements/bulk`
 
@@ -373,6 +375,8 @@ Test STR (Short-Term Rental) platform endpoints.
 - **Test 3:** POST bulk activities (all invalid) → 422, succeeded=0, failed=2
 - **Test 4:** POST bulk without authentication → 401
 - **Test 5:** Stacked insert + cancel - POST `activityId=X` (default `status=finished`) then re-POST the same `activityId` with `status=cancelled`; the CA-side activity count stays the same because the cancellation is a new version of the same functional activity, not an additional current activity
+- **Test 6:** A naive `startDatetime` (no offset) is rejected (422, UTC required)
+- **Test 7:** Cross-platform isolation - an `activityId` has one owner: the second platform gets 422 (`duplicate_error`). Requires `STR2_CLIENT_ID`/`STR2_CLIENT_SECRET`; skipped otherwise.
 
 **Endpoints:**
 
@@ -667,12 +671,13 @@ This test needs no running stack and no credentials: it is a static check of a s
 
 Test Alembic migrations against a real PostgreSQL instance (started automatically when not in CI). Lives in the Makefile's Tests (migrations) section.
 
-**Script:** `tests/test_postgres_check_constraints.py`
+**Scripts:** `tests/test_postgres_check_constraints.py`, and the PostgreSQL-only backend tests (`backend/tests/services/test_concurrent_rename.py`)
 
 **What it tests:**
 
 - All migrations apply cleanly (`make -C backend upgrade`) and the schema lands on the expected Alembic head revision
 - The `CHECK` constraints in the resulting schema actually reject invalid rows, by inserting seed data and asserting the database raises an integrity error
+- Two concurrent renames of a CA or platform wait for each other, and create one new version (row locks, which SQLite has not). These run with `pytest` in `backend/`, on their own `<db>_pytest` database that the backend `conftest.py` creates and drops
 
 Connects to PostgreSQL directly (SQLAlchemy); does not go through the HTTP API. Idempotent - it removes its own `sdep-test-*` seed rows before each run.
 

@@ -4,7 +4,9 @@ Implements the Application-First Validation flow for bulk activity creation:
 
 1. Pydantic Check - validate each item individually, mark failures as NOK
 2. Referential Integrity Check - single SELECT for area IDs, Python dict lookup;
-   STR v2 also rejects areas that are regulated for listing only
+   areas that are regulated for listing only are rejected
+   Ownership - claim the activity IDs; an ID of another platform is NOK
+   (`duplicate_error`, see models/identity.py)
 3. Bulk Insert - single multi-row INSERT for all valid items
 4. Feedback - per-item OK/NOK response preserving original order
 
@@ -15,7 +17,6 @@ Transaction Management Architecture:
 - CRUD layer only flushes (session.flush()), never commits
 """
 
-import functools
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -26,7 +27,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import activity as activity_crud
 from app.crud import area as area_crud
+from app.crud import identity as identity_crud
 from app.enums import Regulation
+from app.models.identity import ActivityIdentity
 from app.schemas.activity import (
     ActivityBulkCreate,
     ActivityRequest,
@@ -39,10 +42,8 @@ from app.services.platform import ensure_platform
 logger = logging.getLogger(__name__)
 
 
-@functools.cache
-def _item_adapter(item_model: type[ActivityRequest]) -> TypeAdapter[ActivityRequest]:
-    """TypeAdapter per item model, built once (Validation flow Step 1)."""
-    return TypeAdapter(item_model)
+# Built once, used per item (Validation flow Step 1).
+_ITEM_ADAPTER = TypeAdapter(ActivityRequest)
 
 
 async def create_activities_bulk(
@@ -50,9 +51,6 @@ async def create_activities_bulk(
     activities_raw: list[dict[str, Any]],
     client_id: str,
     platform_name: str,
-    *,
-    item_model: type[ActivityRequest] = ActivityRequest,
-    require_activity_regulation: bool = False,
 ) -> ActivityBulkResponse:
     """
     Create activities in bulk using Application-First Validation.
@@ -62,14 +60,10 @@ async def create_activities_bulk(
         activities_raw: List of raw activity dicts from the request
         client_id: Private platform client ID from JWT token
         platform_name: Platform name from JWT token (client_name claim)
-        item_model: Per-item request schema; the API version selects it
-        require_activity_regulation: Reject items whose area is not regulated
-            for activities (STR v2); v1 accepts them
 
     Returns:
         ActivityBulkResponse with per-item OK/NOK results
     """
-    item_adapter = _item_adapter(item_model)
     total = len(activities_raw)
     # results[i] will hold the result for the item at index i
     results: list[ActivityBulkResultItem | None] = [None] * total
@@ -88,7 +82,7 @@ async def create_activities_bulk(
         )
 
         try:
-            activity_req = item_adapter.validate_python(raw)
+            activity_req = _ITEM_ADAPTER.validate_python(raw)
         except ValidationError as e:
             # Show all validation errors so the client can fix in one go
             pydantic_errors = e.errors()
@@ -179,9 +173,7 @@ async def create_activities_bulk(
                     ]
                 ),
             )
-        elif require_activity_regulation and not area_ca_map[
-            area_id_str
-        ].regulation.covers(Regulation.activity):
+        elif not area_ca_map[area_id_str].regulation.covers(Regulation.activity):
             results[i] = ActivityBulkResultItem(
                 activityIndex=i,
                 activityId=client_supplied_ids[i],
@@ -200,6 +192,36 @@ async def create_activities_bulk(
         else:
             still_valid.append(i)
 
+    valid_indexes = still_valid
+
+    # ── Ownership: claim the activity IDs (locks them) ──────────────────
+    owners = await identity_crud.claim(
+        session,
+        ActivityIdentity,
+        [validated_items[i].validated_activity_id for i in valid_indexes],
+        platform.platform_id,
+    )
+    still_valid = []
+    for i in valid_indexes:
+        aid = validated_items[i].validated_activity_id
+        if owners[aid] != platform.platform_id:
+            results[i] = ActivityBulkResultItem(
+                activityIndex=i,
+                activityId=client_supplied_ids[i],
+                status="NOK",
+                activity=None,
+                errors=ErrorResponse(
+                    detail=[
+                        ErrorDetail(
+                            msg=f"activityId '{aid}' is already in use by another platform",
+                            type="duplicate_error",
+                            loc=["activityId"],
+                        )
+                    ]
+                ),
+            )
+        else:
+            still_valid.append(i)
     valid_indexes = still_valid
 
     # ── Activity versioning (batch UPDATE before INSERT) ────────────────

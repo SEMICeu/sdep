@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 from app.crud import activity as activity_crud
 from app.crud import platform as platform_crud
+from app.enums import Regulation
 from app.exceptions.business import InvalidOperationError
 from app.exceptions.handlers import is_unique_violation
 from app.models.activity import Activity
@@ -40,6 +41,7 @@ def _area(
     return SimpleNamespace(
         id=technical_id,
         area_name=area_name,
+        regulation=Regulation.all,
         competent_authority=SimpleNamespace(
             competent_authority_id=competent_authority_id,
             competent_authority_name=competent_authority_name,
@@ -55,15 +57,15 @@ class TestActivityBulkService:
         session = cast("AsyncSession", object())
         monkeypatch.setattr(activity_bulk, "ValidationError", _FakeValidationError)
         fake_adapter = _FakeAdapter(_FakeValidationError("broken payload"))
-        monkeypatch.setattr(
-            activity_bulk, "_item_adapter", lambda item_model: fake_adapter
-        )
+        monkeypatch.setattr(activity_bulk, "_ITEM_ADAPTER", fake_adapter)
         monkeypatch.setattr(
             platform_crud,
             "get_by_client_id",
             AsyncMock(
                 return_value=type(
-                    "Platform", (), {"id": 1, "platform_name": "Platform"}
+                    "Platform",
+                    (),
+                    {"id": 1, "platform_id": "p-1", "platform_name": "Platform"},
                 )()
             ),
         )
@@ -154,6 +156,12 @@ class TestActivityBulkService:
                     "area-2": _area(12, "Area 2", "ca-2", "CA 2"),
                 }
             ),
+        )
+        monkeypatch.setattr(activity_bulk.identity_crud, "lock_client", AsyncMock())
+        monkeypatch.setattr(
+            activity_bulk.identity_crud,
+            "claim",
+            AsyncMock(side_effect=lambda _s, _m, ids, owner: dict.fromkeys(ids, owner)),
         )
         monkeypatch.setattr(
             activity_bulk.activity_crud,
@@ -476,19 +484,20 @@ class TestActivityBulkService:
 
 
 @pytest.mark.asyncio
-async def test_create_activities_bulk_rejects_listing_only_area_when_required(
+async def test_create_activities_bulk_rejects_listing_only_area(
     monkeypatch,
 ):
     """The regulation check marks the item NOK instead of 'not found'."""
-    from app.enums import Regulation
-    from app.schemas.activity import ActivityRequestV2
-
     session = cast("AsyncSession", object())
     listing_area = SimpleNamespace(id=1, regulation=Regulation.listing)
     monkeypatch.setattr(
         platform_crud,
         "get_by_client_id",
-        AsyncMock(return_value=SimpleNamespace(id=1, platform_name="Platform")),
+        AsyncMock(
+            return_value=SimpleNamespace(
+                id=1, platform_id="p-1", platform_name="Platform"
+            )
+        ),
     )
     monkeypatch.setattr(
         activity_bulk.area_crud,
@@ -522,8 +531,6 @@ async def test_create_activities_bulk_rejects_listing_only_area_when_required(
         ],
         client_id="platform-1",
         platform_name="Platform",
-        item_model=ActivityRequestV2,
-        require_activity_regulation=True,
     )
 
     assert response.failed == 1
@@ -591,24 +598,55 @@ class TestActivityVersioningAcrossPlatforms:
             assert response.results[0].status == "OK", response.results[0]
         assert await _current_count(async_session, "a-1") == 1
 
-    async def test_deactivation_guard_is_per_platform(
+    async def test_activity_id_of_another_platform_is_refused(
         self, async_session: AsyncSession
     ):
+        """An activityId has one owner, also after its activity ended."""
         area = await AreaFactory.create_async(async_session, area_id="guard-area")
         other = await PlatformFactory.create_async(
             async_session, platform_id="p-other", client_id="str-other"
         )
+        await ActivityFactory.create_async(
+            async_session,
+            activity_id="a-current",
+            platform_id=other.id,
+            area_id=area.id,
+        )
         ended = await ActivityFactory.create_async(
-            async_session, activity_id="a-shared", platform_id=other.id, area_id=area.id
+            async_session, activity_id="a-ended", platform_id=other.id, area_id=area.id
         )
         await activity_crud.mark_as_ended(
             async_session, ended.activity_id, other.platform_id
         )
 
         response = await activity_bulk.create_activities_bulk(
-            async_session, [_activity("a-shared", area.area_id)], "str-1", "STR 1"
+            async_session,
+            [_activity("a-current", area.area_id), _activity("a-ended", area.area_id)],
+            "str-1",
+            "STR 1",
         )
-        assert response.results[0].status == "OK", response.results[0]
+
+        for result in response.results:
+            assert result.status == "NOK", result
+            assert result.errors is not None
+            assert result.errors.detail[0].type == "duplicate_error"
+        assert await _current_count(async_session, "a-current") == 1
+        assert await _current_count(async_session, "a-ended") == 0
+
+    async def test_activity_id_is_case_sensitive(self, async_session: AsyncSession):
+        """`A-Case` and `a-case` are two activityIds, so two owners can each have one."""
+        area = await AreaFactory.create_async(async_session, area_id="case-area")
+
+        first = await activity_bulk.create_activities_bulk(
+            async_session, [_activity("A-Case", area.area_id)], "str-1", "STR 1"
+        )
+        second = await activity_bulk.create_activities_bulk(
+            async_session, [_activity("a-case", area.area_id)], "str-2", "STR 2"
+        )
+
+        assert [r.status for r in (*first.results, *second.results)] == ["OK", "OK"]
+        assert await _current_count(async_session, "A-Case") == 1
+        assert await _current_count(async_session, "a-case") == 1
 
     async def test_non_object_item_is_nok_not_500(self, async_session: AsyncSession):
         response = await activity_bulk.create_activities_bulk(

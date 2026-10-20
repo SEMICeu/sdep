@@ -22,8 +22,11 @@ from app.exceptions import MalwareScannerOperationalError
 from app.models.address import Address
 from app.models.temporal import Temporal
 from app.schemas.activity import ActivityFilters
-from app.schemas.activity_bulk import ActivityBulkResponse, ActivityBulkResultItem
-from app.schemas.activity_v1 import ActivityBulkRequest
+from app.schemas.activity_bulk import (
+    ActivityBulkRequest,
+    ActivityBulkResponse,
+    ActivityBulkResultItem,
+)
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.security.malware_scan import ScanResult
 from fastapi import HTTPException, UploadFile

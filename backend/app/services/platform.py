@@ -8,8 +8,10 @@ Transaction Management Architecture:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crud import identity as identity_crud
 from app.crud import platform as platform_crud
 from app.exceptions.business import InvalidOperationError
+from app.models.identity import PlatformIdentity
 from app.models.platform import Platform
 
 
@@ -33,6 +35,12 @@ async def ensure_platform(
         InvalidOperationError: When every version of the platform has ended
     """
     platform = await platform_crud.get_by_client_id(session, client_id)
+    if platform is not None and platform.platform_name != platform_name:
+        # Rename: lock the identity row, then read again, so concurrent renames
+        # run one after the other. Only a rename locks: other bulk writes of the
+        # platform stay parallel (see crud/identity.py).
+        await identity_crud.lock_client(session, PlatformIdentity, client_id)
+        platform = await platform_crud.get_by_client_id(session, client_id)
 
     if platform is None:
         platform_deactivated = await platform_crud.exists_any_by_client_id(

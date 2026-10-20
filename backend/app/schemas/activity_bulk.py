@@ -7,30 +7,34 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation, model_serializer
 
 from app.schemas.activity import (
-    ActivityRequestV2,
+    ActivityRequest,
     ActivityResponse,
 )
+from app.schemas.common import NULL_EXAMPLE
 from app.schemas.error import ErrorResponse
 
 __all__ = [
-    "ActivityBulkRequestV2",
+    "ActivityBulkRequest",
     "ActivityBulkResponse",
     "ActivityBulkResultItem",
 ]
 
 
-class ActivityBulkRequestV2(BaseModel):
-    """Bulk activity request schema for STR v2 (items typed as ActivityRequestV2).
+class ActivityBulkRequest(BaseModel):
+    """Bulk activity request schema.
 
-    Same SkipValidation pattern as ActivityBulkRequest; the service validates
-    each item with the model the router passes as `item_model`.
+    The `activities` field is typed as `list[ActivityRequest]` for the OpenAPI
+    contract, but item-level validation is skipped at request-parse time (via
+    `SkipValidation`). This preserves the Application-First Validation flow:
+    each item is validated individually in the service layer, so one invalid
+    item is marked NOK without failing the whole batch.
     """
 
     model_config = ConfigDict(
-        title="Activity.BulkRequestV2",
+        title="Activity.BulkRequest",
     )
 
-    activities: list[SkipValidation[ActivityRequestV2]] = Field(
+    activities: list[SkipValidation[ActivityRequest]] = Field(
         ...,
         min_length=1,
         max_length=1000,
@@ -57,7 +61,7 @@ class ActivityBulkResultItem(BaseModel):
     activity_id: str | None = Field(
         None,
         alias="activityId",
-        description="Activity functional ID provided by the client in the request",
+        description="As supplied in the request item, or `null` when none was supplied",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )
 
@@ -170,6 +174,7 @@ class ActivityBulkResponse(BaseModel):
                 },
                 {
                     "activityIndex": 1,
+                    "activityId": NULL_EXAMPLE,
                     "status": "NOK",
                     "errors": {
                         "detail": [

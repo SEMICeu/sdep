@@ -416,7 +416,7 @@ def main() -> int:
             print("Skipping Test 8 (no third area ID available)")
         print()
 
-        print("Test 9: GET /areas declares the limit default (v1: none, v2: 1000)")
+        print("Test 9: GET /areas declares the limit default (1000)")
         print("------------------------------------------------")
         stats.total += 1
         response = client.get(f"{base_url}/api/str/{api_version}/openapi.json")
@@ -427,7 +427,7 @@ def main() -> int:
                     declared = parameter.get("schema", {}).get("default")
         except (json.JSONDecodeError, KeyError, TypeError):
             pass
-        expected_default = 1000 if api_version != "v1" else None
+        expected_default = 1000
         print(f"Declared limit default: {declared}")
         print()
         mark(

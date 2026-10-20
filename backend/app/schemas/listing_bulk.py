@@ -95,7 +95,7 @@ class ListingBulkResultItem(BaseModel):
     listing_id: str | None = Field(
         None,
         alias="listingId",
-        description="Listing functional ID provided by the client in the request",
+        description="As supplied in the request item, or `null` when none was supplied",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )
 
@@ -145,6 +145,14 @@ class ListingScreeningBulkResultItem(ListingBulkResultItem):
         populate_by_name=True,
     )
 
+    # listingId is required in these requests, so null only marks a malformed item.
+    listing_id: str | None = Field(
+        None,
+        alias="listingId",
+        description="As supplied in the request item (`null` only when the item is not a JSON object)",
+        examples=["550e8400-e29b-41d4-a716-446655440000"],
+    )
+
 
 class ListingAcknowledgementBulkResultItem(ListingBulkResultItem):
     """Result for a single item in an acknowledgement bulk response."""
@@ -152,6 +160,14 @@ class ListingAcknowledgementBulkResultItem(ListingBulkResultItem):
     model_config = ConfigDict(
         title="ListingAcknowledgement.BulkResultItem",
         populate_by_name=True,
+    )
+
+    # listingId is required in these requests, so null only marks a malformed item.
+    listing_id: str | None = Field(
+        None,
+        alias="listingId",
+        description="As supplied in the request item (`null` only when the item is not a JSON object)",
+        examples=["550e8400-e29b-41d4-a716-446655440000"],
     )
 
 

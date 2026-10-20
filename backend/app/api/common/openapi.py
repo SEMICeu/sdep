@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import FastAPI
 
 from app.config import settings
+from app.schemas.common import NULL_EXAMPLE
 
 
 def replace_auto_generated_body_schemas(
@@ -122,7 +123,6 @@ def remove_inapplicable_422_responses(
 # (bulk request schema, list field, item schema) for every bulk endpoint.
 BULK_ITEM_SCHEMAS: tuple[tuple[str, str, str], ...] = (
     ("ActivityBulkRequest", "activities", "ActivityRequest"),
-    ("ActivityBulkRequestV2", "activities", "ActivityRequestV2"),
     ("ListingBulkRequest", "listings", "ListingRequest"),
     ("ListingScreeningBulkRequest", "screenings", "ListingScreeningRequest"),
     (
@@ -265,6 +265,28 @@ def use_bearer_scheme_when_client_credentials_disabled(
     return openapi_schema
 
 
+def restore_null_examples(openapi_schema: dict[str, Any]) -> dict[str, Any]:
+    """Replace every NULL_EXAMPLE marker with a JSON null.
+
+    Args:
+        openapi_schema: The generated OpenAPI schema dictionary
+
+    Returns:
+        Modified OpenAPI schema with the markers replaced by None
+    """
+
+    def restore(node: Any) -> Any:
+        if node == NULL_EXAMPLE:
+            return None
+        if isinstance(node, dict):
+            return {key: restore(value) for key, value in node.items()}
+        if isinstance(node, list):
+            return [restore(value) for value in node]
+        return node
+
+    return restore(openapi_schema)
+
+
 def create_custom_openapi(app: FastAPI) -> Callable:
     """Factory function to create a custom OpenAPI schema generator.
 
@@ -303,6 +325,9 @@ def create_custom_openapi(app: FastAPI) -> Callable:
 
         # Sort schemas by namespace first, then alphabetically
         openapi_schema = sort_schemas_by_namespace(openapi_schema)
+
+        # Turn NULL_EXAMPLE markers into a JSON null
+        openapi_schema = restore_null_examples(openapi_schema)
 
         # When client-secret authentication is disabled, present a Bearer scheme in
         # the docs instead of the (non-functional) OAuth 2.0 Authorize flow.

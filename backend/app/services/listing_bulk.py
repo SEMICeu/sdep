@@ -4,7 +4,8 @@ Application-First Validation flow, as for activities:
 
 1. Pydantic Check - validate each item individually, mark failures as NOK
 2. Referential Integrity Check - one SELECT for area IDs; an area must be
-   regulated for listings (`regulation_error` otherwise)
+   regulated for listings (`regulation_error` otherwise); then claim the
+   listing IDs, an ID of another platform is NOK (`duplicate_error`)
 3. Versioning under lock - a resubmitted `listingId` is a correction, allowed
    while the current version is `pending` (`conflict_error` otherwise)
 4. Feedback - per-item OK/NOK response preserving original order
@@ -23,8 +24,10 @@ if TYPE_CHECKING:
     from app.models.listing import Listing
 
 from app.crud import area as area_crud
+from app.crud import identity as identity_crud
 from app.crud import listing as listing_crud
 from app.enums import ListingStatus, Regulation
+from app.models.identity import ListingIdentity
 from app.schemas.listing import ListingBulkCreate, ListingRequest
 from app.schemas.listing_bulk import ListingBulkResponse, ListingBulkResultItem
 from app.services.listing_bulk_common import (
@@ -105,6 +108,29 @@ async def create_listings_bulk(
                 msg=f"Area with areaId '{area_id_str}' is regulated for activity only",
                 error_type="regulation_error",
                 loc=["areaId"],
+            )
+        else:
+            still_valid.append(i)
+    valid_indexes = still_valid
+
+    # Ownership: claim the listing IDs (locks them), see models/identity.py
+    owners = await identity_crud.claim(
+        session,
+        ListingIdentity,
+        [validated_items[i].validated_listing_id for i in valid_indexes],
+        platform.platform_id,
+    )
+    still_valid = []
+    for i in valid_indexes:
+        listing_id = validated_items[i].validated_listing_id
+        if owners[listing_id] != platform.platform_id:
+            results[i] = nok_item(
+                ListingBulkResultItem,
+                i,
+                client_supplied_ids[i],
+                msg=f"listingId '{listing_id}' is already in use by another platform",
+                error_type="duplicate_error",
+                loc=["listingId"],
             )
         else:
             still_valid.append(i)

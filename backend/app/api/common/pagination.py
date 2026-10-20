@@ -15,25 +15,6 @@ class PaginationParams(BaseModel):
     limit: int | None
 
 
-async def pagination_params(
-    offset: Annotated[
-        int,
-        Query(ge=0, description="Number of records to skip (default: 0)"),
-    ] = 0,
-    limit: Annotated[
-        int | None,
-        Query(
-            ge=1,
-            le=1000,
-            description="Maximum number of records to return (default: unlimited, max: 1000 when specified)",
-        ),
-    ] = None,
-) -> PaginationParams:
-    """Parse common offset/limit query parameters."""
-
-    return PaginationParams(offset=offset, limit=limit)
-
-
 async def limited_pagination_params(
     offset: Annotated[
         int,
@@ -53,8 +34,6 @@ async def limited_pagination_params(
     return PaginationParams(offset=offset, limit=limit)
 
 
-PaginationDependency = Annotated[PaginationParams, Depends(pagination_params)]
-
 LimitedPaginationDependency = Annotated[
     PaginationParams, Depends(limited_pagination_params)
 ]
@@ -62,8 +41,6 @@ LimitedPaginationDependency = Annotated[
 
 __all__ = [
     "LimitedPaginationDependency",
-    "PaginationDependency",
     "PaginationParams",
     "limited_pagination_params",
-    "pagination_params",
 ]

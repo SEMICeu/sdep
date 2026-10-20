@@ -72,6 +72,7 @@ occurrence is processed. Earlier occurrences receive NOK.
 - 200: partial success (some OK, some NOK)
 - 401: missing or invalid token
 - 403: insufficient permissions
+- 409: a concurrent request wrote the same record first (`conflict_error`), retry the request
 - 422: all items failed
 """
 
@@ -166,6 +167,11 @@ SCREENING_RESPONSES: dict[int | str, dict[str, Any]] = {
     },
     "403": {
         "description": "Forbidden - insufficient permissions",
+    },
+    "409": {
+        "model": ErrorResponse,
+        "description": "Conflict - a concurrent request wrote the same record first "
+        "(`conflict_error`), retry the request",
     },
     "422": {
         "model": ListingScreeningBulkResponse,

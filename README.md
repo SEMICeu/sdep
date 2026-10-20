@@ -23,7 +23,6 @@ Overview:
   - [Technical](#technical)
   - [Security](#security)
 - [Getting started](#getting-started)
-- [Known issues](#known-issues)
 - [Process](#process)
 - [Foundation](#foundation)
 
@@ -231,6 +230,7 @@ make test-migrations
 - Applies all migrations to an empty database (`make -C backend upgrade`)
 - Verifies that the models and the database agree: `alembic check` for tables, columns, indexes and unique constraints, `backend/scripts/check_db_matches_models.py` for the CHECK constraints and partial-index predicates, which Alembic does not compare
 - Verifies that the check constraints reject bad rows
+- Runs the backend tests that need PostgreSQL row locks (e.g. concurrent renames), which `make test` on SQLite skips
 - Runs without the full stack, so it is also usable as a CI/CD pipeline gate
 
 ---
@@ -425,10 +425,6 @@ make spell-check
 - [Pre-production](./docs/GET_STARTED_PRE.md)
 - [Production](./docs/GET_STARTED_PRD.md)
 - [Client-signed JWT authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md)
-
-## Known issues
-
-- Multiple CAs can use the same areaId, but platforms act on areaId solely ([#95](https://github.com/SEMICeu/sdep/issues/95))
 
 ## Process
 

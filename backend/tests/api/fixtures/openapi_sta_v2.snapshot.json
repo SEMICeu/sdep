@@ -71,7 +71,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where this activity took place",
+            "description": "Functional ID referencing the area where this activity took place (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c",
               "58FF0814-3AA1-5019-9AFB-3CD9F398602C"
@@ -169,8 +169,8 @@
             "title": "Platformname"
           },
           "registrationNumber": {
-            "description": "Registration number of the address (max 32 chars)",
-            "maxLength": 32,
+            "description": "Registration number of the address (max 128 chars)",
+            "maxLength": 128,
             "title": "Registrationnumber",
             "type": "string"
           },
@@ -665,7 +665,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where the listing is posted",
+            "description": "Functional ID referencing the area where the listing is posted (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c"
             ],
@@ -787,14 +787,14 @@
           "registrationNumber": {
             "anyOf": [
               {
-                "maxLength": 32,
+                "maxLength": 128,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Registration number shown on the listing (optional, max 32 chars)",
+            "description": "Registration number shown on the listing (optional, max 128 chars)",
             "title": "Registrationnumber"
           },
           "screenedAt": {

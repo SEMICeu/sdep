@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.common.area_examples import (
-    AREAS_DESCRIPTION_V2,
+    AREAS_DESCRIPTION,
     AREAS_RESPONSES,
     AREAS_SUMMARY,
 )
@@ -23,7 +23,7 @@ router = APIRouter(tags=["str"])
     response_model=AreaListResponse,
     status_code=status.HTTP_200_OK,
     summary=AREAS_SUMMARY,
-    description=AREAS_DESCRIPTION_V2,
+    description=AREAS_DESCRIPTION,
     operation_id="getAreasV2",
     responses=AREAS_RESPONSES,
     dependencies=[Depends(RequireRoles(Role.STR, Role.READ))],

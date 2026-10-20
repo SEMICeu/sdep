@@ -174,14 +174,13 @@ Every `/api/ca/v1/areas...` path above is also served at `/api/ca/v2/areas...`, 
 
 **v1**
 
-- `GET /api/str/v1/areas` - List regulated areas (pagination: offset, limit)
+- `GET /api/str/v1/areas` - List regulated areas, at most 1000 per call (pagination: offset, limit - limit defaults to 1000, the maximum; backported from v2)
 - `GET /api/str/v1/areas/count` - Count areas
 - `GET /api/str/v1/areas/{areaId}` - Download shapefile for area
 
-**v2 - mandatory pagination**
+**v2 - unchanged**
 
-- `GET /api/str/v2/areas` - List regulated areas, at most 1000 per call (pagination: offset, limit - limit defaults to 1000, the maximum)
-- `GET /api/str/v2/areas/count` and `GET /api/str/v2/areas/{areaId}` - unchanged, mounted from v1
+Every `/api/str/v1/areas...` path above is also served at `/api/str/v2/areas...`, with the same request, response, and authorization.
 
 ---
 
@@ -200,11 +199,11 @@ Every `/api/ca/v1/areas...` path above is also served at `/api/ca/v2/areas...`, 
 
 **v1**
 
-- `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body); `url` up to 128 and `fullAddress` up to 318 characters
+- `POST /api/str/v1/activities/bulk` - Submit up to 1000 activities in bulk (JSON body); `url` up to 2048, `fullAddress` up to 328 and `registrationNumber` up to 128 characters; `startDatetime` and `endDatetime` must be UTC (offset `Z` or `+00:00`; other offsets, no offset and date-only values are rejected), and activities are rejected for areas that are regulated for listing only, per item with `regulation_error` (backported from v2)
 
-**v2 - stricter and wider input**
+**v2 - unchanged**
 
-- `POST /api/str/v2/activities/bulk` - As v1, plus: `url` up to 2048 and `fullAddress` up to 328 characters (widened); `startDatetime` and `endDatetime` must be UTC (offset `Z` or `+00:00`; other offsets, no offset and date-only values are rejected), and activities are rejected for areas that are regulated for listing only (`regulation` is `listing`), per item with `regulation_error`
+`POST /api/str/v1/activities/bulk` is also served at `POST /api/str/v2/activities/bulk`, with the same request, response, and authorization.
 
 ---
 
@@ -338,6 +337,8 @@ A domain typically exposes two active versions, **N-1** and **N**,:
 | **N-1**        | stable → deprecated   | Previous contract. Remains supported until its defined sunset date. |
 | **N**          | alpha → beta → stable | Current contract and primary version for consumers.                 |
 
+**N-1 is deprecated only once N is stable.** Clients never migrate onto a contract that may still change.
+
 With a possible brief overlap during which **N+1** is introduced.
 
 | Active version | Lifecycle    | Purpose                                                                                  |
@@ -401,10 +402,10 @@ Consequences:
 | Domain | Version | Status | Notes                                                                                  |
 | ------ | ------- | ------ | -------------------------------------------------------------------------------------- |
 | auth   | v1      | stable | OAuth 2.0 token endpoint (client credentials)                                          |
-| ca     | v1      | stable | Areas + activities (no filters)                                                        |
-| ca     | v2      | alpha  | Activity filters, limit 1000, acknowledged listings (random checks), platforms         |
-| str    | v1      | stable | Areas (read-only) + bulk activity submission                                           |
-| str    | v2      | alpha  | UTC-only timestamps, regulation check, limit 1000, listings (random checks)            |
+| ca     | v1      | stable | Areas + activities (filters and limit 1000 backported from v2)                         |
+| ca     | v2      | alpha  | Acknowledged listings (random checks), platforms                                       |
+| str    | v1      | stable | Areas (read-only) + bulk activity submission (v2 rules backported)                     |
+| str    | v2      | alpha  | Listings (random checks)                                                               |
 | lsa    | v2      | alpha  | Listing screening authority: pending listings + bulk screening results, reference data |
 | lma    | v2      | alpha  | Read-only listing monitoring API, every lifecycle status, reference data               |
 | ama    | v1      | stable | Read-only activity monitoring API (the STA read, own role), reference data             |
@@ -417,7 +418,7 @@ Consequences:
 
 The differences between consecutive API versions are generated from the committed OpenAPI snapshots and published in [API version diff](API_DIFF_TECH.md). The document is regenerated with `make api-diff-update` from `backend/` and is gated by the backend test suite, so it cannot drift from the contract.
 
-In short: CA v2 is CA v1 plus documented field maximums on the activity response, the acknowledged-listings read and the platform reads. STR v2 is STR v1 with UTC-only timestamps, the activity regulation check, a `limit` that defaults to 1000, and the listing endpoints (random checks). STA v2 is STA v1 plus the listing endpoints (random checks). No changes to the paths or authorization shared with the previous version. See [Listings](#listings) and [Activities](#activities) for the filter parameters.
+In short: CA v2 is CA v1 plus the acknowledged-listings read and the platform reads. STR v2 is STR v1 plus the listing endpoints (random checks). STA v2 is STA v1 plus the listing endpoints (random checks). No changes to the paths or authorization shared with the previous version. See [Listings](#listings) and [Activities](#activities) for the filter parameters.
 
 Each version also carries its own cross-version note in the OpenAPI `info.description`, so it is visible at the top of that version's Swagger UI without leaving the API.
 
@@ -539,7 +540,7 @@ One-off API PDF export for specific API versions:
 
 The area endpoints take **no query filters**, only pagination. The scope is fixed: a competent authority reads its own areas, a platform reads every regulated area, because it needs all of them to decide what to submit. The read-only audiences (AMA, STA, LMA, LSA) read every area too, see [Reference data](#reference-data).
 
-`GET /areas` is unlimited by default in STR v1. In CA v1 and from v2 on it returns at most 1000 records per request (`limit` defaults to 1000, the maximum); use `offset` together with `GET /areas/count`.
+`GET /areas` returns at most 1000 records per request (`limit` defaults to 1000, the maximum); use `offset` together with `GET /areas/count`.
 
 ---
 
@@ -634,9 +635,11 @@ Rule: every ID that an API filters on can be looked up in that same API. So the 
 | 401         | Unauthorized          | Missing, invalid, or expired authentication token; missing required token claims (`client_id`, `client_name`)                                                          |
 | 403         | Forbidden             | Authenticated but missing a required role (`sdep_ca`, `sdep_str`, `sdep_lsa`, `sdep_lma`, `sdep_ama`, `sdep_sta`, `sdep_read`, `sdep_write`)                           |
 | 404         | Not Found             | Requested resource does not exist, is unavailable, or has been deleted                                                                                                 |
-| 409         | Conflict              | Duplicate resource; or a concurrent request wrote the same record first (e.g. the first write of a new `listingId`), retry the request                                 |
+| 409         | Conflict              | Functional id of another owner (`duplicate_error`, do not retry); or a concurrent request wrote the same record first (`conflict_error`, retry) **[1]**                |
 | 413         | Payload Too Large     | Upload exceeds the per-endpoint size limit (e.g. the CA area upload: above the 1 MiB file-size cap plus a small multipart envelope), checked before the body is parsed |
 | 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field) or business rule violation (e.g. start time > end time)                                           |
+
+[1] Retry only on HTTP `409` with `type: conflict_error`. A functional id (`areaId`, `listingId`, `activityId`) belongs to one owner, see [Identity](./DATAMODEL_TECH.md#identity): an id of another owner is `409` with `duplicate_error` on `POST /areas`, and an item NOK with `duplicate_error` in a bulk write. Bulk items also use `conflict_error` for a state conflict (e.g. "already screened"): that is an item result, not an HTTP `409`, and is not retried.
 
 ---
 
@@ -858,7 +861,7 @@ Verdict per rule, with some \[footnotes\]:
 | `/core/query-keys-camel-case`            | OK        | `createdAtFrom`, `platformId`, `areaId`                                                                                                          |
 | `/core/hide-implementation`              | OK        | No `Server` header, functional IDs instead of database keys, generic error bodies                                                                |
 | `/core/date-time/format`                 | OK        | ISO 8601 throughout                                                                                                                              |
-| `/core/date-time/timezone`               | Deviation | Responses are UTC; requests: STR v1 accepts any offset, STR v2 accepts UTC only (`Z` or `+00:00`) **[4]**                                        |
+| `/core/date-time/timezone`               | Deviation | Responses are UTC; requests: STR accepts UTC only (`Z` or `+00:00`) **[4]**                                                                      |
 | `/core/date-time/date-omit-time-portion` | OK        | Date-only fields are dates                                                                                                                       |
 | `/core/http-methods`                     | OK        | `GET`, `POST`, `DELETE` only                                                                                                                     |
 | `/core/http-safety`                      | OK        | `GET` safe; `DELETE /areas/{areaId}` idempotent (a repeat returns 404); `POST .../bulk` not idempotent by design, see [Patterns](#patterns)      |
@@ -897,7 +900,7 @@ Verdict per rule, with some \[footnotes\]:
 
 [3] OK, because every contract after v1 returns 404 and no redirect: CA and STR v2, and all other domains. The v1 contracts were released with the redirect; keeping it means no stable client breaks. Auth has no later version yet, so Auth v1 still redirects. The exemption is a per-version flag in the domain registry, checked by the backend test suite.
 
-[4] The rule asks to accept any offset; STR v2 accepts UTC only, on purpose (see [Surface](#surface)):
+[4] The rule asks to accept any offset; STR (v1 and v2) accepts UTC only, on purpose (see [Surface](#surface)):
 
 - Timestamps without an offset, or with mixed offsets in one batch, cannot be misread
 - The database stores UTC, and v1 once crashed on a start without an offset and an end with one
@@ -999,7 +1002,7 @@ app = FastAPI(lifespan=lifespan, redirect_slashes=False)   # root app, no routes
 Why a sub-app and not one app with version prefixes:
 
 - Each version gets its own OpenAPI document and its own Swagger UI, so a client sees one contract, not all of them
-- A frozen version stays frozen: its routers are not touched when the next version changes
+- A frozen version stays frozen: its routers are not touched when the next version changes, except for an agreed backport (listed in the [changelog](../CHANGELOG.md))
 - Mount order matters only for `app_common`, which is mounted last because `/api` covers every other path
 
 ---
@@ -1117,7 +1120,8 @@ run in order, on every sub-app:
 3. `remove_inapplicable_422_responses` - drop the 422 FastAPI adds to endpoints that never emit it
 4. `extract_bulk_item_schemas` - give every bulk item its own component instead of an inline schema, driven by the `BULK_ITEM_SCHEMAS` table
 5. `sort_schemas_by_namespace` - sort by dotted title, so the schema list reads per resource
-6. `use_bearer_scheme_when_client_credentials_disabled` - show a plain Bearer scheme when the client-secret flow is off
+6. `restore_null_examples` - turn the `NULL_EXAMPLE` marker into a JSON `null`, because FastAPI drops every `None` from the document, also inside examples
+7. `use_bearer_scheme_when_client_credentials_disabled` - show a plain Bearer scheme when the client-secret flow is off
 
 Step 4 needs explaining. A bulk request lists its items as `SkipValidation[ItemRequest]`,
 so one invalid item can fail without failing the batch. The side effect is that FastAPI

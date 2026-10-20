@@ -424,7 +424,7 @@
             "description": "Address composite (`thoroughfare`, `locatorDesignatorNumber` (optional), `locatorDesignatorLetter` (optional), `locatorDesignatorAddition` (optional), `postCode`, `postName`, `fullAddress`)"
           },
           "areaId": {
-            "description": "Functional ID referencing the area where the listing is posted",
+            "description": "Functional ID referencing the area where the listing is posted (case-sensitive)",
             "examples": [
               "58ff0814-3aa1-5019-9afb-3cd9f398602c"
             ],
@@ -546,14 +546,14 @@
           "registrationNumber": {
             "anyOf": [
               {
-                "maxLength": 32,
+                "maxLength": 128,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Registration number shown on the listing (optional, max 32 chars)",
+            "description": "Registration number shown on the listing (optional, max 128 chars)",
             "title": "Registrationnumber"
           },
           "screenedAt": {
@@ -720,7 +720,7 @@
                 "type": "null"
               }
             ],
-            "description": "Listing functional ID provided by the client in the request",
+            "description": "As supplied in the request item (`null` only when the item is not a JSON object)",
             "examples": [
               "550e8400-e29b-41d4-a716-446655440000"
             ],
@@ -794,7 +794,7 @@
             "type": "string"
           },
           "platformId": {
-            "description": "Functional ID of the platform that submitted the listing (a `listingId` is only unique within a platform)",
+            "description": "Functional ID of the platform that submitted the listing",
             "examples": [
               "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21"
             ],
@@ -1239,7 +1239,7 @@
     },
     "/listing-screenings/bulk": {
       "post": {
-        "description": "Submit 1-1000 screening results. Each screened listing becomes a new version: `clear` when `flags` is empty, `flagged` otherwise. Flagged listings appear in the platform's `GET /listings` for acknowledgement.\n\n**Flag codes:** `ABS` (absent registration number), `UNK` (unknown registration number), `EXP` (expired registration number), `MIS` (mismatched address), `NPR` (not a private residence), `UNX` (unexpected registration number), `UDS` (undeclared short-term rental). See the functional design for the decision table.\n\n**Correction:** a `clear` or `flagged` listing may be re-screened (new version, state follows the new flags). An `acknowledged` listing is final: such items are marked NOK with `conflict_error`.\n\n**Concurrency:**\n- `platformId` and `listingId` identify the listing (a `listingId` is only unique within a platform)\n- `createdAt` is the `createdAt` of the version that was screened, as returned by `GET /listings`\n- When that version is no longer current (for example, the platform corrected the listing), the item is marked NOK with `conflict_error` and `loc` `[\"createdAt\"]`; the corrected listing reappears in `GET /listings` with its new data\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually (`platformId`, `listingId`, UTC `createdAt`, known flag codes).\n2. **Referential Integrity Check** - the platform and the listing must exist (`not_found_error`).\n3. **Versioning and Bulk Insert** - the current version is locked and checked (`createdAt` current, status not `acknowledged`), marked ended, and the screened versions are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same (`platformId`, `listingId`) appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `screenings`: Array of screening results to process (1-1000 items per batch)\n\n**Each screening item in the request contains:**\n- `platformId`: Functional ID of the platform that submitted the listing\n- `listingId`: Functional ID of the screened listing\n- `createdAt`: `createdAt` of the screened listing version (UTC)\n- `flags`: Zero or more distinct flag codes\n\n**The response contains:**\n- `totalReceived`, `succeeded`, `failed`: Summary counts\n- `results`: Per-item results preserving the original request order (`listingIndex`, `listingId`, `status`, `listing` for OK items, `errors` for NOK items)\n\n**Response HTTP status:**\n- 201: all items screened\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 422: all items failed",
+        "description": "Submit 1-1000 screening results. Each screened listing becomes a new version: `clear` when `flags` is empty, `flagged` otherwise. Flagged listings appear in the platform's `GET /listings` for acknowledgement.\n\n**Flag codes:** `ABS` (absent registration number), `UNK` (unknown registration number), `EXP` (expired registration number), `MIS` (mismatched address), `NPR` (not a private residence), `UNX` (unexpected registration number), `UDS` (undeclared short-term rental). See the functional design for the decision table.\n\n**Correction:** a `clear` or `flagged` listing may be re-screened (new version, state follows the new flags). An `acknowledged` listing is final: such items are marked NOK with `conflict_error`.\n\n**Concurrency:**\n- `platformId` and `listingId` identify the listing (a `listingId` is only unique within a platform)\n- `createdAt` is the `createdAt` of the version that was screened, as returned by `GET /listings`\n- When that version is no longer current (for example, the platform corrected the listing), the item is marked NOK with `conflict_error` and `loc` `[\"createdAt\"]`; the corrected listing reappears in `GET /listings` with its new data\n\n**Validation flow (4 steps):**\n\n1. **Syntax and semantical validation** - each item is validated individually (`platformId`, `listingId`, UTC `createdAt`, known flag codes).\n2. **Referential Integrity Check** - the platform and the listing must exist (`not_found_error`).\n3. **Versioning and Bulk Insert** - the current version is locked and checked (`createdAt` current, status not `acknowledged`), marked ended, and the screened versions are inserted in a single multi-row INSERT.\n4. **Feedback** - per-item OK/NOK response preserving original order.\n\n**Intra-batch duplicates (last-wins):**\nWhen the same (`platformId`, `listingId`) appears multiple times in a single batch, only the last\noccurrence is processed. Earlier occurrences receive NOK.\n\n**The request contains:**\n- `screenings`: Array of screening results to process (1-1000 items per batch)\n\n**Each screening item in the request contains:**\n- `platformId`: Functional ID of the platform that submitted the listing\n- `listingId`: Functional ID of the screened listing\n- `createdAt`: `createdAt` of the screened listing version (UTC)\n- `flags`: Zero or more distinct flag codes\n\n**The response contains:**\n- `totalReceived`, `succeeded`, `failed`: Summary counts\n- `results`: Per-item results preserving the original request order (`listingIndex`, `listingId`, `status`, `listing` for OK items, `errors` for NOK items)\n\n**Response HTTP status:**\n- 201: all items screened\n- 200: partial success (some OK, some NOK)\n- 401: missing or invalid token\n- 403: insufficient permissions\n- 409: a concurrent request wrote the same record first (`conflict_error`), retry the request\n- 422: all items failed",
         "operationId": "postListingScreeningsBulk",
         "requestBody": {
           "content": {
@@ -1443,6 +1443,16 @@
           },
           "403": {
             "description": "Forbidden - insufficient permissions"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - a concurrent request wrote the same record first (`conflict_error`), retry the request"
           },
           "422": {
             "content": {

@@ -1,7 +1,7 @@
-"""STR v2 and CA (v1, v2) list endpoints return at most 1000 records per call.
+"""STR and CA (v1, v2) list endpoints return at most 1000 records per call.
 
-Proven with 1001 rows: these apps return 1000 without a `limit`, STR v1 returns
-everything. The contract (declared default) is checked alongside.
+Proven with 1001 rows: these apps return 1000 without a `limit`. The contract
+(declared default) is checked alongside.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -14,10 +14,12 @@ from app.api.domains.ca.v1 import app_ca_v1
 from app.api.domains.ca.v2 import app_ca_v2
 from app.api.domains.str.v1 import app_str_v1
 from app.api.domains.str.v2 import app_str_v2
+from app.crud import identity as identity_crud
 from app.db.config import get_async_db, get_async_db_read_only
 from app.enums import ActivityStatus, Regulation
 from app.models.activity import Activity
 from app.models.area import Area
+from app.models.identity import ActivityIdentity, AreaIdentity
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -83,6 +85,12 @@ class TestDefaultLimit:
             competent_authority_id=CA_ID,
             competent_authority_name="Gemeente Amsterdam",
         )
+        await identity_crud.claim(
+            async_session,
+            AreaIdentity,
+            [f"area-{i:04d}" for i in range(ROWS)],
+            ca.competent_authority_id,
+        )
         async_session.add_all(
             Area(
                 area_id=f"area-{i:04d}",
@@ -104,6 +112,12 @@ class TestDefaultLimit:
         platform = await PlatformFactory.create_async(async_session)
         area_id = await _area_pk(async_session, many_areas)
         start = datetime(2025, 6, 1, 12, 0, tzinfo=UTC)
+        await identity_crud.claim(
+            async_session,
+            ActivityIdentity,
+            [f"activity-{i:04d}" for i in range(ROWS)],
+            platform.platform_id,
+        )
         async_session.add_all(
             Activity(
                 activity_id=f"activity-{i:04d}",
@@ -127,8 +141,8 @@ class TestDefaultLimit:
 
     @pytest.mark.parametrize(
         "app,expected",
-        [(app_str_v1, ROWS), (app_str_v2, 1000)],
-        ids=["str-v1-unlimited", "str-v2-capped"],
+        [(app_str_v1, 1000), (app_str_v2, 1000)],
+        ids=["str-v1-capped", "str-v2-capped"],
     )
     async def test_str_areas_default_limit(
         self, setup_overrides, many_areas, app, expected
@@ -155,9 +169,12 @@ class TestDefaultLimit:
     ):
         assert len(await _get(app, "/activities")) == expected
 
-    async def test_v2_second_page_completes_the_set(self, setup_overrides, many_areas):
-        second = await _get(app_str_v2, "/areas?offset=1000")
-        assert len(second) == 1
+    @pytest.mark.parametrize("app", [app_str_v1, app_str_v2], ids=["v1", "v2"])
+    async def test_str_second_page_completes_the_set(
+        self, setup_overrides, many_areas, app
+    ):
+        second = await _get(app, "/areas?offset=1000")
+        assert len(second) == ROWS - 1000
 
 
 async def _area_pk(session: AsyncSession, ca_pk: int) -> int:
@@ -174,7 +191,7 @@ class TestDefaultLimitContract:
     @pytest.mark.parametrize(
         "app,path,default",
         [
-            (app_str_v1, "/areas", None),
+            (app_str_v1, "/areas", 1000),
             (app_str_v2, "/areas", 1000),
             (app_ca_v1, "/areas", 1000),
             (app_ca_v2, "/areas", 1000),

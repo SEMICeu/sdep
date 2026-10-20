@@ -412,7 +412,7 @@ def main() -> int:
             print("Skipping Test 11 (requires authentication)")
         print()
 
-        print("Test 12: Cross-CA isolation - same areaId across two CAs")
+        print("Test 12: Cross-CA isolation - an areaId has one owner")
         print("------------------------------------------------")
         stats.total += 1
         ca2_client_id = os.getenv("CA2_CLIENT_ID")
@@ -426,7 +426,7 @@ def main() -> int:
                 ca1_post_code, _ = post_area(
                     client, base_url, api_version, bearer_token, area_id=shared_area_id, area_name="CA1 area"
                 )
-                ca2_post_code, _ = post_area(
+                ca2_post_code, ca2_post_body = post_area(
                     client, base_url, api_version, ca2_token, area_id=shared_area_id, area_name="CA2 area"
                 )
                 ca1_get_code = client.get(
@@ -445,12 +445,13 @@ def main() -> int:
                 mark(
                     stats,
                     ca1_post_code == 201
-                    and ca2_post_code == 201
+                    and ca2_post_code == 409
+                    and "duplicate_error" in str(ca2_post_body)
                     and ca1_get_code == 200
-                    and ca2_get_code == 200,
-                    "Test 12 passed: Both CAs keep their own area despite shared areaId",
-                    "Test 12 failed: Expected both POSTs=201 and both GETs=200 "
-                    "(cross-CA area isolation)",
+                    and ca2_get_code == 404,
+                    "Test 12 passed: The owner keeps its areaId, the other CA gets 409",
+                    "Test 12 failed: Expected CA1 POST=201, CA2 POST=409 (duplicate_error), "
+                    "CA1 GET=200, CA2 GET=404",
                 )
         else:
             print("Skipping Test 12 (requires BEARER_TOKEN, CA2_CLIENT_ID, CA2_CLIENT_SECRET)")

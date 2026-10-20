@@ -16,9 +16,11 @@ making it simple and straightforward for typical REST APIs.
 
 Exception Handling:
 - Service layer catches database exceptions and converts to domain exceptions
-- DuplicateResourceError for unique constraint violations (HTTP 409)
+- DuplicateResourceError for an ID that another owner already uses (HTTP 409)
 - ApplicationValidationError for other database constraint violations (HTTP 422)
 """
+
+import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,9 +28,15 @@ from sqlalchemy.orm import selectinload
 
 from app.crud import area as area_crud
 from app.crud import competent_authority as competent_authority_crud
+from app.crud import identity as identity_crud
 from app.enums import Regulation
-from app.exceptions.business import InvalidOperationError, ResourceNotFoundError
+from app.exceptions.business import (
+    DuplicateResourceError,
+    InvalidOperationError,
+    ResourceNotFoundError,
+)
 from app.models.area import Area
+from app.models.identity import AreaIdentity, CompetentAuthorityIdentity
 
 REGULATION_DEFAULT = Regulation.all
 
@@ -152,8 +160,8 @@ async def create_area(
     Create a single area.
 
     Looks up or creates the CompetentAuthority, then creates the Area.
-    If a current version exists with the same functional ID (and same CA),
-    marks it as ended before creating the new version.
+    The areaId is claimed for the CA first: an areaId of another CA is refused.
+    If a current version exists, it is marked as ended before the new version.
 
     Args:
         session: Async database session
@@ -167,13 +175,19 @@ async def create_area(
 
     Returns:
         Created Area object
+
+    Raises:
+        DuplicateResourceError: When another CA owns the areaId
+        InvalidOperationError: When the CA or the area has been deactivated
     """
     if regulation is None:
         regulation = REGULATION_DEFAULT
     public_competent_authority_id: str | None = None
-    # Look up or create CompetentAuthority (lock row to prevent concurrent versioning)
+    # Look up or create CompetentAuthority. Lock its identity row first, not the
+    # version row: a concurrent rename ends that row (see crud/identity.py).
+    await identity_crud.lock_client(session, CompetentAuthorityIdentity, client_id)
     competent_authority = await competent_authority_crud.get_by_client_id(
-        session, client_id, for_update=True
+        session, client_id
     )
 
     if competent_authority is None:
@@ -198,26 +212,35 @@ async def create_area(
         )
     # else: CA exists and name unchanged → reuse as-is
 
-    # Mark existing current area as ended if same functional ID exists for THIS CA
-    # (lock row to prevent concurrent versioning). Other CAs may keep an area with
-    # the same functional ID — they must not be affected.
-    if area_id is not None:
-        existing_area = await area_crud.get_by_area_id_and_competent_authority_id_str(
-            session,
-            area_id,
-            competent_authority.competent_authority_id,
-            for_update=True,
+    # Claim the areaId for this CA (locks it). An areaId has one owner: another
+    # CA must not version, take over or share it (see models/identity.py).
+    if area_id is None:
+        area_id = str(uuid.uuid4())
+    owners = await identity_crud.claim(
+        session, AreaIdentity, [area_id], competent_authority.competent_authority_id
+    )
+    if owners[area_id] != competent_authority.competent_authority_id:
+        raise DuplicateResourceError(
+            f"areaId '{area_id}' is already in use by another competent authority"
         )
-        if existing_area is not None:
-            await area_crud.mark_as_ended(
-                session, area_id, existing_area.competent_authority_id
-            )
-        elif await area_crud.exists_any_by_area_id(
-            session,
-            area_id,
-            competent_authority_id_str=competent_authority.competent_authority_id,
-        ):
-            raise InvalidOperationError(f"Area '{area_id}' has been deactivated")
+
+    # Mark the current version as ended, or refuse a deactivated areaId
+    existing_area = await area_crud.get_by_area_id_and_competent_authority_id_str(
+        session,
+        area_id,
+        competent_authority.competent_authority_id,
+        for_update=True,
+    )
+    if existing_area is not None:
+        await area_crud.mark_as_ended(
+            session, area_id, existing_area.competent_authority_id
+        )
+    elif await area_crud.exists_any_by_area_id(
+        session,
+        area_id,
+        competent_authority_id_str=competent_authority.competent_authority_id,
+    ):
+        raise InvalidOperationError(f"Area '{area_id}' has been deactivated")
 
     # Save area (CRUD only flushes)
     area_obj = await area_crud.create(

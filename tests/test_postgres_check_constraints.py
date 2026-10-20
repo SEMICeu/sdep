@@ -31,7 +31,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 
-EXPECTED_ALEMBIC_REVISION = "009"
+EXPECTED_ALEMBIC_REVISION = "011"
 
 metadata = MetaData()
 
@@ -109,6 +109,38 @@ activity = Table(
     Column("country_of_guests", postgresql.ARRAY(String)),
     Column("temporal_start_date_time", DateTime(timezone=True)),
     Column("temporal_end_date_time", DateTime(timezone=True)),
+)
+
+# Identity tables: one row per functional ID with its owner (see backend/app/models/identity.py)
+competent_authority_identity = Table(
+    "competent_authority_identity",
+    metadata,
+    Column("competent_authority_id", String),
+    Column("client_id", String),
+)
+platform_identity = Table(
+    "platform_identity",
+    metadata,
+    Column("platform_id", String),
+    Column("client_id", String),
+)
+area_identity = Table(
+    "area_identity",
+    metadata,
+    Column("area_id", String),
+    Column("competent_authority_id", String),
+)
+activity_identity = Table(
+    "activity_identity",
+    metadata,
+    Column("activity_id", String),
+    Column("platform_id", String),
+)
+listing_identity = Table(
+    "listing_identity",
+    metadata,
+    Column("listing_id", String),
+    Column("platform_id", String),
 )
 
 listing = Table(
@@ -206,7 +238,8 @@ def main() -> int:
 
         # This test commits its seed rows, so clean up any left over from an
         # earlier run to keep it idempotent against a persistent database
-        # (FK order: activity/listing -> area -> platform/competent_authority).
+        # (FK order: activity/listing -> area -> platform/competent_authority,
+        # then the identity rows: owned identities before owner identities).
         connection.execute(
             delete(listing).where(
                 listing.c.listing_id == "sdep-test-listing-check-constraints"
@@ -225,6 +258,63 @@ def main() -> int:
         connection.execute(
             delete(competent_authority).where(
                 competent_authority.c.client_id == "sdep-test-ca-client"
+            )
+        )
+        connection.execute(
+            delete(activity_identity).where(
+                activity_identity.c.activity_id == "sdep-test-activity-check-constraints"
+            )
+        )
+        connection.execute(
+            delete(listing_identity).where(
+                listing_identity.c.listing_id == "sdep-test-listing-check-constraints"
+            )
+        )
+        connection.execute(
+            delete(area_identity).where(
+                area_identity.c.area_id == "sdep-test-area-check-constraints"
+            )
+        )
+        connection.execute(
+            delete(platform_identity).where(
+                platform_identity.c.client_id == "sdep-test-platform-client"
+            )
+        )
+        connection.execute(
+            delete(competent_authority_identity).where(
+                competent_authority_identity.c.client_id == "sdep-test-ca-client"
+            )
+        )
+
+        # Identity rows first: every version row references its identity row
+        connection.execute(
+            insert(competent_authority_identity).values(
+                competent_authority_id="sdep-test-ca-check-constraints",
+                client_id="sdep-test-ca-client",
+            )
+        )
+        connection.execute(
+            insert(platform_identity).values(
+                platform_id="sdep-test-platform-check-constraints",
+                client_id="sdep-test-platform-client",
+            )
+        )
+        connection.execute(
+            insert(area_identity).values(
+                area_id="sdep-test-area-check-constraints",
+                competent_authority_id="sdep-test-ca-check-constraints",
+            )
+        )
+        connection.execute(
+            insert(activity_identity).values(
+                activity_id="sdep-test-activity-check-constraints",
+                platform_id="sdep-test-platform-check-constraints",
+            )
+        )
+        connection.execute(
+            insert(listing_identity).values(
+                listing_id="sdep-test-listing-check-constraints",
+                platform_id="sdep-test-platform-check-constraints",
             )
         )
 
@@ -273,6 +363,30 @@ def main() -> int:
             ),
         )
 
+        # Identity: a version row needs the identity row of its functional ID
+        expect_integrity_error(
+            connection,
+            stats,
+            "Area without an identity row",
+            insert(area).values(
+                area_id="sdep-test-area-without-identity",
+                area_name="SDEP Test Area Without Identity",
+                regulation="activity",
+                competent_authority_id=competent_authority_id,
+                filename="area.zip",
+                filedata=b"zip",
+            ),
+        )
+        expect_integrity_error(
+            connection,
+            stats,
+            "Second identity for the same client_id",
+            insert(platform_identity).values(
+                platform_id="sdep-test-platform-second-identity",
+                client_id="sdep-test-platform-client",
+            ),
+        )
+
         # Partial unique indexes: at most one current row per owner identity.
         expect_integrity_error(
             connection,
@@ -297,8 +411,8 @@ def main() -> int:
         expect_integrity_error(
             connection,
             stats,
-            "Second current area for same (area_id, competent_authority_id)",
-            # Distinct created_at so the (area_id, ca, created_at) UNIQUE
+            "Second current area for same area_id",
+            # Distinct created_at so the (area_id, created_at) UNIQUE
             # constraint is satisfied and only the partial unique index on the
             # current row can reject this (now() is constant within a transaction).
             insert(area).values(

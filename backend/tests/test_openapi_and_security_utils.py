@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import socket
 import threading
 from unittest.mock import MagicMock, patch
@@ -11,6 +12,10 @@ from app.api.common import security as common_security
 from app.api.common.exception_handlers import register_exception_handlers
 from app.api.common.security import OAuth2ClientCredentials
 from app.api.domains.ca.v1 import app_ca_v1
+from app.api.domains.str.v1 import app_str_v1
+from app.api.domains.str.v2 import app_str_v2
+from app.schemas.activity_bulk import ActivityBulkResultItem
+from app.schemas.listing_bulk import ListingBulkResultItem
 from app.security.audit import _extract_jwt_roles
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -676,3 +681,68 @@ def test_unknown_kid_is_a_bad_token_not_an_outage(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         common_security.validate_jwt_token(_UNSIGNED_TOKEN_WITH_KID)
     assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_restore_null_examples_replaces_the_marker_at_any_depth():
+    schema = {
+        "a": openapi_utils.NULL_EXAMPLE,
+        "b": [{"c": openapi_utils.NULL_EXAMPLE, "d": "kept"}],
+        "e": 0,
+    }
+
+    assert openapi_utils.restore_null_examples(schema) == {
+        "a": None,
+        "b": [{"c": None, "d": "kept"}],
+        "e": 0,
+    }
+
+
+@pytest.mark.parametrize(
+    ("app", "path", "id_key", "index_key", "result_cls"),
+    [
+        (
+            app_str_v1,
+            "/activities/bulk",
+            "activityId",
+            "activityIndex",
+            ActivityBulkResultItem,
+        ),
+        (
+            app_str_v2,
+            "/activities/bulk",
+            "activityId",
+            "activityIndex",
+            ActivityBulkResultItem,
+        ),
+        (
+            app_str_v2,
+            "/listings/bulk",
+            "listingId",
+            "listingIndex",
+            ListingBulkResultItem,
+        ),
+    ],
+    ids=["str-v1-activities", "str-v2-activities", "str-v2-listings"],
+)
+def test_bulk_examples_show_null_ids_as_the_response_does(
+    app, path, id_key, index_key, result_cls
+):
+    """Every example result item carries the ID key, null when none was supplied,
+    as the serialized result item does."""
+    document = app.openapi()
+    assert openapi_utils.NULL_EXAMPLE not in json.dumps(document)
+
+    items = [
+        item
+        for response in document["paths"][path]["post"]["responses"].values()
+        for content in response.get("content", {}).values()
+        for item in content.get("example", {}).get("results", [])
+    ]
+    assert items
+    assert all(id_key in item for item in items)
+    assert any(item[id_key] is None for item in items)
+
+    served = result_cls.model_validate({index_key: 0, "status": "NOK"}).model_dump(
+        by_alias=True, mode="json"
+    )
+    assert served[id_key] is None

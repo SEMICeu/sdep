@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -46,9 +45,8 @@ class Listing(Base):
     __table_args__ = (
         UniqueConstraint(
             "listing_id",
-            "platform_id",
             "created_at",
-            name="uq_listing_listing_id_platform_id_created_at",
+            name="uq_listing_listing_id_created_at",
         ),
         CheckConstraint(
             "address_locator_designator_letter IS NULL OR address_locator_designator_letter ~ '^[A-Za-z]+$'",
@@ -65,13 +63,12 @@ class Listing(Base):
             "OR (status IN ('pending', 'clear') AND coalesce(array_length(flags, 1), 0) = 0)",
             name="ck_listing_status_flags",
         ).ddl_if(dialect="postgresql"),
-        # At most one current version per (id, platform version), as for areas
-        # (models/area.py). A lost race on a new ID gets a unique violation,
-        # which the API returns as 409 (see exceptions/handlers.py).
+        # At most one current version per listing_id, as for areas (models/area.py).
+        # A lost race on a new ID gets a unique violation, which the API
+        # returns as 409 (see exceptions/handlers.py).
         Index(
-            "uq_listing_current_listing_id_platform",
+            "uq_listing_current_listing_id",
             "listing_id",
-            "platform_id",
             unique=True,
             postgresql_where=text("ended_at IS NULL"),
             sqlite_where=text("ended_at IS NULL"),
@@ -93,9 +90,8 @@ class Listing(Base):
 
     listing_id: Mapped[str] = mapped_column(
         String(64),
+        ForeignKey("listing_identity.listing_id"),
         nullable=False,
-        index=True,
-        default=lambda: str(uuid.uuid4()),
     )  # Functional ID (business-facing, API-exposed, alphanumeric with hyphens, max 64 chars)
 
     listing_name: Mapped[str | None] = mapped_column(
@@ -147,8 +143,8 @@ class Listing(Base):
     )  # Required, host self-declaration
 
     registration_number: Mapped[str | None] = mapped_column(
-        String(32), nullable=True
-    )  # Optional, for example "REG123456"
+        String(128), nullable=True
+    )  # Optional, for example "REG123456"; same maximum as activity
 
     flags: Mapped[list[str]] = mapped_column(
         StringArray, nullable=False
