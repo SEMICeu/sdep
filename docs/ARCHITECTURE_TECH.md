@@ -547,9 +547,9 @@ shape, the five audience reads the second. What differs per listing endpoint is 
 **Functional IDs**
 
 - Represent business identifiers, on the **"outside"**
-- Are client-provided (optional), or auto-provisioned otherwise ([RFC 9562](https://datatracker.ietf.org/doc/rfc9562/) UUIDv4)
+- Are client-provided (optional), or auto-provisioned otherwise ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562) UUIDv4)
 - After a POST, functional IDs are always returned/made visible
-- Functional IDs be resubmitted to update or correct ([versioning](#versioning))
+- Functional IDs can be resubmitted to update or correct ([versioning](#versioning))
 
 **Functional IDs can be:**
 

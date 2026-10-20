@@ -95,7 +95,7 @@ class ListingBulkResultItem(BaseModel):
     listing_id: str | None = Field(
         None,
         alias="listingId",
-        description="As supplied in the request item, or `null` when none was supplied",
+        description="As supplied in the request item, or `null` when it is missing or not a string",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )
 
@@ -149,7 +149,7 @@ class ListingScreeningBulkResultItem(ListingBulkResultItem):
     listing_id: str | None = Field(
         None,
         alias="listingId",
-        description="As supplied in the request item (`null` only when the item is not a JSON object)",
+        description="As supplied in the request item, or `null` when it is missing or not a string",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )
 
@@ -166,7 +166,7 @@ class ListingAcknowledgementBulkResultItem(ListingBulkResultItem):
     listing_id: str | None = Field(
         None,
         alias="listingId",
-        description="As supplied in the request item (`null` only when the item is not a JSON object)",
+        description="As supplied in the request item, or `null` when it is missing or not a string",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )
 

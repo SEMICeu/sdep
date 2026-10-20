@@ -249,6 +249,20 @@ def main() -> int:
             print("Skipping Test 7 (requires STR2_CLIENT_ID, STR2_CLIENT_SECRET)")
         print()
 
+        print("Test 8: A non-string listingId is NOK, echoed as null (422, not 500)")
+        print("------------------------------------------------")
+        payload = {"listings": [listing(f"sdep-test-str-listing-nonstr-{stamp}", listing_area, listingId=v) for v in (123, ["x"])]}
+        code, body = call(client, "POST", f"{api}/listings/bulk", bearer_token, json=payload)
+        results = body.get("results") or [] if isinstance(body, dict) else []
+        print(f"HTTP Status: {code}: {brief(body)}")
+        mark(
+            stats,
+            code == 422 and len(results) == 2 and all(r.get("listingId") is None for r in results),
+            "Test 8 passed: both items NOK, listingId echoed as null",
+            f"Test 8 failed: Expected 422 with listingId null, got {code}",
+        )
+        print()
+
     print("=======================================")
     print("Test Summary (STR listings):")
     print(f"  Total:  {stats.total}")

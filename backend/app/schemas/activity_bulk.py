@@ -61,7 +61,7 @@ class ActivityBulkResultItem(BaseModel):
     activity_id: str | None = Field(
         None,
         alias="activityId",
-        description="As supplied in the request item, or `null` when none was supplied",
+        description="As supplied in the request item, or `null` when it is missing or not a string",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )
 

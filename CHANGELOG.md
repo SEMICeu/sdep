@@ -4,9 +4,20 @@
 
 *See also the [API](./docs/API_TECH.md) documentation and the [API version diff](./docs/API_DIFF_TECH.md).*
 
+<h1>1.9.1</h1>
+
+- Fixed a bug that resulted in a `500` error when a bulk item has a `listingId` or `activityId` that is not a string (e.g. `123`)
+  - Such an item is now refused like any other invalid item: NOK, so `422` when all items fail
+  - Applies to all bulk endpoints of STR (activities, listings, listing acknowledgements) and LSA (listing screenings)
+- Fixed the documentation of `listingId` and `activityId` in the response of the bulk endpoints
+  - Each result shows the ID you sent for that item, exactly as sent, or `null` when you sent none (or not a string)
+- Fixed example UUIDs (lowercase, and hex digits only)
+- Updated the "Try it out" examples of POST activities and POST listings: they no longer send an `activityId` or `listingId`
+  - So any party can test simultaneously (supplied example IDs would only belong to the first party that uses them)
+
 <h1>1.9.0</h1>
 
-- Fixed a bug that resulted in a platforms referencing `areaId` to ambiguous competent authorities
+- Fixed a bug that resulted in platforms referencing an `areaId` of ambiguous competent authorities
   - A functional id (`areaId`, `listingId`, `activityId`) now belongs to one owner ([#95](https://github.com/SEMICeu/sdep/issues/95))
   - A functional id that is submitted by another owner will be refused (`409` with `duplicate_error` on `POST /areas`, or item NOK with `duplicate_error` on bulk writes)
   - Clients may continue to provide their own IDs

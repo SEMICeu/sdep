@@ -591,6 +591,31 @@ def main() -> int:
             print("Skipping Test 7 (requires BEARER_TOKEN, STR2_CLIENT_ID, STR2_CLIENT_SECRET)")
         print()
 
+        print("Test 8: A non-string activityId is NOK, echoed as null (422, not 500)")
+        print("------------------------------------------------")
+        stats.total += 1
+        if bearer_token:
+            items = [
+                activity(f"sdep-test-bulk-nonstr{i}-{timestamp}", "bulk-nonstr", "REGBULK008", area_id_1, start_time, end_time)
+                for i in range(2)
+            ]
+            items[0]["activityId"] = 123
+            items[1]["activityId"] = ["x"]
+            status_code, body = post_bulk(client, base_url, api_version, bearer_token, {"activities": items})
+            print(f"Response: {brief(body)}")
+            print(f"HTTP Status: {status_code}")
+            print()
+            results = body.get("results") or []
+            mark(
+                stats,
+                status_code == 422 and len(results) == 2 and all(r.get("activityId") is None for r in results),
+                "Test 8 passed: both items NOK, activityId echoed as null (422)",
+                f"Test 8 failed: Expected 422 with activityId null, got {status_code}",
+            )
+        else:
+            print("Skipping Test 8 (requires authentication)")
+        print()
+
     print("=======================================")
     print("Test Summary (bulk activities):")
     print(f"  Total:  {stats.total}")

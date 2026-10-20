@@ -56,6 +56,15 @@ def validate_client_id(value: str) -> None:
         )
 
 
+def supplied_id(raw: object, key: str) -> str | None:
+    """Return the ID that a bulk item supplied under `key`, to echo in its result.
+
+    Only a string is echoed: an invalid non-string ID must not break the NOK item.
+    """
+    value = raw.get(key) if isinstance(raw, dict) else None
+    return value if isinstance(value, str) else None
+
+
 __all__ = [
     "CLIENT_ID_PATTERN",
     "FUNCTIONAL_ID_PATTERN",
@@ -65,5 +74,6 @@ __all__ = [
     "OptionalFunctionalId",
     "UtcDateTime",
     "require_utc_datetime",
+    "supplied_id",
     "validate_client_id",
 ]

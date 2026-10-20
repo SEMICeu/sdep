@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import TypeAdapter, ValidationError
 
 from app.models.listing import Listing
+from app.schemas.common import supplied_id
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.schemas.listing import ListingResponse
 from app.schemas.listing_bulk import ListingBulkResponse, ListingBulkResultItem
@@ -69,7 +70,7 @@ def validate_items[ItemT, ResultT: ListingBulkResultItem](
     client_supplied_ids: dict[int, str | None] = {}
 
     for i, raw in enumerate(raw_items):
-        client_supplied_ids[i] = raw.get("listingId") if isinstance(raw, dict) else None
+        client_supplied_ids[i] = supplied_id(raw, "listingId")
         try:
             validated_items[i] = adapter.validate_python(raw)
         except ValidationError as e:

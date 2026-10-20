@@ -655,6 +655,23 @@ class TestActivityVersioningAcrossPlatforms:
         assert response.failed == 1
         assert response.results[0].activity_id is None
 
+    async def test_non_string_activity_id_is_nok_not_500(
+        self, async_session: AsyncSession
+    ):
+        """A non-string activityId is NOK and echoed as null, a string as supplied."""
+        response = await activity_bulk.create_activities_bulk(
+            async_session,
+            [{"activityId": 123}, {"activityId": ["x"]}, {"activityId": "bad/id"}],
+            "str-1",
+            "STR 1",
+        )
+        assert response.failed == 3
+        assert [r.activity_id for r in response.results] == [None, None, "bad/id"]
+        assert response.results[0].errors is not None
+        assert "activityId" in {
+            loc for d in response.results[0].errors.detail for loc in d.loc or []
+        }
+
     async def test_second_current_version_is_refused_by_the_database(
         self, async_session: AsyncSession
     ):

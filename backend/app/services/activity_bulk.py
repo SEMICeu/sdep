@@ -36,6 +36,7 @@ from app.schemas.activity import (
     ActivityResponse,
 )
 from app.schemas.activity_bulk import ActivityBulkResponse, ActivityBulkResultItem
+from app.schemas.common import supplied_id
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.services.platform import ensure_platform
 
@@ -77,9 +78,7 @@ async def create_activities_bulk(
     # ── Step 1: Pydantic validation (per item) ──────────────────────────
     for i, raw in enumerate(activities_raw):
         # Track client-supplied activityId before any processing
-        client_supplied_ids[i] = (
-            raw.get("activityId") if isinstance(raw, dict) else None
-        )
+        client_supplied_ids[i] = supplied_id(raw, "activityId")
 
         try:
             activity_req = _ITEM_ADAPTER.validate_python(raw)

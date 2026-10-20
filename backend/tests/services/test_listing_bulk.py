@@ -191,6 +191,18 @@ class TestListingBulkServices:
             "l-case",
         ]
 
+    async def test_non_string_listing_id_is_nok_not_500(self, async_session, areas):
+        """All three listing services echo a non-string listingId as null."""
+        items = [{"listingId": 123}, {"listingId": ["x"]}, {"listingId": "bad/id"}]
+        responses = [
+            await create_listings_bulk(async_session, items, "str-1", "STR 1"),
+            await screen_listings_bulk(async_session, items),
+            await acknowledge_listings_bulk(async_session, items, "str-1"),
+        ]
+        for response in responses:
+            assert response.failed == 3
+            assert [r.listing_id for r in response.results] == [None, None, "bad/id"]
+
     async def test_platform_rename_keeps_listing_findable(self, async_session, areas):
         """A client_name change versions the platform; its listings stay one current row."""
         # Backdated, so the rename's new platform version gets another created_at

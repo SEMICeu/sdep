@@ -57,7 +57,7 @@ occurrence is processed. Earlier occurrences receive NOK.
 
 **Each results item contains:**
 - `activityIndex`: Zero-based index of this item in the original request list
-- `activityId`: As supplied in the request item, or `null` when none was supplied
+- `activityId`: As supplied in the request item, or `null` when it is missing or not a string
 - `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)
 - `activity`: The full activity object (present for OK items, omitted for NOK items)
 - `errors`: Structured error details (present for NOK items, omitted for OK items)
@@ -177,7 +177,7 @@ _BASE_RESPONSES: dict[int | str, dict[str, Any]] = {
                     "results": [
                         {
                             "activityIndex": 0,
-                            "activityId": "550e8400-e29b-41d4-a716-446655440000",
+                            "activityId": NULL_EXAMPLE,
                             "status": "OK",
                             "activity": {
                                 "activityId": "550e8400-e29b-41d4-a716-446655440000",
@@ -210,7 +210,7 @@ _BASE_RESPONSES: dict[int | str, dict[str, Any]] = {
                         },
                         {
                             "activityIndex": 1,
-                            "activityId": "660f9511-f30c-52e5-b827-557766551111",
+                            "activityId": NULL_EXAMPLE,
                             "status": "OK",
                             "activity": {
                                 "activityId": "660f9511-f30c-52e5-b827-557766551111",
@@ -243,7 +243,7 @@ _BASE_RESPONSES: dict[int | str, dict[str, Any]] = {
                         },
                         {
                             "activityIndex": 2,
-                            "activityId": "771a0622-g41d-63f6-c938-668877662222",
+                            "activityId": NULL_EXAMPLE,
                             "status": "NOK",
                             "errors": {
                                 "detail": [
@@ -271,7 +271,7 @@ _BASE_RESPONSES: dict[int | str, dict[str, Any]] = {
                         },
                         {
                             "activityIndex": 4,
-                            "activityId": "882b1733-h52e-74g7-d049-779988773333",
+                            "activityId": NULL_EXAMPLE,
                             "status": "NOK",
                             "errors": {
                                 "detail": [
@@ -285,7 +285,7 @@ _BASE_RESPONSES: dict[int | str, dict[str, Any]] = {
                         },
                         {
                             "activityIndex": 5,
-                            "activityId": "993c2844-i63f-85h8-e15a-880099884444",
+                            "activityId": NULL_EXAMPLE,
                             "status": "NOK",
                             "errors": {
                                 "detail": [
@@ -377,7 +377,7 @@ LISTING_ONLY_AREA_ID = "00c0748b-5782-5d7e-be01-7dd306841d89"
 
 _REGULATION_ERROR_ITEM: dict[str, Any] = {
     "activityIndex": 6,
-    "activityId": "aa4d3955-j74g-96i9-f26b-991100995555",
+    "activityId": NULL_EXAMPLE,
     "status": "NOK",
     "errors": {
         "detail": [
@@ -413,6 +413,8 @@ BULK_RESPONSES: dict[int | str, dict[str, Any]] = {
     },
 }
 
+# No activityId in the request example: SDEP generates one, so any platform can run it
+# again and again. A supplied ID has one owner for good (see models/identity.py).
 BULK_OPENAPI_EXTRA: dict[str, Any] = {
     "requestBody": {
         "content": {
@@ -420,7 +422,6 @@ BULK_OPENAPI_EXTRA: dict[str, Any] = {
                 "example": {
                     "activities": [
                         {
-                            "activityId": "550e8400-e29b-41d4-a716-446655440000",
                             "activityName": "Amsterdam Summer Rental",
                             "status": "finished",
                             "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
@@ -463,7 +464,6 @@ BULK_OPENAPI_EXTRA: dict[str, Any] = {
                             },
                         },
                         {
-                            "activityId": "771a0622-g41d-63f6-c938-668877662222",
                             "activityName": "Amsterdam Canal House",
                             "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
                             "url": "http://example.com/amsterdam-canal-house-3",
@@ -498,7 +498,6 @@ BULK_OPENAPI_EXTRA: dict[str, Any] = {
                             "countryOfGuests": ["ESP"],
                         },
                         {
-                            "activityId": "882b1733-h52e-74g7-d049-779988773333",
                             "activityName": "Groningen Loft",
                             "areaId": "00000000-0000-0000-0000-000000000000",
                             "url": "http://example.com/groningen-loft-5",
@@ -518,7 +517,6 @@ BULK_OPENAPI_EXTRA: dict[str, Any] = {
                             },
                         },
                         {
-                            "activityId": "993c2844-i63f-85h8-e15a-880099884444",
                             "activityName": "Amsterdam Studio",
                             "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
                             "url": "http://example.com/amsterdam-studio-6",

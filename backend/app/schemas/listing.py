@@ -78,10 +78,7 @@ class ListingRequest(BaseModel):
         None,
         alias="listingId",
         description="Functional ID identifying the listing (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied). Resubmitting an ID corrects the listing while it is `pending`.",
-        examples=[
-            "550e8400-e29b-41d4-a716-446655440000",
-            "550E8400-E29B-41D4-A716-446655440000",
-        ],
+        examples=["550e8400-e29b-41d4-a716-446655440000"],
     )  # Functional ID
 
     listing_name: str | None = Field(

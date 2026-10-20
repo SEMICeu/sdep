@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -52,8 +51,7 @@ class CompetentAuthority(Base):
         ForeignKey("competent_authority_identity.competent_authority_id"),
         nullable=False,
         index=True,
-        default=lambda: str(uuid.uuid4()),
-    )  # Public functional ID, generated UUID string, one owner (models/identity.py)
+    )  # Public functional ID, generated in crud/competent_authority.py, one owner (models/identity.py)
 
     competent_authority_name: Mapped[str | None] = mapped_column(
         String(64), nullable=True

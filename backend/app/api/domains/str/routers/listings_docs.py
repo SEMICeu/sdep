@@ -84,7 +84,7 @@ occurrence is processed. Earlier occurrences receive NOK.
 
 **Each results item contains:**
 - `listingIndex`: Zero-based index of this item in the original request list
-- `listingId`: As supplied in the request item, or `null` when none was supplied
+- `listingId`: As supplied in the request item, or `null` when it is missing or not a string
 - `status`: Processing result - `OK` (created successfully) or `NOK` (failed validation or processing)
 - `listing`: The listing as it now is (present for OK items, omitted for NOK items), see `GET /listings` for its fields
 - `errors`: Structured error details (present for NOK items, omitted for OK items)
@@ -98,8 +98,9 @@ occurrence is processed. Earlier occurrences receive NOK.
 - 422: all items failed
 """
 
+# No listingId in the request example: SDEP generates one, so any platform can run it
+# again and again. A supplied ID has one owner for good (see models/identity.py).
 _REQUEST_LISTING: dict[str, Any] = {
-    "listingId": "550e8400-e29b-41d4-a716-446655440000",
     "listingName": "Amsterdam Canal Apartment",
     "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
     "url": "http://example.com/amsterdam-canal-apartment",
@@ -202,7 +203,7 @@ BULK_RESPONSES: dict[int | str, dict[str, Any]] = {
                         },
                         {
                             "listingIndex": 2,
-                            "listingId": "882b1733-h52e-74g7-d049-779988773333",
+                            "listingId": "98f2c088-ce53-493a-a181-5a3a8e964f9b",
                             "status": "NOK",
                             "errors": {
                                 "detail": [
@@ -216,12 +217,12 @@ BULK_RESPONSES: dict[int | str, dict[str, Any]] = {
                         },
                         {
                             "listingIndex": 3,
-                            "listingId": "993c2844-i63f-85h8-e15a-880099884444",
+                            "listingId": "82497bba-f6df-426f-9ea0-7b0c482f762f",
                             "status": "NOK",
                             "errors": {
                                 "detail": [
                                     {
-                                        "msg": "Listing '993c2844-i63f-85h8-e15a-880099884444' is already screened (status 'flagged')",
+                                        "msg": "Listing '82497bba-f6df-426f-9ea0-7b0c482f762f' is already screened (status 'flagged')",
                                         "type": "conflict_error",
                                         "loc": ["listingId"],
                                     }
@@ -285,7 +286,6 @@ BULK_OPENAPI_EXTRA: dict[str, Any] = {
                         _REQUEST_LISTING,
                         _REQUEST_LISTING_ROTTERDAM,
                         {
-                            "listingId": "882b1733-h52e-74g7-d049-779988773333",
                             "listingName": "Groningen Loft",
                             "areaId": "00000000-0000-0000-0000-000000000000",
                             "url": "http://example.com/groningen-loft",
