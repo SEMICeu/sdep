@@ -4,6 +4,7 @@ Welcome to the **SDEP-NL Pre-Production (PRE) environment**. As an **integration
 
 - To validate your integration before moving to SDEP-NL production
 - To pre-validate your integration against the harmonized short-term rental API, before moving to the SDEP in your country
+- See https://pre-sdep.minvro.nl/api/docs
 
 > **Disclaimer**: For end-to-end testing per country, always contact your **national SDEP representative** for guidance on deployment, integrations, and operations.
 
