@@ -6,7 +6,38 @@ Welcome to the **SDEP-NL Pre-Production (PRE) environment**. As an **integration
 - To pre-validate your integration against the harmonized short-term rental API, before moving to the SDEP in your country
 - See https://pre-sdep.minvro.nl/api/docs
 
-> **Disclaimer**: For end-to-end testing per country, always contact your **national SDEP representative** for guidance on deployment, integrations, and operations.
+---
+
+**Disclaimer**: For end-to-end testing per country, always contact your **national SDEP representative** for guidance on deployment, integrations, and operations.
+
+---
+
+**Important: Functional ID Management for Competent Authorities (CA) and Short-Term Rental Platforms (STR)**
+
+To ensure that updates and corrections are applied to existing records rather than creating duplicates, always use consistent object IDs.
+
+- **When submitting data for the first time:**
+  - Keep track of the IDs returned by the system.
+  - Store these IDs for future updates or corrections.
+- **When re-submitting data (updates or corrections):**
+  - Always reuse the **original IDs** to identify **existing records**, to update or correct.
+  - For example: update an existing area by uploading a corrected shapefile (**CA**).
+  - For example: correct an existing activity with the number of guests (**STR**).
+- If you submit an object **without** its existing ID, the system will treat it as a **new record**, potentially creating duplicates.
+
+**Recommended best practice: manage your own UUIDs**
+
+For greater control and fewer errors, generate and manage object UUIDs yourself:
+
+- Generate a unique UUID for each new object.
+- Store and maintain the UUID throughout the object's lifecycle.
+- **Always use the same UUID** when submitting, updating, or correcting that object.
+
+**Key principle**:
+
+- One object = One persistent ID, throughout its entire lifecycle.
+
+---
 
 <h2>Table of contents</h2>
 
