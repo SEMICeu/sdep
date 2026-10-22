@@ -77,7 +77,16 @@ purposes: one for listings, the other for activities.
 
 Areas contain shapefiles, that represent the geospatial location.
 
-Areas are [versioned](./ARCHITECTURE_TECH.md#versioning).
+Areas are [versioned](./ARCHITECTURE_TECH.md#versioning):
+
+- A changed upload with the same `areaId` creates a new version of the area.
+- An identical upload with the same `areaId` returns the existing area, without storing a new version (see [Idempotency](./ARCHITECTURE_TECH.md#idempotency)).
+
+An area that is uploaded without `areaId` gets an ID from SDEP, see [ID management](./ARCHITECTURE_TECH.md#id-management):
+
+- If an identical upload (same `areaName`, `regulation`, filename and file content) is submitted again without an `areaId` (e.g. after a lost response), SDEP returns the existing area with the same ID without storing a duplicate.
+- After the area is deleted, an identical upload creates a new area with a new ID.
+- A zip file that is packed again can differ in bytes, and is then treated as a new area as well.
 
 As discussed in the EU technical working group:
 

@@ -18,6 +18,7 @@ The following security considerations apply.
 - [File download (Content-Disposition)](#file-download-content-disposition)
 - [Malware scanning](#malware-scanning)
 - [Secrets](#secrets)
+  - [Functional ID secret](#functional-id-secret)
 - [Security headers](#security-headers)
 - [Middleware ordering](#middleware-ordering)
 - [Security headers, DNS, TLS](#security-headers-dns-tls)
@@ -398,6 +399,22 @@ Upload the generated file shown by the script through the CA area upload endpoin
 ## Secrets
 
 To avoid data leaks, secrets are externalized in [`config.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/config.py).
+
+---
+
+### Functional ID secret
+
+`FUNCTIONAL_ID_SECRET` is the key behind the functional IDs that SDEP generates, see [ID management](./ARCHITECTURE_TECH.md#id-management).
+
+- Purpose: nobody without the key can compute an ID, so nobody can claim another owner's ID first, or check a guess of a record's content
+- It is not a login credential: a leak gives no access to data
+- One key per environment, never shared between environments
+- `DTAP` is required, to make sure that every environment other than `DEV` uses its own key of at least 32 characters, and never the local default
+- Rotate it only after a leak, and keep a copy in a vault:
+  - A new or lost key gives an identical record without an ID another ID
+  - So a record that is resent without an ID after the change is stored again (a duplicate)
+  - A record with its own ID is not affected
+  - Records that are already stored, and their IDs, stay valid
 
 ## Security headers
 

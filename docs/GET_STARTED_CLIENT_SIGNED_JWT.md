@@ -103,10 +103,10 @@ In your `.env.extra`, set client-secret authentication to **false**:
 CLIENT_SECRET_AUTH_ENABLED=false
 ```
 
-Restart the backend for the change to take effect:
+Recreate the backend for the change to take effect:
 
 ```bash
-make backend-restart
+make backend-recreate
 ```
 
 Result:

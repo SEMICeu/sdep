@@ -24,7 +24,6 @@ from pydantic import (
 )
 
 from app.enums import ListingFlag, ListingStatus
-from app.schemas.activity import empty_string_to_none
 from app.schemas.address import (
     CommonAddressRequest,
     CommonAddressResponse,
@@ -32,7 +31,9 @@ from app.schemas.address import (
 from app.schemas.common import (
     FunctionalId,
     OptionalFunctionalId,
+    OptionalText,
     UtcDateTime,
+    empty_string_to_none,
 )
 from app.schemas.temporal import as_utc
 
@@ -60,7 +61,8 @@ class ListingRequest(BaseModel):
 
     Listing ID:
     - Optional: If not provided, will be auto-generated (RFC 9562 UUID)
-    - Resubmitting the same ID corrects the listing while it is `pending`
+    - Resubmitting the same ID with other content corrects the listing while it
+      is `pending`; the same content returns the stored listing
 
     Constraints (enforced at database level):
     - Unique constraint: (listingId, platformId, createdAt) for versioning support
@@ -77,11 +79,11 @@ class ListingRequest(BaseModel):
     ] = Field(
         None,
         alias="listingId",
-        description="Functional ID identifying the listing (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied). Resubmitting an ID corrects the listing while it is `pending`.",
+        description="Functional ID identifying the listing (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as deterministic UUIDv8 RFC 9562 if not supplied). Resubmitting an ID with other content corrects the listing while it is `pending`.",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )  # Functional ID
 
-    listing_name: str | None = Field(
+    listing_name: OptionalText = Field(
         None,
         alias="listingName",
         max_length=64,
@@ -120,7 +122,7 @@ class ListingRequest(BaseModel):
         examples=[True],
     )  # Attribute
 
-    registration_number: str | None = Field(
+    registration_number: OptionalText = Field(
         None,
         alias="registrationNumber",
         min_length=1,

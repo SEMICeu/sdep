@@ -4,6 +4,25 @@
 
 *See also the [API](./docs/API_TECH.md) documentation and the [API version diff](./docs/API_DIFF_TECH.md).*
 
+<h1>1.10.0</h1>
+
+- Implemented idempotency for network failures: same records sent again do not create duplicates ([#91](https://github.com/SEMICeu/sdep/issues/91))
+  - Versioning stays as it was: a record with the same ID but with other content is a new version (an update or correction)
+  - To support this, SDEP now generates deterministic UUIDv8 IDs instead of random UUIDv4 IDs
+  - Added a `FUNCTIONAL_ID_SECRET` (seed) from which SDEP generates the deterministic IDs
+  - Hardened and documented [NULL-values](./docs/ARCHITECTURE_TECH.md#null-values) accordingly
+  - No impact on v1 contract
+- Updated documentation
+  - [ID management](./docs/ARCHITECTURE_TECH.md#id-management)
+  - [Idempotency](./docs/ARCHITECTURE_TECH.md#idempotency)
+  - [Versioning](./docs/ARCHITECTURE_TECH.md#versioning)
+  - [Functional ID secret](./docs/SECURITY.md#functional-id-secret)
+  - [Getting started in PRE](./docs/GET_STARTED_PRE.md)
+  - [Getting started in PRD](./docs/GET_STARTED_PRD.md)
+- Fixed: two parallel first requests of a new platform or CA no longer fail with `409` (`duplicate_error`, "do not retry")
+  - The second request now waits for the first one, and then uses the platform or CA that the first one created
+- Renamed the make targets `restart`, `backend-restart` and `dbgate-restart` to `*recreate`, which better reflects stop, remove and start
+
 <h1>1.9.1</h1>
 
 - Fixed a bug that resulted in a `500` error when a bulk item has a `listingId` or `activityId` that is not a string (e.g. `123`)

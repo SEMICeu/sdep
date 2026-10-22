@@ -7,6 +7,8 @@ Implements the Application-First Validation flow for bulk activity creation:
    areas that are regulated for listing only are rejected
    Ownership - claim the activity IDs; an ID of another platform is NOK
    (`duplicate_error`, see models/identity.py)
+   Resend - an activity that is identical to its current version: OK with the
+   stored version, no new one (see services/functional_id.py)
 3. Bulk Insert - single multi-row INSERT for all valid items
 4. Feedback - per-item OK/NOK response preserving original order
 
@@ -18,7 +20,6 @@ Transaction Management Architecture:
 """
 
 import logging
-import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -38,6 +39,7 @@ from app.schemas.activity import (
 from app.schemas.activity_bulk import ActivityBulkResponse, ActivityBulkResultItem
 from app.schemas.common import supplied_id
 from app.schemas.error import ErrorDetail, ErrorResponse
+from app.services.functional_id import content, resolve_ids, stored_content
 from app.services.platform import ensure_platform
 
 logger = logging.getLogger(__name__)
@@ -106,15 +108,25 @@ async def create_activities_bulk(
             )
             continue
 
-        # Generate activity_id if not provided
-        if activity_req.activity_id is None:
-            activity_req.activity_id = str(uuid.uuid4())
-
         validated_items[i] = activity_req
         valid_indexes.append(i)
 
     # ── Platform resolution (once per batch) ────────────────────────────
     platform = await ensure_platform(session, client_id, platform_name)
+
+    # ── Generated activity IDs (deterministic, see services/functional_id.py)
+    # The platform is part of the ID, so this runs after its resolution.
+    generated = {i for i in valid_indexes if validated_items[i].activity_id is None}
+    generated_ids = await resolve_ids(
+        "activity",
+        platform.platform_id,
+        {i: content(validated_items[i], "activity_id") for i in generated},
+        lambda ids: activity_crud.get_deactivated_activity_ids(
+            session, ids, platform.platform_id
+        ),
+    )
+    for i, activity_id in generated_ids.items():
+        validated_items[i].activity_id = activity_id
 
     # ── Intra-batch duplicate handling (last-wins) ──────────────────────
     # Pass 1: record the latest position for each activity_id
@@ -260,16 +272,43 @@ async def create_activities_bulk(
 
         # Find which IDs have current versions → mark as ended
         ids_for_versioning = [
-            validated_items[i].validated_activity_id
-            for i in valid_indexes
-            if validated_items[i].activity_id is not None
+            validated_items[i].validated_activity_id for i in valid_indexes
         ]
 
         if ids_for_versioning:
             current_ids = await activity_crud.get_current_by_activity_ids(
                 session, ids_for_versioning, platform.platform_id, for_update=True
             )
-            ids_to_end = [aid for aid in ids_for_versioning if aid in current_ids]
+
+            # An activity that is identical to its current version is a resend
+            # (e.g. after a lost response): answer with the stored version.
+            stored = {
+                aid: ActivityResponse.model_validate(row)
+                for aid, row in (
+                    await activity_crud.get_current_rows_by_activity_ids(
+                        session, list(current_ids), platform.platform_id
+                    )
+                ).items()
+            }
+            for i in valid_indexes:
+                current = stored.get(validated_items[i].validated_activity_id)
+                if current is not None and content(
+                    validated_items[i], "activity_id"
+                ) == stored_content(ActivityRequest, current, "activity_id"):
+                    results[i] = ActivityBulkResultItem(
+                        activityIndex=i,
+                        activityId=client_supplied_ids[i],
+                        status="OK",
+                        activity=current,
+                        errors=None,
+                    )
+            valid_indexes = [i for i in valid_indexes if results[i] is None]
+
+            ids_to_end = [
+                validated_items[i].validated_activity_id
+                for i in valid_indexes
+                if validated_items[i].validated_activity_id in current_ids
+            ]
             if ids_to_end:
                 await activity_crud.bulk_mark_as_ended(
                     session, ids_to_end, platform.platform_id

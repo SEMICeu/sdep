@@ -94,7 +94,8 @@ services:
       - "${BACKEND_PORT}:8000"
     environment:
       KC_BASE_URL: ${BACKEND_KC_BASE_URL}
-      # Value comes from .env
+      # Values come from .env
+      DTAP: ${DTAP}
       CLIENT_SECRET_AUTH_ENABLED: ${CLIENT_SECRET_AUTH_ENABLED}
       API_ALPHA_ENABLED: ${API_ALPHA_ENABLED}
       POSTGRES_HOST: ${POSTGRES_CONTAINER_NAME}

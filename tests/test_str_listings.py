@@ -263,6 +263,26 @@ def main() -> int:
         )
         print()
 
+        print("Test 9: An identical listing sent twice is a retry, without and with listingId (same ID, same createdAt)")
+        print("------------------------------------------------")
+        item = listing("unused", listing_area, url=f"http://example.com/sdep-test-retry-{stamp}")
+        del item["listingId"]
+        with_id = listing(f"sdep-test-listing-retry-{stamp}", listing_area)
+        sent = [call(client, "POST", f"{api}/listings/bulk", bearer_token, json={"listings": [i]}) for i in (item, item, with_id, with_id)]
+        got = [((b.get("results") or [{}])[0].get("listing") or {}) if isinstance(b, dict) else {} for _, b in sent]
+        print(f"HTTP Status: {[c for c, _ in sent]}: {[g.get('listingId') for g in got]}")
+        same = [
+            bool(a.get("listingId")) and a.get("listingId") == b.get("listingId") and a.get("createdAt") == b.get("createdAt")
+            for a, b in (got[0:2], got[2:4])
+        ]
+        mark(
+            stats,
+            [c for c, _ in sent] == [201] * 4 and all(same),
+            "Test 9 passed: same listingId and createdAt, nothing new stored",
+            f"Test 9 failed: Expected four 201s with the same listing per pair, got {[c for c, _ in sent]}, same: {same}",
+        )
+        print()
+
     print("=======================================")
     print("Test Summary (STR listings):")
     print(f"  Total:  {stats.total}")

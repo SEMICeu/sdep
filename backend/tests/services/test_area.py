@@ -1,18 +1,24 @@
 """Tests for Area business service"""
 
+import asyncio
+import uuid
 from datetime import UTC, datetime
 
 import pytest
+from app.crud import competent_authority as ca_crud
 from app.enums import Regulation
 from app.exceptions.business import (
     DuplicateResourceError,
     InvalidOperationError,
     ResourceNotFoundError,
 )
+from app.models.area import Area
 from app.services import area
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.fixtures.factories import AreaFactory
+from tests.services.test_platform import hide_first_lookup
 
 
 @pytest.mark.database
@@ -454,6 +460,95 @@ class TestAreaService:
         # Assert
         assert area_obj.area_id is not None
         assert len(area_obj.area_id) == 36  # UUID format
+
+    async def test_generated_area_id_makes_a_resend_a_retry(
+        self, async_session: AsyncSession
+    ):
+        """Same upload → same area; after a delete the same upload is a new area."""
+
+        async def upload(filedata: bytes = b"data"):
+            return await area.create_area(
+                session=async_session,
+                area_id=None,
+                area_name="Centrum",
+                filename="Centrum.zip",
+                filedata=filedata,
+                client_id="0363",
+                competent_authority_name="Gemeente Amsterdam",
+            )
+
+        first = await upload()
+        resent = await upload()
+        assert uuid.UUID(first.area_id).version == 8
+        assert resent.area_id == first.area_id
+        assert resent.created_at == first.created_at
+        assert resent.competent_authority.competent_authority_name == (
+            "Gemeente Amsterdam"
+        )
+        assert (await upload(b"other data")).area_id != first.area_id
+        assert await area.count_areas_by_client_id(async_session, "0363") == 2
+
+        await area.delete_area_by_client_id(async_session, first.area_id, "0363")
+        new = await upload()
+        assert new.area_id != first.area_id
+        assert (await upload()).area_id == new.area_id
+        assert await area.count_areas_by_client_id(async_session, "0363") == 2
+
+    async def test_identical_upload_with_its_area_id_is_a_resend(
+        self, async_session: AsyncSession
+    ):
+        """Same areaId and upload → the stored area; another upload → a new version."""
+
+        async def upload(regulation: Regulation | None = None):
+            return await area.create_area(
+                session=async_session,
+                area_id="own-area",
+                area_name="Centrum",
+                filename="Centrum.zip",
+                filedata=b"data",
+                client_id="0363",
+                competent_authority_name="Gemeente Amsterdam",
+                regulation=regulation,
+            )
+
+        first = await upload()
+        resent = await upload(Regulation.all)  # the default spelled out
+        assert resent.created_at == first.created_at
+        await asyncio.sleep(1.0)  # SQLite second precision: another createdAt
+        changed = await upload(Regulation.listing)
+        assert changed.regulation == Regulation.listing
+        assert await area.count_areas_by_client_id(async_session, "0363") == 1
+        versions = (
+            await async_session.execute(select(Area).where(Area.area_id == "own-area"))
+        ).scalars()
+        assert len(versions.all()) == 2
+
+    async def test_other_upload_or_ca_gives_another_area(
+        self, async_session: AsyncSession
+    ):
+        """Another areaName, filename, regulation or CA: another generated areaId."""
+        base = {
+            "area_id": None,
+            "area_name": "Centrum",
+            "filename": "Centrum.zip",
+            "filedata": b"data",
+            "client_id": "0363",
+            "competent_authority_name": "Gemeente Amsterdam",
+        }
+        variants = [
+            {},
+            {"area_name": "West"},
+            {"filename": "West.zip"},
+            {"regulation": Regulation.activity},
+            {"client_id": "0599", "competent_authority_name": "Gemeente Rotterdam"},
+        ]
+        ids = set()
+        for variant in variants:
+            created = await area.create_area(
+                session=async_session, **{**base, **variant}
+            )
+            ids.add(created.area_id)
+        assert len(ids) == len(variants)
 
     async def test_create_area_creates_competent_authority(
         self, async_session: AsyncSession
@@ -931,3 +1026,42 @@ class TestAreaService:
 
         # Assert
         assert result is None
+
+
+@pytest.mark.database
+class TestParallelFirstUpload:
+    """A first upload that loses the CA claim reuses the CA of the winner."""
+
+    def _upload(self, session: AsyncSession, area_id: str):
+        return area.create_area(
+            session=session,
+            area_id=area_id,
+            area_name=None,
+            filename=f"{area_id}.zip",
+            filedata=area_id.encode(),
+            client_id="ca-race",
+            competent_authority_name="Race CA",
+        )
+
+    async def test_loser_reuses_the_winner(
+        self, async_session: AsyncSession, monkeypatch
+    ):
+        winner = await self._upload(async_session, "race-1")
+        hide_first_lookup(monkeypatch, ca_crud)
+
+        loser = await self._upload(async_session, "race-2")
+
+        assert loser.competent_authority.id == winner.competent_authority.id
+
+    async def test_refuses_when_no_winner_is_found(
+        self, async_session: AsyncSession, monkeypatch
+    ):
+        await self._upload(async_session, "race-3")
+
+        async def missing(session, client_id):
+            return None
+
+        hide_first_lookup(monkeypatch, ca_crud)
+        monkeypatch.setattr(ca_crud, "get_by_client_id", missing)
+        with pytest.raises(DuplicateResourceError):
+            await self._upload(async_session, "race-4")

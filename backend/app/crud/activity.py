@@ -560,6 +560,44 @@ async def get_current_by_activity_ids(
     return {row[0]: True for row in result.all()}
 
 
+async def get_current_rows_by_activity_ids(
+    session: AsyncSession,
+    activity_ids: list[str],
+    platform_id: str,
+) -> dict[str, Activity]:
+    """
+    Get the current versions of a platform's activities, with their references loaded.
+
+    Used to compare a submitted activity with its stored version, and to answer
+    a resend with it (see services/functional_id.py).
+
+    Args:
+        session: Async database session
+        activity_ids: List of activity functional IDs
+        platform_id: Platform public ID, matches every platform version
+
+    Returns:
+        Dictionary {activity_id: Activity} for IDs that have a current version
+    """
+    if not activity_ids:
+        return {}
+
+    stmt = (
+        select(Activity)
+        .options(
+            selectinload(Activity.platform),
+            selectinload(Activity.area).selectinload(Area.competent_authority),
+        )
+        .where(
+            Activity.activity_id.in_(activity_ids),
+            Activity.platform_id.in_(all_version_ids(platform_id)),
+            Activity.ended_at.is_(None),
+        )
+    )
+    result = await session.execute(stmt)
+    return {a.activity_id: a for a in result.scalars().all()}
+
+
 async def get_deactivated_activity_ids(
     session: AsyncSession,
     activity_ids: list[str],

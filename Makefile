@@ -6,10 +6,10 @@ SHELL := /bin/bash
 .PHONY: .build .clean-stale \
         postgres-up postgres-down postgres-login postgres-status postgres-status-full \
         .drop-database .migrate-database .load-test-data postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load postgres-size postgres-count postgres-auditlog postgres-clean-testrun postgres-prep-area-sql \
-        dbgate-up dbgate-down dbgate-restart dbgate-status \
+        dbgate-up dbgate-down dbgate-recreate dbgate-status \
         keycloak-up keycloak-down .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles keycloak-generate-machine-clients keycloak-configure keycloak-show-client-public-key keycloak-match-client-public-keys .get-client-credentials \
-        backend-up backend-down backend-restart \
-        up down restart status \
+        backend-up backend-down backend-recreate \
+        up down recreate status \
         .is-up .ensure-up test-smoke test-full test-full-keep test-full-verbose test-suites test-ca test-str test-sta test-lsa test-lma test-ama test-security \
         .postgres-up-unless-ci test-migrations \
         test-perf test-perf-keep test-perf-verbose \
@@ -219,7 +219,7 @@ dbgate-up: ## Start dbgate
 	if [ -n "$$DBGATE_PIDS" ]; then \
 		echo "⚠️  DBGate is already running (PID(s): $$DBGATE_PIDS)."; \
 		echo "   Use: make dbgate-status"; \
-		echo "   Use: make dbgate-restart"; \
+		echo "   Use: make dbgate-recreate"; \
 		exit 1; \
 	fi
 	@set -a && source .env && set +a && \
@@ -274,7 +274,7 @@ dbgate-down: ## Stop dbgate
 		echo "ℹ️  DBGate is not running"; \
 	fi
 
-dbgate-restart: dbgate-down dbgate-up ## Restart dbgate
+dbgate-recreate: dbgate-down dbgate-up ## Stop and start dbgate again
 
 dbgate-status: ## Show dbgate status and database connection details
 	@set -a && source .env && set +a && \
@@ -428,7 +428,7 @@ backend-down: ## Stop and remove backend (including volumes)
 	$(DOCKER_COMPOSE) rm -f -v backend
 	@echo "✅ Backend stopped, removed, and volumes cleaned!"
 
-backend-restart: backend-down backend-up ## Stop and restart backend
+backend-recreate: backend-down backend-up ## Stop, remove and start backend again
 
 ##@ Fullstack
 
@@ -454,7 +454,7 @@ down: ## Stop and remove (including volumes)
 	$(DOCKER_COMPOSE) down -v # Includes volume deletion
 	@echo "✅ Fullstack stopped and removed!"
 
-restart: down up ## Stop and start
+recreate: down up ## Stop, remove and start again (fresh containers and volumes)
 
 status: ## Show status
 	@echo ""

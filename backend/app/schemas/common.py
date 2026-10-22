@@ -6,7 +6,7 @@ import re
 from datetime import UTC, datetime
 from typing import Annotated
 
-from pydantic import AfterValidator, Field
+from pydantic import AfterValidator, BeforeValidator, Field
 
 FUNCTIONAL_ID_PATTERN = r"^[A-Za-z0-9-]+$"
 _FUNCTIONAL_ID_RE = re.compile(FUNCTIONAL_ID_PATTERN)
@@ -18,6 +18,31 @@ UTC_DATETIME_VALIDATION_MESSAGE = (
 # FastAPI drops every None from the OpenAPI document (exclude_none), also inside
 # examples. Examples use this marker for a JSON null, see restore_null_examples.
 NULL_EXAMPLE = "__null__"
+
+
+def empty_string_to_none[T](v: T) -> T | None:
+    """Read "" as no value, the same as null and an omitted field.
+
+    For optional fields only: an ID is then generated, a default applies, or the
+    field stays empty. See docs/ARCHITECTURE_TECH.md, "NULL-values".
+    """
+    if v == "":
+        return None
+    return v
+
+
+def strip_to_none[T](v: T) -> T | None:
+    """Trim an optional text; empty after trimming is no value, as "" and null.
+
+    So "  " stores no value, and " Name " is stored as "Name".
+    """
+    if isinstance(v, str):
+        v = v.strip()  # type: ignore[assignment]
+    return empty_string_to_none(v)
+
+
+# An optional text field: trimmed; "", "  ", null and omitted all mean no value.
+OptionalText = Annotated[str | None, BeforeValidator(strip_to_none)]
 
 FunctionalId = Annotated[
     str,
@@ -72,8 +97,11 @@ __all__ = [
     "UTC_DATETIME_VALIDATION_MESSAGE",
     "FunctionalId",
     "OptionalFunctionalId",
+    "OptionalText",
     "UtcDateTime",
+    "empty_string_to_none",
     "require_utc_datetime",
+    "strip_to_none",
     "supplied_id",
     "validate_client_id",
 ]

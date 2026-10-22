@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from types import SimpleNamespace
 from typing import cast
@@ -692,3 +693,184 @@ class TestActivityVersioningAcrossPlatforms:
                 area_id=area.id,
             )
         assert is_unique_violation(exc.value)
+
+
+async def _version_count(session: AsyncSession, activity_id: str) -> int:
+    rows = await session.execute(
+        select(Activity).where(Activity.activity_id == activity_id)
+    )
+    return len(rows.scalars().all())
+
+
+def _without_id(area_id: str, **overrides) -> dict:
+    item = _activity("unused", area_id)
+    del item["activityId"]
+    item.update(overrides)
+    return item
+
+
+@pytest.mark.database
+@pytest.mark.asyncio
+class TestGeneratedActivityId:
+    """An identical activity is a resend, with or without activityId (no new version)."""
+
+    async def _post(self, session: AsyncSession, items: list[dict], client="str-1"):
+        return await activity_bulk.create_activities_bulk(
+            session, items, client, client.upper()
+        )
+
+    async def test_resend_returns_the_stored_activity(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session, area_id="gen-area")
+        first = await self._post(async_session, [_without_id(area.area_id)])
+        # Same activity, other notation: `+00:00` for `Z`, the default status spelled out
+        resent = _without_id(area.area_id, status="finished")
+        resent["temporal"] = {
+            "startDatetime": "2025-06-01T14:00:00+00:00",
+            "endDatetime": "2025-06-07T11:00:00+00:00",
+        }
+        second = await self._post(async_session, [resent])
+
+        stored, again = first.results[0].activity, second.results[0].activity
+        assert stored is not None and again is not None
+        assert second.results[0].status == "OK"
+        assert second.results[0].activity_id is None  # nothing supplied
+        assert again.activity_id == stored.activity_id
+        # SQLite reads timestamps back without a time zone
+        assert again.created_at.replace(tzinfo=None) == stored.created_at.replace(
+            tzinfo=None
+        )
+        assert uuid.UUID(stored.activity_id).version == 8
+        assert await _version_count(async_session, stored.activity_id) == 1
+
+    async def test_other_content_or_platform_gives_another_activity(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-2")
+        base = await self._post(async_session, [_without_id(area.area_id)])
+        changed = await self._post(
+            async_session,
+            [
+                _without_id(
+                    area.area_id, numberOfGuests=2, countryOfGuests=["NLD", "NLD"]
+                )
+            ],
+        )
+        other = await self._post(async_session, [_without_id(area.area_id)], "str-2")
+
+        ids = {
+            r.results[0].activity.activity_id
+            for r in (base, changed, other)
+            if r.results[0].activity is not None
+        }
+        assert len(ids) == 3
+
+    async def test_two_identical_items_in_one_batch_last_wins(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-3")
+        response = await self._post(
+            async_session, [_without_id(area.area_id), _without_id(area.area_id)]
+        )
+        assert [r.status for r in response.results] == ["NOK", "OK"]
+        assert response.results[0].errors is not None
+        assert response.results[0].errors.detail[0].type == "duplicate_error"
+
+    async def test_deactivated_activity_is_new_again(self, async_session: AsyncSession):
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-4")
+        first = await self._post(async_session, [_without_id(area.area_id)])
+        old = first.results[0].activity
+        assert old is not None
+        await activity_crud.mark_as_ended(
+            async_session, old.activity_id, old.platform_id
+        )
+
+        second = await self._post(async_session, [_without_id(area.area_id)])
+        third = await self._post(async_session, [_without_id(area.area_id)])
+
+        new, again = second.results[0].activity, third.results[0].activity
+        assert new is not None and again is not None
+        assert new.activity_id != old.activity_id
+        assert again.activity_id == new.activity_id
+        assert await _version_count(async_session, new.activity_id) == 1
+
+    async def test_identical_activity_with_its_id_is_a_resend(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-5")
+        first = await self._post(async_session, [_activity("own-id", area.area_id)])
+        # Same activity, other notation: `+00:00` for `Z`, the default status spelled out
+        resent = _activity("own-id", area.area_id) | {"status": "finished"}
+        resent["temporal"] = {
+            "startDatetime": "2025-06-01T14:00:00+00:00",
+            "endDatetime": "2025-06-07T11:00:00+00:00",
+        }
+        second = await self._post(async_session, [resent])
+
+        stored, again = first.results[0].activity, second.results[0].activity
+        assert stored is not None and again is not None
+        assert second.results[0].status == "OK"
+        assert again.created_at.replace(tzinfo=None) == stored.created_at.replace(
+            tzinfo=None
+        )
+        assert await _version_count(async_session, "own-id") == 1
+
+    @pytest.mark.parametrize(
+        "empty", [None, "", "    "], ids=["null", "empty", "spaces"]
+    )
+    @pytest.mark.parametrize(
+        "activity_id", [None, "own-null"], ids=["generated", "own"]
+    )
+    async def test_null_or_empty_equals_an_omitted_field(
+        self, async_session: AsyncSession, activity_id: str | None, empty: str | None
+    ):
+        """An optional field sent as null, "" or spaces is the same content as omitted."""
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-7")
+        first = _without_id(area.area_id)
+        resent = _without_id(area.area_id, activityName=empty)
+        resent["address"] = resent["address"] | {
+            "locatorDesignatorLetter": empty,
+            "locatorDesignatorAddition": empty,
+        }
+        if activity_id is not None:
+            first["activityId"] = resent["activityId"] = activity_id
+        stored = (await self._post(async_session, [first])).results[0].activity
+        again = (await self._post(async_session, [resent])).results[0].activity
+
+        assert stored is not None and again is not None
+        assert again.activity_id == stored.activity_id
+        assert await _version_count(async_session, stored.activity_id) == 1
+
+    @pytest.mark.parametrize(
+        "activity_id", [None, "own-trim"], ids=["generated", "own"]
+    )
+    async def test_surrounding_spaces_are_trimmed(
+        self, async_session: AsyncSession, activity_id: str | None
+    ):
+        """ " Name " is the same content as "Name", and is stored as "Name"."""
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-8")
+        first = _without_id(area.area_id, activityName="Name")
+        resent = _without_id(area.area_id, activityName=" Name ")
+        if activity_id is not None:
+            first["activityId"] = resent["activityId"] = activity_id
+        stored = (await self._post(async_session, [first])).results[0].activity
+        again = (await self._post(async_session, [resent])).results[0].activity
+
+        assert stored is not None and again is not None
+        assert again.activity_id == stored.activity_id
+        assert again.activity_name == "Name"
+        assert await _version_count(async_session, stored.activity_id) == 1
+
+    async def test_changed_activity_with_its_id_versions(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-6")
+        await self._post(async_session, [_activity("own-id-2", area.area_id)])
+        changed = _activity("own-id-2", area.area_id) | {"status": "cancelled"}
+        response = await self._post(async_session, [changed])
+
+        assert response.results[0].activity is not None
+        assert response.results[0].activity.status == "cancelled"
+        assert await _version_count(async_session, "own-id-2") == 2
+        assert await _current_count(async_session, "own-id-2") == 1

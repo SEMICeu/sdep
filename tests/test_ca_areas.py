@@ -219,23 +219,43 @@ def main() -> int:
             print("Skipping Test 2 (requires authentication)")
         print()
 
-        print("Test 3: POST without areaId (auto-generated UUID)")
+        print("Test 3: POST without areaId twice, then DELETE and POST twice (generated ID)")
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
-            code, body = post_area(client, base_url, api_version, bearer_token)
+            # Same upload → same area (a retry). After a delete the same upload is a new
+            # area with a new areaId, and a resend of it lands on that new areaId.
+            retry_name = f"sdep-test-retry-{stamp()}"
+            code, body = post_area(client, base_url, api_version, bearer_token, area_name=retry_name)
+            code2, body2 = post_area(client, base_url, api_version, bearer_token, area_name=retry_name)
+            first_id = body.get("areaId")
+            deleted = client.delete(f"{areas_url}/{first_id}", headers=auth).status_code
+            code3, body3 = post_area(client, base_url, api_version, bearer_token, area_name=retry_name)
+            code4, body4 = post_area(client, base_url, api_version, bearer_token, area_name=retry_name)
             print(f"Response: {brief(body)}")
-            print(f"HTTP Status: {code}")
+            print(f"HTTP Status: {code}, resend: {code2}, DELETE: {deleted}, after delete: {code3}, {code4}")
             print()
             raw = compact_json(body)
-            ok = code == 201 and all(f'"{f}"' in raw for f in ("areaId", "createdAt"))
+            retry_ok = (
+                code == code2 == 201
+                and all(f'"{f}"' in raw for f in ("areaId", "createdAt"))
+                and first_id == body2.get("areaId")
+                and body.get("createdAt") == body2.get("createdAt")
+            )
+            new_id = body3.get("areaId")
+            delete_ok = (
+                deleted == 204
+                and code3 == code4 == 201
+                and new_id not in (None, first_id)
+                and new_id == body4.get("areaId")
+            )
             mark(
                 stats,
-                ok,
-                "Test 3 passed: Area with auto-generated UUID successfully submitted",
-                "Test 3 failed: Expected areaId in response"
-                if code == 201
-                else f"Test 3 failed: Expected 201 but got {code}",
+                retry_ok and delete_ok,
+                "Test 3 passed: Generated areaId, the resend returned the same area, after a delete a new stable areaId",
+                "Test 3 failed: Expected the same areaId and createdAt for the resend"
+                if not retry_ok
+                else "Test 3 failed: Expected DELETE 204, then a new areaId that stays the same on a resend",
             )
         else:
             print("Skipping Test 3 (requires authentication)")
@@ -315,27 +335,37 @@ def main() -> int:
             print("Skipping Test 6 (requires authentication)")
         print()
 
-        print("Test 7: Versioning - submit same areaId twice")
+        print("Test 7: Versioning - same areaId: an identical upload is a resend, another one a new version")
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
             versioned_id = f"sdep-test-area-versioned-{stamp()}"
-            first_code, _ = post_area(client, base_url, api_version, bearer_token, area_id=versioned_id)
+            first_code, first = post_area(client, base_url, api_version, bearer_token, area_id=versioned_id)
             code, body = post_area(client, base_url, api_version, bearer_token, area_id=versioned_id)
-            print(f"Response: {brief(body)}")
-            print(f"HTTP Status: {first_code} (first POST), {code} (second POST)")
+            code3, body3 = post_area(
+                client, base_url, api_version, bearer_token, area_id=versioned_id, area_name="Changed"
+            )
+            print(f"Response: {brief(body3)}")
+            print(f"HTTP Status: {first_code} (first POST), {code} (identical), {code3} (changed)")
             print()
+            resend_ok = code == 201 and body.get("createdAt") == first.get("createdAt")
+            version_ok = (
+                code3 == 201
+                and body3.get("areaId") == versioned_id
+                and body3.get("areaName") == "Changed"
+                and body3.get("createdAt") != first.get("createdAt")
+            )
             if first_code != 201:
                 mark(stats, False, "", f"Test 7 failed: First POST expected 201 but got {first_code}")
-            elif code == 201:
+            else:
                 mark(
                     stats,
-                    body.get("areaId") == versioned_id,
-                    "Test 7 passed: Versioned area submission returned latest",
-                    "Test 7 failed: Expected areaId to match versioned ID",
+                    resend_ok and version_ok,
+                    "Test 7 passed: the identical upload returned the stored area, the changed one a new version",
+                    "Test 7 failed: Expected the same createdAt for the identical upload"
+                    if not resend_ok
+                    else "Test 7 failed: Expected 201 with a new version for the changed upload",
                 )
-            else:
-                mark(stats, False, "", f"Test 7 failed: Expected 201 but got {code}")
         else:
             print("Skipping Test 7 (requires authentication)")
         print()

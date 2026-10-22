@@ -193,6 +193,34 @@ class TestCAAreaAPI:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.json()["regulation"] == "all"
 
+    async def test_post_area_name_is_trimmed_before_the_generated_id(
+        self, async_session: AsyncSession, setup_overrides
+    ):
+        """ " Centrum " is the same upload as "Centrum": one area, stored as "Centrum".
+
+        The router trims the name before the service generates the areaId, and
+        a name of only spaces means no name (see docs/ARCHITECTURE_TECH.md).
+        """
+        async with AsyncClient(
+            transport=ASGITransport(app=app_ca_v1), base_url="http://test"
+        ) as client:
+            bodies = [
+                (
+                    await client.post(
+                        "/areas",
+                        files={"file": ("Trim.zip", ZIP, "application/zip")},
+                        data={"areaName": name},
+                        headers={"Authorization": "Bearer test_token"},
+                    )
+                ).json()
+                for name in ("Centrum", " Centrum ", "   ")
+            ]
+
+        assert bodies[0]["areaId"] == bodies[1]["areaId"]
+        assert bodies[1]["createdAt"] == bodies[0]["createdAt"]
+        assert bodies[1]["areaName"] == "Centrum"
+        assert "areaName" not in bodies[2]  # only spaces: no name
+
     async def test_post_area_regulation_explicit_listing(
         self, async_session: AsyncSession, setup_overrides
     ):

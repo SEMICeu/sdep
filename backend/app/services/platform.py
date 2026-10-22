@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import identity as identity_crud
 from app.crud import platform as platform_crud
-from app.exceptions.business import InvalidOperationError
+from app.exceptions.business import DuplicateResourceError, InvalidOperationError
 from app.models.identity import PlatformIdentity
 from app.models.platform import Platform
 
@@ -50,11 +50,20 @@ async def ensure_platform(
             raise InvalidOperationError(
                 f"Platform client '{client_id}' has been deactivated"
             )
-        return await platform_crud.create(
-            session=session,
-            client_id=client_id,
-            platform_name=platform_name,
-        )
+        try:
+            return await platform_crud.create(
+                session=session,
+                client_id=client_id,
+                platform_name=platform_name,
+            )
+        except DuplicateResourceError:
+            # First contact in parallel: the claim waited for the other request,
+            # which created and committed the platform. Lock it (for a rename
+            # below, as above) and use that one.
+            await identity_crud.lock_client(session, PlatformIdentity, client_id)
+            platform = await platform_crud.get_by_client_id(session, client_id)
+            if platform is None:
+                raise
 
     if platform.platform_name != platform_name:
         # Name changed in JWT claim → version: mark old as ended, create new

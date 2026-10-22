@@ -4,34 +4,7 @@ Welcome to the **SDEP-NL Production (PRD) environment**. As an **integration par
 
 See: https://sdep.gov.nl/api/docs.
 
-> **Disclaimer**: For production use per country, always contact your **national SDEP representative** regarding national deployment and operational responsibilities.
-
----
-
-**Important: Functional ID Management for Competent Authorities (CA) and Short-Term Rental Platforms (STR)**
-
-To ensure that updates and corrections are applied to existing records rather than creating duplicates, always use consistent object IDs.
-
-- **When submitting data for the first time:**
-  - Keep track of the IDs returned by the system.
-  - Store these IDs for future updates or corrections.
-- **When re-submitting data (updates or corrections):**
-  - Always reuse the **original IDs** to identify **existing records**, to update or correct.
-  - For example: update an existing area by uploading a corrected shapefile (**CA**).
-  - For example: correct an existing activity with the number of guests (**STR**).
-- If you submit an object **without** its existing ID, the system will treat it as a **new record**, potentially creating duplicates.
-
-**Recommended best practice: manage your own UUIDs**
-
-For greater control and fewer errors, generate and manage object UUIDs yourself:
-
-- Generate a unique UUID for each new object.
-- Store and maintain the UUID throughout the object's lifecycle.
-- **Always use the same UUID** when submitting, updating, or correcting that object.
-
-**Key principle**:
-
-- One object = One persistent ID, throughout its entire lifecycle.
+**Disclaimer**: For production use per country, always contact your **national SDEP representative** regarding national deployment and operational responsibilities.
 
 ---
 
@@ -40,6 +13,7 @@ For greater control and fewer errors, generate and manage object UUIDs yourself:
 - [Introduction](#introduction)
   - [SDEP](#sdep)
   - [Authentication](#authentication)
+  - [ID-management, idempotency and versioning](#id-management-idempotency-and-versioning)
 - [Get access](#get-access)
   - [Generate keypair](#generate-keypair)
   - [Contact team SDEP-NL](#contact-team-sdep-nl)
@@ -72,7 +46,7 @@ SDEP is an **API-first application** designed for **machine-to-machine (M2M) int
 
 For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials Grant**.
 
-The Client Credentials Grant itself supports two types of **client authentication**, both on the same `/token` endpoint:
+The Client Credentials Grant itself supports two **client authentication methods**, both on the same `/token` endpoint:
 
 - **Client ID & Secret**
 - **Client-Signed JWT**
@@ -87,6 +61,60 @@ However, SDEP-NL PRD only supports Client-Signed JWT.
 > National SDEP implementations are free to adopt either authentication method; this does not impact the API.
 
 > To explore both authentication methods locally, see [Fullstack](../README.md#fullstack).
+
+---
+
+### ID-management, idempotency and versioning
+
+Every area, listing and activity has a **functional ID** (`areaId`, `listingId`, `activityId`).
+
+As competent authority (**CA**) or short-term rental platform (**STR**), you can either:
+
+- **Create (and submit) functional IDs by yourself**
+  - Suggestion: random UUID v4, or deterministic UUID v5/v8 ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562))
+- **Let SDEP create the functional IDs** (you leave them out on initial submission)
+  - SDEP will generate and return the IDs (as deterministic UUID v8)
+
+In either case it is recommended:
+
+- **Keep the returned functional IDs**
+- You need them in case of updating or correcting records later on (versioning)
+
+---
+
+What happens when you submit a record:
+
+| When        | With functional ID            | With content (other fields) as ... | Result                                                                            |
+| ----------- | ----------------------------- | ---------------------------------- | --------------------------------------------------------------------------------- |
+| Submitted   | Empty (ID is created by SDEP) | New                                | A new record, new ID is created and returned by SDEP                              |
+| Resubmitted | Empty (ID is created by SDEP) | Same as before                     | No new record, same ID is returned by SDEP (**idempotency**)                      |
+| Resubmitted | Empty (ID is created by SDEP) | Different from before              | A new record, new ID is created and returned by SDEP                              |
+| Submitted   | New, as created by you        | New                                | A new record, the supplied ID is returned by SDEP                                 |
+| Resubmitted | Existing **[1]**              | Same as before                     | No new record, same ID is returned by SDEP (**idempotency**)                      |
+| Resubmitted | Existing                      | Different from before              | A new version of the record (**versioning**), same ID is returned by SDEP **[2]** |
+
+[1] Earlier created by SDEP and kept by you, or earlier created by you.
+
+[2] This represents an update or correction, e.g. a corrected shapefile for an area (CA), or another number of guests for an activity (STR). A listing can only be corrected while it is `pending`.
+
+---
+
+It is recommended to create your own functional IDs.
+
+Motivation:
+
+- You know the ID before you send: when the response gets lost, you can still resend, correct or cancel the record without waiting for SDEP's answer
+- Two different records with exactly the same data can stay separate: without an ID, SDEP gives them one generated ID, so they become one record
+- A new random check of the same listing only needs a new ID: without an ID, an identical listing returns the stored one, and no new check starts
+
+Suggested approach:
+
+- Generate a UUID for each new record, e.g. random UUIDv4 or deterministic UUIDv5/v8 ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562))
+- Store it, and use the same ID for every update or correction of that record
+
+In short: one record, one ID, for its whole lifecycle.
+
+Details: [ID management](./ARCHITECTURE_TECH.md#id-management) and [Idempotency](./ARCHITECTURE_TECH.md#idempotency).
 
 ## Get access
 

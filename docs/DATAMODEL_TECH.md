@@ -100,6 +100,7 @@ The datamodel is a logical datamodel:
 
 - References are expressed as objects instead of foreign keys
 - References are implemented by foreign keys to technical ids
+- An optional field without a value is stored as `NULL`: optional text is trimmed, and `""` or only spaces is stored as `NULL` too, see [NULL-values](./ARCHITECTURE_TECH.md#null-values)
 
 ---
 
@@ -176,19 +177,19 @@ The datamodel is a logical datamodel:
 
 **Purpose:** Defines a geographic region for short-term rental regulation
 
-| Attribute              | Type        | Constraints                                                                                                                     |
-| :--------------------- | :---------- | :------------------------------------------------------------------------------------------------------------------------------ |
-| **id**                 | int         | required, is technical id                                                                                                       |
-| **areaId**             | string      | required, is functional id, length \<= 64, alphanumeric with hyphens, is supplied or auto-generated otherwise (UUIDv4 RFC 9562) |
-| **areaName**           | string      | optional, length \<= 64, e.g. "Amsterdam-Noord"                                                                                 |
-| **regulation**         | enum        | required, one of {'listing', 'activity', 'all'}, defaults to 'all' when not supplied                                            |
-| **competentAuthority** | reference   | required, references single Competent Authority (owner)                                                                         |
-| **filename**           | string      | required, length \<= 64, e.g. "Amsterdam.zip"                                                                                   |
-| **filedata**           | largeBinary | required, max size 1MiB, e.g. a .zip with a collection of ESRI shapefile files                                                  |
-| **listings**           | reference   | optional, references many Listing, restricted delete                                                                            |
-| **activities**         | reference   | optional, references many Activity, restricted delete                                                                           |
-| **createdAt**          | datetime    | required, UTC, managed by SDEP                                                                                                  |
-| **endedAt**            | datetime    | optional, UTC, managed by SDEP                                                                                                  |
+| Attribute              | Type        | Constraints                                                                                                                                   |
+| :--------------------- | :---------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
+| **id**                 | int         | required, is technical id                                                                                                                     |
+| **areaId**             | string      | required, is functional id, length \<= 64, alphanumeric with hyphens, is supplied or auto-generated otherwise (deterministic UUIDv8 RFC 9562) |
+| **areaName**           | string      | optional, length \<= 64, e.g. "Amsterdam-Noord"                                                                                               |
+| **regulation**         | enum        | required, one of {'listing', 'activity', 'all'}, defaults to 'all' when not supplied                                                          |
+| **competentAuthority** | reference   | required, references single Competent Authority (owner)                                                                                       |
+| **filename**           | string      | required, length \<= 64, e.g. "Amsterdam.zip"                                                                                                 |
+| **filedata**           | largeBinary | required, max size 1MiB, e.g. a .zip with a collection of ESRI shapefile files                                                                |
+| **listings**           | reference   | optional, references many Listing, restricted delete                                                                                          |
+| **activities**         | reference   | optional, references many Activity, restricted delete                                                                                         |
+| **createdAt**          | datetime    | required, UTC, managed by SDEP                                                                                                                |
+| **endedAt**            | datetime    | optional, UTC, managed by SDEP                                                                                                                |
 
 **Class Constraints:**
 
@@ -202,7 +203,7 @@ The datamodel is a logical datamodel:
 - The `areaId` is a functional identifier
   - May be exposed in API responses
 - An `areaId` belongs to exactly one competent authority, see the identity pattern
-  - The owner may resubmit the `areaId`: this creates a new version
+  - The owner may resubmit the `areaId` with other content: this creates a new version (identical content creates nothing, see [Idempotency](./ARCHITECTURE_TECH.md#idempotency))
   - Another competent authority gets `409` (`duplicate_error`)
   - A platform that references an `areaId` therefore always reaches one competent authority
 - A supplied `areaId` is stored and returned as submitted; a lowercase UUID is recommended, see [ID management](./ARCHITECTURE_TECH.md#id-management)
@@ -220,24 +221,24 @@ The datamodel is a logical datamodel:
 
 **Purpose:** Represents a randomly selected listing submitted by a platform for screening (random check), see [Listing](./LISTING_FUNC.md)
 
-| Attribute                     | Type            | Constraints                                                                                                                     |
-| :---------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-| **id**                        | int             | required, is technical id                                                                                                       |
-| **listingId**                 | string          | required, is functional id, length \<= 64, alphanumeric with hyphens, is supplied or auto-generated otherwise (UUIDv4 RFC 9562) |
-| **listingName**               | string          | optional, length \<= 64, e.g. "Amsterdam Canal Apartment"                                                                       |
-| **status**                    | enum            | required, lifecycle status; `pending` (default), `clear`, `flagged`, `acknowledged`                                             |
-| **platform**                  | reference       | required, references single Platform                                                                                            |
-| **area**                      | reference       | required, references single Area                                                                                                |
-| **url**                       | string          | required, length \<= 2048, references the listing online                                                                        |
-| **address**                   | reference       | required, references single Address as composite                                                                                |
-| **declaredAsShortTermRental** | bool            | required, host self-declaration                                                                                                 |
-| **registrationNumber**        | string          | optional, length \<= 128                                                                                                        |
-| **flags**                     | array of string | required, may be empty; each a [flag code](./LISTING_TECH.md#listingresponse) (`ABS`, `UNK`, `EXP`, `MIS`, `NPR`, `UNX`, `UDS`) |
-| **submittedAt**               | datetime        | required, UTC; set by the platform's submission, copied forward otherwise                                                       |
-| **screenedAt**                | datetime        | optional, UTC; set by the screening, copied forward otherwise                                                                   |
-| **acknowledgedAt**            | datetime        | optional, UTC; set by the acknowledgement                                                                                       |
-| **createdAt**                 | datetime        | required, UTC, managed by SDEP                                                                                                  |
-| **endedAt**                   | datetime        | optional, UTC, managed by SDEP                                                                                                  |
+| Attribute                     | Type            | Constraints                                                                                                                                   |
+| :---------------------------- | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
+| **id**                        | int             | required, is technical id                                                                                                                     |
+| **listingId**                 | string          | required, is functional id, length \<= 64, alphanumeric with hyphens, is supplied or auto-generated otherwise (deterministic UUIDv8 RFC 9562) |
+| **listingName**               | string          | optional, length \<= 64, e.g. "Amsterdam Canal Apartment"                                                                                     |
+| **status**                    | enum            | required, lifecycle status; `pending` (default), `clear`, `flagged`, `acknowledged`                                                           |
+| **platform**                  | reference       | required, references single Platform                                                                                                          |
+| **area**                      | reference       | required, references single Area                                                                                                              |
+| **url**                       | string          | required, length \<= 2048, references the listing online                                                                                      |
+| **address**                   | reference       | required, references single Address as composite                                                                                              |
+| **declaredAsShortTermRental** | bool            | required, host self-declaration                                                                                                               |
+| **registrationNumber**        | string          | optional, length \<= 128                                                                                                                      |
+| **flags**                     | array of string | required, may be empty; each a [flag code](./LISTING_TECH.md#listingresponse) (`ABS`, `UNK`, `EXP`, `MIS`, `NPR`, `UNX`, `UDS`)               |
+| **submittedAt**               | datetime        | required, UTC; set by the platform's submission, copied forward otherwise                                                                     |
+| **screenedAt**                | datetime        | optional, UTC; set by the screening, copied forward otherwise                                                                                 |
+| **acknowledgedAt**            | datetime        | optional, UTC; set by the acknowledgement                                                                                                     |
+| **createdAt**                 | datetime        | required, UTC, managed by SDEP                                                                                                                |
+| **endedAt**                   | datetime        | optional, UTC, managed by SDEP                                                                                                                |
 
 **Class Constraints:**
 
@@ -254,7 +255,7 @@ The datamodel is a logical datamodel:
   - Another platform gets item NOK (`duplicate_error`)
 - A supplied `listingId` is stored and returned as submitted; a lowercase UUID is recommended, see [ID management](./ARCHITECTURE_TECH.md#id-management)
 - Every transition creates a new version; no listing row is updated in place
-  - The platform corrects a `pending` listing by resubmitting the same `listingId`
+  - The platform corrects a `pending` listing by resubmitting the same `listingId` with other content
   - The listing screening authority sets `clear` or `flagged` (and may re-screen); the platform acknowledges a `flagged` listing (final)
 - `createdAt` is the version timestamp and doubles as the concurrency token for screening and acknowledgement
 - Each listing must reference an existing area that is regulated for listings (`regulation` is `listing` or `all`)
@@ -265,22 +266,22 @@ The datamodel is a logical datamodel:
 
 **Purpose:** Represents an actual rental activity submitted by a platform
 
-| Attribute              | Type            | Constraints                                                                                                                     |
-| :--------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-| **id**                 | int             | required, is technical id                                                                                                       |
-| **activityId**         | string          | required, is functional id, length \<= 64, alphanumeric with hyphens, is supplied or auto-generated otherwise (UUIDv4 RFC 9562) |
-| **activityName**       | string          | optional, length \<= 64, e.g. "Summer rental"                                                                                   |
-| **status**             | string          | required, lifecycle status; `finished` by default when omitted, or `cancelled`                                                  |
-| **platform**           | reference       | required, references single Platform                                                                                            |
-| **area**               | reference       | required, references single Area                                                                                                |
-| **url**                | string          | required, length \<= 2048, e.g. http://example.com/my-advertisement                                                             |
-| **address**            | reference       | required, references single Address as composite                                                                                |
-| **registrationNumber** | string          | required, length \<= 128                                                                                                        |
-| **numberOfGuests**     | int             | required, min 1, max 1024                                                                                                       |
-| **countryOfGuests**    | array of string | required, min 1, max 1024; each ISO 3166-1 alpha-3 or `N/A`                                                                     |
-| **temporal**           | reference       | required, references single Temporal as composite                                                                               |
-| **createdAt**          | datetime        | required, UTC, managed by SDEP                                                                                                  |
-| **endedAt**            | datetime        | optional, UTC, managed by SDEP                                                                                                  |
+| Attribute              | Type            | Constraints                                                                                                                                   |
+| :--------------------- | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
+| **id**                 | int             | required, is technical id                                                                                                                     |
+| **activityId**         | string          | required, is functional id, length \<= 64, alphanumeric with hyphens, is supplied or auto-generated otherwise (deterministic UUIDv8 RFC 9562) |
+| **activityName**       | string          | optional, length \<= 64, e.g. "Summer rental"                                                                                                 |
+| **status**             | string          | required, lifecycle status; `finished` by default when omitted, or `cancelled`                                                                |
+| **platform**           | reference       | required, references single Platform                                                                                                          |
+| **area**               | reference       | required, references single Area                                                                                                              |
+| **url**                | string          | required, length \<= 2048, e.g. http://example.com/my-advertisement                                                                           |
+| **address**            | reference       | required, references single Address as composite                                                                                              |
+| **registrationNumber** | string          | required, length \<= 128                                                                                                                      |
+| **numberOfGuests**     | int             | required, min 1, max 1024                                                                                                                     |
+| **countryOfGuests**    | array of string | required, min 1, max 1024; each ISO 3166-1 alpha-3 or `N/A`                                                                                   |
+| **temporal**           | reference       | required, references single Temporal as composite                                                                                             |
+| **createdAt**          | datetime        | required, UTC, managed by SDEP                                                                                                                |
+| **endedAt**            | datetime        | optional, UTC, managed by SDEP                                                                                                                |
 
 **Class Constraints:**
 
@@ -296,7 +297,7 @@ The datamodel is a logical datamodel:
 - The `activityId` is a functional identifier
   - May be exposed in API responses
 - An `activityId` belongs to exactly one platform, see the identity pattern
-  - The owner may resubmit the `activityId`: this creates a new version
+  - The owner may resubmit the `activityId` with other content: this creates a new version (identical content creates nothing, see [Idempotency](./ARCHITECTURE_TECH.md#idempotency))
   - Another platform gets item NOK (`duplicate_error`)
 - A supplied `activityId` is stored and returned as submitted; a lowercase UUID is recommended, see [ID management](./ARCHITECTURE_TECH.md#id-management)
 - A later version may change `status` from `finished` to `cancelled`

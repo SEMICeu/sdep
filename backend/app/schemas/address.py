@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.common import OptionalText
+
 __all__ = [
     "CommonAddressRequest",
     "CommonAddressResponse",
@@ -38,7 +40,7 @@ class CommonAddressRequest(BaseModel):
         examples=[263],
     )  # Attribute
 
-    locator_designator_letter: str | None = Field(
+    locator_designator_letter: OptionalText = Field(
         None,
         alias="locatorDesignatorLetter",
         max_length=10,
@@ -46,7 +48,7 @@ class CommonAddressRequest(BaseModel):
         examples=["a"],
     )  # Attribute
 
-    locator_designator_addition: str | None = Field(
+    locator_designator_addition: OptionalText = Field(
         None,
         alias="locatorDesignatorAddition",
         max_length=128,

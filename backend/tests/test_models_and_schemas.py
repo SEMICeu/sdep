@@ -14,14 +14,9 @@ from app.models.platform import Platform
 from app.models.temporal import Temporal
 from app.models.types import StringArray
 from app.schemas.activity import ActivityRequest, ActivityResponse
-from app.schemas.activity import (
-    empty_string_to_none as activity_empty_string_to_none,
-)
 from app.schemas.address import CommonAddressRequest
 from app.schemas.area import AreaResponse
-from app.schemas.area import (
-    empty_string_to_none as area_empty_string_to_none,
-)
+from app.schemas.common import empty_string_to_none, strip_to_none
 from app.schemas.temporal import CommonTemporalRequest, validate_year_ge_2025
 from sqlalchemy import CheckConstraint, Table
 
@@ -142,10 +137,13 @@ def test_model_repr_methods_and_defaults_cover_remaining_model_lines():
 
 
 def test_activity_and_area_schema_helpers_and_serializers():
-    assert activity_empty_string_to_none("") is None
-    assert activity_empty_string_to_none("abc") == "abc"
-    assert area_empty_string_to_none("") is None
-    assert area_empty_string_to_none("listing") == "listing"
+    assert empty_string_to_none("") is None
+    assert empty_string_to_none(None) is None
+    assert empty_string_to_none("abc") == "abc"
+    assert empty_string_to_none("  ") == "  "  # IDs are not trimmed
+    assert strip_to_none("    ") is None
+    assert strip_to_none(" Name ") == "Name"
+    assert strip_to_none(None) is None
 
     with pytest.raises(ValueError, match="must not contain spaces"):
         CommonAddressRequest.validate_post_code_format("12 34")

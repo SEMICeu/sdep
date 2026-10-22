@@ -26,6 +26,7 @@ These tests verify API functionality, authentication, authorization, and securit
   - [`test-security`](#test-security)
   - [`test-migrations`](#test-migrations)
   - [`test-malware`](#test-malware)
+- [ID management tests](#id-management-tests)
 - [Helper scripts](#helper-scripts)
   - [`test_auth_client_bootstrap.py`](#test_auth_client_bootstrappy)
   - [`test_health_ping.py`](#test_health_pingpy)
@@ -112,8 +113,9 @@ Everything a test run creates is named `sdep-test-*` and owned by the `sdep-test
 - The isolation check is unaffected: its baseline is captured *after* the pre-clean, so leftover rows cannot cause a false failure. The displayed BEFORE count is that baseline; the count before the pre-clean is shown next to it when it differs
 - `make postgres-clean-testrun` is the manual recovery path, for a run that could not clean up (aborted, or the database was unreachable) or when you are done with kept data
 - Loaded and non-`sdep-test-*` data is never touched. `make postgres-drop` is the only thing that clears everything
+- Generated IDs (UUIDv8, for a record that is sent without an ID) do not start with `sdep-test-`: the cleanup removes them through their `sdep-test-*` owner
 
-Note that two of the four deletes match on the functional id (`area_id` / `activity_id LIKE 'sdep-test-%'`) rather than on the owning client. An area or activity literally named `sdep-test-...` but created by a preserved client would therefore be removed. The predefined test data does not use that naming.
+Note that three deletes also match on the functional id (`area_id` / `listing_id` / `activity_id LIKE 'sdep-test-%'`), next to the owning client. An area or activity literally named `sdep-test-...` but created by a preserved client would therefore be removed. The predefined test data does not use that naming.
 
 `clean-testrun.sql` never removes `audit_log` rows. An empty entity count alongside a populated audit log is the normal result of a clean-up, not a defect.
 
@@ -229,11 +231,11 @@ Test CA (Competent Authority) endpoints.
 
 - **Test 1:** POST single area with shapefile upload and areaId
 - **Test 2:** POST with custom areaId field
-- **Test 3:** POST without areaId (auto-generated UUID)
+- **Test 3:** POST without areaId twice → the same generated areaId and `createdAt` (the resend is a retry). Then DELETE it and POST twice → a new areaId, the same on both POSTs
 - **Test 4:** GET own areas (`GET /ca/areas`)
 - **Test 5:** GET own areas count (`GET /ca/areas/count`)
 - **Test 6:** GET own areas does not contain endedAt
-- **Test 7:** Versioning - submit same areaId twice
+- **Test 7:** Versioning - the same areaId twice with an identical upload → the same `createdAt` (a retry); then with another `areaName` → 201, a new version (new `createdAt`)
 - **Test 8:** DELETE area (deactivate) → 204
 - **Test 9:** DELETE nonexistent area → 404
 - **Test 10:** GET own area by ID → 200 OK
@@ -357,6 +359,8 @@ Test STR (Short-Term Rental) platform endpoints.
 - **Test 5:** An empty batch → 422
 - **Test 6:** A non-UTC `createdAtFrom` filter → 400
 - **Test 7:** Cross-platform isolation - a `listingId` has one owner: the second platform gets 422 (`duplicate_error`). Requires `STR2_CLIENT_ID`/`STR2_CLIENT_SECRET`; skipped otherwise.
+- **Test 8:** A non-string `listingId` → 422, echoed as `null` (not 500)
+- **Test 9:** An identical listing sent twice, without and with `listingId` → 201 each time, per pair the same `listingId` and `createdAt` (the resend is a retry)
 
 **Endpoints:** `POST /api/str/v2/listings/bulk`, `GET /api/str/v2/listings`, `GET /api/str/v2/listings/count`, `POST /api/str/v2/listing-acknowledgements/bulk`
 
@@ -377,6 +381,8 @@ Test STR (Short-Term Rental) platform endpoints.
 - **Test 5:** Stacked insert + cancel - POST `activityId=X` (default `status=finished`) then re-POST the same `activityId` with `status=cancelled`; the CA-side activity count stays the same because the cancellation is a new version of the same functional activity, not an additional current activity
 - **Test 6:** A naive `startDatetime` (no offset) is rejected (422, UTC required)
 - **Test 7:** Cross-platform isolation - an `activityId` has one owner: the second platform gets 422 (`duplicate_error`). Requires `STR2_CLIENT_ID`/`STR2_CLIENT_SECRET`; skipped otherwise.
+- **Test 8:** A non-string `activityId` → 422, echoed as `null` (not 500)
+- **Test 9:** An identical activity sent twice, without and with `activityId` → 201 each time, per pair the same `activityId` and `createdAt` (the resend is a retry)
 
 **Endpoints:**
 
@@ -677,7 +683,7 @@ Test Alembic migrations against a real PostgreSQL instance (started automaticall
 
 - All migrations apply cleanly (`make -C backend upgrade`) and the schema lands on the expected Alembic head revision
 - The `CHECK` constraints in the resulting schema actually reject invalid rows, by inserting seed data and asserting the database raises an integrity error
-- Two concurrent renames of a CA or platform wait for each other, and create one new version (row locks, which SQLite has not). These run with `pytest` in `backend/`, on their own `<db>_pytest` database that the backend `conftest.py` creates and drops
+- Concurrent writes wait for each other (row locks, which SQLite has not): two renames of a CA or platform create one new version, two first contacts of a new client share one CA or platform, and two identical resends of an activity store one version. These run with `pytest` in `backend/`, on their own `<db>_pytest` database that the backend `conftest.py` creates and drops
 
 Connects to PostgreSQL directly (SQLAlchemy); does not go through the HTTP API. Idempotent - it removes its own `sdep-test-*` seed rows before each run.
 
@@ -706,6 +712,117 @@ Exercises the backend's `app.security.malware_scan` module directly (loaded via 
 - `MALWARE_SCAN_CLAMAV_HOST` (defaults to `localhost`)
 - `MALWARE_SCAN_CLAMAV_PORT` (read from backend settings)
 - `MALWARE_SCAN_CLAMAV_READY_TIMEOUT_SECONDS` (defaults to `180`)
+
+---
+
+## ID management tests
+
+A record that is sent without an ID gets a generated ID, see [ID management](./ARCHITECTURE_TECH.md#id-management). An identical record is stored once, with or without an ID, see [Idempotency](./ARCHITECTURE_TECH.md#idempotency). The tables below list each case, the expected result, and the tests that prove it. Most cases are unit tests (`make test`), the main cases are also tested live.
+
+**Record without an ID (generated by SDEP)**
+
+| #   | Case (record without an ID)             | Result                                 | Area   | Listing   | Activity     |
+| --- | --------------------------------------- | -------------------------------------- | ------ | --------- | ------------ |
+| 1   | Identical record again                  | Same ID, stored record, no new row     | A1, I1 | L1, I2    | C1, I3       |
+| 2   | Same record, fields in another order    | Same ID                                | F1     | F1        | F1           |
+| 3   | Same record, other notation **[1]**     | Same ID                                | A8     | L6, L7    | C1, C11, C12 |
+| 4   | One field differs                       | Another ID, a new record               | A2, F2 | L2, F2    | C2, F2       |
+| 5   | Same record, another owner **[2]**      | Another ID, a new record               | A2, F2 | L2, F2    | C2, F2       |
+| 6   | Same fields, another type **[3]**       | Another ID                             | F2     | F2        | F2           |
+| 7   | Same record after a delete **[4]**      | Another ID, then the same on resend    | A1, I1 | - **[5]** | C4, F4       |
+| 8   | Same record after a key change          | Another ID, a new record               | F3     | F3        | F3           |
+| 9   | Same record twice in one batch          | First NOK (`duplicate_error`), last OK | -      | - **[6]** | C3           |
+| 10  | Resent listing that is already screened | Stored screened listing, no conflict   | -      | L1        | -            |
+
+[1] `+00:00` instead of `Z`, the default `status` (`finished`) spelled out, an optional field sent as `null`, `""` or only spaces instead of omitted, or text with spaces around it (`" Name "` for `"Name"`).
+
+[2] Another CA for an area, another platform for a listing or activity.
+
+[3] For example a listing and an activity with identical fields and owner. In practice they never have the same fields, the type only makes it certain.
+
+[4] An area is deleted, an activity is deactivated. A listing has no delete.
+
+[5] A listing cannot be deleted, so this case does not exist for listings.
+
+[6] Listings follow the same "last wins" rule, but only the activity test covers it.
+
+The key itself (`FUNCTIONAL_ID_SECRET`) is checked at start-up: outside `DEV`, the default or a key shorter than 32 characters stops the app (F5), a valid key starts (F6), and `DEV` starts with the default (F7).
+
+**Record with an ID (supplied by the client)**
+
+Since 1.10.0 an identical record with its ID is a resend as well (cases 11 and 13), the other rules did not change.
+
+| #   | Case (record with an ID)                 | Result                               | Area       | Listing    | Activity            |
+| --- | ---------------------------------------- | ------------------------------------ | ---------- | ---------- | ------------------- |
+| 11  | Same ID, identical record                | Same ID, stored record, no new row   | A7, I4     | L5, L6, I2 | C5, C11, F8, I3, R1 |
+| 12  | Same ID, other content                   | A new version **[7]**                | A3, A7, I4 | L3, I6     | C6, C10, I8         |
+| 13  | Same ID, identical, listing screened     | Stored screened listing, no conflict | -          | L5         | -                   |
+| 14  | Same ID, other content, listing screened | NOK (`conflict_error`)               | -          | L3, L5     | -                   |
+| 15  | Same ID after a delete, same owner       | Refused, the ID stays deleted        | A4         | - **[5]**  | C7                  |
+| 16  | ID of another owner                      | Refused (`duplicate_error`)          | A5, I5     | L4, I7     | C9, I9              |
+| 17  | Deleted ID, another owner                | Refused (`duplicate_error`) **[8]**  | A6         | - **[5]**  | C9                  |
+| 18  | Same ID twice in one batch               | First NOK, last OK                   | -          | -          | C8                  |
+| 19  | Not a string (e.g. `123`)                | NOK, ID echoed as `null`             | -          | I10        | I11                 |
+
+[7] For a listing: a correction, and only while it is `pending` (else case 14).
+
+[8] A deleted or ended ID stays with its owner, so no one else can take it over.
+
+**Tests:**
+
+- **F1-F8:** `backend/tests/services/test_functional_id.py`
+  - F1 `test_same_input_same_uuidv8`
+  - F2 `test_any_input_change_gives_another_id` (cases `kind`, `owner`, `field`, `generation`)
+  - F3 `test_another_secret_gives_another_id`
+  - F4 `test_deleted_ids_move_to_the_next_generation`
+  - F5 `test_outside_dev_needs_its_own_secret`
+  - F6 `test_outside_dev_starts_with_a_secret`
+  - F7 `test_dev_starts_with_the_default`
+  - F8 `test_stored_version_compares_like_the_request` (a stored version compares like the request: naive or other offset is the same instant)
+- **A1-A8:** `backend/tests/services/test_area.py`
+  - A1 `test_generated_area_id_makes_a_resend_a_retry`
+  - A2 `test_other_upload_or_ca_gives_another_area`
+  - A3 `test_create_area_versioning_marks_previous_as_ended`
+  - A4 `test_create_area_rejects_deactivated_area_id`
+  - A5 `test_create_area_refuses_area_id_of_another_ca`
+  - A6 `test_create_area_deleted_area_id_stays_with_its_owner`
+  - A7 `test_identical_upload_with_its_area_id_is_a_resend` (then another `regulation`: a new version)
+  - A8 `test_post_area_name_is_trimmed_before_the_generated_id` (`backend/tests/api/test_ca_areas.py`, through the router)
+- **L1-L7:** `backend/tests/services/test_listing_bulk.py`
+  - L1 `test_resent_listing_without_id_is_a_retry`
+  - L2 `test_other_content_or_platform_gives_another_listing`
+  - L3 `test_correction_only_while_pending`
+  - L4 `test_listing_id_of_another_platform_is_refused`
+  - L5 `test_identical_listing_with_its_id_is_a_resend` (pending, then screened; other content once screened: `conflict_error`)
+  - L6 `test_null_or_empty_equals_an_omitted_field` (without and with `listingId`)
+  - L7 `test_surrounding_spaces_are_trimmed` (without and with `listingId`)
+- **C1-C12:** `backend/tests/services/test_activity_bulk.py` (C1-C5 and C10-C12 in class `TestGeneratedActivityId`)
+  - C1 `test_resend_returns_the_stored_activity`
+  - C2 `test_other_content_or_platform_gives_another_activity`
+  - C3 `test_two_identical_items_in_one_batch_last_wins`
+  - C4 `test_deactivated_activity_is_new_again`
+  - C5 `test_identical_activity_with_its_id_is_a_resend` (also with `+00:00` and `status` spelled out)
+  - C6 `test_create_activities_bulk_versions_existing_activity`
+  - C7 `test_create_activities_bulk_versions_platform_and_rejects_deactivated_activity`
+  - C8 `test_create_activities_bulk_creates_platform_and_marks_duplicate_nok`
+  - C9 `test_activity_id_of_another_platform_is_refused`
+  - C10 `test_changed_activity_with_its_id_versions`
+  - C11 `test_null_or_empty_equals_an_omitted_field` (without and with `activityId`)
+  - C12 `test_surrounding_spaces_are_trimmed` (without and with `activityId`)
+- **R1:** `backend/tests/services/test_concurrent_rename.py` (PostgreSQL only, run by `make test-migrations`)
+  - R1 `test_parallel_identical_resends_store_one_version` (a resend while the first request still runs, without and with `activityId`)
+- **I1-I11:** integration tests against the live backend (v1 and v2)
+  - I1 `test_ca_areas.py` Test 3, with the real shapefile
+  - I2 `test_str_listings.py` Test 9 (without and with `listingId`)
+  - I3 `test_str_activities.py` Test 9 (without and with `activityId`)
+  - I4 `test_ca_areas.py` Test 7 (identical upload, then a new version)
+  - I5 `test_ca_areas.py` Test 12 (cross-CA isolation)
+  - I6 `test_str_listings.py` Test 2 (correction while pending)
+  - I7 `test_str_listings.py` Test 7 (cross-platform isolation)
+  - I8 `test_str_activities.py` Test 5 (insert, then cancel)
+  - I9 `test_str_activities.py` Test 7 (cross-platform isolation)
+  - I10 `test_str_listings.py` Test 8 (non-string `listingId`)
+  - I11 `test_str_activities.py` Test 8 (non-string `activityId`)
 
 ---
 

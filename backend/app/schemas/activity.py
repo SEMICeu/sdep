@@ -24,7 +24,12 @@ from app.schemas.address import (
     CommonAddressRequest,
     CommonAddressResponse,
 )
-from app.schemas.common import FunctionalId, OptionalFunctionalId
+from app.schemas.common import (
+    FunctionalId,
+    OptionalFunctionalId,
+    OptionalText,
+    empty_string_to_none,
+)
 from app.schemas.temporal import (
     CommonTemporalRequest,
     CommonTemporalResponse,
@@ -65,17 +70,6 @@ __all__ = [
 ]
 
 
-def empty_string_to_none(v: str | None) -> str | None:
-    """Convert empty string to None for optional ID fields.
-
-    This allows clients to send "" instead of omitting the field,
-    and the ID will be auto-generated as UUID downstream.
-    """
-    if v == "":
-        return None
-    return v
-
-
 class ActivityRequest(BaseModel):
     """Activity request schema for creating rental activities.
 
@@ -103,11 +97,11 @@ class ActivityRequest(BaseModel):
     ] = Field(
         None,
         alias="activityId",
-        description="Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as UUIDv4 RFC 9562 if not supplied)",
+        description="Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as deterministic UUIDv8 RFC 9562 if not supplied)",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )  # Functional ID
 
-    activity_name: str | None = Field(
+    activity_name: OptionalText = Field(
         None,
         alias="activityName",
         max_length=64,

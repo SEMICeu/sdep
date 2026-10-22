@@ -93,7 +93,7 @@ This migration aligns SDEP with these standards, enabling:
 
 - Interoperability with other EU member state rental registration systems
 - Compliance with the EU Single Digital Gateway regulation
-- Support for address formats beyond the Dutch BAG (e.g., French "bis"/"ter" locator designators)
+- Support for address formats beyond the Dutch BAG (e.g. French "bis"/"ter" locator designators)
 
 ---
 

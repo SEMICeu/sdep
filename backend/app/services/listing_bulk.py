@@ -6,14 +6,15 @@ Application-First Validation flow, as for activities:
 2. Referential Integrity Check - one SELECT for area IDs; an area must be
    regulated for listings (`regulation_error` otherwise); then claim the
    listing IDs, an ID of another platform is NOK (`duplicate_error`)
-3. Versioning under lock - a resubmitted `listingId` is a correction, allowed
-   while the current version is `pending` (`conflict_error` otherwise)
+3. Versioning under lock - a listing that is identical to its current version
+   is a resend: OK with the stored version, whatever its status; otherwise a
+   resubmitted `listingId` is a correction, allowed while the current version
+   is `pending` (`conflict_error` otherwise)
 4. Feedback - per-item OK/NOK response preserving original order
 
 Transaction management: see app/services/activity_bulk.py.
 """
 
-import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -28,8 +29,9 @@ from app.crud import identity as identity_crud
 from app.crud import listing as listing_crud
 from app.enums import ListingStatus, Regulation
 from app.models.identity import ListingIdentity
-from app.schemas.listing import ListingBulkCreate, ListingRequest
+from app.schemas.listing import ListingBulkCreate, ListingRequest, ListingResponse
 from app.schemas.listing_bulk import ListingBulkResponse, ListingBulkResultItem
+from app.services.functional_id import content, generate_id, stored_content
 from app.services.listing_bulk_common import (
     finish,
     last_wins,
@@ -66,12 +68,20 @@ async def create_listings_bulk(
     results, valid_indexes, validated_items, client_supplied_ids = validate_items(
         listings_raw, _item_adapter, ListingBulkResultItem
     )
-    for i in valid_indexes:
-        if validated_items[i].listing_id is None:
-            validated_items[i].listing_id = str(uuid.uuid4())
 
     # ── Platform resolution (once per batch) ────────────────────────────
     platform = await ensure_platform(session, client_id, platform_name)
+
+    # ── Generated listing IDs (deterministic, see services/functional_id.py)
+    # The platform is part of the ID. A listing is never deleted, so the first
+    # generation is always the one (no generation chain as for areas).
+    generated = {i for i in valid_indexes if validated_items[i].listing_id is None}
+    for i in generated:
+        validated_items[i].listing_id = generate_id(
+            "listing",
+            platform.platform_id,
+            content(validated_items[i], "listing_id"),
+        )
 
     # ── Intra-batch duplicate handling (last-wins) ──────────────────────
     valid_indexes = last_wins(
@@ -147,7 +157,17 @@ async def create_listings_bulk(
     for i in valid_indexes:
         listing_id = validated_items[i].validated_listing_id
         current = current_by_id.get(listing_id)
-        if current is not None and current.status != ListingStatus.pending:
+        if current is not None and content(
+            validated_items[i], "listing_id"
+        ) == stored_content(
+            ListingRequest, ListingResponse.model_validate(current), "listing_id"
+        ):
+            # An identical listing is a resend (e.g. after a lost response):
+            # answer with the stored version, whatever its status.
+            results[i] = ok_item(
+                ListingBulkResultItem, i, client_supplied_ids[i], current
+            )
+        elif current is not None and current.status != ListingStatus.pending:
             results[i] = nok_item(
                 ListingBulkResultItem,
                 i,

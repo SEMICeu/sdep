@@ -132,10 +132,14 @@ Remarks:
 
 - Every transition creates a new [version](./DATAMODEL_TECH.md#listing) of the listing; a listing row is never updated in place.
 - A correction is a new version **in the same state** (same concept as for activities), and is only allowed for the actor that owns that state's write. The lifecycle never restarts:
-  - `pending`: the platform may correct the listing data (resubmission with the same `listingId`)
+  - `pending`: the platform may correct the listing data (resubmission with the same `listingId` and other data)
   - `clear`, `flagged`: SDEP may correct the screening (resubmission of the screening result); the state follows the new flag(s)
   - `acknowledged`: final, no corrections (the acknowledgement carries no data, SDEP cannot undo it)
-- A platform that (still) wants an already screened listing (`clear`, `flagged`, `acknowledged`) corrected, submits it under a new (or empty > new) `listingId` (this just becomes a new random check in a separate lifecycle)
+- A platform that (still) wants an already screened listing (`clear`, `flagged`, `acknowledged`) corrected, submits it under a new `listingId` (this just becomes a new random check in a separate lifecycle)
+- An identical listing that is resubmitted with the same `listingId` is not a correction: SDEP returns the existing listing, whatever its state (see [Idempotency](./ARCHITECTURE_TECH.md#idempotency)).
+- A listing that is sent without `listingId` gets an ID from SDEP, see [ID management](./ARCHITECTURE_TECH.md#id-management):
+  - If an identical listing is submitted again without a `listingId` (e.g. after a lost response), SDEP returns the existing listing with the same ID, whatever its state, and starts no new random check.
+  - As a result, a new random check of a listing with identical data requires a new `listingId` from the platform.
 - Flags raised in the `flagged` state are retained after acknowledgement, so `acknowledged` does not erase the screening outcome.
 - The correction edges (`pending --> pending` for the platform, `clear|flagged --> clear|flagged` for SDEP) are left out of the diagram for readability.
 

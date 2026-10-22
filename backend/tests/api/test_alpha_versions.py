@@ -11,7 +11,7 @@ from app.config import Settings, settings
 from app.main import DOMAIN_APPS, mount_domain_apps
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 ALPHA = [domain for domain in API_DOMAINS if domain.status == "alpha"]
 NON_ALPHA = [domain for domain in API_DOMAINS if domain.status != "alpha"]
@@ -107,17 +107,56 @@ class TestAlphaEnabled:
             assert f'href="{domain.docs_path}"' in body, domain.label
 
 
+# Outside DEV the app also needs its own FUNCTIONAL_ID_SECRET (see tests/services/test_functional_id.py).
+_SECRET = SecretStr("s" * 32)
+
+
 class TestProductionGuard:
     @pytest.mark.parametrize("dtap", ["PRD", "prd"])
     def test_alpha_in_prd_refuses_to_start(self, dtap: str) -> None:
         with pytest.raises(ValidationError, match="API_ALPHA_ENABLED"):
-            Settings(DTAP=dtap, API_ALPHA_ENABLED=True)
+            Settings(DTAP=dtap, API_ALPHA_ENABLED=True, FUNCTIONAL_ID_SECRET=_SECRET)  # type: ignore[arg-type]
 
     def test_prd_without_alpha_starts(self) -> None:
-        assert Settings(DTAP="PRD", API_ALPHA_ENABLED=False).API_ALPHA_ENABLED is False
+        assert (
+            Settings(
+                DTAP="PRD", API_ALPHA_ENABLED=False, FUNCTIONAL_ID_SECRET=_SECRET
+            ).API_ALPHA_ENABLED
+            is False
+        )
 
     def test_pre_with_alpha_starts(self) -> None:
-        assert Settings(DTAP="PRE", API_ALPHA_ENABLED=True).API_ALPHA_ENABLED is True
+        assert (
+            Settings(
+                DTAP="PRE", API_ALPHA_ENABLED=True, FUNCTIONAL_ID_SECRET=_SECRET
+            ).API_ALPHA_ENABLED
+            is True
+        )
 
     def test_alpha_is_off_by_default(self) -> None:
         assert Settings.model_fields["API_ALPHA_ENABLED"].default is False
+
+
+class TestDtapRequired:
+    """DTAP is required with any name, so the guards above fail closed (see app/config.py)."""
+
+    def test_missing_dtap_refuses_to_start(self, monkeypatch) -> None:
+        monkeypatch.delenv("DTAP", raising=False)
+        with pytest.raises(ValidationError, match="DTAP"):
+            Settings(_env_file=None, FUNCTIONAL_ID_SECRET=_SECRET)  # type: ignore[call-arg]
+
+    def test_empty_dtap_refuses_to_start(self) -> None:
+        with pytest.raises(ValidationError, match="DTAP"):
+            Settings(DTAP="", FUNCTIONAL_ID_SECRET=_SECRET)
+
+    def test_own_dtap_name_starts_and_needs_its_own_secret(self) -> None:
+        assert Settings(DTAP="prod", FUNCTIONAL_ID_SECRET=_SECRET).DTAP == "PROD"
+        with pytest.raises(ValidationError, match="FUNCTIONAL_ID_SECRET"):
+            Settings(DTAP="PROD")
+
+    def test_dtap_is_case_insensitive(self) -> None:
+        assert Settings(DTAP="tst", FUNCTIONAL_ID_SECRET=_SECRET).DTAP == "TST"
+
+    def test_local_dtap_comes_from_env_file(self, monkeypatch) -> None:
+        monkeypatch.delenv("DTAP", raising=False)
+        assert Settings().DTAP == "DEV"  # type: ignore[call-arg]

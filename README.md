@@ -162,7 +162,7 @@ In Swagger UI, use **Authorize** to activate either of the following **client au
   - It uses **client-signed JWT** to acquire a `Bearer` token, that is used in turn to invoke the other (authenticated) endpoints
   - It requires an additional private/public keypair to generate the client-signed JWT
   - Credentials for all roles are explained in the guidance, so you can test how client-signed JWT authentication works for your role (CA, STR, STA, LSA, LMA, AMA)
-  - It also requires you to disable client-secret authentication in your local `.env.extra` (consider a `make backend-restart` to effectuate):
+  - It also requires you to disable client-secret authentication in your local `.env.extra` (consider a `make backend-recreate` to effectuate):
     ```bash
     CLIENT_SECRET_AUTH_ENABLED=false
     ```

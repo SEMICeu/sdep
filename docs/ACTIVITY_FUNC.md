@@ -91,7 +91,16 @@ See:
 
 ## Process
 
-Activities are [versioned](./ARCHITECTURE_TECH.md#versioning).
+Activities are [versioned](./ARCHITECTURE_TECH.md#versioning):
+
+- A changed activity with the same `activityId` creates a new version (e.g. a cancellation).
+- An identical activity with the same `activityId` returns the existing activity, without storing a new version (see [Idempotency](./ARCHITECTURE_TECH.md#idempotency)).
+
+An activity that is sent without `activityId` gets an ID from SDEP, see [ID management](./ARCHITECTURE_TECH.md#id-management):
+
+- If an identical activity is submitted again without an `activityId` (e.g. after a lost response), SDEP returns the existing activity with the same ID without storing a duplicate.
+- As a result, two distinct rentals (stays) with identical data are treated as a single activity. Platforms that need to distinguish such stays must provide their own `activityId`.
+- To correct or cancel an existing activity, the platform must provide its `activityId`. Submitting modified data without an `activityId` creates a new activity rather than updating the existing one.
 
 As discussed in the EU technical working group:
 

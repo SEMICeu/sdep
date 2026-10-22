@@ -188,7 +188,7 @@ Every `/api/str/v1/areas...` path above is also served at `/api/str/v2/areas...`
 
 **v2 - new (alpha)**
 
-- `POST /api/str/v2/listings/bulk` - Submit up to 1000 randomly selected listings for screening (JSON body); a resubmitted `listingId` corrects the listing while it is `pending`, later states are refused per item with `conflict_error`; listings are rejected for areas that are regulated for activity only, per item with `regulation_error`
+- `POST /api/str/v2/listings/bulk` - Submit up to 1000 randomly selected listings for screening (JSON body); a resubmitted `listingId` with other content corrects the listing while it is `pending` (identical content returns the stored listing), later states are refused per item with `conflict_error`; listings are rejected for areas that are regulated for activity only, per item with `regulation_error`
 - `GET /api/str/v2/listings` - Query the platform's own flagged listings (fixed scope: `status` is `flagged`; pagination: offset, limit - limit defaults to 1000, the maximum; filters: createdAtFrom, createdAtTo, areaId, competentAuthorityId)
 - `GET /api/str/v2/listings/count` - Count flagged listings with optional filters (same filter set)
 - `POST /api/str/v2/listing-acknowledgements/bulk` - Acknowledge up to 1000 flagged listings (JSON body: `listingId` + `createdAt` version token); a token that is no longer current is refused per item with `conflict_error`
@@ -532,7 +532,7 @@ One-off API PDF export for specific API versions:
 - [API ca_v1 pdf](./sdep_openapi_ca_v1.pdf)
 - [API str_v1 pdf](./sdep_openapi_str_v1.pdf)
 
-> Disclaimer: These PDFs were generated as part of the v1 freeze on 28 April 2026. While the /v1 API is frozen, implementation details may still differ in certain cases (see the [changelog](../CHANGELOG.md) for updates).
+> Disclaimer: these PDFs were generated as part of the v1 freeze on 28 April 2026. While the /v1 API is frozen, implementation details may still differ in certain cases (see the [changelog](../CHANGELOG.md) for updates).
 
 ## Filtering
 
@@ -864,7 +864,7 @@ Verdict per rule, with some \[footnotes\]:
 | `/core/date-time/timezone`               | Deviation | Responses are UTC; requests: STR accepts UTC only (`Z` or `+00:00`) **[4]**                                                                      |
 | `/core/date-time/date-omit-time-portion` | OK        | Date-only fields are dates                                                                                                                       |
 | `/core/http-methods`                     | OK        | `GET`, `POST`, `DELETE` only                                                                                                                     |
-| `/core/http-safety`                      | OK        | `GET` safe; `DELETE /areas/{areaId}` idempotent (a repeat returns 404); `POST .../bulk` not idempotent by design, see [Patterns](#patterns)      |
+| `/core/http-safety`                      | OK        | `GET` safe; `DELETE /areas/{areaId}` idempotent (a repeat returns 404); a repeated `POST` stores nothing new **[9]**                             |
 | `/core/http-response-code`               | OK        | [HTTP status codes](#http-status-codes)                                                                                                          |
 | `/core/stateless`                        | OK        | Bearer token per request, no server-side session                                                                                                 |
 | `/core/nested-child`                     | OK        | `/areas/{areaId}`; listings and activities are top-level, scoped by the token, no parent in the URI                                              |
@@ -925,6 +925,11 @@ Verdict per rule, with some \[footnotes\]:
 
 - The zipped shapefile is the format the EU-harmonized STR API prescribes for competent authorities, not the NLgov geospatial module (GeoJSON, OGC API Features)
 - Converting on the edge would add a second geometry format to one contract and move the source of truth away from what the authorities publish
+
+[9] HTTP allows a `POST` that is not idempotent; SDEP makes a repeat safe anyway, e.g. after a lost response:
+
+- Areas, listings and activities: an identical record returns the stored version, see [Idempotency](./ARCHITECTURE_TECH.md#idempotency)
+- Screenings and acknowledgements: the version token (`createdAt`) is no longer current after the first write, so a repeat is NOK (`conflict_error`)
 
 ## API gateway?
 

@@ -1,10 +1,23 @@
 """Configuration settings"""
 
 from functools import lru_cache
-from typing import Self
+from pathlib import Path
+from typing import Annotated, Self
 
-from pydantic import Field, model_validator
+from pydantic import BeforeValidator, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+FUNCTIONAL_ID_SECRET_DEV = "local-development-only-functional-id-secret"
+
+# Required, no default: a missing or empty DTAP stops the app, so the guards below
+# fail closed. Any name is allowed (Member States name their own environments), but
+# only DEV skips the secret check and only PRD refuses alpha versions. Locally it
+# comes from .env (DTAP=DEV), deployed from the ConfigMap.
+Dtap = Annotated[
+    str,
+    BeforeValidator(lambda v: v.upper() if isinstance(v, str) else v),
+    Field(min_length=1),
+]
 
 # Settings priority:
 #
@@ -18,7 +31,9 @@ class Settings(BaseSettings):
     """Application settings with environment variable support."""
 
     model_config = SettingsConfigDict(
-        env_file="../.env",
+        # The repo's .env, from any working directory (repo root, backend/). In the
+        # image it does not exist, there the environment supplies every value.
+        env_file=Path(__file__).resolve().parents[2] / ".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         env_ignore_empty=True,
@@ -32,9 +47,9 @@ class Settings(BaseSettings):
     )
 
     # OS settings
-    DTAP: str = Field(
-        default="DEV",
-        description="DTAP environment (DEV/TST/ACC/PRE/PRD)",
+    DTAP: Dtap = Field(
+        ...,
+        description="DTAP environment, required (e.g. DEV/TST/ACC/PRE/PRD)",
     )
     # Semantic version of this release (the pipeline sets the image tag). Served as
     # OpenAPI `info.version` and the `API-Version` response header, see docs/API_TECH.md
@@ -175,11 +190,31 @@ class Settings(BaseSettings):
         description="SQLAlchemy max overflow connections",
     )
 
+    # Key of the generated functional IDs (see app/services/functional_id.py). One per
+    # environment: rotate only after a leak, since resent records then get a new ID.
+    # The default is for local development only, so every other DTAP refuses it.
+    FUNCTIONAL_ID_SECRET: SecretStr = Field(
+        default=SecretStr(FUNCTIONAL_ID_SECRET_DEV),
+        description="HMAC key of the generated functional IDs (min 32 chars outside DEV)",
+    )
+
     @model_validator(mode="after")
     def _no_alpha_in_production(self) -> Self:
         """Refuse to start PRD with alpha versions enabled (see API_ALPHA_ENABLED)."""
-        if self.API_ALPHA_ENABLED and self.DTAP.upper() == "PRD":
+        if self.API_ALPHA_ENABLED and self.DTAP == "PRD":
             raise ValueError("API_ALPHA_ENABLED must not be true when DTAP is PRD")
+
+        return self
+
+    @model_validator(mode="after")
+    def _functional_id_secret_outside_dev(self) -> Self:
+        """Refuse the DEV default or a short FUNCTIONAL_ID_SECRET outside DEV."""
+        if self.DTAP != "DEV":
+            secret = self.FUNCTIONAL_ID_SECRET.get_secret_value()
+            if secret == FUNCTIONAL_ID_SECRET_DEV or len(secret) < 32:
+                raise ValueError(
+                    "FUNCTIONAL_ID_SECRET must be set (min 32 chars) when DTAP is not DEV"
+                )
 
         return self
 
@@ -201,7 +236,8 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()
+    # The required fields (DTAP) come from the environment or .env, not arguments.
+    return Settings()  # type: ignore[call-arg]
 
 
 # Global settings instance

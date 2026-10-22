@@ -29,7 +29,7 @@ Each issue is assigned exactly one label:
 | **Enhancement** | Standard enhancement to the reference implementation or documentation     |
 | **Bug**         | Defect in the reference implementation or documentation                   |
 
-[1] Unless commented otherwise: This label is added 72h after discussion/agreement, after which it will be implemented.
+[1] Unless commented otherwise: this label is added 72h after discussion/agreement, after which it will be implemented.
 
 ## Work in progress
 

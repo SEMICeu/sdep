@@ -257,7 +257,7 @@ Each layer enforces its own timeouts. A bulk request that takes several seconds 
 
 1. **Client-side retry logic (implemented in the performance test)**
 
-   The bulk activity endpoint is idempotent (re-submitting an `activityId` versions the previous record rather than creating a duplicate), so retrying on connection-level failures is safe. The Locust test retries up to 2 times with linear backoff (0.5s, 1.0s) when the response status code is 0 (connection failure). This handles transient network drops without requiring infrastructure changes.
+   The bulk activity endpoint is idempotent (an identical activity that is submitted again returns the stored activity, see [Idempotency](./ARCHITECTURE_TECH.md#idempotency)), so retrying on connection-level failures is safe. The Locust test retries up to 2 times with linear backoff (0.5s, 1.0s) when the response status code is 0 (connection failure). This handles transient network drops without requiring infrastructure changes.
 
 2. **TLS/reverse proxy timeout (deployment concern, out of scope of this project)**
 

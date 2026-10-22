@@ -616,6 +616,31 @@ def main() -> int:
             print("Skipping Test 8 (requires authentication)")
         print()
 
+        print("Test 9: An identical activity sent twice is a retry, without and with activityId (same ID, same createdAt)")
+        print("------------------------------------------------")
+        stats.total += 1
+        if bearer_token:
+            item = activity("unused", f"sdep-test-retry-{timestamp}", "REGBULK009", area_id_1, start_time, end_time)
+            del item["activityId"]
+            with_id = activity(f"sdep-test-bulk-retry-{timestamp}", "bulk-retry", "REGBULK009", area_id_1, start_time, end_time)
+            sent = [post_bulk(client, base_url, api_version, bearer_token, {"activities": [i]}) for i in (item, item, with_id, with_id)]
+            got = [((b.get("results") or [{}])[0].get("activity") or {}) for _, b in sent]
+            print(f"HTTP Status: {[c for c, _ in sent]}: {[g.get('activityId') for g in got]}")
+            print()
+            same = [
+                bool(a.get("activityId")) and a.get("activityId") == b.get("activityId") and a.get("createdAt") == b.get("createdAt")
+                for a, b in (got[0:2], got[2:4])
+            ]
+            mark(
+                stats,
+                [c for c, _ in sent] == [201] * 4 and all(same),
+                "Test 9 passed: same activityId and createdAt, nothing new stored",
+                f"Test 9 failed: Expected four 201s with the same activity per pair, got {[c for c, _ in sent]}, same: {same}",
+            )
+        else:
+            print("Skipping Test 9 (requires authentication)")
+        print()
+
     print("=======================================")
     print("Test Summary (bulk activities):")
     print(f"  Total:  {stats.total}")

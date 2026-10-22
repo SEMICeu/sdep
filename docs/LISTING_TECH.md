@@ -113,10 +113,11 @@ Submitted by the platform (`POST /listings/bulk`).
 
 [1] This allows the listing to be submitted as either:
 
-- A correction (same id): allowed in `pending` only, creates a new version that stays `pending`
+- A correction (same id, other content): allowed in `pending` only, creates a new version that stays `pending`
 - A recurrence of the listing in a new random check (new id)
+- A resend of an identical listing (e.g. after a lost response), with its id or without one: SDEP returns the stored listing, whatever its status, and writes nothing (see [Idempotency](./ARCHITECTURE_TECH.md#idempotency)). Without an id, the generated id is deterministic, so an identical listing gets the same id. This starts no new random check: for that, supply a new id.
 
-[2] `listingId` is unique per platform (as `activityId`), not globally.
+[2] `listingId` belongs to one platform and is unique across all platforms (as `activityId`), see [Identity](./DATAMODEL_TECH.md#identity).
 
 ---
 
@@ -234,19 +235,19 @@ A. Inputs:
 
 B. Steps:
 
-1. Per-item Pydantic validation, as for activities. Invalid items are NOK, the batch continues. A missing `listingId` is auto-generated (UUIDv4).
+1. Per-item Pydantic validation, as for activities. Invalid items are NOK, the batch continues. A missing `listingId` is generated after step 2, because the platform is part of it: a deterministic UUIDv8, see [ID management](./ARCHITECTURE_TECH.md#id-management).
 2. Resolve or version the `Platform` once per batch (`ensure_platform`), exactly as the activity bulk does.
 3. Intra-batch deduplication on `listingId` (last-wins), as the activity bulk does: earlier occurrences are NOK (`duplicate_error`, "superseded by later item in batch at index N").
 4. Referential integrity, one query per batch: `areaId` must exist (`not_found_error`) and the area must be regulated for listings (`regulation_error`), see [Regulation](./AREA_TECH.md#regulation).
-5. Resolve each `Listing` row-locked (`FOR UPDATE` on `(listingId, platformId)`). No current version means a new listing; a current version must be `pending`, else NOK (`conflict_error`). No version token here: the platform corrects its own `pending` listing, and the only thing that can interfere is the screening authority getting there first, which this check catches.
+5. Resolve each `Listing` row-locked (`FOR UPDATE` on `(listingId, platformId)`). No current version means a new listing. A current version with the same content means the same listing was sent before (a retry, with a generated or supplied `listingId`): OK with the stored version, whatever its status, and nothing is written. Otherwise a current version must be `pending`, else NOK (`conflict_error`). No version token here: the platform corrects its own `pending` listing, and the only thing that can interfere is the screening authority getting there first, which this check catches.
 6. Mark any current version ended (`endedAt = now()`) and insert the next version: `status` is `pending`, `submittedAt` is set, `flags` is empty.
 7. Commit at the API transaction boundary; per-item OK/NOK in the original order, every OK item embedding the listing as it now is.
 
 Net effect:
 
 - 1 new `platform` row only when the platform is new or its name changed
-- N new `listing` rows, each with FKs to `platform` and `area`
-- Optionally M old `listing` rows marked ended, where a resubmitted `listingId` had a current version
+- N new `listing` rows (one per valid item that is not a retry), each with FKs to `platform` and `area`
+- Optionally M old `listing` rows marked ended, where a `listingId` that was resubmitted with other content had a current version
 
 ---
 

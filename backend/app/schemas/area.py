@@ -15,19 +15,7 @@ from pydantic import (
 )
 
 from app.enums import Regulation
-from app.schemas.common import FunctionalId
-
-
-def empty_string_to_none(v: str | None) -> str | None:
-    """Convert empty string to None for optional fields.
-
-    This allows clients (notably the Swagger "--" dropdown option) to send ""
-    instead of omitting the field; downstream layers then apply the default.
-    """
-    if v == "":
-        return None
-    return v
-
+from app.schemas.common import FunctionalId, empty_string_to_none
 
 OptionalRegulation = Annotated[
     Regulation | None,

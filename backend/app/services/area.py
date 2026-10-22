@@ -20,7 +20,7 @@ Exception Handling:
 - ApplicationValidationError for other database constraint violations (HTTP 422)
 """
 
-import uuid
+import hashlib
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +36,9 @@ from app.exceptions.business import (
     ResourceNotFoundError,
 )
 from app.models.area import Area
+from app.models.competent_authority import CompetentAuthority
 from app.models.identity import AreaIdentity, CompetentAuthorityIdentity
+from app.services.functional_id import resolve_ids
 
 REGULATION_DEFAULT = Regulation.all
 
@@ -146,6 +148,66 @@ async def get_area_by_area_id_and_client_id(
     return area
 
 
+async def _generate_area_id(
+    session: AsyncSession,
+    ca_id: str,
+    area_name: str | None,
+    regulation: Regulation,
+    filename: str,
+    filedata: bytes,
+) -> str:
+    """Return the deterministic areaId of an upload (see services/functional_id.py).
+
+    The file goes in as its SHA-256, so a 1 MiB upload costs well under a millisecond.
+    """
+
+    async def deleted(ids: list[str]) -> set[str]:
+        return {
+            i
+            for i in ids
+            if await area_crud.exists_any_by_area_id(
+                session, i, competent_authority_id_str=ca_id
+            )
+            and await area_crud.get_by_area_id_and_competent_authority_id_str(
+                session, i, ca_id
+            )
+            is None
+        }
+
+    fields = {
+        "areaName": area_name,
+        "regulation": regulation.value,
+        "filename": filename,
+        "fileSha256": hashlib.sha256(filedata).hexdigest(),
+    }
+    ids = await resolve_ids("area", ca_id, {0: fields}, deleted)
+    return ids[0]
+
+
+async def _create_competent_authority(
+    session: AsyncSession, client_id: str, competent_authority_name: str
+) -> CompetentAuthority:
+    """Create the CA of a new client, or reuse the one of a parallel first upload.
+
+    The claim of a new client waits for a parallel first contact, which created and
+    committed the CA. The identity row then exists, so lock it and use that CA.
+    """
+    try:
+        return await competent_authority_crud.create(
+            session=session,
+            client_id=client_id,
+            competent_authority_name=competent_authority_name,
+        )
+    except DuplicateResourceError:
+        await identity_crud.lock_client(session, CompetentAuthorityIdentity, client_id)
+        competent_authority = await competent_authority_crud.get_by_client_id(
+            session, client_id
+        )
+        if competent_authority is None:
+            raise
+        return competent_authority
+
+
 async def create_area(
     session: AsyncSession,
     area_id: str | None,
@@ -161,11 +223,13 @@ async def create_area(
 
     Looks up or creates the CompetentAuthority, then creates the Area.
     The areaId is claimed for the CA first: an areaId of another CA is refused.
-    If a current version exists, it is marked as ended before the new version.
+    An upload that is identical to the current version is a resend: the current
+    version is returned as is. Otherwise a current version is marked as ended
+    before the new version.
 
     Args:
         session: Async database session
-        area_id: Optional functional ID (auto-generated UUID if None)
+        area_id: Optional functional ID (generated if None, see _generate_area_id)
         area_name: Optional display name
         filename: Filename of the uploaded file
         filedata: Binary file data
@@ -182,7 +246,6 @@ async def create_area(
     """
     if regulation is None:
         regulation = REGULATION_DEFAULT
-    public_competent_authority_id: str | None = None
     # Look up or create CompetentAuthority. Lock its identity row first, not the
     # version row: a concurrent rename ends that row (see crud/identity.py).
     await identity_crud.lock_client(session, CompetentAuthorityIdentity, client_id)
@@ -194,13 +257,10 @@ async def create_area(
         if await competent_authority_crud.exists_any_by_client_id(session, client_id):
             message = f"CompetentAuthority client '{client_id}' has been deactivated"
             raise InvalidOperationError(message)
-        competent_authority = await competent_authority_crud.create(
-            session=session,
-            competent_authority_id=public_competent_authority_id,
-            client_id=client_id,
-            competent_authority_name=competent_authority_name,
+        competent_authority = await _create_competent_authority(
+            session, client_id, competent_authority_name
         )
-    elif competent_authority.competent_authority_name != competent_authority_name:
+    if competent_authority.competent_authority_name != competent_authority_name:
         # Name changed in JWT claim → version: mark old as ended, create new
         public_competent_authority_id = competent_authority.competent_authority_id
         await competent_authority_crud.mark_as_ended_by_client_id(session, client_id)
@@ -212,10 +272,14 @@ async def create_area(
         )
     # else: CA exists and name unchanged → reuse as-is
 
+    ca_id = competent_authority.competent_authority_id
+    if area_id is None:
+        area_id = await _generate_area_id(
+            session, ca_id, area_name, regulation, filename, filedata
+        )
+
     # Claim the areaId for this CA (locks it). An areaId has one owner: another
     # CA must not version, take over or share it (see models/identity.py).
-    if area_id is None:
-        area_id = str(uuid.uuid4())
     owners = await identity_crud.claim(
         session, AreaIdentity, [area_id], competent_authority.competent_authority_id
     )
@@ -231,6 +295,16 @@ async def create_area(
         competent_authority.competent_authority_id,
         for_update=True,
     )
+    if existing_area is not None and (
+        existing_area.area_name,
+        existing_area.regulation,
+        existing_area.filename,
+        existing_area.filedata,
+    ) == (area_name, regulation, filename, filedata):
+        # An identical upload is a resend (e.g. after a lost response): answer
+        # with the stored version instead of a new one.
+        await session.refresh(existing_area, attribute_names=["competent_authority"])
+        return existing_area
     if existing_area is not None:
         await area_crud.mark_as_ended(
             session, area_id, existing_area.competent_authority_id
