@@ -115,11 +115,14 @@ What happens when you submit a record:
 
 It is recommended to create your own functional IDs.
 
-Motivation:
-
-- You know the ID before you send: when the response gets lost, you can still resend, correct or cancel the record without waiting for SDEP's answer
-- Two different records with exactly the same data can stay separate: without an ID, SDEP gives them one generated ID, so they become one record
-- A new random check of the same listing only needs a new ID: without an ID, an identical listing returns the stored one, and no new check starts
+- Less error-prone (more awareness because you already created the ID yourself)
+  - Avoiding: "I submit a new version of a record, but forgot to include the ID" > duplicate record
+- You know the ID before you send
+-   When the response gets lost, you can still resend, correct or cancel the record without waiting for SDEP's answer
+- Two different records with exactly the same data can stay separate when required
+  - Without an ID, SDEP gives them one generated ID, so they become one record
+- A new random check of the same listing only needs a new (your) ID
+  - Without an ID, an identical listing returns the stored one, and no new check starts
 
 Suggested approach:
 
