@@ -567,7 +567,7 @@ Motivation:
 - Less error-prone (more awareness because you already created the ID yourself)
   - Avoiding: "I submit a new version of a record, but forgot to include the ID" > duplicate record
 - You know the ID before you send
--   When the response gets lost, you can still resend, correct or cancel the record without waiting for SDEP's answer
+- When the response gets lost, you can still resend, correct or cancel the record without waiting for SDEP's answer
 - Two different records with exactly the same data can stay separate when required
   - Without an ID, SDEP gives them one generated ID, so they become one record
 - A new random check of the same listing only needs a new (your) ID
@@ -670,6 +670,29 @@ Other cases:
 - Same ID after a delete or deactivation: refused, the ID stays deleted
 - Same content of another owner: a new record of that owner (without an ID), or `duplicate_error` (with the ID of the first owner)
 - The same record twice in one batch: the last one counts, the earlier one is NOK (`duplicate_error`), see [Bulk](#bulk)
+
+---
+
+**Recomputation**
+
+SDEP detects a resend by comparing its content with the current version of the functional ID:
+
+- Without an ID: the hash only finds the ID, a resend lands on the same ID (see [ID management](#id-management))
+- With an ID: SDEP uses the ID as supplied, a client ID can be anything
+- In both cases: SDEP loads the current version of that ID and compares the content field by field
+
+Why the content comparison, instead of a stored content hash per version:
+
+- Cheap: SDEP loads the current version anyway (owner, status, versioning), and comparing the fields takes microseconds
+- Area files are 1 MiB at most (`ck_area_filedata_max_size`), so comparing the bytes is cheap too
+- Always in step: `stored_content` sends the stored version through the current request model, so both sides are normalized the same way
+- A stored hash keeps the normalization of the day that it was written. A new field with a default, other trimming, or a new `_INPUT_VERSION` would make a real resend look changed, which silently creates a new version.
+- A stored hash also costs a migration, a backfill, and tests that keep it in sync
+
+Reconsider when:
+
+- Areas allow large files: add a `file_sha256` column for areas only, plain SHA-256, which stays valid after a key rotation
+- A resend check is needed without loading the current version
 
 Implementation: `app/services/functional_id.py` (`content`, `stored_content`), used by the area, listing and activity services.
 
