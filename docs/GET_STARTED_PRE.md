@@ -24,7 +24,6 @@ See <https://pre-sdep.minvro.nl/api/docs>.
   - [Receive connection info](#receive-connection-info)
 - [Attention points](#attention-points)
   - [ID-management, idempotency and versioning](#id-management-idempotency-and-versioning)
-  - [Questions](#questions)
 
 ## Introduction
 
@@ -212,13 +211,3 @@ Suggested approach:
 In short: one record, one ID, for its whole lifecycle.
 
 Details: [ID management](./ARCHITECTURE_TECH.md#id-management) and [Idempotency](./ARCHITECTURE_TECH.md#idempotency).
-
----
-
-### Questions
-
-In case of questions, just let us know by email.
-
-Kind regards,
-
-Team SDEP-NL.
