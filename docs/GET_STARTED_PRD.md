@@ -138,6 +138,8 @@ Take the following steps to **get access to the SDEP-NL production (PRD)** envir
 
 To get access via client-signed JWT, you need to generate a keypair first, see [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for **guidance**.
 
+> It is recommended to use separate keypairs for pre-production (PRE) and production (PRD).
+
 ---
 
 ### Contact team SDEP-NL

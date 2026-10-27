@@ -159,6 +159,8 @@ To get access via **client-signed JWT**, you need to generate a keypair first.
 
 To get additional access via **client ID & secret**, no preparation is required.
 
+> It is recommended to use separate keypairs for pre-production (PRE) and production (PRD).
+
 ---
 
 ### Contact team SDEP-NL
