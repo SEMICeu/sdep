@@ -37,7 +37,7 @@ Confidential machine clients must be identified upfront. This is assumed to be h
 
 ## Authentication and authorization
 
-For machine authentication, SDEP supports **OAuth 2.0** with the **Client Credentials Grant** (`grant_type=client_credentials`).
+For machine authentication, SDEP supports **OAuth 2.0** with the Client Credentials Grant (`grant_type=client_credentials`).
 
 - OAuth 2.0 with the Client Credentials Grant is the standard framework for trusted machine-to-machine (M2M) communication.
   - It uses one underlying **Client Credentials Flow**, designed for machine-to-machine communication without an end-user context.
@@ -48,11 +48,11 @@ For machine authentication, SDEP supports **OAuth 2.0** with the **Client Creden
 
 **Client authentication** types are:
 
-- **Client ID & Secret**
-  - The client sends a static symmetric shared secret to an Authorization Server (`client_secret_post` / `client_secret_basic`).
 - **Client-Signed JWT**
   - The client generates a short-lived JSON Web Token (JWT) and signs it using its own private key (`private_key_jwt`).
   - An Authorization Server validates this request using the client's registered public key, offering a higher level of security since no shared secrets are transmitted over the wire.
+- **Client ID & Secret**
+  - The client sends a static symmetric shared secret to an Authorization Server (`client_secret_post` / `client_secret_basic`).
 
 **Client-signed JWT** is regarded as the **most secure**:
 
@@ -75,8 +75,8 @@ The **Authorization Server** for the reference implementation in this repository
 **Specification**
 
 - **Client Credentials Grant** (RFC 6749, section 4.4) - <https://datatracker.ietf.org/doc/html/rfc6749#section-4.4>
-- **Client ID & Secret** (RFC 6749, section 2.3.1) - <https://datatracker.ietf.org/doc/html/rfc6749#section-2.3.1>
 - **Client-Signed JWT** (RFC 7523) - <https://datatracker.ietf.org/doc/html/rfc7523>
+- **Client ID & Secret** (RFC 6749, section 2.3.1) - <https://datatracker.ietf.org/doc/html/rfc6749#section-2.3.1>
 
 ---
 
@@ -85,7 +85,15 @@ The **Authorization Server** for the reference implementation in this repository
 SDEP-NL supports both authentication methods, via the same `/token` endpoint:
 
 - Both methods are supported in the SDEP-NL **Test** and **Pre-Production** environments (**TST**, **PRE**)
+  - Client-signed JWT is the mandatory method, as in production.
+  - Client ID & secret is an optional add-on, for easy testing in the Swagger UI.
+  - Each method gets its own client (account), so the two do not see each other's data.
 - Only client-signed JWT is supported in the SDEP-NL **Production** environment (**PRD**)
+
+Guidance per method:
+
+- [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md)
+- [Client ID & secret authentication](./GET_STARTED_CLIENT_ID_SECRET.md)
 
 ---
 

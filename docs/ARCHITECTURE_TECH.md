@@ -332,6 +332,7 @@ sdep-app/
 │   ├── DATAMODEL_TECH.md                                        # Internal data model technical design
 │   ├── DEFINITIONS.md                                           # Informal definitions of SDEP concepts
 │   ├── DEVELOPMENT.md                                           # Workflow, testing, configuration
+│   ├── GET_STARTED_CLIENT_ID_SECRET.md                          # Getting started with client ID & secret (client_secret_post)
 │   ├── GET_STARTED_CLIENT_SIGNED_JWT.md                         # Getting started with client-signed JWT (private_key_jwt)
 │   ├── GET_STARTED_PRD.md                                       # Getting started with the production (PRD) environment
 │   ├── GET_STARTED_PRE.md                                       # Getting started with the pre-production (PRE) environment
@@ -567,7 +568,7 @@ Motivation:
 - Less error-prone (more awareness because you already created the ID yourself)
   - Avoiding: "I submit a new version of a record, but forgot to include the ID" > duplicate record
 - You know the ID before you send
-- When the response gets lost, you can still resend, correct or cancel the record without waiting for SDEP's answer
+  - When the response gets lost, you can still resend, correct or cancel the record without waiting for SDEP's answer
 - Two different records with exactly the same data can stay separate when required
   - Without an ID, SDEP gives them one generated ID, so they become one record
 - A new random check of the same listing only needs a new (your) ID

@@ -37,10 +37,10 @@ In accordance with this legislation, SDEP supports the following capabilities:
 - **Ingesting regulated areas** from competent authorities (CAs)
 - **Providing regulated areas** to short-term rental platforms (STRs)
 - **Ingesting listings (random checks)** from STRs
-- **Providing listings (random check results)** to CAs and other relevant stakeholders
+- **Providing listings (random check results)** to CAs and other relevant stakeholders, on behalf of STRs
 - **Ingesting rental activities** from STRs
-- **Providing rental activities** to CAs and other relevant stakeholders
-- **Supporting statistical reporting** to statistics authorities (STAs) and other relevant stakeholders
+- **Providing rental activities** to CAs and other relevant stakeholders, on behalf of STRs
+- **Providing statistical reporting** to statistics authorities (STAs) and other relevant stakeholders
 
 ## Specification
 
@@ -53,12 +53,12 @@ This repository contains the **API specifications** for SDEP implementations acr
 
 **National components**
 
-- The competent authority (**CA**), statistics authority (**STA**), listing screening authority (**LSA**) and monitoring authority (**LMA**, **AMA**) components are provided as **guidance only**
+- The competent authority (**CA**), activity monitoring authority (**AMA**), statistics authority (**STA**), listing screening authority (**LSA**) and listing monitoring authority (**LMA**) components are provided as **guidance only**
 - Their implementation may vary between EU Member States to accommodate national legislation and administrative requirements
 
 ## Reference implementation
 
-This repository contains a **reference implementation** for SDEP implementations (CA, STR, STA, LSA, LMA, AMA) across EU Member States.
+This repository contains a **reference implementation** for SDEP implementations (CA, STR, AMA, STA, LSA, LMA) across EU Member States.
 
 The implementation is provided as **guidance only** and can serve as a **blueprint** for national implementations.
 
@@ -74,7 +74,7 @@ The production environment (PRD):
 
 - Enables competent authorities (CA) and short-term rental platforms (STR) in the Netherlands to exchange regulated-area, listing (random check) and rental-activity data in accordance with EU legislation
 - Includes the **EU-harmonized** short-term rental component (STR)
-- Includes the **SDEP-NL-specific** components (CA, STA, ...)
+- Includes the **SDEP-NL-specific** components (CA, AMA, STA)
 
 > **Disclaimer (PRD)**: For production use in your own country, always contact your **national SDEP representative** regarding national deployment and operational responsibilities.
 
@@ -89,7 +89,12 @@ To facilitate end-to-end testing with integration partners, the reference implem
 The pre-production environment (PRE):
 
 - Enables integration partners to test integrations with the **EU-harmonized** short-term rental (STR) component before connecting to production systems
-- Also provides testing access to the **SDEP-NL-specific** competent authority (CA) and statistics authority (STA) components
+- Also provides testing access to the **SDEP-NL-specific** components:
+  - Competent authority (CA)
+  - Activity monitoring authority (AMA)
+  - Statistics authority (STA)
+  - Listing screening authority (LSA): out of scope yet (alpha, work in progress)
+  - Listing monitoring authority (LMA): out of scope yet (alpha, work in progress)
 
 In the PRE environment:
 
@@ -154,14 +159,15 @@ In Swagger UI, use **Authorize** to activate either of the following **client au
   - This is the default for testing (easier to use)
   - It uses **client-id & secret** to acquire a `Bearer` token, that is used in turn to invoke the other (authenticated) endpoints
   - See [machine-clients.yaml](./keycloak/machine-clients.yaml) for credentials & roles
-  - Credentials for all roles are present, so you can replay all end-to-end scenarios (CA, STR, STA, LSA, LMA, AMA)
+  - See [Client ID & secret authentication](./docs/GET_STARTED_CLIENT_ID_SECRET.md) for guidance
+  - Credentials for all roles are present, so you can replay all end-to-end scenarios (CA, STR, AMA, STA, LSA, LMA)
 
 - **Client-signed JWT** ("client signed JWT auth")
 
   - This provides a more secure way to test production behaviour
   - It uses **client-signed JWT** to acquire a `Bearer` token, that is used in turn to invoke the other (authenticated) endpoints
   - It requires an additional private/public keypair to generate the client-signed JWT
-  - Credentials for all roles are explained in the guidance, so you can test how client-signed JWT authentication works for your role (CA, STR, STA, LSA, LMA, AMA)
+  - Credentials for all roles are explained in the guidance, so you can test how client-signed JWT authentication works for your role (CA, STR, AMA, STA, LSA, LMA)
   - It also requires you to disable client-secret authentication in your local `.env.extra` (consider a `make backend-recreate` to effectuate):
     ```bash
     CLIENT_SECRET_AUTH_ENABLED=false
@@ -170,7 +176,7 @@ In Swagger UI, use **Authorize** to activate either of the following **client au
 
 - National SDEP implementations are free to adopt either method in production
 
-  - SDEP-NL supports both methods in pre-production (PRE)
+  - SDEP-NL supports client-signed JWT in pre-production (PRE), plus client ID & secret as an optional add-on for Swagger UI testing
   - SDEP-NL supports only client-signed JWT in production (PRD)
 
 ---
@@ -425,6 +431,7 @@ make spell-check
 - [Pre-production](./docs/GET_STARTED_PRE.md)
 - [Production](./docs/GET_STARTED_PRD.md)
 - [Client-signed JWT authentication](./docs/GET_STARTED_CLIENT_SIGNED_JWT.md)
+- [Client ID & secret authentication](./docs/GET_STARTED_CLIENT_ID_SECRET.md)
 
 ## Process
 

@@ -2,8 +2,8 @@
 
 This guide illustrates how to use **client-signed JWT authentication** with SDEP.
 
-- Practice in a local environment (**Local**)
-- Deploy against SDEP pre-production (**PRE**) and production (**PRD**)
+- Practice in a local running SDEP environment (**Local**)
+- Operate against SDEP in pre-production (**PRE**) or production (**PRD**)
 
 <h2>Table of contents</h2>
 
@@ -42,31 +42,37 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
   - [8c. PRD](#8c-prd)
   - [8d. Examples (CA)](#8d-examples-ca)
   - [8e. Examples (STR)](#8e-examples-str)
-  - [8f. Examples (STA)](#8f-examples-sta)
-  - [8g. Examples (LSA)](#8g-examples-lsa)
-  - [8h. Examples (LMA, AMA)](#8h-examples-lma-ama)
-- [Step 9: Authenticate (as admin, in Swagger)](#step-9-authenticate-as-admin-in-swagger)
+  - [8f. Examples (AMA)](#8f-examples-ama)
+  - [8g. Examples (STA)](#8g-examples-sta)
+  - [8h. Examples (LSA, alpha, work in progress)](#8h-examples-lsa-alpha-work-in-progress)
+  - [8i. Examples (LMA, alpha, work in progress)](#8i-examples-lma-alpha-work-in-progress)
+- [Step 9: Authenticate (as admin, in Swagger UI)](#step-9-authenticate-as-admin-in-swagger-ui)
   - [9a. Local](#9a-local)
   - [9b. PRE](#9b-pre)
   - [9c. PRD](#9c-prd)
-- [Step 10: Rotate keys (admin)](#step-10-rotate-keys-admin)
+- [Step 10: Invoke the SDEP API (as admin, in Swagger UI)](#step-10-invoke-the-sdep-api-as-admin-in-swagger-ui)
   - [10a. Local](#10a-local)
   - [10b. PRE](#10b-pre)
   - [10c. PRD](#10c-prd)
+- [Step 11: Rotate keys (as admin)](#step-11-rotate-keys-as-admin)
+  - [11a. Local](#11a-local)
+  - [11b. PRE](#11b-pre)
+  - [11c. PRD](#11c-prd)
 
 ## Overview
 
-SDEP supports **OAuth 2.0** with the **Client Credentials Grant**.
+SDEP supports **OAuth 2.0** with the Client Credentials Grant.
 
-The Client Credentials Grant itself supports **two client authentication methods**:
+The Client Credentials Grant supports **two client authentication methods**:
 
-- **Client ID & secret**: the client sends a shared secret (to SDEP)
-- **Client-signed JWT**: the client signs a JWT with its private key (and send it to SDEP), after registering its public key once (at SDEP, `private_key_jwt`, RFC 7523)
+- **Client-signed JWT**: the client signs a JWT with its private key (and sends it to SDEP), after registering its public key once (at SDEP, `private_key_jwt`, RFC 7523)
+- **Client ID & secret**: the client sends a shared secret (to SDEP, `client_secret_post` / `client_secret_basic`, RFC 6749)
+- In SDEP, both authentication methods operate on the same `/token` endpoint.
 
-For SDEP, both authentication methods operate on the same `/token` endpoint.
+This document focuses on **client-signed JWT**.
 
-- See [Authentication and authorization](./SECURITY.md#authentication-and-authorization) for more info on both authentication methods.
-- This document focuses on **client-signed JWT**.
+- See [Client ID & secret authentication](./GET_STARTED_CLIENT_ID_SECRET.md) for the other method (only local and PRE, not in PRD).
+- See [Authentication and authorization](./SECURITY.md#authentication-and-authorization) for general info.
 
 ---
 
@@ -97,6 +103,12 @@ The following actions are performed by **team SDEP** (e.g. SDEP-NL), and are fur
 
 ### 1a. Local
 
+Start the local stack (postgres, keycloak, backend and test data), when not yet running:
+
+```bash
+make up
+```
+
 In your `.env.extra`, set client-secret authentication to **false**:
 
 ```bash
@@ -112,8 +124,7 @@ make backend-recreate
 Result:
 
 - Only client-signed JWT authentication remains enabled
-- In Swagger UI, authorization is performed exclusively using a Bearer token
-- See [step 9](#9a-local) for follow-up
+- In Swagger UI, authorization is performed exclusively using a `Bearer` token
 
 ---
 
@@ -131,10 +142,16 @@ N/A.
 
 ### 2a. Local
 
-In your local development environment, configuring a keypair is automated by any of these `make` commands:
+In your local development environment, configuring a keypair is automated by `make up` (idempotent):
 
 ```bash
-make up # Idempotent
+make up
+```
+
+Which calls these `make` targets:
+
+```text
+make up
   └── make keycloak-configure
         └── keycloak-generate-machine-clients
 ```
@@ -149,13 +166,13 @@ These commands use `scripts/generate-keycloak-machine-clients.py`, which configu
 ├───────────────────┼─────────────────────────────────┤
 │ sdep-test-str.jwt │ sdep_str, sdep_read, sdep_write │
 ├───────────────────┼─────────────────────────────────┤
+│ sdep-test-ama.jwt │ sdep_ama, sdep_read             │
+├───────────────────┼─────────────────────────────────┤
 │ sdep-test-sta.jwt │ sdep_sta, sdep_read             │
 ├───────────────────┼─────────────────────────────────┤
 │ sdep-test-lsa.jwt │ sdep_lsa, sdep_read, sdep_write │
 ├───────────────────┼─────────────────────────────────┤
 │ sdep-test-lma.jwt │ sdep_lma, sdep_read             │
-├───────────────────┼─────────────────────────────────┤
-│ sdep-test-ama.jwt │ sdep_ama, sdep_read             │
 └───────────────────┴─────────────────────────────────┘
 ```
 
@@ -167,9 +184,12 @@ Generated configuration is as follows:
 
 Config:
 
-- `./tmp/sdep-test-str.jwt.private.pem`
-- `./tmp/sdep-test-sta.jwt.private.pem`
 - `./tmp/sdep-test-ca.jwt.private.pem`
+- `./tmp/sdep-test-str.jwt.private.pem`
+- `./tmp/sdep-test-ama.jwt.private.pem`
+- `./tmp/sdep-test-sta.jwt.private.pem`
+- `./tmp/sdep-test-lsa.jwt.private.pem`
+- `./tmp/sdep-test-lma.jwt.private.pem`
 
 These will be used to authenticate at the local SDEP `/token` endpoint.
 
@@ -180,8 +200,11 @@ These will be used to authenticate at the local SDEP `/token` endpoint.
 Config:
 
 - `./tmp/sdep-test-ca.jwt.public.yaml`
-- `./tmp/sdep-test-sta.jwt.public.yaml`
 - `./tmp/sdep-test-str.jwt.public.yaml`
+- `./tmp/sdep-test-ama.jwt.public.yaml`
+- `./tmp/sdep-test-sta.jwt.public.yaml`
+- `./tmp/sdep-test-lsa.jwt.public.yaml`
+- `./tmp/sdep-test-lma.jwt.public.yaml`
 
 These are used to extend the default `keycloak/machine-clients.yaml`:
 
@@ -205,26 +228,34 @@ For each test client, verify that the public key stored in Keycloak matches the 
 make keycloak-match-client-public-keys
 ```
 
-Or show the public key for a single client instead:
+Or show the public key for a single client instead (e.g. `sdep-test-str.jwt`, or any other client in the table of [step 2a](#2a-local))
 
 ```bash
-make keycloak-show-client-public-key CLIENT_ID=sdep-test-str.jwt # or any other client in the table of step 2a
+make keycloak-show-client-public-key CLIENT_ID=sdep-test-str.jwt
 ```
 
 ---
 
 ### 2b. PRE
 
-As admin, on the client system, generate a keypair:
+As admin, on the client system, generate a private key:
 
 ```bash
 openssl genpkey \
   -algorithm RSA \
   -pkeyopt rsa_keygen_bits:2048 \
   -out your.private.pem
+```
 
+Make the private key readable for yourself only:
+
+```bash
 chmod 600 your.private.pem
+```
 
+Derive the public key from the private key:
+
+```bash
 openssl pkey \
   -in your.private.pem \
   -pubout \
@@ -238,7 +269,7 @@ This creates:
 
 Smoke test (pair):
 
-```
+```bash
 diff <(openssl pkey -in your.private.pem -pubout) your.public.pem \
   && echo "✅ pair matches" || echo "❌ pair does NOT match"
 ```
@@ -249,7 +280,7 @@ diff <(openssl pkey -in your.private.pem -pubout) your.public.pem \
 
 ### 2c. PRD
 
-Same as PRE.
+Same as [2b. PRE](#2b-pre).
 
 ## Step 3: Send keypair (as admin)
 
@@ -261,7 +292,7 @@ N/A.
 
 ### 3b. PRE
 
-Send the complete content the ` your.public.pem` you created in [step 2b.](#2b-pre) to team SDEP, including the PEM markers:
+Send the complete content of `your.public.pem` you created in [step 2b](#2b-pre) to team SDEP, including the PEM markers:
 
 ```text
 -----BEGIN PUBLIC KEY-----
@@ -275,7 +306,7 @@ Send the complete content the ` your.public.pem` you created in [step 2b.](#2b-p
 
 ### 3c. PRD
 
-Same as PRE.
+Same as [3b. PRE](#3b-pre).
 
 ## Step 4: Receive connection info (as admin)
 
@@ -287,21 +318,37 @@ Info comprises the public key ID to use (`kid`), as well as other connection det
 
 Public key ID and connection details are predefined.
 
-Create exports based on `.env`:
+Load `.env` into your shell:
 
 ```bash
 set -a && source .env && set +a
+```
 
+Create exports based on `.env`:
+
+```bash
 export SDEP_BASE_URL="$BACKEND_BASE_URL"
+```
+
+```bash
 export SDEP_TOKEN_URL="${SDEP_BASE_URL%/}/api/auth/v1/token"
+```
+
+```bash
 export CLIENT_SIGNED_JWT_AUDIENCE="${BACKEND_KC_BASE_URL%/}/realms/sdep/protocol/openid-connect/token"
 ```
 
-Then create the exports for one of the client-signed JWT test clients, as configured in [step 2a.](#2a-local):
+Then create the exports for one of the client-signed JWT test clients (e.g. `sdep-test-str.jwt`, or any other client in the table of [step 2a](#2a-local)):
 
 ```bash
-export CLIENT_ID=sdep-test-str.jwt # or any other client in the table of step 2a
+export CLIENT_ID=sdep-test-str.jwt
+```
+
+```bash
 export KEY_FILE="tmp/$CLIENT_ID.private.pem"
+```
+
+```bash
 export KID="$CLIENT_ID"
 ```
 
@@ -309,7 +356,7 @@ export KID="$CLIENT_ID"
 
 ### 4b. PRE
 
-You will receive public key-id and connection details from team SDEP.
+You will receive the public key ID (`kid`) and connection details from team SDEP.
 
 Based on this, equip your client environment.
 
@@ -332,11 +379,23 @@ export KEY_FILE="your.private.pem";  echo KEY_FILE $KEY_FILE
 Create exports based on the values from team SDEP:
 
 ```bash
-export SDEP_BASE_URL="as_received";               echo SDEP_BASE_URL $SDEP_BASE_URL
-export SDEP_TOKEN_URL="as_received";              echo SDEP_TOKEN_URL $SDEP_TOKEN_URL
-export CLIENT_ID="as_received";                   echo CLIENT_ID $CLIENT_ID
-export KID="as_received";                         echo KID $KID
-export CLIENT_SIGNED_JWT_AUDIENCE="as_received";  echo CLIENT_SIGNED_JWT_AUDIENCE $CLIENT_SIGNED_JWT_AUDIENCE
+export SDEP_BASE_URL="as_received"; echo SDEP_BASE_URL $SDEP_BASE_URL
+```
+
+```bash
+export SDEP_TOKEN_URL="as_received"; echo SDEP_TOKEN_URL $SDEP_TOKEN_URL
+```
+
+```bash
+export CLIENT_ID="as_received"; echo CLIENT_ID $CLIENT_ID
+```
+
+```bash
+export KID="as_received"; echo KID $KID
+```
+
+```bash
+export CLIENT_SIGNED_JWT_AUDIENCE="as_received"; echo CLIENT_SIGNED_JWT_AUDIENCE $CLIENT_SIGNED_JWT_AUDIENCE
 ```
 
 Explanation:
@@ -355,7 +414,7 @@ Explanation:
 
 ### 4c. PRD
 
-Same as PRE.
+Same as [4b. PRE](#4b-pre).
 
 ## Step 5: Create a client-signed JWT (as machine)
 
@@ -377,7 +436,11 @@ export CLIENT_SIGNED_JWT="$(
     --key-file "$KEY_FILE" \
     --kid "$KID"
 )"
+```
 
+Show the client-signed JWT:
+
+```bash
 echo $CLIENT_SIGNED_JWT
 ```
 
@@ -392,13 +455,13 @@ Details:
 
 ### 5b. PRE
 
-Same as Local.
+Same as [5a. Local](#5a-local).
 
 ---
 
 ### 5c. PRD
 
-Same as Local.
+Same as [5a. Local](#5a-local).
 
 ## Step 6: Authenticate (as machine)
 
@@ -407,7 +470,6 @@ Same as Local.
 Use the client-signed JWT within 60 seconds, and only once, to invoke the `/token` endpoint:
 
 ```bash
-# Get token response
 export TOKEN_RESPONSE="$(
   curl -sS -X POST "$SDEP_TOKEN_URL" \
     -H "Content-Type: application/x-www-form-urlencoded" \
@@ -415,11 +477,17 @@ export TOKEN_RESPONSE="$(
     --data-urlencode "client_id=$CLIENT_ID" \
     --data-urlencode "client_signed_jwt=$CLIENT_SIGNED_JWT"
 )"
+```
 
-printf 'TOKEN_RESPONSE:\n\n'
+Show the token response:
+
+```bash
 echo "$TOKEN_RESPONSE" | jq .
+```
 
-# Extract access token (Bearer) from token response
+Extract the access token (Bearer) from the token response:
+
+```bash
 export ACCESS_TOKEN="$(echo "$TOKEN_RESPONSE" | jq -er '.access_token')" \
   || { echo "❌ No access token:"; echo "$TOKEN_RESPONSE" | jq .; }
 ```
@@ -434,13 +502,13 @@ Remarks:
 
 ### 6b. PRE
 
-Same as Local.
+Same as [6a. Local](#6a-local).
 
 ---
 
 ### 6c. PRD
 
-Same as Local.
+Same as [6a. Local](#6a-local).
 
 ## Step 7: Ping (as machine)
 
@@ -462,13 +530,13 @@ Reuse the same `ACCESS_TOKEN` for as many calls as needed, until it expires afte
 
 ### 7b. PRE
 
-Same as Local.
+Same as [7a. Local](#7a-local).
 
 ---
 
 ### 7c. PRD
 
-Same as Local.
+Same as [7a. Local](#7a-local).
 
 ## Step 8: Invoke the SDEP API (as machine)
 
@@ -480,33 +548,32 @@ See examples below, assume client environment is already set.
 
 ### 8b. PRE
 
-Same as Local.
+Same as [8a. Local](#8a-local).
 
 ---
 
 ### 8c. PRD
 
-Same as Local.
+Same as [8a. Local](#8a-local).
 
 ---
 
 ### 8d. Examples (CA)
 
-*Only when having the Competent Authority role (CA).*
+*Only when having the competent authority role (CA).*
+
+Count the own areas:
 
 ```bash
-# Count the own areas
 curl -sS "$SDEP_BASE_URL/api/ca/v1/areas/count" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
+```
 
-# Get the own areas (first 2)
+Get the own areas (first 2):
+
+```bash
 curl -sS "$SDEP_BASE_URL/api/ca/v1/areas?limit=2" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  | jq .
-
-# Get the activities in the own areas (first 2)
-curl -sS "$SDEP_BASE_URL/api/ca/v1/activities?limit=2" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
 ```
@@ -530,10 +597,18 @@ Example response:
 }
 ```
 
+Get the activities in the own areas (first 2):
+
+```bash
+curl -sS "$SDEP_BASE_URL/api/ca/v1/activities?limit=2" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  | jq .
+```
+
 Remarks:
 
 - Results are scoped to the authenticated competent authority, based on the `client_id` in the access token
-- See `docs/API_TECH.md` for the full endpoint list, including area upload and delete
+- See [API](./API_TECH.md) for the full endpoint list, including area upload and delete
 
 ---
 
@@ -541,20 +616,13 @@ Remarks:
 
 The activity endpoints accept four optional filters.
 
+Count the own activities created in June 2025:
+
 ```bash
-# Count the own activities created in June 2025
 curl -sS -G "$SDEP_BASE_URL/api/ca/v1/activities/count" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   --data-urlencode "createdAtFrom=2025-06-01T00:00:00Z" \
   --data-urlencode "createdAtTo=2025-06-30T23:59:59Z" \
-  | jq .
-
-# Get the own activities for one area and one platform (first 2)
-curl -sS -G "$SDEP_BASE_URL/api/ca/v1/activities" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  --data-urlencode "areaId=58ff0814-3aa1-5019-9afb-3cd9f398602c" \
-  --data-urlencode "platformId=8e70f1e2-4c61-477b-89b8-0dbf25ab8b21" \
-  --data-urlencode "limit=2" \
   | jq .
 ```
 
@@ -564,6 +632,17 @@ Example response (count):
 {
   "count": 42
 }
+```
+
+Get the own activities for one area and one platform (first 2):
+
+```bash
+curl -sS -G "$SDEP_BASE_URL/api/ca/v1/activities" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-urlencode "areaId=58ff0814-3aa1-5019-9afb-3cd9f398602c" \
+  --data-urlencode "platformId=8e70f1e2-4c61-477b-89b8-0dbf25ab8b21" \
+  --data-urlencode "limit=2" \
+  | jq .
 ```
 
 Remarks:
@@ -578,15 +657,19 @@ Remarks:
 
 ### 8e. Examples (STR)
 
-*Only when having the platform role (STR).*
+*Only when having the short-term rental platform role (STR).*
+
+Count the areas:
 
 ```bash
-# Count the areas
 curl -sS "$SDEP_BASE_URL/api/str/v1/areas/count" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
+```
 
-# Get the areas (first 2)
+Get the areas (first 2):
+
+```bash
 curl -sS "$SDEP_BASE_URL/api/str/v1/areas?limit=2" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
@@ -613,17 +696,78 @@ Example response:
 
 ---
 
-### 8f. Examples (STA)
+### 8f. Examples (AMA)
 
-*Only when having "statistics authority" role (STA).*
+*Only when having the activity monitoring authority role (AMA).*
+
+AMA serves the same read as STA, behind its own role: read-only and unscoped.
+
+Get all activities (first 2):
 
 ```bash
-# Count all activities
+curl -sS "$SDEP_BASE_URL/api/ama/v1/activities?limit=2" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  | jq .
+```
+
+Example response:
+
+```json
+{
+  "activities": [
+    {
+      "activityId": "550e8400-e29b-41d4-a716-446655440000",
+      "activityName": "Amsterdam Summer Rental",
+      "status": "finished",
+      "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+      "areaName": "Amsterdam",
+      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+      "competentAuthorityName": "Gemeente Amsterdam",
+      "url": "http://example.com/amsterdam-myhouse-1",
+      "address": {
+        "thoroughfare": "Prinsengracht",
+        "locatorDesignatorNumber": 263,
+        "postCode": "1016GV",
+        "postName": "Amsterdam",
+        "fullAddress": "Prinsengracht 263, 1016GV Amsterdam"
+      },
+      "registrationNumber": "REG0001",
+      "numberOfGuests": 4,
+      "countryOfGuests": ["NLD", "DEU", "BEL", "N/A"],
+      "temporal": {
+        "startDatetime": "2025-06-01T14:00:00Z",
+        "endDatetime": "2025-06-07T11:00:00Z"
+      },
+      "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+      "platformName": "Test STR 01 (interactive usage, persistent)",
+      "createdAt": "2025-06-01T12:00:00Z"
+    }
+    ...
+  ]
+}
+```
+
+Remarks:
+
+- AMA has no `status` and `flags` filters
+
+---
+
+### 8g. Examples (STA)
+
+*Only when having the statistics authority role (STA).*
+
+Count all activities:
+
+```bash
 curl -sS "$SDEP_BASE_URL/api/sta/v1/activities/count" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
+```
 
-# Get all activities (first 2)
+Get all activities (first 2):
+
+```bash
 curl -sS "$SDEP_BASE_URL/api/sta/v1/activities?limit=2" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
@@ -674,20 +818,24 @@ Remarks:
 
 ---
 
-### 8g. Examples (LSA)
+### 8h. Examples (LSA, alpha, work in progress)
 
-*Only when having "listing screening authority" role (LSA).*
+*Only when having the listing screening authority role (LSA).*
 
 The screening authority reads the listings waiting to be screened, and posts the result back. Both
 steps are listings (random checks), see [Listing](./LISTING_FUNC.md).
 
+Count the listings waiting to be screened:
+
 ```bash
-# Count the listings waiting to be screened
 curl -sS "$SDEP_BASE_URL/api/lsa/v2/listings/count" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
+```
 
-# Get the listings waiting to be screened (first 2)
+Get the listings waiting to be screened (first 2):
+
+```bash
 curl -sS "$SDEP_BASE_URL/api/lsa/v2/listings?limit=2" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
@@ -752,77 +900,138 @@ Remarks:
 - The read is fixed to `pending` listings across every platform: the scope is not a filter and cannot be widened
 - An empty `flags` array is a valid result: it moves the listing to `clear`
 - `createdAt` is the concurrency token. If the platform corrected the listing in the meantime, the item is refused with `conflict_error` on `createdAt`, and the corrected listing shows up in your next read
-- Optional filters (AND semantics): `createdAtFrom`, `createdAtTo`, `areaId`, `platformId`
+- Optional filters (AND semantics): `createdAtFrom`, `createdAtTo`, `areaId`, `platformId`, `competentAuthorityId`
 
 ---
 
-### 8h. Examples (LMA, AMA)
+### 8i. Examples (LMA, alpha, work in progress)
 
-*Only when having "listing monitoring authority" (LMA) or "activity monitoring authority" (AMA) role.*
+*Only when having the listing monitoring authority role (LMA).*
 
-Both are read-only and unscoped, like STA. LMA reads listings in every lifecycle status,
-AMA reads activities:
+LMA is read-only and unscoped, like STA. It reads listings in every lifecycle status.
+
+Get all listings, any status (first 2):
 
 ```bash
-# LMA: all listings, any status (first 2)
 curl -sS "$SDEP_BASE_URL/api/lma/v2/listings?limit=2" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  | jq .
-
-# LMA: only the flagged ones
-curl -sS -G "$SDEP_BASE_URL/api/lma/v2/listings" \
-  --data-urlencode "status=flagged" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  | jq .
-
-# AMA: all activities (first 2)
-curl -sS "$SDEP_BASE_URL/api/ama/v1/activities?limit=2" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   | jq .
 ```
 
-The response shapes are the same as 8f and 8g.
+Get only the flagged listings:
+
+```bash
+curl -sS -G "$SDEP_BASE_URL/api/lma/v2/listings" \
+  --data-urlencode "status=flagged" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  | jq .
+```
+
+Example response:
+
+```json
+{
+  "listings": [
+    {
+      "listingId": "amsterdam-listing-0001",
+      "listingName": "Amsterdam Canal Apartment",
+      "status": "flagged",
+      "areaId": "58ff0814-3aa1-5019-9afb-3cd9f398602c",
+      "areaName": "Amsterdam",
+      "competentAuthorityId": "c4ac8ccf-a281-5789-bad7-28dfac20ca7f",
+      "competentAuthorityName": "Gemeente Amsterdam",
+      "url": "http://example.com/amsterdam-myhouse-1",
+      "address": {
+        "thoroughfare": "Prinsengracht",
+        "locatorDesignatorNumber": 263,
+        "postCode": "1016GV",
+        "postName": "Amsterdam",
+        "fullAddress": "Prinsengracht 263, 1016GV Amsterdam"
+      },
+      "declaredAsShortTermRental": true,
+      "registrationNumber": "REG0001",
+      "flags": ["UNK"],
+      "submittedAt": "2026-09-01T09:00:00Z",
+      "platformId": "8e70f1e2-4c61-477b-89b8-0dbf25ab8b21",
+      "platformName": "Test STR 01 (interactive usage, persistent)",
+      "createdAt": "2026-09-01T09:00:00Z"
+    }
+    ...
+  ]
+}
+```
 
 Remarks:
 
-- LMA and STA v2 have the `status` and `flags` filters (comma-separated flag codes), CA v2 has `flags` only; AMA has neither
-- AMA serves the same read as STA, behind its own role
+- LMA and STA v2 have the `status` and `flags` filters (comma-separated flag codes), CA v2 has `flags` only
 
-## Step 9: Authenticate (as admin, in Swagger)
+## Step 9: Authenticate (as admin, in Swagger UI)
 
 ### 9a. Local
 
-Make sure your environment is prepared for client-signed JWT (see [step 1](#1a-local)).
+Make sure your environment is prepared for client-signed JWT (see [step 1a](#1a-local)).
 
-In Swagger UI, select **Authorize** and paste the Bearer token you programmatically obtained in [step 6](#step-6-authenticate-as-machine).
+In Swagger UI, select **Authorize** and paste the `Bearer` token you programmatically obtained in [step 6a](#6a-local).
 
 ---
 
 ### 9b. PRE
 
-N/A - in PRE, Swagger authorization is always performed using client ID & secret, not by a Bearer token that is acquired by a client-signed JWT. Thus in PRE, in Swagger, keep using a client ID & secret instead.
+N/A in PRE for client-signed JWT, see [Client ID & secret authentication](./GET_STARTED_CLIENT_ID_SECRET.md#7b-pre) instead.
 
 ---
 
 ### 9c. PRD
 
-In Swagger UI, select **Authorize** and paste the Bearer token you programmatically obtained in [step 6](#step-6-authenticate-as-machine).
+In Swagger UI, select **Authorize** and paste the `Bearer` token you programmatically obtained in [step 6c](#6c-prd).
 
-## Step 10: Rotate keys (admin)
+## Step 10: Invoke the SDEP API (as admin, in Swagger UI)
 
 ### 10a. Local
 
-Delete the generated private key and rerun local setup:
+Once authorized in Swagger UI (see [step 9a](#9a-local)), try out the other endpoints of your role:
+
+- Open an endpoint, select **Try it out**, fill in the parameters, and select **Execute**
+- Swagger UI shows the request as a `curl` command, plus the response
+- Only the endpoints of your role are allowed, others return `403 Forbidden`
+
+---
+
+### 10b. PRE
+
+N/A in PRE for client-signed JWT, see [Client ID & secret authentication](./GET_STARTED_CLIENT_ID_SECRET.md#8b-pre) instead.
+
+---
+
+### 10c. PRD
+
+Same as [10a. Local](#10a-local).
+
+## Step 11: Rotate keys (as admin)
+
+### 11a. Local
+
+Delete the generated private keys:
 
 ```bash
 rm tmp/*.private.pem
+```
+
+Generate new keypairs and machine clients:
+
+```bash
 make keycloak-generate-machine-clients
+```
+
+Load the new public keys into Keycloak:
+
+```bash
 make keycloak-configure
 ```
 
 ---
 
-### 10b. PRE
+### 11b. PRE
 
 Rotate a key by coordinating the public-key update with SDEP:
 
@@ -834,6 +1043,6 @@ Rotate a key by coordinating the public-key update with SDEP:
 
 ---
 
-### 10c. PRD
+### 11c. PRD
 
-Same as PRE.
+Same as [11b. PRE](#11b-pre).
