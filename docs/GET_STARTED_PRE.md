@@ -182,7 +182,7 @@ To get additional access via **client ID & secret**, no preparation is required.
   - Statistics authority (STA)
   - Listing screening authority (LSA): out of scope yet (alpha, work in progress)
   - Listing monitoring authority (LMA): out of scope yet (alpha, work in progress)
-- **Your authentication public key**: used to authenticate your client through client-signed JWT
+- **Your public key**: used to authenticate your client through client-signed JWT
   - See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
 - **Your testing preference for authentication**:
   - **Client-signed JWT** (required, as in production)

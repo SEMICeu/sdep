@@ -159,7 +159,7 @@ To get access via client-signed JWT, you need to generate a keypair first, see [
   - Short-term rental platform (STR)
   - Activity monitoring authority (AMA)
   - Statistics authority (STA)
-- **Your authentication public key**: used to authenticate your client through client-signed JWT
+- **Your public key**: used to authenticate your client through client-signed JWT
   - See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
 - The above will always result in 1 production-account
 
