@@ -138,7 +138,7 @@ There is a client for each of the supported SDEP roles (CA, STR, AMA, STA, LSA, 
 
 ### 2b. PRE
 
-In your email to team SDEP-NL, ask for the optional client ID & secret, see [Contact team SDEP-NL](./GET_STARTED_PRE.md#contact-team-sdep-nl).
+Ask team SDEP-NL for client ID & secret, see [Getting started in PRE](./GET_STARTED_PRE.md).
 
 ## Step 3: Receive connection info (as admin)
 
