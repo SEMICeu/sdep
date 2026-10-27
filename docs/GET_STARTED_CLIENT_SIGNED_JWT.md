@@ -16,7 +16,7 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
   - [2a. Local](#2a-local)
   - [2b. PRE](#2b-pre)
   - [2c. PRD](#2c-prd)
-- [Step 3: Send keypair (as admin)](#step-3-send-keypair-as-admin)
+- [Step 3: Send public key (as admin)](#step-3-send-public-key-as-admin)
   - [3a. Local](#3a-local)
   - [3b. PRE](#3b-pre)
   - [3c. PRD](#3c-prd)
@@ -282,7 +282,7 @@ diff <(openssl pkey -in your.private.pem -pubout) your.public.pem \
 
 Same as [2b. PRE](#2b-pre).
 
-## Step 3: Send keypair (as admin)
+## Step 3: Send public key (as admin)
 
 ### 3a. Local
 
