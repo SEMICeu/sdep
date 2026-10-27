@@ -14,13 +14,14 @@ See <https://sdep.gov.nl/api/docs>.
 
 - [Introduction](#introduction)
   - [SDEP](#sdep)
-  - [About authentication](#about-authentication)
-  - [About id-management, idempotency and versioning](#about-id-management-idempotency-and-versioning)
+  - [Authentication](#authentication)
 - [Get access](#get-access)
   - [Generate keypair](#generate-keypair)
   - [Contact team SDEP-NL](#contact-team-sdep-nl)
   - [Receive connection info](#receive-connection-info)
-  - [Ask questions](#ask-questions)
+- [Attention points](#attention-points)
+  - [ID-management, idempotency and versioning](#id-management-idempotency-and-versioning)
+  - [Questions](#questions)
 
 ## Introduction
 
@@ -45,7 +46,7 @@ The NL-specific API specification and reference implementation can also serve as
 
 ---
 
-### About authentication
+### Authentication
 
 SDEP is an **API-first application** designed for **machine-to-machine (M2M) integrations**.
 
@@ -69,9 +70,54 @@ SDEP-NL in PRD supports **client-signed JWT only**.
 
 > To explore both authentication methods locally, see [Fullstack](../README.md#fullstack).
 
+## Get access
+
+Take the following steps to **get access to the SDEP-NL production (PRD)** environment.
+
 ---
 
-### About id-management, idempotency and versioning
+### Generate keypair
+
+To get access via client-signed JWT, you need to generate a keypair first, see [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for **guidance**.
+
+> It is recommended to use separate keypairs for pre-production (PRE) and production (PRD).
+
+---
+
+### Contact team SDEP-NL
+
+**Find the email address for the SDEP-NL team:**
+
+- Go to [SDEP-NL API Documentation](https://sdep.gov.nl/api/docs).
+- Scroll to the bottom of the page and look for the **Contact** section.
+
+**Send email to the SDEP-NL team, and specify your access details:**
+
+- **Your technical representative**: used for onboarding and operational communication
+  - Email address
+  - Phone number
+- **Your role**: used to grant the appropriate API permissions
+  - Competent authority (CA)
+  - Short-term rental platform (STR)
+  - Activity monitoring authority (AMA)
+  - Statistics authority (STA)
+- **Your public key**: used to authenticate your client through client-signed JWT
+  - See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
+- The above will always result in 1 production-account
+
+---
+
+### Receive connection info
+
+From team SDEP-NL, you will receive connection info.
+
+For using it further, see [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md).
+
+---
+
+## Attention points
+
+### ID-management, idempotency and versioning
 
 Every area, listing and activity has a **functional ID** (`areaId`, `listingId`, `activityId`).
 
@@ -128,52 +174,7 @@ In short: one record, one ID, for its whole lifecycle.
 
 Details: [ID management](./ARCHITECTURE_TECH.md#id-management) and [Idempotency](./ARCHITECTURE_TECH.md#idempotency).
 
-## Get access
-
-Take the following steps to **get access to the SDEP-NL production (PRD)** environment.
-
----
-
-### Generate keypair
-
-To get access via client-signed JWT, you need to generate a keypair first, see [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for **guidance**.
-
-> It is recommended to use separate keypairs for pre-production (PRE) and production (PRD).
-
----
-
-### Contact team SDEP-NL
-
-**Find the email address for the SDEP-NL team:**
-
-- Go to [SDEP-NL API Documentation](https://sdep.gov.nl/api/docs).
-- Scroll to the bottom of the page and look for the **Contact** section.
-
-**Send email to the SDEP-NL team, and specify your access details:**
-
-- **Your technical representative**: used for onboarding and operational communication
-  - Email address
-  - Phone number
-- **Your role**: used to grant the appropriate API permissions
-  - Competent authority (CA)
-  - Short-term rental platform (STR)
-  - Activity monitoring authority (AMA)
-  - Statistics authority (STA)
-- **Your public key**: used to authenticate your client through client-signed JWT
-  - See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
-- The above will always result in 1 production-account
-
----
-
-### Receive connection info
-
-From team SDEP-NL, you will receive connection info.
-
-For using it further, see [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md).
-
----
-
-### Ask questions
+### Questions
 
 In case of questions, just let us know by email.
 
