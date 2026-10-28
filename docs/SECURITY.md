@@ -113,7 +113,7 @@ The Swagger UI **Authorize** button follows the application configuration `CLIEN
 
 ---
 
-**A Note on 2FA**
+**A note on 2FA**
 
 Software, scripts, and servers cannot approve push notifications or type one-time passcodes. M2M authentication therefore uses non-interactive, cryptographic credentials, instead of human-style two-factor authentication (2FA).
 
@@ -141,7 +141,7 @@ Supported scopes (roles) are:
 
 ---
 
-**JWT Claims**
+**JWT claims**
 
 JWT Claims used by the application:
 
@@ -171,19 +171,19 @@ Implementation approach as follows.
 
 ---
 
-**Middleware-Based Audit Capture**
+**Middleware-based audit capture**
 
 A Starlette `BaseHTTPMiddleware` intercepts each request/response cycle and creates an audit record for every relevant interaction.
 
 ---
 
-**Non-Blocking Audit Writes**
+**Non-blocking audit writes**
 
 Audit records are persisted asynchronously using `asyncio.create_task()`, so audit logging does not block or delay the application response path.
 
 ---
 
-**Primary Output: `audit_log` Database Table**
+**Primary output: `audit_log` database table**
 
 Audit records are written to the `audit_log` table in the application database.
 
@@ -193,13 +193,13 @@ Audit records are written to the `audit_log` table in the application database.
 
 ---
 
-**Secondary Output: Structured JSON to Stdout**
+**Secondary output: structured JSON to stdout**
 
 Each audit record is also emitted as a single-line structured JSON object to stdout.
 
 ---
 
-**Complementary Access Paths**
+**Complementary access paths**
 
 Together, the database table and stdout output provide complementary access paths:
 
@@ -209,7 +209,7 @@ Together, the database table and stdout output provide complementary access path
 
 ---
 
-**Deployment and Log Shipping Are Out of Scope**
+**Deployment and log shipping are out of scope**
 
 - This document defines how the application produces audit records and where it emits them.
 - (Kubernetes) deployment details and external log management configuration are outside the scope of this repo.
@@ -349,7 +349,7 @@ Area file downloads construct the `Content-Disposition` header using the shared 
 
 ---
 
-**Defense-in-Depth Re-Sanitization (`sanitize_download_filename`)**
+**Defense-in-depth re-sanitization (`sanitize_download_filename`)**
 
 As a second line of defense, the download path re-sanitizes the stored filename before constructing the header.
 
@@ -359,7 +359,7 @@ As a second line of defense, the download path re-sanitizes the stored filename 
 
 ---
 
-**RFC 5987 Encoding (`content_disposition_header`)**
+**RFC 5987 encoding (`content_disposition_header`)**
 
 The header is encoded per [RFC 5987](https://datatracker.ietf.org/doc/html/rfc5987), which defines how to include non-ASCII characters in HTTP header field parameters. Both `filename=` and `filename*=` are emitted:
 
@@ -501,13 +501,13 @@ Dependencies are declared with flexible lower bounds (`>=`) in `pyproject.toml` 
 - Using `==` in `pyproject.toml` would duplicate what the lock file already does, while making legitimate upgrades harder and not covering transitive dependencies
 - Security remediations follow the same rule: the `>=` floor is raised to the version that fixes the CVE (for transitive packages via `[tool.uv]` `constraint-dependencies`), while `uv.lock` keeps pinning the exact shipped version
 
-**Docker Base Images**
+**Docker base images**
 
 - The Python base image is pinned to a minor version (`python:3.14-slim`) via `ARG PYTHON_IMAGE`
 - The `uv` installer is pinned to a specific release (`ghcr.io/astral-sh/uv:0.12.21`)
 - PostgreSQL, Keycloak and ClamAV versions are externalized via environment variables in `docker-compose.yml`
 
-**Keeping Dependencies Up to Date**
+**Keeping dependencies up to date**
 
 - Running `uv lock --upgrade` regenerates the lock file with the latest compatible versions
 - The lock file should be committed and reviewed as part of the normal change process
@@ -553,7 +553,7 @@ SDEP interacts with IAM (e.g. Keycloak) in two distinct ways: **token issuance**
 
 ---
 
-**Token Issuance (Proxy to Keycloak)**
+**Token issuance (proxy to Keycloak)**
 
 When an external client needs a JWT, it calls SDEP's `/api/auth/v1/token` endpoint.
 
@@ -570,7 +570,7 @@ See [`auth.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/common
 
 ---
 
-**Token Validation (Client-Signed JWT)**
+**Token validation (client-signed JWT)**
 
 On every subsequent API call, the client sends the JWT as a `Bearer` token. SDEP verifies the token signature locally - without calling Keycloak on every request - using the JSON Web Key Set (JWKS) protocol:
 
@@ -583,7 +583,25 @@ See [`security.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/api/co
 
 ---
 
-**Audience Validation**
+**Token scopes**
+
+Access follows the client's **roles**, not OAuth 2.0 **scopes**:
+
+- A role is a permission that the administrator assigns to a client in Keycloak, e.g. `sdep_str`, `sdep_read`, `sdep_write`
+- A scope is a permission that the client requests at token time; it can narrow a token below the client's roles, never widen it
+- Every access token carries all roles of the client, and each router checks them
+- The token endpoint accepts `scope` and ignores it: the request to Keycloak carries only the grant type and the client credentials, so a token with or without `scope` is identical
+- The OpenAPI security scheme declares no scopes (`scopes={}`)
+
+Design decision: no scopes. They add little in the client credentials flow:
+
+- Scopes come from delegated flows, where a user consents to part of their rights. A machine client acts on its own behalf, so its roles already define its rights.
+- A scope would let a client request a weaker token (e.g. read-only), but the same client credentials can always request a full token
+- Required scopes would break every existing client
+
+---
+
+**Audience validation**
 
 A JWT can contain an `aud` (audience) claim that says *which application* the token was issued for. When an application checks `aud`, it rejects tokens that were meant for a different service - even if the signature is valid. This prevents a token issued for Service A from being reused against Service B.
 
@@ -596,7 +614,7 @@ Two different JWTs occur in SDEP, and `aud` is treated differently in each. Whic
 
 ---
 
-**Client Assertion**
+**Client assertion**
 
 With client-signed JWT (`private_key_jwt`), the client signs a short-lived assertion whose `aud` is the authorization server's token endpoint. SDEP does not inspect that assertion: it forwards it to Keycloak as `client_assertion`, and Keycloak validates the signature against the registered public key **and** the `aud` against its own token endpoint. An assertion signed for a different token endpoint is rejected with HTTP 401.
 
@@ -604,7 +622,7 @@ This audience binding is required by RFC 7523 and is what stops an intercepted a
 
 ---
 
-**Access Token**
+**Access token**
 
 The bearer token that SDEP itself verifies on each API call is **not** audience-checked. The reason is practical:
 
@@ -621,7 +639,7 @@ The validation guarantees for the access token are therefore:
 
 ---
 
-**JWKS Key Rotation (5-Minute TTL)**
+**JWKS key rotation (5-minute TTL)**
 
 `PyJWKClient` is configured with `cache_jwk_set=True` and `lifespan=300` (5 minutes). This ensures that when Keycloak rotates or revokes signing keys, SDEP picks up the changes within at most 5 minutes - without requiring a restart. The alternative (`@lru_cache`) would cache keys indefinitely, meaning rotated or revoked keys would never be refreshed until the process was restarted.
 
@@ -634,7 +652,7 @@ The validation guarantees for the access token are therefore:
 
 ---
 
-**Request Authentication Flow**
+**Request authentication flow**
 
 ```
 Client request with Bearer token
@@ -652,7 +670,7 @@ See [`auth_dependencies.py`](https://github.com/SEMICeu/sdep/blob/main/backend/a
 
 ## Audit log (details)
 
-**Audit Fields**
+**Audit fields**
 
 For each request that matters, capture:
 
@@ -671,7 +689,7 @@ For each request that matters, capture:
 
 ---
 
-**Role Extraction - Only From Verified Tokens**
+**Role extraction - only from verified tokens**
 
 The audit middleware reads `roles` from the JWT payload. The auth dependency (`verify_bearer_token`) stashes that payload on `request.state.jwt_payload`, after signature and expiry verification.
 
@@ -690,7 +708,7 @@ The audit middleware reads `roles` from the JWT payload. The auth dependency (`v
 
 ---
 
-**Action Mapping**
+**Action mapping**
 
 The middleware derives a semantic action and resource type from the HTTP method and request path:
 
@@ -736,7 +754,7 @@ Unmatched paths fall back to action `unknown`.
 
 ---
 
-**Skip List**
+**Skip list**
 
 The following paths are **not** audited (high-frequency, low-value):
 
@@ -749,7 +767,7 @@ The following paths are **not** audited (high-frequency, low-value):
 
 ---
 
-**Retention of the Database**
+**Retention of the database**
 
 **For the database table**, expired audit log rows are automatically deleted by a background task that runs every hour.
 
@@ -774,6 +792,6 @@ The retention logic in `audit_retention.py` is split into two functions with dis
 
 ---
 
-**Retention of Stdout**
+**Retention of stdout**
 
 **For stdout**, retention is assumed to be part of the deployment environment (out of scope of this repo).

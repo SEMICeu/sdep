@@ -117,6 +117,8 @@ API-endpoints are exposed in the following domains:
 
 - `POST /api/auth/v1/token` - OAuth 2.0 token endpoint
 
+Access follows the client's roles, see [Authentication and authorization (details)](./SECURITY.md#authentication-and-authorization-details) for more detail.
+
 ---
 
 ### Competent authority (CA)
