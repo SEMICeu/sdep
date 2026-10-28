@@ -18,6 +18,7 @@ See <https://pre-sdep.minvro.nl/api/docs>.
 - [Introduction](#introduction)
   - [SDEP](#sdep)
   - [Authentication](#authentication)
+  - [Data](#data)
 - [Get access](#get-access)
   - [Generate keypair](#generate-keypair)
   - [Contact team SDEP-NL](#contact-team-sdep-nl)
@@ -47,8 +48,6 @@ The reference implementation is deployed in the **SDEP-NL Pre-Production (PRE)**
 <https://pre-sdep.minvro.nl/api/docs>
 
 The NL-specific API specification and reference implementation can also serve as a blueprint for other national deployments.
-
-In PRE, only **anonymized data** should be used; a daily cleanup removes any residual test data.
 
 ---
 
@@ -85,6 +84,14 @@ SDEP-NL in PRE supports **both authentication methods**.
 > National SDEP implementations are free to adopt either authentication method; this does not impact the API.
 
 > To explore both authentication methods locally, see [Fullstack](../README.md#fullstack).
+
+---
+
+### Data
+
+In PRE, only **anonymized data** should be used.
+
+A **daily cleanup** removes any residual test data.
 
 ## Get access
 
