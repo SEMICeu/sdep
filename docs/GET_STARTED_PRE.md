@@ -18,12 +18,12 @@ See <https://pre-sdep.minvro.nl/api/docs>.
 - [Introduction](#introduction)
   - [SDEP](#sdep)
   - [Authentication](#authentication)
-  - [Data](#data)
 - [Get access](#get-access)
   - [Generate keypair](#generate-keypair)
   - [Contact team SDEP-NL](#contact-team-sdep-nl)
   - [Receive connection info](#receive-connection-info)
 - [Attention points](#attention-points)
+  - [Data](#data)
   - [ID-management, idempotency and versioning](#id-management-idempotency-and-versioning)
 
 ## Introduction
@@ -84,14 +84,6 @@ SDEP-NL in PRE supports **both authentication methods**.
 > National SDEP implementations are free to adopt either authentication method; this does not impact the API.
 
 > To explore both authentication methods locally, see [Fullstack](../README.md#fullstack).
-
----
-
-### Data
-
-In PRE, only **anonymized data** should be used.
-
-A **daily cleanup** removes any residual test data.
 
 ## Get access
 
@@ -161,6 +153,14 @@ For using it further, see:
 - [Client ID & secret authentication](./GET_STARTED_CLIENT_ID_SECRET.md)
 
 ## Attention points
+
+### Data
+
+In PRE, only **anonymized data** should be used.
+
+A **daily cleanup** removes any residual test data.
+
+---
 
 ### ID-management, idempotency and versioning
 
