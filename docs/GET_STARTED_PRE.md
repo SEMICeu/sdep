@@ -23,8 +23,8 @@ See <https://pre-sdep.minvro.nl/api/docs>.
   - [Contact team SDEP-NL](#contact-team-sdep-nl)
   - [Receive connection info](#receive-connection-info)
 - [Attention points](#attention-points)
-  - [Data](#data)
   - [ID-management, idempotency and versioning](#id-management-idempotency-and-versioning)
+  - [Data](#data)
 
 ## Introduction
 
@@ -124,15 +124,15 @@ To get additional access via **client ID & secret**, no preparation is required.
   - Listing monitoring authority (LMA): out of scope yet (alpha, work in progress)
 - **Your public key**: used to authenticate your client through client-signed JWT
   - See [Client-signed JWT authentication](./GET_STARTED_CLIENT_SIGNED_JWT.md) for guidance
-- **Your testing preference for authentication**:
-  - **Client-signed JWT** (required, as in production)
-  - **Client ID & secret** (optional, for easy testing in Swagger UI)
+- **Your technical testing preference** (authentication method):
+  - Authenticate by **client-signed JWT** (required, as in production)
+  - Authenticate by **client ID & secret** (optional, for easy testing in Swagger UI)
   - Note: both flavours comprise different accounts, they do not see the data of each other
-- **Your testing preference for role-play** (only when your role is CA or STR):
-  - In **your role only**:
+- **Your functional testing preferenc** (for role-play, only when your role is CA or STR):
+  - Test **in your role only**:
     - You test your part of the API fully
     - You do not test the interaction with your counterpart (STR or CA)
-  - In **both roles**:
+  - Test **in both roles** (CA & STR):
     - You test your part of the API fully
     - You test the interaction with your counterpart (STR or CA) as well
 - The above can result in max. 4 test-accounts (in case you are a CA or STR):
@@ -140,6 +140,7 @@ To get additional access via **client ID & secret**, no preparation is required.
   - 1x client-signed JWT / STR
   - 1x client ID & secret / CA
   - 1x client ID & secret / STR
+- In case of 2x client-signed JWT account, then these are based on the same public key (PRE)
 
 ---
 
@@ -153,14 +154,6 @@ For using it further, see:
 - [Client ID & secret authentication](./GET_STARTED_CLIENT_ID_SECRET.md)
 
 ## Attention points
-
-### Data
-
-In PRE, only **anonymized data** should be used.
-
-A **daily cleanup** removes any residual test data.
-
----
 
 ### ID-management, idempotency and versioning
 
@@ -218,3 +211,11 @@ Suggested approach:
 In short: one record, one ID, for its whole lifecycle.
 
 Details: [ID management](./ARCHITECTURE_TECH.md#id-management) and [Idempotency](./ARCHITECTURE_TECH.md#idempotency).
+
+---
+
+### Data
+
+In PRE, only **anonymized data** should be used.
+
+A **daily cleanup** removes any residual test data.
