@@ -78,8 +78,8 @@ SDEP keeps both lists in one area entity, with one `regulation` value per area:
 
 This is the switch between the two subject areas:
 
-- A listing for an area that is regulated for activities only is rejected per item, see [Listing](./LISTING_FUNC.md)
-- An activity for an area that is regulated for listings only is rejected per item (STR `v2` and up), see [Activity](./ACTIVITY_FUNC.md)
+- A listing for an **area that is regulated for activities only**, is rejected per item (see [Listing](./LISTING_FUNC.md))
+- An activity for an **area that is regulated for listings only**, is rejected per item (STR `v2` and up, see [Activity](./ACTIVITY_FUNC.md)
 
 It also lets two competent authorities designate the same geographic area for different purposes: one for listings, the other for activities. Depending on the Member State:
 
