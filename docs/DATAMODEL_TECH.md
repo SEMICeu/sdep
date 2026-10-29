@@ -207,11 +207,7 @@ The datamodel is a logical datamodel:
   - Another competent authority gets `409` (`duplicate_error`)
   - A platform that references an `areaId` therefore always reaches one competent authority
 - A supplied `areaId` is stored and returned as submitted; a lowercase UUID is recommended, see [ID management](./ARCHITECTURE_TECH.md#id-management)
-- Per EU STR Regulation Article 13, there are two types of areas:
-  - (1) areas where the registration procedure applies ("listing"), which require platforms to perform random checks and enforce registration numbers on host listings, and
-  - (2) areas for which competent authorities have requested activity data ("activity"), which require platforms to forward activity data to the SDEP
-  - Depending on Member State context, these areas may not overlap and the authority for defining them may not be the same entity
-  - The `regulation` attribute allows the same Area to be supplied for all use cases: one CA for both purposes ("all"), or multiple CAs supplying the same geographic area for different purposes ("listing" or "activity")
+- The `regulation` attribute (`listing`, `activity`, `all`) follows the two lists of areas in EU STR Regulation Article 13, see [Regulation](./AREA_FUNC.md#regulation)
 - For an area, multiple listings will be submitted (listing regulation)
 - For an area, multiple activities will be submitted (activity regulation)
 

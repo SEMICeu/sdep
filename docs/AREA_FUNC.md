@@ -55,21 +55,44 @@ See:
 
 ### Regulation
 
-An area carries a `regulation` attribute, which says **what** the area is regulated for:
+An area carries a `regulation` attribute, which says **what** the area is regulated for.
 
-| Value      | The area accepts                                 |
-| ---------- | ------------------------------------------------ |
-| `listing`  | Listings (random checks) only                    |
-| `activity` | Rental activities only                           |
-| `all`      | Both (the default when the CA supplies no value) |
+The attribute follows [Article 13(1)](https://eur-lex.europa.eu/eli/reg/2024/1028/oj/eng#art_13) of the Regulation: Member States must draw up, make available through the SDEP, and regularly update two lists of areas:
+
+| List | Areas                                       | Purpose         | Platforms must             |
+| ---- | ------------------------------------------- | --------------- | -------------------------- |
+| (a)  | Where a registration procedure applies      | Art. 7(1)(c), 8 | Check listings **[1]**     |
+| (b)  | Where CAs requested data from the platforms | Art. 9(1)       | Send activity data **[2]** |
+
+[1] *In these areas, a [host](./DEFINITIONS.md#host) needs a registration number in order to list a unit (private residence) on a platform (aka [listing](./LISTING_FUNC.md)). Platforms use these registration numbers in order to perform [random checks](./LISTING_FUNC.md): **listing regulation***
+
+[2] *In these areas, a competent authority wants to know how often units are rented out. The platform sends the activity data of each unit, with its registration number, to the SDEP.*
+
+SDEP keeps both lists in one area entity, with one `regulation` value per area:
+
+| Value      | On list | The area accepts                                 | Term in SDEP                                                |
+| ---------- | ------- | ------------------------------------------------ | ----------------------------------------------------------- |
+| `listing`  | (a)     | Listings (random checks) only                    | [Listing regulation](./DEFINITIONS.md#listing-regulation)   |
+| `activity` | (b)     | Rental activities only                           | [Activity regulation](./DEFINITIONS.md#activity-regulation) |
+| `all`      | Both    | Both (the default when the CA supplies no value) | Listing + activity regulation                               |
 
 This is the switch between the two subject areas:
 
 - A listing for an area that is regulated for activities only is rejected per item, see [Listing](./LISTING_FUNC.md)
 - An activity for an area that is regulated for listings only is rejected per item (STR `v2` and up), see [Activity](./ACTIVITY_FUNC.md)
 
-It also lets two competent authorities designate the same geographic area for different
-purposes: one for listings, the other for activities.
+It also lets two competent authorities designate the same geographic area for different purposes: one for listings, the other for activities. Depending on the Member State:
+
+- The lists can cover different areas, e.g. a registration procedure applies in the whole country, but only some cities request activity data
+- The lists can come from different authorities, e.g. a central authority defines the registration procedure, while a municipality requests activity data for its own area
+- Two competent authorities can therefore designate the same geographic area for different purposes: one with `listing`, the other with `activity`
+
+For example, in a country where a registration procedure applies everywhere:
+
+- Areas that do not request activity data: `listing`
+- Areas that do request activity data: `all`
+
+Design discussion: https://github.com/SEMICeu/sdep/issues/5.
 
 ---
 
