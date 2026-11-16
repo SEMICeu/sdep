@@ -235,7 +235,7 @@ A. Inputs:
 
 B. Steps:
 
-1. Per-item Pydantic validation, as for activities. Invalid items are NOK, the batch continues. A missing `listingId` is generated after step 2, because the platform is part of it: a deterministic UUIDv8, see [ID management](./ARCHITECTURE_TECH.md#id-management).
+1. Per-item Pydantic validation, as for activities. Invalid items are NOK, the batch continues. A missing `listingId` is generated after step 2, because the platform is part of it: a deterministic UUIDv8, see [ID management](./ARCHITECTURE_TECH.md#id-management). A supplied `listingId` that is new and not a lowercase UUID is NOK (`business_logic_error`) after step 4; an existing `listingId` of the same platform stays accepted.
 2. Resolve or version the `Platform` once per batch (`ensure_platform`), exactly as the activity bulk does.
 3. Intra-batch deduplication on `listingId` (last-wins), as the activity bulk does: earlier occurrences are NOK (`duplicate_error`, "superseded by later item in batch at index N").
 4. Referential integrity, one query per batch: `areaId` must exist (`not_found_error`) and the area must be regulated for listings (`regulation_error`), see [Regulation](./AREA_TECH.md#regulation).

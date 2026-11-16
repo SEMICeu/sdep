@@ -12,24 +12,75 @@ return the stored version, no new one. See docs/ARCHITECTURE_TECH.md, "Idempoten
 - `generation` gives a deleted record a new ID when it is submitted again
 - `fields` are the validated record (see `content`): trimmed and normalized, so
   " Name " and "Name", or "" and null, give the same ID
+
+A new functional ID that the caller supplies must be a lowercase UUID, see
+`refused_ids` and docs/ARCHITECTURE_TECH.md, "ID management".
 """
 
 import hashlib
 import hmac
 import json
+import re
 import uuid
-from collections.abc import Awaitable, Callable, Hashable, Mapping
+from collections.abc import Awaitable, Callable, Hashable, Iterable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.crud import identity as identity_crud
+from app.models.identity import IdentityModel
 
 Kind = Literal["area", "listing", "activity"]
 
 # Version of the canonical input below: a change of the input needs a new value.
 _INPUT_VERSION = 1
+
+# Textual UUID format (RFC 9562, section 4), lowercase only: IDs are case-sensitive,
+# so one spelling per UUID. Version and variant are left free (v4, v5, v8, ...).
+UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+_UUID_RE = re.compile(UUID_PATTERN)
+
+
+def is_uuid(value: str) -> bool:
+    """Return whether the value is a UUID in lowercase text format."""
+    return _UUID_RE.fullmatch(value) is not None
+
+
+def uuid_required_message(field: str, value: str) -> str:
+    """Return the error message for a supplied ID that `refused_ids` refuses."""
+    return (
+        f"{field} '{value}' must be a lowercase UUID (RFC 9562), "
+        "e.g. '3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b'; "
+        "an existing ID of your own may still be resubmitted"
+    )
+
+
+async def refused_ids(
+    session: AsyncSession,
+    model: IdentityModel,
+    supplied_ids: Iterable[str],
+) -> set[str]:
+    """
+    Return the supplied IDs that are refused, because a new ID must be a UUID.
+
+    An ID that exists already stays accepted, so its owner can still version the
+    record. Nothing is refused when FUNCTIONAL_ID_UUID_REQUIRED is off.
+
+    Args:
+        session: Async database session
+        model: Identity model of the resource, e.g. AreaIdentity
+        supplied_ids: IDs that the caller supplied (never the generated ones)
+
+    Returns:
+        The IDs that are no lowercase UUID and do not exist yet
+    """
+    if not get_settings().FUNCTIONAL_ID_UUID_REQUIRED:
+        return set()
+    candidates = {i for i in supplied_ids if not is_uuid(i)}
+    return candidates - await identity_crud.existing(session, model, candidates)
 
 
 def content(item: BaseModel, id_field: str) -> dict[str, Any]:

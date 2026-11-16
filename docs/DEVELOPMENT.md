@@ -66,7 +66,7 @@ make
 
 - **`.env`** - Base environment variables for local development
 - **`.env.extra`** - Optional local overrides loaded by Make/docker compose when present
-- **`docker-compose.yml`** - Container orchestration
+- **`docker-compose.yml`** - Container orchestration (local, backend source bind-mounted, uvicorn with hot reload)
 - **`backend/pyproject.toml`** - Python dependencies and tool configuration
 - **`backend/alembic.ini`** - Database migration configuration
 - **`keycloak/machine-clients.yaml`** - Test machine client definitions (OAuth 2.0, client secret); merged with the generated client-signed JWT clients into `tmp/machine-clients-extended.yaml`, which is the file provisioned into Keycloak

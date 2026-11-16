@@ -1,5 +1,10 @@
 #
+# Local development only, the deployments run the image itself (see backend/Dockerfile CMD).
 # Docker Compose uses .env and, when present, .env.extra via the Makefile wrappers.
+#
+# The backend is the production image with its source bind-mounted over it and
+# uvicorn in reload mode. watchfiles ships with uvicorn[standard], so no separate
+# development image is needed.
 #
 
 volumes:
@@ -92,12 +97,28 @@ services:
     container_name: ${BACKEND_CONTAINER_NAME}
     ports:
       - "${BACKEND_PORT}:8000"
+    volumes:
+      # Read-only: the container has no reason to write to the source tree.
+      - ./backend/app:/backend/app:ro
+      # So a migration written on the host is applied without rebuilding the image.
+      - ./backend/alembic:/backend/alembic:ro
+      - ./backend/alembic.ini:/backend/alembic.ini:ro
+    command:
+      - sh
+      - -c
+      # Same shape as the image CMD: migrate, then serve. Watch app/ only, as
+      # backend/Makefile `dev` does.
+      - >-
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --no-server-header
+        --reload --reload-dir=/backend/app
     environment:
       KC_BASE_URL: ${BACKEND_KC_BASE_URL}
       # Values come from .env
       DTAP: ${DTAP}
       CLIENT_SECRET_AUTH_ENABLED: ${CLIENT_SECRET_AUTH_ENABLED}
       API_ALPHA_ENABLED: ${API_ALPHA_ENABLED}
+      FUNCTIONAL_ID_UUID_REQUIRED: ${FUNCTIONAL_ID_UUID_REQUIRED}
       POSTGRES_HOST: ${POSTGRES_CONTAINER_NAME}
       POSTGRES_PORT: 5432
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}
@@ -126,6 +147,8 @@ services:
     # root-owned files under tmp/ and break later writes such as .keycloak-admin.
     profiles: ["trivy"]
     image: ${TRIVY_IMAGE:-aquasec/trivy:0.72.0}
+    # Host network, as for the backend build: the scanner then uses the host's DNS to fetch its database.
+    network_mode: host
     entrypoint: ["/bin/sh"]
     command: ["./scripts/run-trivy-scan.sh"]
     working_dir: /work

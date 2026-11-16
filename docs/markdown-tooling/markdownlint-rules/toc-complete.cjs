@@ -14,15 +14,15 @@
 // on GitLab), so a repo hosted there links the collapsed form; both count as the entry.
 // No autofix: where the entry belongs in the TOC is the author's call.
 
-// The TOC marker: a heading whose only text is "Table of contents" (sentence case, older
-// documents: "Table of Contents"), in the HTML form the h1-html house rule produces or as
-// a plain ATX heading.
-const TOC_HEADING = /^\s*(?:<h[1-3]>\s*Table of contents\s*<\/h[1-3]>|#{1,3}\s+Table of contents\s*)$/i;
+// The TOC marker: a heading whose only text is "Table of contents" (Dutch docs: "Inhoudsopgave"),
+// in the HTML form the h1-html house rule produces or as a plain ATX heading.
+const TOC_HEADING = /^\s*(?:<h[1-3]>\s*(?:Table of contents|Inhoudsopgave)\s*<\/h[1-3]>|#{1,3}\s+(?:Table of contents|Inhoudsopgave)\s*)$/i;
 
-const slug = (text) => {
+// keepUnderscore: GitLab keeps "_" in slugs (`a_b.py` is #a_bpy), both forms count.
+const slug = (text, keepUnderscore = false) => {
   let s = text.replace(/<[^>]+>/g, "");
   s = s.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1"); // links keep their text
-  s = s.replace(/[`*_~]/g, "");
+  s = s.replace(keepUnderscore ? /[`*~]/g : /[`*_~]/g, "");
   s = s.normalize("NFKD").toLowerCase().trim();
   s = s.replace(/[^\w\- ]/g, "").replace(/ /g, "-");
   return s;
@@ -31,7 +31,7 @@ const slug = (text) => {
 module.exports = {
   names: ["toc-complete"],
   description:
-    "Each level-2 (##) and level-3 (###) heading below a 'Table of contents' must have a TOC link to its anchor",
+    "Each level-2 (##) and level-3 (###) heading below a 'Table of contents' or 'Inhoudsopgave' must have a TOC link to its anchor",
   tags: ["custom", "headings"],
   parser: "markdownit",
   function: function tocComplete(params, onError) {
@@ -60,8 +60,11 @@ module.exports = {
       const base = slug(tokens[i + 1].content);
       const count = seen.get(base) || 0;
       seen.set(base, count + 1);
-      const anchor = count === 0 ? base : `${base}-${count}`;
-      if (!anchors.has(anchor) && !anchors.has(anchor.replace(/-{2,}/g, "-"))) {
+      const suffix = count === 0 ? "" : `-${count}`;
+      const anchor = base + suffix;
+      const kept = slug(tokens[i + 1].content, true) + suffix;
+      const ok = [anchor, kept].some((a) => anchors.has(a) || anchors.has(a.replace(/-{2,}/g, "-")));
+      if (!ok) {
         onError({
           lineNumber: token.map[0] + 1,
           detail: `Add a TOC entry linking to #${anchor}`,

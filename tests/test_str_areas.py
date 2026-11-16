@@ -22,6 +22,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,11 @@ AUTH_API_VERSION = "v1"
 CA_API_VERSION = "v1"
 
 FIXTURE_COUNT = 5
+
+
+def as_uuid(name: str) -> str:
+    """Return the UUIDv5 of a readable test name: a new functional ID must be a UUID."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, name))
 
 
 @dataclass
@@ -123,7 +129,7 @@ def create_fixture_areas(
         sys.exit(1)
 
     timestamp = int(time.time() * 1000)
-    area_ids = [f"{prefix}-{timestamp}-{index}" for index in range(1, count + 1)]
+    area_ids = [as_uuid(f"{prefix}-{timestamp}-{index}") for index in range(1, count + 1)]
 
     for area_id in area_ids:
         with SHAPEFILE_PATH.open("rb") as shapefile:

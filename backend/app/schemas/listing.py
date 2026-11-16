@@ -61,6 +61,7 @@ class ListingRequest(BaseModel):
 
     Listing ID:
     - Optional: If not provided, will be auto-generated (RFC 9562 UUID)
+    - A new provided ID is a lowercase UUID (see services/functional_id.py)
     - Resubmitting the same ID with other content corrects the listing while it
       is `pending`; the same content returns the stored listing
 
@@ -79,7 +80,7 @@ class ListingRequest(BaseModel):
     ] = Field(
         None,
         alias="listingId",
-        description="Functional ID identifying the listing (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as deterministic UUIDv8 RFC 9562 if not supplied). Resubmitting an ID with other content corrects the listing while it is `pending`.",
+        description="Functional ID identifying the listing (optionally supplied: a lowercase UUID RFC 9562 for a new ID, alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars; auto-generated as deterministic UUIDv8 RFC 9562 if not supplied). Resubmitting an ID with other content corrects the listing while it is `pending`.",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )  # Functional ID
 

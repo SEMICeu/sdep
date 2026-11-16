@@ -292,6 +292,7 @@ sdep-app/
 │   ├── test_str_listings.py                                     # Test STR listing endpoints
 │   ├── test_str_areas.py                                        # Test STR area query endpoints
 │   ├── test_suites.py                                           # Check that tests/suites.txt lists every test (make test-suites)
+│   ├── test_tenant_isolation.py                                 # Test isolation between two CAs and two platforms
 │   └── test_trivy_allowlist.py                                  # Test CVE allowlist policy validation
 │
 ├── keycloak/                                                    # Keycloak config
@@ -357,6 +358,7 @@ sdep-app/
 │
 ├── scripts/                                                     # Utility scripts
 │   ├── api-versions.sh                                          # Print the API versions of a test (tests/suites.txt)
+│   ├── authenticate.py                                          # Client-signed JWT, bearer and ping, step by step (make client-signed-jwt, bearer, ping)
 │   ├── check_architecture_tree.py                               # Check this directory tree against the filesystem (make dod)
 │   ├── check_changelog.sh                                       # Changelog currency against the git log (make dod)
 │   ├── check_cve_allowlist.py                                   # Reconcile Trivy report vs CVE_EXPLAINS.md (own allowlist, not published)
@@ -381,7 +383,7 @@ sdep-app/
 ├── .env.extra.example                                           # Template for `.env.extra`, the optional local override file
 ├── .gitignore                                                   # Git ignore rules
 ├── CHANGELOG.md                                                 # Changelog
-├── docker-compose.yml                                           # Multi-container orchestration
+├── docker-compose.yml                                           # Multi-container orchestration (local, with hot reload)
 ├── LICENSE.md                                                   # EUPL License
 ├── Makefile                                                     # Root-level make targets
 └── README.md                                                    # Quick start guide
@@ -574,8 +576,10 @@ Motivation:
 - A new random check of the same listing only needs a new (your) ID
   - Without an ID, an identical listing returns the stored one, and no new check starts
 
-Suggested approach following [RFC 9562](https://www.rfc-editor.org/rfc/rfc9562):
+Format: a lowercase UUID following [RFC 9562](https://www.rfc-editor.org/rfc/rfc9562), recommended (in the future mandatory: finalizing discussion in the technical working group).
 
+- Motivation: to avoid unexpected rejections due to IDs that are taken by other clients
+  - An ID belongs to one owner (first come, first served), so a simple ID such as `area-1` may be taken already (`duplicate_error`)
 - **Random UUIDs** (UUIDv4, section 5.4)
 - **Deterministic UUIDs** (UUIDv5, section 5.5, or UUIDv8 with SHA-256, section 5.8)
   - UUIDv5: use a private namespace to avoid recomputation by others
@@ -585,16 +589,37 @@ UUIDs are regarded as "collision-resistant" rather than 100% guaranteed unique
 
 - However the probability of a duplicate is so infinite small that it is treated as [zero](https://en.wikipedia.org/wiki/Universally_unique_identifier)
 
-Functional IDs are case-sensitive, in order to (still) support non-UUID identifiers as well:
+Choose between random or deterministic:
 
-- Custom non-UUID identifiers that differ only in capitalization are treated as distinct IDs (e.g. `Amsterdam-Centrum` and `amsterdam-centrum`).
+- A random UUID must be stored with the record (or in a mapping table)
+  - Advantage: the structure or values of any field may change later
+- A deterministic UUID is derived from (a selection of) the record's own data
+  - Advantage: no need to store the mapping
+  - Disadvantage: the structure or values of the fields that the UUID is derived from may never change afterwards (a change gives another UUID)
+  - And derive the UUID from a stable key, not from content that can change
+
+UUID format check in SDEP-NL:
+
+- Anticipating on the mandatory UUID, SDEP-NL already validates the format of a supplied functional ID
+- A new ID must be a lowercase UUID: `8-4-4-4-12` hexadecimal characters, e.g. `3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b`
+  - The version is free (v4, v5, v8)
+  - Uppercase is refused: IDs are case-sensitive, so each UUID has one spelling
+- Any other new ID is refused: `422` (`business_logic_error`) on `POST /areas`, or item NOK (`business_logic_error`) on bulk writes
+- An existing ID of the same owner stays accepted, also when it is not a UUID, so its record can still be updated or corrected
+- An ID that refers to another record (e.g. the `areaId` of a listing or activity), a path parameter and a filter keep the general pattern, see [Functional IDs (general)](#functional-ids-general)
+- Setting: `FUNCTIONAL_ID_UUID_REQUIRED` (default `true`), another Member State can set it to `false`
+- Implementation: `refused_ids` in `app/services/functional_id.py`
+
+Functional IDs are case-sensitive:
+
 - SDEP preserves and returns IDs exactly as submitted.
-- Non-UUID identifiers are less recommended, because global uniqueness is not guaranteed (first come first served).
+- Existing non-UUID identifiers that differ only in capitalization are treated as distinct IDs (e.g. `Amsterdam-Centrum` and `amsterdam-centrum`).
 
 **Functional IDs created by SDEP** (alternative)
 
 When the functional ID is left empty, SDEP creates one and returns it:
 
+- HMAC-SHA-256 ([RFC 2104](https://www.rfc-editor.org/rfc/rfc2104)) is a hash with a secret key: the same input and key always give the same output, and without the key nobody can compute it
 - Deterministic UUIDv8 ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562), section 5.8), lowercase, made with HMAC-SHA-256 from:
   - A secret key as seed (`FUNCTIONAL_ID_SECRET`)
   - The record type (`area`, `listing` or `activity`)
@@ -678,22 +703,33 @@ Other cases:
 
 SDEP detects a resend by comparing its content with the current version of the functional ID:
 
-- Without an ID: the hash only finds the ID, a resend lands on the same ID (see [ID management](#id-management))
+- Without an ID: the HMAC-SHA-256 of the content only makes the ID, a resend lands on the same ID (see "Functional IDs created by SDEP" in [ID management](#id-management)). SDEP never stores the HMAC.
 - With an ID: SDEP uses the ID as supplied, a client ID can be anything
 - In both cases: SDEP loads the current version of that ID and compares the content field by field
 
-Why the content comparison, instead of a stored content hash per version:
+Why a field comparison:
 
 - Cheap: SDEP loads the current version anyway (owner, status, versioning), and comparing the fields takes microseconds
 - Area files are 1 MiB at most (`ck_area_filedata_max_size`), so comparing the bytes is cheap too
 - Always in step: `stored_content` sends the stored version through the current request model, so both sides are normalized the same way
-- A stored hash keeps the normalization of the day that it was written. A new field with a default, other trimming, or a new `_INPUT_VERSION` would make a real resend look changed, which silently creates a new version.
-- A stored hash also costs a migration, a backfill, and tests that keep it in sync
 
-Reconsider when:
+Why not a stored hash:
 
-- Areas allow large files: add a `file_sha256` column for areas only, plain SHA-256, which stays valid after a key rotation
-- A resend check is needed without loading the current version
+- It ages badly. A hash keeps the normalization of the day it was written. A real resend would then look changed, and SDEP would quietly create a new version. Changes that cause this:
+  - A new field with a default
+  - Different trimming
+  - A new `_INPUT_VERSION`
+- It costs more work:
+  - A migration
+  - A backfill of the existing rows
+  - Tests that keep the hash in sync
+
+When to look at this again:
+
+- Areas allow large files. Then add a `file_sha256` column for areas only. Use plain SHA-256, which stays valid after a key rotation.
+- The resend check must run without loading the current version.
+
+This is design decision D11, see [Design decisions](#design-decisions).
 
 Implementation: `app/services/functional_id.py` (`content`, `stored_content`), used by the area, listing and activity services.
 
@@ -705,7 +741,7 @@ Functional IDs are used for versioning:
 
 - When keeping the **same id** for the **same object**: resubmitting it with changed content creates a new **version**
 - Resubmitting it unchanged creates nothing new, see [Idempotency](#idempotency) above
-- Always resend UUIDs in lowercase, because e.g. `3F2A…` and `3f2a…` are regarded as two different ids (see above "IDs are case-sensitive to support non-UUID identifiers")
+- Always send UUIDs in lowercase, because e.g. `3F2A…` and `3f2a…` are regarded as two different ids, and SDEP-NL refuses a new uppercase UUID (see [ID management](#id-management) above)
 
 ---
 
@@ -1151,7 +1187,9 @@ All functional IDs conform to a single pattern defined in `app/schemas/common.py
 ^[A-Za-z0-9-]+$    (1–64 characters, alphanumeric with hyphens)
 ```
 
-Functional IDs are case-sensitive, so that own IDs that are not UUIDs stay as the client knows them: `ABC` and `abc` are two IDs. SDEP generates lowercase UUIDs, see [ID management](#id-management).
+Functional IDs are case-sensitive, so that existing IDs that are not UUIDs stay as the client knows them: `ABC` and `abc` are two IDs. SDEP generates lowercase UUIDs, see [ID management](#id-management).
+
+A new ID that the client supplies must also be a lowercase UUID, see [Functional IDs (user-supplied)](#functional-ids-user-supplied).
 
 This pattern is expressed as two reusable types:
 
@@ -1175,6 +1213,12 @@ These IDs are submitted by the caller in the request body or form fields and val
 | `POST /api/str/v1/activities/bulk` | `activityId` per item | `OptionalFunctionalId` | Yes - via `TypeAdapter(ActivityRequest)` in service layer | Deterministic UUIDv8 (`generate_id()`) **[1]** |
 
 [1] Before the insert, because the id is claimed first (see [Identity](./DATAMODEL_TECH.md#identity)): `services/area.py`, `services/listing_bulk.py`, `services/activity_bulk.py`, with `services/functional_id.py`. See **[2]** in [ID management](#id-management).
+
+**UUID format of a new, supplied ID** (service layer):
+
+- A new `areaId`, `listingId` or `activityId` must be a lowercase UUID, see "UUID format check in SDEP-NL" in [ID management](#id-management)
+- The check runs in the service layer, right before the ID is claimed, because it needs the database: an existing ID of the same owner stays accepted
+- Implementation: `refused_ids` in `services/functional_id.py`, with `FUNCTIONAL_ID_UUID_REQUIRED` as setting
 
 **Why `POST /api/ca/v1/areas` uses `Form()` instead of a JSON body** (see implementation):
 
@@ -1367,7 +1411,10 @@ Result:
 | **D8**  | **SQLite compatibility** - the bulk INSERT and all queries work on PostgreSQL and SQLite                                                   | Unit tests run on in-memory SQLite; the `StringArray` TypeDecorator handles dialect differences      |
 | **D9**  | **Lifecycle status on activities** - `status` is `finished` (default) or `cancelled`; resubmitting as `cancelled` adds a version           | Platforms correct previously submitted stays without a change to the versioning model                |
 | **D10** | **State precondition and version token on listing writes** - refused per item on a wrong state or a stale `createdAt` **[2]**              | Several actors write the same listing asynchronously; one version's flags must never land on another |
+| **D11** | **Resend detection: field comparison, no stored hash** - a resend is compared field by field with the current version **[3]**              | Always normalized the same way on both sides; no migration or backfill                               |
 
 [1] Combined with pessimistic locking ([Locking](#locking)): when two concurrent batches contain the same `activityId`, `SELECT ... FOR UPDATE` serializes them, so the second batch waits for the first to commit and then overwrites it. Last-wins holds within a batch and across requests.
 
 [2] The check runs on the locked current version: the state must be the one the write expects, and the submitted `createdAt` must still be current. D1 to D8 hold unchanged for the three listing bulk endpoints. D9 has no listing equivalent: a listing's `status` is not set by the caller but derived from the write, see [Transitions](./LISTING_TECH.md#transitions). D10 is the one concept activities do not have, because an activity has a single writer (the platform) while a listing has three (platform, LSA, platform again).
+
+[3] Holds for areas, listings and activities, on the single and the bulk endpoints. Rationale and when to look at it again: [Idempotency](#idempotency), "Recomputation".

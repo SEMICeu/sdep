@@ -2,7 +2,7 @@
 
 SDEP is an **API-first application** designed for **machine-to-machine (M2M) integrations**.
 
-The following security considerations apply.
+This document describes security considerations for the application scope.
 
 <h2>Table of contents</h2>
 
@@ -18,13 +18,13 @@ The following security considerations apply.
 - [File download (Content-Disposition)](#file-download-content-disposition)
 - [Malware scanning](#malware-scanning)
 - [Secrets](#secrets)
-  - [Functional ID secret](#functional-id-secret)
+- [Functional ID secret](#functional-id-secret)
 - [Security headers](#security-headers)
 - [Middleware ordering](#middleware-ordering)
 - [Security headers, DNS, TLS](#security-headers-dns-tls)
 - [Rate limiting (throttling)](#rate-limiting-throttling)
 - [Dependency version pinning](#dependency-version-pinning)
-- [Non-root containers](#non-root-containers)
+- [Non-root](#non-root)
 - [Container image scans](#container-image-scans)
 - [Authentication and authorization (details)](#authentication-and-authorization-details)
 - [Audit log (details)](#audit-log-details)
@@ -303,6 +303,7 @@ Path traversal is mitigated by design through the application architecture:
 - **No filesystem operations on user-supplied input** - uploaded files are read into memory and stored as binary blobs (`LargeBinary`) in the database, not written to disk
 - The uploaded filename is stored as metadata in the database only; it is **never used to construct filesystem paths**
 - All functional IDs (used in URL path parameters and form fields) are validated against a strict alphanumeric pattern (`^[A-Za-z0-9\-]+$` in [`common.py`](https://github.com/SEMICeu/sdep/blob/main/backend/app/schemas/common.py)), which rejects path traversal characters (`/`, `\`, `.`, `..`)
+- A new functional ID that a client supplies must be a lowercase UUID as well (`FUNCTIONAL_ID_UUID_REQUIRED`, default `true`), so it cannot collide with an ID of another client, see [ID management](./ARCHITECTURE_TECH.md#id-management)
 - JWT claims used as identifiers (`client_id`) are validated against a similarly strict pattern (`^[A-Za-z0-9._-]+$`), which additionally permits `.` and `_` for Keycloak client naming while still rejecting path separators (`/`, `\`)
 
 ## CSRF
@@ -410,7 +411,7 @@ To avoid data leaks, secrets are externalized in [`config.py`](https://github.co
 
 ---
 
-### Functional ID secret
+## Functional ID secret
 
 `FUNCTIONAL_ID_SECRET` is the key behind the functional IDs that SDEP generates, see [ID management](./ARCHITECTURE_TECH.md#id-management).
 
@@ -512,9 +513,18 @@ Dependencies are declared with flexible lower bounds (`>=`) in `pyproject.toml` 
 - Running `uv lock --upgrade` regenerates the lock file with the latest compatible versions
 - The lock file should be committed and reviewed as part of the normal change process
 
-## Non-root containers
+## Non-root
 
-The Docker container runs as a non-root user (`app`), following the principle of least privilege. This limits the impact of a container escape or application compromise.
+The backend container itself runs as a **non-root** user, following the principle of least privilege.
+
+- This limits the impact of a container escape or an application compromise
+- The container does not rely on the platform to enforce this (defense in depth)
+
+Hence, the backend image (`backend/Dockerfile`):
+
+- Runs as user `app`, with the numeric UID 10001, so a `runAsNonRoot` check can verify it
+- Runs in group 0, so it also works with an arbitrary UID that a platform may assign
+- Has no setuid/setgid binaries, so nothing in the container can raise its privileges
 
 ## Container image scans
 

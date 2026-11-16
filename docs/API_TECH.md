@@ -639,9 +639,11 @@ Rule: every ID that an API filters on can be looked up in that same API. So the 
 | 404         | Not Found             | Requested resource does not exist, is unavailable, or has been deleted                                                                                                 |
 | 409         | Conflict              | Functional id of another owner (`duplicate_error`, do not retry); or a concurrent request wrote the same record first (`conflict_error`, retry) **[1]**                |
 | 413         | Payload Too Large     | Upload exceeds the per-endpoint size limit (e.g. the CA area upload: above the 1 MiB file-size cap plus a small multipart envelope), checked before the body is parsed |
-| 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field) or business rule violation (e.g. start time > end time)                                           |
+| 422         | Unprocessable Content | Invalid request body on a POST request (e.g. missing required field) or business rule violation (e.g. start time > end time) **[2]**                                   |
 
 [1] Retry only on HTTP `409` with `type: conflict_error`. A functional id (`areaId`, `listingId`, `activityId`) belongs to one owner, see [Identity](./DATAMODEL_TECH.md#identity): an id of another owner is `409` with `duplicate_error` on `POST /areas`, and an item NOK with `duplicate_error` in a bulk write. Bulk items also use `conflict_error` for a state conflict (e.g. "already screened"): that is an item result, not an HTTP `409`, and is not retried.
+
+[2] Also a new, supplied functional id that is not a lowercase UUID (`business_logic_error`): `422` on `POST /areas`, and an item NOK in a bulk write. In the reference implementation (this repo), this is controlled by `FUNCTIONAL_ID_UUID_REQUIRED` (default `true`), see [ID management](./ARCHITECTURE_TECH.md#id-management).
 
 ---
 

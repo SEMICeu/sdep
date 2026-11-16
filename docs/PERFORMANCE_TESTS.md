@@ -4,6 +4,8 @@ The [../tests/performance](../tests/performance) directory contains a [Locust](h
 
 **Scope:** activities only. The listing endpoints (random checks) are covered by the functional suites, not by this load test. Extending the suite to listings is planned as separate work.
 
+<h2>Table of contents</h2>
+
 - [Running performance tests](#running-performance-tests)
 - [Implementation](#implementation)
   - [Locust test](#locust-test)
@@ -68,7 +70,7 @@ Both are invoked via `make test-perf`.
 
 **How it works:**
 
-1. Makefile creates fixture areas via `lib/create_fixture_areas.py` (5 areas with `sdep-test-perf-*` IDs)
+1. Makefile creates fixture areas via `lib/create_fixture_areas.py` (5 areas, each with a UUID as `areaId`)
 2. Spawns `PERF_USERS` concurrent Locust users (default: 10), ramping up at `PERF_RAMP_UP` users/second
 3. Each Locust user authenticates at start and re-authenticates automatically when the bearer token expires (HTTP 401), then repeatedly submits bulk requests (0.1-0.5s pause between requests)
 4. After the configured duration, Locust prints per-endpoint statistics and the custom summary block
@@ -86,8 +88,8 @@ Each activity contains the following fields:
 
 | Field                | How it is generated                                                                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `activityId`         | `sdep-test-perf-` + 12 random hex characters from `uuid4`                                                                                 |
-| `url`                | Fake URL using the same unique ID (e.g. `http://sdep-test-perf.example.com/<id>`)                                                         |
+| `activityId`         | Random UUID (`uuid4`), a new ID must be a lowercase UUID                                                                                  |
+| `url`                | Fake URL with 12 random hex characters (e.g. `http://sdep-test-perf.example.com/<hex>`)                                                   |
 | `registrationNumber` | `REGPERF` + 8 uppercase hex characters                                                                                                    |
 | `address`            | Random Dutch street name (`Prinsengracht`, `Keizersgracht`, etc.), house number (1-999), postcode, and city from hardcoded lists          |
 | `temporal`           | `startDatetime` = current UTC timestamp; `endDatetime` = 1-14 nights later                                                                |
@@ -95,10 +97,10 @@ Each activity contains the following fields:
 | `numberOfGuests`     | Random integer 1-10                                                                                                                       |
 | `countryOfGuests`    | List of length `numberOfGuests`, each element sampled with replacement from `NLD`, `DEU`, `BEL`, `FRA`, `GBR`, `ESP`, `ITA`, `USA`, `N/A` |
 
-The `sdep-test-` naming convention controls cleanup:
+The `sdep-test-*` client accounts control cleanup:
 
-- IDs starting with `sdep-test-perf-` are treated as throwaway test data and cleaned up after the test run.
-- `KEEP_TEST_DATA=true` skips that cleanup for its own run only; the naming is unchanged, so the next run without "keep" removes the rows.
+- Everything that the `sdep-test-*` clients own is treated as throwaway test data and cleaned up after the test run.
+- `KEEP_TEST_DATA=true` skips that cleanup for its own run only; the owners are unchanged, so the next run without "keep" removes the rows.
 
 ---
 

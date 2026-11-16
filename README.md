@@ -1,6 +1,6 @@
 <h1>Welcome to the Single Digital Entry Point (SDEP)</h1>
 
-Overview:
+<h2>Table of contents</h2>
 
 - [Introduction](#introduction)
 - [Specification](#specification)

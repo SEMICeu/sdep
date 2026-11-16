@@ -3,6 +3,18 @@
 This document describes the breaking change to address field names in the SDEP API,
 aligned with the INSPIRE directive and SEMIC STR-AP standard for EU interoperability.
 
+<h2>Table of contents</h2>
+
+- [What changed](#what-changed)
+- [Field mapping](#field-mapping)
+- [JSON payload: Before and after](#json-payload-before-and-after)
+  - [Before](#before)
+  - [After](#after)
+- [Required client changes](#required-client-changes)
+- [Affected endpoints](#affected-endpoints)
+- [Why](#why)
+- [Addition of `fullAddress` field](#addition-of-fulladdress-field)
+
 ## What changed
 
 Address fields have been renamed from Dutch BAG-style names to INSPIRE/STR-AP names.

@@ -17,6 +17,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,11 @@ ADDRESS = {
     "postName": "Amsterdam",
     "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
 }
+
+
+def as_uuid(name: str) -> str:
+    """Return the UUIDv5 of a readable test name: a new functional ID must be a UUID."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, name))
 
 
 @dataclass
@@ -151,10 +157,10 @@ def main() -> int:
             return 1
 
         stamp = int(time.time() * 1000)
-        area_id = f"sdep-test-lsa-area-{stamp}"
+        area_id = as_uuid(f"sdep-test-lsa-area-{stamp}")
         create_fixture_area(client, base_url, ca_token, area_id, "listing")
-        id_a = f"sdep-test-lsa-a-{stamp}"
-        id_b = f"sdep-test-lsa-b-{stamp}"
+        id_a = as_uuid(f"sdep-test-lsa-a-{stamp}")
+        id_b = as_uuid(f"sdep-test-lsa-b-{stamp}")
         print(f"Fixture area: {area_id}; listings: {id_a}, {id_b}")
         print()
 

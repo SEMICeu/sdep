@@ -75,6 +75,7 @@ class ActivityRequest(BaseModel):
 
     Activity ID:
     - Optional: If not provided, will be auto-generated (RFC 9562 UUID)
+    - A new provided ID is a lowercase UUID (see services/functional_id.py)
 
     Activity Name:
     - Optional: Display name (max 64 chars)
@@ -97,7 +98,7 @@ class ActivityRequest(BaseModel):
     ] = Field(
         None,
         alias="activityId",
-        description="Functional ID identifying the activity (alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars, optionally supplied, auto-generated as deterministic UUIDv8 RFC 9562 if not supplied)",
+        description="Functional ID identifying the activity (optionally supplied: a lowercase UUID RFC 9562 for a new ID, alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars; auto-generated as deterministic UUIDv8 RFC 9562 if not supplied)",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )  # Functional ID
 
@@ -165,7 +166,12 @@ class ActivityRequest(BaseModel):
         alias="countryOfGuests",
         min_length=1,
         max_length=1024,
-        description="Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A', uppercase only). Length must equal numberOfGuests.",
+        description=(
+            "Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A', uppercase only). "
+            "Length must equal numberOfGuests: one element per guest. "
+            "Guests from the same country repeat the code, e.g. ['NLD', 'NLD', 'NLD']. "
+            "A guest whose country is unknown is 'N/A', e.g. ['NLD', 'DEU', 'N/A']."
+        ),
         examples=[["NLD", "NLD", "DEU", "BEL"]],
     )  # Attribute
 
@@ -300,7 +306,12 @@ class ActivityResponse(BaseModel):
         serialization_alias="countryOfGuests",
         min_length=1,
         max_length=1024,
-        description="Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A'); array length equals numberOfGuests.",
+        description=(
+            "Array of country codes of guests (1-1024; each element is ISO 3166-1 alpha-3 or 'N/A'). "
+            "Length equals numberOfGuests: one element per guest. "
+            "Guests from the same country repeat the code, e.g. ['NLD', 'NLD', 'NLD']. "
+            "A guest whose country is unknown is 'N/A', e.g. ['NLD', 'DEU', 'N/A']."
+        ),
     )  # Attribute
     temporal: CommonTemporalResponse = Field(
         ..., description="Temporal composite (`startDatetime`, `endDatetime`)"

@@ -19,6 +19,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,11 @@ BEARER_TOKEN_FILE = Path(os.getenv("TOKEN_FILE", "tmp/.bearer_token"))
 SHAPEFILE_PATH = REPO_ROOT / "test-data" / "shapefiles" / "Amsterdam.zip"
 # API_VERSION selects the CA version under test. Auth has its own version (v1 only).
 AUTH_API_VERSION = "v1"
+
+
+def as_uuid(name: str) -> str:
+    """Return the UUIDv5 of a readable test name: a new functional ID must be a UUID."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, name))
 
 
 @dataclass
@@ -166,7 +172,7 @@ def main() -> int:
         print("Test 1: POST single area with file upload")
         print("------------------------------------------------")
         stats.total += 1
-        area_id = f"sdep-test-area-single-{stamp()}"
+        area_id = as_uuid(f"sdep-test-area-single-{stamp()}")
         if bearer_token:
             code, body = post_area(client, base_url, api_version, bearer_token, area_id=area_id)
             print(f"Response: {brief(body)}")
@@ -200,7 +206,7 @@ def main() -> int:
         if bearer_token:
             unique_id = int(time.time() * 1000)
             code, body = post_area(
-                client, base_url, api_version, bearer_token, area_id=f"sdep-test-area-custom-{unique_id}"
+                client, base_url, api_version, bearer_token, area_id=as_uuid(f"sdep-test-area-custom-{unique_id}")
             )
             print(f"Response: {brief(body)}")
             print(f"HTTP Status: {code}")
@@ -339,7 +345,7 @@ def main() -> int:
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
-            versioned_id = f"sdep-test-area-versioned-{stamp()}"
+            versioned_id = as_uuid(f"sdep-test-area-versioned-{stamp()}")
             first_code, first = post_area(client, base_url, api_version, bearer_token, area_id=versioned_id)
             code, body = post_area(client, base_url, api_version, bearer_token, area_id=versioned_id)
             code3, body3 = post_area(
@@ -374,7 +380,7 @@ def main() -> int:
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
-            delete_area_id = f"sdep-test-area-delete-{stamp()}"
+            delete_area_id = as_uuid(f"sdep-test-area-delete-{stamp()}")
             post_code, _ = post_area(client, base_url, api_version, bearer_token, area_id=delete_area_id)
             response = client.delete(f"{areas_url}/{delete_area_id}", headers=auth)
             print(f"HTTP Status: {post_code} (POST), {response.status_code} (DELETE)")
@@ -410,7 +416,7 @@ def main() -> int:
         print("------------------------------------------------")
         stats.total += 1
         if bearer_token:
-            get_area_id = f"sdep-test-area-get-{stamp()}"
+            get_area_id = as_uuid(f"sdep-test-area-get-{stamp()}")
             post_code, _ = post_area(client, base_url, api_version, bearer_token, area_id=get_area_id)
             response = client.get(f"{areas_url}/{get_area_id}", headers=auth)
             print(f"HTTP Status: {post_code} (POST), {response.status_code} (GET)")
@@ -452,7 +458,7 @@ def main() -> int:
             if not ca2_token:
                 mark(stats, False, "", "Test 12 failed: Could not obtain CA2 access token")
             else:
-                shared_area_id = f"sdep-test-area-shared-{stamp()}"
+                shared_area_id = as_uuid(f"sdep-test-area-shared-{stamp()}")
                 ca1_post_code, _ = post_area(
                     client, base_url, api_version, bearer_token, area_id=shared_area_id, area_name="CA1 area"
                 )
@@ -485,6 +491,28 @@ def main() -> int:
                 )
         else:
             print("Skipping Test 12 (requires BEARER_TOKEN, CA2_CLIENT_ID, CA2_CLIENT_SECRET)")
+        print()
+
+        print("Test 13: A new areaId that is no lowercase UUID is refused (422)")
+        print("------------------------------------------------")
+        stats.total += 1
+        if bearer_token:
+            own_id = f"sdep-test-area-own-{stamp()}"
+            sent = [
+                post_area(client, base_url, api_version, bearer_token, area_id=i)
+                for i in (own_id, as_uuid(own_id).upper())
+            ]
+            types = [((b.get("detail") or [{}])[0].get("type") if isinstance(b, dict) else None) for _, b in sent]
+            print(f"HTTP Status: {[c for c, _ in sent]}: {types}")
+            print()
+            mark(
+                stats,
+                [c for c, _ in sent] == [422] * 2 and types == ["business_logic_error"] * 2,
+                "Test 13 passed: an own ID and an uppercase UUID are refused (422)",
+                f"Test 13 failed: Expected two 422s (business_logic_error), got {[c for c, _ in sent]}: {types}",
+            )
+        else:
+            print("Skipping Test 13 (requires authentication)")
         print()
 
     print("=======================================")

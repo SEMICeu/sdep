@@ -136,7 +136,7 @@ uvx --from 'locust>=2.20' locust -f tests/performance/locustfile.py \
 # --- Cleanup ---
 # Show psql errors instead of suppressing them: a cleanup failure must report its real
 # cause (e.g. a foreign-key violation) rather than a bare make "Error 3". -q keeps a
-# successful run quiet. Perf data always uses the sdep-test-perf-* prefix, so the
+# successful run quiet. Perf data always belongs to the sdep-test-* clients, so the
 # shared clean-testrun.sql removes it together with the integration data. A keep run
 # only skips this cleanup; it cannot outlive the next run without "keep", because the
 # fixtures hang off the sdep-test-* accounts that cleanup deletes. There is no

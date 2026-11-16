@@ -66,14 +66,16 @@ There is no `Area.Request` class. `POST /areas` takes `multipart/form-data`, so 
 generates a `Body_postArea` schema, renamed to `Area.Request` by the OpenAPI hook, see
 [OpenAPI document](./API_TECH.md#openapi-document).
 
-| Field        | Description                                                               |
-| ------------ | ------------------------------------------------------------------------- |
-| `file`       | The shapefile, `.zip` only, at most 1 MiB, filename at most 64 characters |
-| `areaId`     | Functional ID identifying the area (optional, else generated **[2]**)     |
-| `areaName`   | Display name (optional)                                                   |
-| `regulation` | `listing`, `activity` or `all` (optional, defaults to `all`)              |
+| Field        | Description                                                                   |
+| ------------ | ----------------------------------------------------------------------------- |
+| `file`       | The shapefile, `.zip` only, at most 1 MiB, filename at most 64 characters     |
+| `areaId`     | Functional ID identifying the area (optional **[3]**, else generated **[2]**) |
+| `areaName`   | Display name (optional)                                                       |
+| `regulation` | `listing`, `activity` or `all` (optional, defaults to `all`)                  |
 
 [2] A deterministic UUIDv8: an identical upload (`areaName`, `regulation`, filename and file content) gets the same ID, so a resend returns the stored area. After a delete, an identical upload is a new area with a new ID. See [ID management](./ARCHITECTURE_TECH.md#id-management). An identical upload with a supplied `areaId` also returns the stored area, see [Idempotency](./ARCHITECTURE_TECH.md#idempotency).
+
+[3] A new supplied `areaId` must be a lowercase UUID, an existing `areaId` of the same CA stays accepted. See [ID management](./ARCHITECTURE_TECH.md#id-management).
 
 The competent authority is not a field: it comes from the bearer token.
 
@@ -135,6 +137,7 @@ B. Steps:
 
 2. Claim the `areaId` (when not supplied: generated as a deterministic UUIDv8 from the CA and the upload, skipping an ID whose area was deleted, see [ID management](./ARCHITECTURE_TECH.md#id-management)): insert its `area_identity` row with this CA as owner when new, and lock it (`FOR UPDATE`)
 
+   - A supplied `areaId` that is new and not a lowercase UUID: reject with `422` (`business_logic_error`), before the claim, see [ID management](./ARCHITECTURE_TECH.md#id-management)
    - The `areaId` is owned by another CA: reject with `409` (`duplicate_error`)
 
 3. Resolve or version the `Area` (row-locked `FOR UPDATE` on `(areaId, competentAuthorityId)`):

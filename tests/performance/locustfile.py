@@ -1,7 +1,7 @@
 """Locust performance test for POST /str/activities/bulk.
 
 Simulates a configurable number of activities/day brought back to activities/sec,
-for a configurable duration, using the isolated testdata approach (sdep-test-perf-* naming).
+for a configurable duration, using the isolated testdata approach (data of the sdep-test-* clients).
 
 Configuration via environment variables (set by Makefile):
     PERF_BATCH_SIZE: Number of activities per bulk request (default: 1000)
@@ -50,10 +50,8 @@ PERF_STOP_ON_TARGET = os.environ.get("PERF_STOP_ON_TARGET", "false").lower() in 
 # Fixed load: all users together send this many activities per minute. 0 = full speed,
 # each user pauses 0.1-0.5s between requests (a stress test). See StrActivityUser.wait_time.
 PERF_ACTIVITIES_PER_MIN = float(os.environ.get("PERF_ACTIVITIES_PER_MIN", "0"))
-# Always sdep-test-perf, keep-run or not. A separate "perf" prefix used to be used to
-# hide keep-run activities from the cleanup, but it never worked: the fixture areas and
-# both client accounts the perf data hangs off are sdep-test-*, and clean-testrun.sql
-# deletes those, taking their activities with them whatever the activity is called.
+# Prefix of the perf URLs. The activityId is a UUID: the cleanup finds the perf data
+# through its sdep-test-* client accounts (see postgres/clean-testrun.sql).
 ACTIVITY_ID_PREFIX = "sdep-test-perf"
 TARGET_TOTAL = PERF_ACTIVITIES_TARGET
 
@@ -409,7 +407,8 @@ def _generate_activity(area_id: str, timestamp: str) -> dict:
         k=number_of_guests,
     )
     return {
-        "activityId": f"{ACTIVITY_ID_PREFIX}-{unique}",
+        # A new activityId must be a UUID, the cleanup runs through the sdep-test-* owner
+        "activityId": str(uuid.uuid4()),
         "url": f"http://{ACTIVITY_ID_PREFIX}.example.com/{unique}",
         "registrationNumber": f"REGPERF{unique[:8].upper()}",
         "address": {

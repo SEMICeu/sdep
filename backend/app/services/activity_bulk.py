@@ -5,6 +5,8 @@ Implements the Application-First Validation flow for bulk activity creation:
 1. Pydantic Check - validate each item individually, mark failures as NOK
 2. Referential Integrity Check - single SELECT for area IDs, Python dict lookup;
    areas that are regulated for listing only are rejected
+   UUID format - a new, supplied activity ID that is no lowercase UUID is NOK
+   (`business_logic_error`, see services/functional_id.py, refused_ids)
    Ownership - claim the activity IDs; an ID of another platform is NOK
    (`duplicate_error`, see models/identity.py)
    Resend - an activity that is identical to its current version: OK with the
@@ -39,7 +41,13 @@ from app.schemas.activity import (
 from app.schemas.activity_bulk import ActivityBulkResponse, ActivityBulkResultItem
 from app.schemas.common import supplied_id
 from app.schemas.error import ErrorDetail, ErrorResponse
-from app.services.functional_id import content, resolve_ids, stored_content
+from app.services.functional_id import (
+    content,
+    refused_ids,
+    resolve_ids,
+    stored_content,
+    uuid_required_message,
+)
 from app.services.platform import ensure_platform
 
 logger = logging.getLogger(__name__)
@@ -203,6 +211,39 @@ async def create_activities_bulk(
         else:
             still_valid.append(i)
 
+    valid_indexes = still_valid
+
+    # ── UUID format of new, supplied activity IDs ───────────────────────
+    refused = await refused_ids(
+        session,
+        ActivityIdentity,
+        [
+            validated_items[i].validated_activity_id
+            for i in valid_indexes
+            if i not in generated
+        ],
+    )
+    still_valid = []
+    for i in valid_indexes:
+        aid = validated_items[i].validated_activity_id
+        if i not in generated and aid in refused:
+            results[i] = ActivityBulkResultItem(
+                activityIndex=i,
+                activityId=client_supplied_ids[i],
+                status="NOK",
+                activity=None,
+                errors=ErrorResponse(
+                    detail=[
+                        ErrorDetail(
+                            msg=uuid_required_message("activityId", aid),
+                            type="business_logic_error",
+                            loc=["activityId"],
+                        )
+                    ]
+                ),
+            )
+        else:
+            still_valid.append(i)
     valid_indexes = still_valid
 
     # ── Ownership: claim the activity IDs (locks them) ──────────────────

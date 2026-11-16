@@ -46,3 +46,5 @@ lma        LMA     test_reference_data            v2  x    x    x    x    -
 ama        AMA     test_health_ping                -  x    x    x    x    -
 ama        AMA     test_ama_activities            v1  x    x    x    x    -
 ama        AMA     test_reference_data            v1  x    x    x    x    -
+# No client: the test logs in as all its parties by itself
+tenant     -       test_tenant_isolation           -  x    x    x    x    -

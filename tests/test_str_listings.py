@@ -17,6 +17,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -36,6 +37,11 @@ ADDRESS = {
     "postName": "Amsterdam",
     "fullAddress": "Prinsengracht 263, 1016GV Amsterdam",
 }
+
+
+def as_uuid(name: str) -> str:
+    """Return the UUIDv5 of a readable test name: a new functional ID must be a UUID."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, name))
 
 
 @dataclass
@@ -155,8 +161,8 @@ def main() -> int:
             print("ERROR: Failed to get CA token for fixture creation", file=sys.stderr)
             return 1
         stamp = int(time.time() * 1000)
-        listing_area = f"sdep-test-str-listing-area-{stamp}"
-        activity_area = f"sdep-test-str-activity-area-{stamp}"
+        listing_area = as_uuid(f"sdep-test-str-listing-area-{stamp}")
+        activity_area = as_uuid(f"sdep-test-str-activity-area-{stamp}")
         create_fixture_area(client, base_url, ca_token, listing_area, "listing")
         create_fixture_area(client, base_url, ca_token, activity_area, "activity")
         print(f"Fixture areas: {listing_area} (listing), {activity_area} (activity)")
@@ -164,12 +170,12 @@ def main() -> int:
 
         print("Test 1: POST listings/bulk with a valid, an activity-only and an unknown area (200 partial)")
         print("------------------------------------------------")
-        ok_id = f"sdep-test-str-listing-{stamp}"
+        ok_id = as_uuid(f"sdep-test-str-listing-{stamp}")
         payload = {
             "listings": [
                 listing(ok_id, listing_area, registrationNumber="REG-1"),
-                listing(f"sdep-test-str-listing-reg-{stamp}", activity_area),
-                listing(f"sdep-test-str-listing-nf-{stamp}", "00000000-0000-0000-0000-000000000000"),
+                listing(as_uuid(f"sdep-test-str-listing-reg-{stamp}"), activity_area),
+                listing(as_uuid(f"sdep-test-str-listing-nf-{stamp}"), "00000000-0000-0000-0000-000000000000"),
             ]
         }
         code, body = call(client, "POST", f"{api}/listings/bulk", bearer_token, json=payload)
@@ -251,7 +257,7 @@ def main() -> int:
 
         print("Test 8: A non-string listingId is NOK, echoed as null (422, not 500)")
         print("------------------------------------------------")
-        payload = {"listings": [listing(f"sdep-test-str-listing-nonstr-{stamp}", listing_area, listingId=v) for v in (123, ["x"])]}
+        payload = {"listings": [listing(as_uuid(f"sdep-test-str-listing-nonstr-{stamp}"), listing_area, listingId=v) for v in (123, ["x"])]}
         code, body = call(client, "POST", f"{api}/listings/bulk", bearer_token, json=payload)
         results = body.get("results") or [] if isinstance(body, dict) else []
         print(f"HTTP Status: {code}: {brief(body)}")
@@ -267,7 +273,7 @@ def main() -> int:
         print("------------------------------------------------")
         item = listing("unused", listing_area, url=f"http://example.com/sdep-test-retry-{stamp}")
         del item["listingId"]
-        with_id = listing(f"sdep-test-listing-retry-{stamp}", listing_area)
+        with_id = listing(as_uuid(f"sdep-test-listing-retry-{stamp}"), listing_area)
         sent = [call(client, "POST", f"{api}/listings/bulk", bearer_token, json={"listings": [i]}) for i in (item, item, with_id, with_id)]
         got = [((b.get("results") or [{}])[0].get("listing") or {}) if isinstance(b, dict) else {} for _, b in sent]
         print(f"HTTP Status: {[c for c, _ in sent]}: {[g.get('listingId') for g in got]}")
@@ -280,6 +286,20 @@ def main() -> int:
             [c for c, _ in sent] == [201] * 4 and all(same),
             "Test 9 passed: same listingId and createdAt, nothing new stored",
             f"Test 9 failed: Expected four 201s with the same listing per pair, got {[c for c, _ in sent]}, same: {same}",
+        )
+        print()
+
+        print("Test 10: A new listingId that is no lowercase UUID is NOK (business_logic_error)")
+        print("------------------------------------------------")
+        own_id = f"sdep-test-listing-own-{stamp}"
+        payload = {"listings": [listing(i, listing_area) for i in (own_id, as_uuid(own_id).upper())]}
+        code, body = call(client, "POST", f"{api}/listings/bulk", bearer_token, json=payload)
+        print(f"HTTP Status: {code}: {brief(body)}")
+        mark(
+            stats,
+            code == 422 and error_types(body) == ["business_logic_error"] * 2,
+            "Test 10 passed: both items NOK, a new listingId must be a lowercase UUID",
+            f"Test 10 failed: Expected 422 with two business_logic_errors, got {code}",
         )
         print()
 

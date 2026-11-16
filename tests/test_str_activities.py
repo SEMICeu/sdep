@@ -12,6 +12,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -26,6 +27,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # test works when reused from a consuming repository, not just from sdep-app. SHAPEFILE_PATH stays REPO_ROOT-anchored — it is a static sdep-app asset.
 BEARER_TOKEN_FILE = Path(os.getenv("TOKEN_FILE", "tmp/.bearer_token"))
 SHAPEFILE_PATH = REPO_ROOT / "test-data" / "shapefiles" / "Amsterdam.zip"
+
+
+def as_uuid(name: str) -> str:
+    """Return the UUIDv5 of a readable test name: a new functional ID must be a UUID."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, name))
 
 
 @dataclass
@@ -113,7 +119,7 @@ def create_fixture_areas(
         sys.exit(1)
 
     timestamp = int(time.time() * 1000)
-    area_ids = [f"{prefix}-{timestamp}-{index}" for index in range(1, count + 1)]
+    area_ids = [as_uuid(f"{prefix}-{timestamp}-{index}") for index in range(1, count + 1)]
 
     for area_id in area_ids:
         with SHAPEFILE_PATH.open("rb") as shapefile:
@@ -254,7 +260,7 @@ def main() -> int:
             payload = {
                 "activities": [
                     activity(
-                        f"sdep-test-bulk-ok1-{timestamp}",
+                        as_uuid(f"sdep-test-bulk-ok1-{timestamp}"),
                         "bulk-ok1",
                         "REGBULK001",
                         area_id_1,
@@ -264,7 +270,7 @@ def main() -> int:
                         countries=["NLD", "NLD", "DEU", "BEL"],
                     ),
                     activity(
-                        f"sdep-test-bulk-ok2-{timestamp}",
+                        as_uuid(f"sdep-test-bulk-ok2-{timestamp}"),
                         "bulk-ok2",
                         "REGBULK002",
                         area_id_2,
@@ -302,7 +308,7 @@ def main() -> int:
             payload = {
                 "activities": [
                     activity(
-                        f"sdep-test-bulk-partial1-{timestamp}",
+                        as_uuid(f"sdep-test-bulk-partial1-{timestamp}"),
                         "bulk-partial1",
                         "REGPART001",
                         area_id_1,
@@ -312,7 +318,7 @@ def main() -> int:
                         countries=["NLD", "NLD", "DEU", "BEL"],
                     ),
                     activity(
-                        f"sdep-test-bulk-partial2-{timestamp}",
+                        as_uuid(f"sdep-test-bulk-partial2-{timestamp}"),
                         "bulk-partial2",
                         "REGPART002",
                         "nonexistent-area-id",
@@ -350,7 +356,7 @@ def main() -> int:
             payload = {
                 "activities": [
                     activity(
-                        f"sdep-test-bulk-fail1-{timestamp}",
+                        as_uuid(f"sdep-test-bulk-fail1-{timestamp}"),
                         "bulk-fail1",
                         "REGFAIL001",
                         "nonexistent-area-1",
@@ -364,7 +370,7 @@ def main() -> int:
                         countries=["N/A"],
                     ),
                     activity(
-                        f"sdep-test-bulk-fail2-{timestamp}",
+                        as_uuid(f"sdep-test-bulk-fail2-{timestamp}"),
                         "bulk-fail2",
                         "REGFAIL002",
                         "nonexistent-area-2",
@@ -415,7 +421,7 @@ def main() -> int:
         print("---------------------------------------------------------")
         stats.total += 1
         if bearer_token:
-            stacked_id = f"sdep-test-bulk-stacked-{timestamp}"
+            stacked_id = as_uuid(f"sdep-test-bulk-stacked-{timestamp}")
             start_time_5 = iso_utc_in_hours(4)
             end_time_5 = iso_utc_in_hours(5)
 
@@ -531,7 +537,7 @@ def main() -> int:
             payload = {
                 "activities": [
                     activity(
-                        f"sdep-test-bulk-naive-{timestamp}",
+                        as_uuid(f"sdep-test-bulk-naive-{timestamp}"),
                         "bulk-naive",
                         "REGBULK006",
                         area_id_1,
@@ -566,7 +572,7 @@ def main() -> int:
             owned = {
                 "activities": [
                     activity(
-                        f"sdep-test-bulk-owned-{timestamp}",
+                        as_uuid(f"sdep-test-bulk-owned-{timestamp}"),
                         "bulk-owned",
                         "REGBULK007",
                         area_id_1,
@@ -596,7 +602,7 @@ def main() -> int:
         stats.total += 1
         if bearer_token:
             items = [
-                activity(f"sdep-test-bulk-nonstr{i}-{timestamp}", "bulk-nonstr", "REGBULK008", area_id_1, start_time, end_time)
+                activity(as_uuid(f"sdep-test-bulk-nonstr{i}-{timestamp}"), "bulk-nonstr", "REGBULK008", area_id_1, start_time, end_time)
                 for i in range(2)
             ]
             items[0]["activityId"] = 123
@@ -622,7 +628,7 @@ def main() -> int:
         if bearer_token:
             item = activity("unused", f"sdep-test-retry-{timestamp}", "REGBULK009", area_id_1, start_time, end_time)
             del item["activityId"]
-            with_id = activity(f"sdep-test-bulk-retry-{timestamp}", "bulk-retry", "REGBULK009", area_id_1, start_time, end_time)
+            with_id = activity(as_uuid(f"sdep-test-bulk-retry-{timestamp}"), "bulk-retry", "REGBULK009", area_id_1, start_time, end_time)
             sent = [post_bulk(client, base_url, api_version, bearer_token, {"activities": [i]}) for i in (item, item, with_id, with_id)]
             got = [((b.get("results") or [{}])[0].get("activity") or {}) for _, b in sent]
             print(f"HTTP Status: {[c for c, _ in sent]}: {[g.get('activityId') for g in got]}")
@@ -639,6 +645,30 @@ def main() -> int:
             )
         else:
             print("Skipping Test 9 (requires authentication)")
+        print()
+
+        print("Test 10: A new activityId that is no lowercase UUID is NOK (business_logic_error)")
+        print("------------------------------------------------")
+        stats.total += 1
+        if bearer_token:
+            own_id = f"sdep-test-bulk-own-{timestamp}"
+            items = [
+                activity(i, "bulk-own", "REGBULK010", area_id_1, start_time, end_time)
+                for i in (own_id, as_uuid(own_id).upper())
+            ]
+            status_code, body = post_bulk(client, base_url, api_version, bearer_token, {"activities": items})
+            print(f"Response: {brief(body)}")
+            print(f"HTTP Status: {status_code}")
+            print()
+            types = [((r.get("errors") or {}).get("detail") or [{}])[0].get("type") for r in body.get("results") or []]
+            mark(
+                stats,
+                status_code == 422 and types == ["business_logic_error"] * 2,
+                "Test 10 passed: both items NOK, a new activityId must be a lowercase UUID (422)",
+                f"Test 10 failed: Expected 422 with two business_logic_errors, got {status_code}: {types}",
+            )
+        else:
+            print("Skipping Test 10 (requires authentication)")
         print()
 
     print("=======================================")

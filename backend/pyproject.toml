@@ -110,8 +110,10 @@ dev = [
 #                          SDEP never calls the PKCS7 APIs - cryptography is pulled in only as
 #                          the JWT signature backend - so both flaws are unreachable and this
 #                          floor is defense-in-depth.
-# All four are transitive dependencies only; declared here, not as direct project dependencies.
-constraint-dependencies = ["anyio>=4.14.2", "idna>=3.15", "starlette>=1.3.1", "cryptography>=50.0.0"]
+#   dnspython>=2.9.0     - CVE-2026-114605: DoS through unbounded DNS compression pointer chains in
+#                          dns.name.from_wire_parser, fixed in 2.9.0.
+# All five are transitive dependencies only; declared here, not as direct project dependencies.
+constraint-dependencies = ["anyio>=4.14.2", "idna>=3.15", "starlette>=1.3.1", "cryptography>=50.0.0", "dnspython>=2.9.0"]
 
 [tool.uv.sources]
 # Ensure we use the restructured backend source
@@ -240,6 +242,9 @@ env = [
     "API_MODE=internal",
     # pytest only: the suite needs alpha on; the local stack still follows .env
     "API_ALPHA_ENABLED=true",
+    # pytest only: the suite keeps readable IDs (e.g. "area-1"); the tests of the
+    # UUID check switch it on, and the local stack still follows .env
+    "FUNCTIONAL_ID_UUID_REQUIRED=false",
 ]
 
 [tool.coverage.run]

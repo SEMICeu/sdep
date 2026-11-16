@@ -31,6 +31,7 @@ from app.crud import competent_authority as competent_authority_crud
 from app.crud import identity as identity_crud
 from app.enums import Regulation
 from app.exceptions.business import (
+    ApplicationValidationError,
     DuplicateResourceError,
     InvalidOperationError,
     ResourceNotFoundError,
@@ -38,7 +39,11 @@ from app.exceptions.business import (
 from app.models.area import Area
 from app.models.competent_authority import CompetentAuthority
 from app.models.identity import AreaIdentity, CompetentAuthorityIdentity
-from app.services.functional_id import resolve_ids
+from app.services.functional_id import (
+    refused_ids,
+    resolve_ids,
+    uuid_required_message,
+)
 
 REGULATION_DEFAULT = Regulation.all
 
@@ -241,6 +246,7 @@ async def create_area(
         Created Area object
 
     Raises:
+        ApplicationValidationError: When a new, supplied areaId is not a UUID
         DuplicateResourceError: When another CA owns the areaId
         InvalidOperationError: When the CA or the area has been deactivated
     """
@@ -277,6 +283,8 @@ async def create_area(
         area_id = await _generate_area_id(
             session, ca_id, area_name, regulation, filename, filedata
         )
+    elif await refused_ids(session, AreaIdentity, [area_id]):
+        raise ApplicationValidationError(uuid_required_message("areaId", area_id))
 
     # Claim the areaId for this CA (locks it). An areaId has one owner: another
     # CA must not version, take over or share it (see models/identity.py).

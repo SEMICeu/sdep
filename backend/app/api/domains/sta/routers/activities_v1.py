@@ -38,6 +38,8 @@ ACTIVITIES_DESCRIPTION = (
     "- `registrationNumber`: Registration number of the address\n"
     "- `numberOfGuests`: Number of guests (1-1024)\n"
     "- `countryOfGuests`: Array of country codes of guests (each element is ISO 3166-1 alpha-3 or `N/A`; array length equals `numberOfGuests`)\n"
+    '  - Guests from the same country: the code repeats, e.g. `["NLD", "NLD", "NLD"]`\n'
+    '  - A guest whose country is unknown: `N/A`, e.g. `["NLD", "DEU", "N/A"]`\n'
     "- `temporal`: Temporal composite (`startDatetime`, `endDatetime`)\n"
     "- `platformId`: Functional ID referencing the platform that owns the activity\n"
     "- `platformName`: Display name (optional) of the platform\n"

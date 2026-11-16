@@ -11,6 +11,7 @@ FROM ${PYTHON_IMAGE} AS builder
 LABEL "maintainer"="ICTU"
 
 # Build tools, for packages that have no prebuilt wheel
+# --no-install-recommends: only these packages, not the extras they recommend.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
@@ -48,10 +49,10 @@ ENV IMAGE_TAG=${IMAGE_TAG}
 
 WORKDIR /backend
 
-# Apply security patches for OS-level packages. No libpq: psycopg[binary] bundles
-# its own, and asyncpg does not use it.
-# Note: curl is NOT installed here — K8s probes use httpGet; docker-compose healthcheck uses python urllib
-RUN apt-get update && apt-get upgrade -y \
+# Debian security fixes land before the base image is rebuilt, so apply them here.
+# --no-install-recommends: no extra packages that an upgrade only recommends.
+# No libpq (psycopg[binary] bundles its own), no curl (probes use httpGet, compose urllib).
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -67,8 +68,14 @@ COPY ./alembic.ini /backend/alembic.ini
 COPY ./alembic /backend/alembic
 COPY ./app /backend/app
 
-RUN groupadd -r app && useradd -r -g app app
-USER app
+# Apply defense in depth by running as a non-root user, including when the
+# Kubernetes platform does not assign a UID automatically.
+# Numeric, so a runAsNonRoot check can verify it, and in group 0, which also
+# works with an arbitrary UID that a platform may assign. The app only reads its files.
+# No setuid/setgid bits: nothing in the container can raise its privileges.
+RUN useradd --uid 10001 --gid 0 --no-create-home --shell /usr/sbin/nologin app \
+    && find / -xdev -perm /6000 -type f -exec chmod a-s {} +
+USER 10001
 
 EXPOSE 8000
 

@@ -4,13 +4,16 @@ SHELL := /bin/bash
 # definition order, one line per "##@" section, so it doubles as a table of contents
 # and any drift from the file layout is visible in review.
 .PHONY: .build .clean-stale \
-        postgres-up postgres-down postgres-login postgres-status postgres-status-full \
-        .drop-database .migrate-database .load-test-data postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load postgres-size postgres-count postgres-auditlog postgres-clean-testrun postgres-prep-area-sql \
+        postgres-up postgres-down \
+        postgres-login postgres-status postgres-status-full .drop-database .migrate-database .load-test-data postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load postgres-size \
+        postgres-auditlog postgres-auditlog-unknown postgres-areas postgres-activities postgres-count \
+        postgres-prep-areas postgres-clean-testrun \
         dbgate-up dbgate-down dbgate-recreate dbgate-status \
         keycloak-up keycloak-down .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles keycloak-generate-machine-clients keycloak-configure keycloak-show-client-public-key keycloak-match-client-public-keys .get-client-credentials \
+        .authenticate client-signed-jwt bearer ping \
         backend-up backend-down backend-recreate \
-        up down recreate status \
-        .is-up .ensure-up test-smoke test-full test-full-keep test-full-verbose test-suites test-ca test-str test-sta test-lsa test-lma test-ama test-security \
+        up down recreate status urls \
+        .is-up .ensure-up test-smoke test-full test-full-keep test-full-verbose test-suites test-ca test-str test-sta test-lsa test-lma test-ama test-tenant test-security \
         .postgres-up-unless-ci test-migrations \
         test-perf test-perf-keep test-perf-verbose \
         test-malware test-cve test-cve-offline \
@@ -31,6 +34,8 @@ endif
 POSTGRES_HOST ?= localhost
 export POSTGRES_HOST POSTGRES_PORT POSTGRES_DB_NAME POSTGRES_DB_USER POSTGRES_DB_PASSWORD
 
+# Development runs the production image with the backend source bind-mounted over it
+# and uvicorn in reload mode (docker-compose.yml), so code changes need no rebuild.
 DOCKER_COMPOSE := docker compose --env-file .env $(if $(wildcard .env.extra),--env-file .env.extra,)
 # Client-signed JWT test clients. The generator emits one client per role (CA,
 # STR, STA, LSA, LMA, AMA) into KEYCLOAK_JWT_CLIENT_DIR, named
@@ -72,7 +77,7 @@ DBGATE_PROCESS_PATTERN := /tmp/.mount_[d]bgate.*/dbgate|dbgate-7\.1\.2-linux_x86
 	@$(DOCKER_COMPOSE) rm -f initdb 2>/dev/null || true
 	@echo "✅ Stale containers cleaned!"
 
-##@ Postgres
+##@ Postgres (server)
 
 postgres-up: .clean-stale ## Start postgres
 	@echo "🚀 Starting postgres..."
@@ -85,6 +90,8 @@ postgres-down: ## Stop and remove postgres (including volumes)
 	$(DOCKER_COMPOSE) rm -f -v postgres
 	@docker volume rm $$(docker volume ls -q | grep postgres_data) 2>/dev/null || true
 	@echo "✅ Postgres stopped, removed, and volumes cleaned!"
+
+##@ Postgres (database)
 
 postgres-login: ## Login to postgres
 	@echo "🔐 Logging in to postgres..."
@@ -118,8 +125,6 @@ postgres-status-full: postgres-status ## Show postgres tables with full details
 			docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "\\d+ $$table"; \
 		fi; \
 	done
-
-##@ Postgres (data)
 
 .drop-database: ## Drop and recreate database (empty)
 	@set -a && source .env && set +a && \
@@ -174,6 +179,49 @@ postgres-size: ## Show database size
 	echo "🔍 Showing size of database $$POSTGRES_DB_NAME..." && \
 	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT pg_size_pretty(pg_database_size(current_database()));"
 
+##@ Postgres (data)
+
+postgres-auditlog: ## Show audit log
+	@set -a && source .env && set +a && \
+	echo "🔍 Showing audit log for database $$POSTGRES_DB_NAME..." && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT * FROM audit_log"
+
+# Requests to paths that match no API route (action 'unknown'), grouped per path.
+# Shows whether they come from scanners (e.g. /.env) or a client using a wrong URL.
+postgres-auditlog-unknown: ## Show audit log requests to unknown paths, grouped per path
+	@set -a && source .env && set +a && \
+	echo "🔍 Showing audit log requests to unknown paths for database $$POSTGRES_DB_NAME..." && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c \
+	    "SELECT http_method, path, COUNT(*), MIN(timestamp), MAX(timestamp) FROM audit_log \
+	    WHERE action = 'unknown' GROUP BY http_method, path ORDER BY COUNT(*) DESC"
+	@echo "Columns:"
+	@echo "  http_method  HTTP method of the request (e.g. GET)"
+	@echo "  path         requested URL path, which matches no API route (e.g. /.env)"
+	@echo "  count        number of requests to this method + path"
+	@echo "  min          timestamp of the first request"
+	@echo "  max          timestamp of the last request (not a duration, see duration_ms per request)"
+	@set -a && source .env && set +a && \
+	echo "Rows older than $${AUDITLOG_RETENTION:-1} day(s) are deleted (AUDITLOG_RETENTION, default 1)," && \
+	echo "so min and max lie within the last $${AUDITLOG_RETENTION:-1} day(s)."
+
+# All columns except filedata (binary, up to 1 MiB).
+postgres-areas: ## Show areas
+	@set -a && source .env && set +a && \
+	echo "🔍 Showing areas for database $$POSTGRES_DB_NAME..." && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c \
+	    "SELECT id, area_id, area_name, regulation, competent_authority_id, filename, created_at, ended_at \
+	    FROM area ORDER BY competent_authority_id, id"
+
+# Key columns only (address and country_of_guests left out), newest first.
+# N limits the rows, as the activity table grows large (default 100).
+postgres-activities: ## Show activities (N=<rows>, default 100)
+	@set -a && source .env && set +a && \
+	echo "🔍 Showing activities for database $$POSTGRES_DB_NAME..." && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c \
+	    "SELECT id, activity_id, activity_name, status, platform_id, area_id, registration_number, \
+	    number_of_guests, temporal_start_date_time, temporal_end_date_time, created_at, ended_at \
+	    FROM activity ORDER BY id DESC LIMIT $(or $(N),100)"
+
 postgres-count: ## Count rows in all tables
 	@echo "🔍 Counting rows in all tables..."
 	@set -a && source .env && set +a && \
@@ -191,10 +239,12 @@ postgres-count: ## Count rows in all tables
 	    (SELECT COUNT(*) FROM platform) AS platform, \
 	    (SELECT COUNT(*) FROM platform_identity) AS platform_identity;"
 
-postgres-auditlog: ## Show audit log
-	@set -a && source .env && set +a && \
-	echo "🔍 Showing audit log for database $$POSTGRES_DB_NAME..." && \
-	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT * FROM audit_log"
+##@ Postgres (misc)
+
+postgres-prep-areas: ## Generate static test-data (02-area-generated.sql, only invoke when shapefiles changed)
+	@echo "🔄 Generating area SQL file with embedded shapefile data..."
+	@./test-data/postgres-prep-area-sql.sh
+	@echo "✅ Area SQL file generated!"
 
 # Recovery target: a test run cleans up after itself, so this is for the exceptions -
 # inspecting data kept by a "keep" run and wanting it gone now, or a run that was
@@ -206,11 +256,6 @@ postgres-clean-testrun: ## Clean test-run data (sdep-test-* rows only; keeps pre
 	docker exec -i sdep-postgres psql -U $$POSTGRES_SUPER_USER -d $$POSTGRES_DB_NAME \
 	  -v ON_ERROR_STOP=1 < postgres/clean-testrun.sql
 	@echo "✅ Test-run data cleaned!"
-
-postgres-prep-area-sql: ## Generate static test-data (02-area-generated.sql, only invoke when shapefiles changed)
-	@echo "🔄 Generating area SQL file with embedded shapefile data..."
-	@./test-data/postgres-prep-area-sql.sh
-	@echo "✅ Area SQL file generated!"
 
 ##@ DBGate (optional)
 
@@ -414,13 +459,13 @@ keycloak-match-client-public-keys: ## Match client public keys to private keys (
 	echo "export AMA_CLIENT_ID=$$AMA_CLIENT_ID" >> ./tmp/.credentials && \
 	echo "export AMA_CLIENT_SECRET=$$AMA_CLIENT_SECRET" >> ./tmp/.credentials
 
-##@ Backend
+##@ App
 
-backend-up: .build .clean-stale ## Start backend + database migration
+backend-up: .build .clean-stale ## Start backend (hot reload) + database migration
 	@echo "🚀 Starting backend..."
 	$(DOCKER_COMPOSE) up -d backend
 	@echo "✅ Backend started!"
-	@echo "ℹ️  Run 'make status' to explore URLs"
+	@echo "ℹ️  Run 'make urls' to explore URLs"
 
 backend-down: ## Stop and remove backend (including volumes)
 	@echo "🛑 Stopping and removing backend (including volumes)..."
@@ -432,7 +477,7 @@ backend-recreate: backend-down backend-up ## Stop, remove and start backend agai
 
 ##@ Fullstack
 
-up: .build .clean-stale ## Start postgres + keycloak + backend + load testdata
+up: .build .clean-stale ## Start postgres + keycloak + backend (hot reload) + load testdata
 	@echo "🚀 Starting fullstack..."
 	$(DOCKER_COMPOSE) up -d
 	@echo "✅ Fullstack started!"
@@ -445,9 +490,8 @@ up: .build .clean-stale ## Start postgres + keycloak + backend + load testdata
 	@$(MAKE) --no-print-directory postgres-drop-migrate-load
 	@echo "✅ Database initialized!"
 
-	@echo "🔍 Showing fullstack status..."
 	@$(MAKE) --no-print-directory status
-	@echo "✅ Fullstack status shown!"
+	@$(MAKE) --no-print-directory urls
 
 down: ## Stop and remove (including volumes)
 	@echo "🛑 Stopping and removing fullstack (including volumes)..."
@@ -461,6 +505,8 @@ status: ## Show status
 	@echo "🔍 Containers:"
 	@$(DOCKER_COMPOSE) ps
 	@echo ""
+
+urls: ## Show URLs
 	@echo "🔍 Use these URLs when containers are running:"
 	@set -a && source .env && set +a && \
 	printf "  %-42s %s\n" "Backend API docs (version independent):" "$$BACKEND_BASE_URL/api/docs" && \
@@ -491,7 +537,40 @@ status: ## Show status
 # in the same run's summary hook (tests/performance/locustfile.py).
 # See docs/PERFORMANCE_TESTS.md for the cleanup query itself.
 
-##@ Tests (fullstack, integration)
+##@ API
+
+# Client-signed JWT login for a test client of the local stack, step by step as a real client
+# does (docs/GET_STARTED_CLIENT_SIGNED_JWT.md, steps 4-7). The script matches the private key
+# in KEYCLOAK_JWT_CLIENT_DIR to the public key in the YAML. Override with CLIENT_NAME=...
+CLIENT_NAME ?= Test STR-JWT
+
+# A fresh tmp/ has no test clients. keycloak-configure generates them and registers their
+# public keys: generating alone gives keys that Keycloak does not know.
+.authenticate: ## Run one step of scripts/authenticate.py (STEP=...)
+	@if [ ! -f "$(MACHINE_CLIENTS_EXTENDED_YAML)" ]; then \
+		echo "ℹ️  No test clients yet ($(MACHINE_CLIENTS_EXTENDED_YAML) is missing)."; \
+		echo "   First running keycloak-configure, in order to generate the test clients with"; \
+		echo "   their key pairs, and to register the public keys in Keycloak (must be running)."; \
+		read -r -p "   Press Enter to continue, Ctrl+C to cancel: " _ || { echo; echo "❌ Cancelled: run 'make keycloak-configure' first"; exit 1; }; \
+		$(MAKE) --no-print-directory keycloak-configure; \
+	fi
+	@set -a && source .env && set +a && \
+	export SDEP_BASE_URL="$$BACKEND_BASE_URL" && \
+	export SDEP_TOKEN_URL="$${BACKEND_BASE_URL%/}/api/auth/v1/token" && \
+	export CLIENT_SIGNED_JWT_AUDIENCE="$${BACKEND_KC_BASE_URL%/}/realms/sdep/protocol/openid-connect/token" && \
+	CLIENT_NAME="$(CLIENT_NAME)" uv run --script scripts/authenticate.py $(STEP) \
+		--clients-file "$(MACHINE_CLIENTS_EXTENDED_YAML)" --key-dir "$(KEYCLOAK_JWT_CLIENT_DIR)" --env-label local
+
+client-signed-jwt: ## Create a client-signed JWT (asks client name, default Test STR-JWT) into tmp/
+	@$(MAKE) --no-print-directory .authenticate STEP=client-signed-jwt
+
+bearer: ## Get a bearer at /token with a client-signed JWT (new one when needed) into tmp/
+	@$(MAKE) --no-print-directory .authenticate STEP=bearer
+
+ping: ## Call the authenticated ping with the bearer (new one when needed)
+	@$(MAKE) --no-print-directory .authenticate STEP=ping
+
+##@ Test (fullstack, integration)
 
 .is-up: ## Check if services are running
 	@echo "🔍 Checking if services are up..." && \
@@ -571,6 +650,10 @@ test-ama: .ensure-up .get-client-credentials # Helper - Test only AMA endpoints
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && \
 	scripts/run-suite.sh ama
 
+test-tenant: .ensure-up .get-client-credentials # Helper - Test only tenant isolation (two CAs, two platforms, role per API)
+	@set -a && source ./.env && source ./tmp/.credentials && set +a && \
+	scripts/run-suite.sh tenant
+
 # test_auth_client_jwt is not in a suite: it provisions its own client-jwt clients here.
 test-security: .ensure-up .get-client-credentials # Helper - Test only security (headers, unauthorized, credentials)
 	@set -a && source ./.env && source ./tmp/.credentials && set +a && \
@@ -579,7 +662,7 @@ test-security: .ensure-up .get-client-credentials # Helper - Test only security 
 	JWT_PROVISION_CLIENTS=true uv run --script tests/test_auth_client_jwt.py && \
 	echo "✅ Security tested!"
 
-##@ Tests (migrations)
+##@ Test (migrations)
 
 .postgres-up-unless-ci: ## Start postgres, unless running in CI (which provides it as a service)
 	@if [ -z "$$CI" ]; then \
@@ -601,7 +684,7 @@ test-migrations: .postgres-up-unless-ci ## Test alembic migrations in postgresql
 	  uv run pytest -q -n 0 tests/services/test_concurrent_rename.py
 	@echo "✅ Migration tests completed!"
 
-##@ Tests (performance)
+##@ Test (performance)
 
 PERF_ACTIVITIES_TARGET ?= 5000
 PERF_MAX_DURATION_SECONDS ?= 300
@@ -632,7 +715,7 @@ test-perf-keep: .ensure-up .get-client-credentials ## Same as test-perf, keep ge
 test-perf-verbose: .ensure-up .get-client-credentials ## Same as test-perf, with periodic Locust stats
 	@$(PERF_ENV) PERF_VERBOSE=true $(CURDIR)/scripts/run-tests-perf.sh
 
-##@ Tests (security)
+##@ Test (security)
 
 # No .ensure-up here on purpose: the malware test talks directly to ClamAV (not the
 # backend API), so it only needs its own clamav container, started below (idempotent
@@ -690,7 +773,7 @@ test-cve-offline: ## Test the CVE allowlist script with fake reports, check CVE 
 	@uv run --script tests/test_trivy_allowlist.py
 	@echo "✅ CVE allowlist script tests completed!"
 
-##@ Tests (all)
+##@ Test (all)
 
 test: ## Test fullstack + migrations + performance + security (malware)
 	@echo "🧪 Running: test-full + test-migrations + test-perf + test-malware"
@@ -794,6 +877,7 @@ all: ## Markdown format/lint + spell-check + backend test + CVE offline + suites
 	@$(MAKE) --no-print-directory md-format
 	@$(MAKE) --no-print-directory md-lint
 	@$(MAKE) --no-print-directory spell-check
+	@$(MAKE) -C backend --no-print-directory fix
 	@$(MAKE) -C backend --no-print-directory test
 	@$(MAKE) --no-print-directory test-cve-offline
 	@$(MAKE) --no-print-directory test-suites
@@ -873,12 +957,5 @@ fullstack-logs: ## Show fullstack logs (postgres + keycloak + backend + dbgate/o
 ##@ Help
 
 help: ## Show help
-	@echo "🤖 Make"
-	@echo ""
-	@echo "Available commands:"
-	@echo ""
-	@echo "Usage:"
-	@printf "  make \033[36m<target>\033[0m\n"
-	@echo ""
-	@echo "  💡 All targets are idempotent (unless stated otherwise)"
-	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-40s\033[0m  %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@echo "Make"
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n  💡 All targets are idempotent (unless stated otherwise)\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-40s\033[0m  %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)

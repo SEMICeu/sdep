@@ -66,6 +66,30 @@ async def claim(
     return {row[0]: row[1] for row in result.all()}
 
 
+async def existing(
+    session: AsyncSession,
+    model: IdentityModel,
+    ids: Iterable[str],
+) -> set[str]:
+    """
+    Return which of the given functional IDs have an identity row, of any owner.
+
+    Args:
+        session: Async database session
+        model: Identity model, e.g. AreaIdentity
+        ids: Functional IDs to look up
+
+    Returns:
+        The IDs that exist
+    """
+    unique_ids = sorted(set(ids))
+    if not unique_ids:
+        return set()
+    id_col = getattr(model, model.id_column)
+    result = await session.execute(select(id_col).where(id_col.in_(unique_ids)))
+    return set(result.scalars().all())
+
+
 async def lock_client(
     session: AsyncSession,
     model: type[CompetentAuthorityIdentity] | type[PlatformIdentity],

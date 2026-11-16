@@ -89,10 +89,12 @@ Identity pattern
 - The identity row references its owner by functional id, not by technical id: the technical id changes with every owner version
 - Version rows reference their identity row by functional id (foreign key)
 - A functional id that another owner already uses is refused with `409` (`duplicate_error`)
-- Functional ids are case-sensitive and returned as submitted, so that own ids that are not UUIDs stay as they are
+- Functional ids are case-sensitive and returned as submitted, so that existing ids that are not UUIDs stay as they are
   - SDEP generates lowercase UUIDs
   - A UUID is sent in lowercase too: `3F2A…` and `3f2a…` are two ids
-- Clients are advised to use lowercase UUIDs, random or deterministic, see [ID management](./ARCHITECTURE_TECH.md#id-management)
+- A lowercase UUID, random or deterministic, is recommended for a supplied id (in the future mandatory), see [ID management](./ARCHITECTURE_TECH.md#id-management)
+  - SDEP-NL already refuses a new supplied id that is not a lowercase UUID
+  - An existing id of the same owner stays accepted
 
 ## Classes
 
@@ -206,7 +208,7 @@ The datamodel is a logical datamodel:
   - The owner may resubmit the `areaId` with other content: this creates a new version (identical content creates nothing, see [Idempotency](./ARCHITECTURE_TECH.md#idempotency))
   - Another competent authority gets `409` (`duplicate_error`)
   - A platform that references an `areaId` therefore always reaches one competent authority
-- A supplied `areaId` is stored and returned as submitted; a lowercase UUID is recommended, see [ID management](./ARCHITECTURE_TECH.md#id-management)
+- A supplied `areaId` is stored and returned as submitted; a lowercase UUID is recommended (in the future mandatory) and already validated for a new id, see [ID management](./ARCHITECTURE_TECH.md#id-management)
 - The `regulation` attribute (`listing`, `activity`, `all`) follows the two lists of areas in EU STR Regulation Article 13, see [Regulation](./AREA_FUNC.md#regulation)
 - For an area, multiple listings will be submitted (listing regulation)
 - For an area, multiple activities will be submitted (activity regulation)
@@ -249,7 +251,7 @@ The datamodel is a logical datamodel:
 
 - A `listingId` belongs to exactly one platform, as `activityId`, see the identity pattern
   - Another platform gets item NOK (`duplicate_error`)
-- A supplied `listingId` is stored and returned as submitted; a lowercase UUID is recommended, see [ID management](./ARCHITECTURE_TECH.md#id-management)
+- A supplied `listingId` is stored and returned as submitted; a lowercase UUID is recommended (in the future mandatory) and already validated for a new id, see [ID management](./ARCHITECTURE_TECH.md#id-management)
 - Every transition creates a new version; no listing row is updated in place
   - The platform corrects a `pending` listing by resubmitting the same `listingId` with other content
   - The listing screening authority sets `clear` or `flagged` (and may re-screen); the platform acknowledges a `flagged` listing (final)
@@ -270,7 +272,7 @@ The datamodel is a logical datamodel:
 | **status**             | string          | required, lifecycle status; `finished` by default when omitted, or `cancelled`                                                                |
 | **platform**           | reference       | required, references single Platform                                                                                                          |
 | **area**               | reference       | required, references single Area                                                                                                              |
-| **url**                | string          | required, length \<= 2048, e.g. http://example.com/my-advertisement                                                                           |
+| **url**                | string          | required, length \<= 2048, e.g. `http://example.com/my-advertisement`                                                                         |
 | **address**            | reference       | required, references single Address as composite                                                                                              |
 | **registrationNumber** | string          | required, length \<= 128                                                                                                                      |
 | **numberOfGuests**     | int             | required, min 1, max 1024                                                                                                                     |
@@ -295,7 +297,7 @@ The datamodel is a logical datamodel:
 - An `activityId` belongs to exactly one platform, see the identity pattern
   - The owner may resubmit the `activityId` with other content: this creates a new version (identical content creates nothing, see [Idempotency](./ARCHITECTURE_TECH.md#idempotency))
   - Another platform gets item NOK (`duplicate_error`)
-- A supplied `activityId` is stored and returned as submitted; a lowercase UUID is recommended, see [ID management](./ARCHITECTURE_TECH.md#id-management)
+- A supplied `activityId` is stored and returned as submitted; a lowercase UUID is recommended (in the future mandatory) and already validated for a new id, see [ID management](./ARCHITECTURE_TECH.md#id-management)
 - A later version may change `status` from `finished` to `cancelled`
   - This allows STRs to make corrections
   - Vice versa is (yet) also allowed
@@ -304,6 +306,10 @@ The datamodel is a logical datamodel:
   - The often-quoted 2048 traces back to Internet Explorer, which capped the path at 2048 and the full URL at 2083 characters
   - Current browsers accept far longer URLs and [RFC 9110, section 4.1](https://www.rfc-editor.org/rfc/rfc9110#section-4.1) asks for support of at least 8000 octets.
 - For `registrationNumber`, max length is 128: room for legacy registration numbers, which can exceed 32 characters
+- For `countryOfGuests`, there is one element per guest
+  - Guests from the same country: repeat the code, e.g. 3 guests from the Netherlands give `["NLD", "NLD", "NLD"]`
+  - A guest whose country the platform does not know: `N/A`, e.g. `["NLD", "DEU", "N/A"]`
+  - No guest's country known: `N/A` for each guest, e.g. `["N/A", "N/A"]`
 
 ---
 

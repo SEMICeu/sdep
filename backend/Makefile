@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 .PHONY: init install \
         upgrade upgrade-sql downgrade revision show-history show-current \
-        clean-stale up dev down \
+        clean-stale dev \
         test all test-verbose test-coverage test-coverage-verbose test-crud test-services test-api test-security api-snapshot-update api-diff-update \
         format lint typecheck check \
         clean help
@@ -60,15 +60,29 @@ show-history: ## Show migration history (offline, no database needed)
 
 ##@ Dev
 
-check: ## Format, lint, type check
+# check only verifies, so the pipeline fails on unformatted code; fix rewrites.
+check: ## Verify format, lint, type check (changes no files)
 	@echo "🧪 Checking backend quality..."
-	uv run ruff format . ## Format code and auto-fix
-	uv run ruff format --check . ## Verify formatting is correct
-	uv run ruff check --select I --fix-only . ## Organize imports
-	uv run pyright . ## Check typing
-	uv run ruff check . ## Lint (check for errors and style issues)
-	uv run ty check ## Verify type completeness (locked dev dependency, no fetch at run time)
+
+	## Verify formatting is correct
+	uv run ruff format --check .
+
+	## Check typing
+	uv run pyright .
+
+	## Lint (check for errors and style issues, incl. import order)
+	uv run ruff check .
+
+	## Verify type completeness (locked dev dependency, no fetch at run time)
+	uv run ty check
+
 	@echo "✅ Quality check completed!"
+
+fix: ## Format and apply the lint fixes ruff can make (incl. import order)
+	@echo "🔧 Fixing backend code style..."
+	uv run ruff format .
+	uv run ruff check --fix .
+	@echo "✅ Fixes applied, run make check to verify"
 
 clean-stale: # Kill any stale uvicorn/backend processes
 	@echo "🧹 Cleaning stale backend processes..."
@@ -94,31 +108,17 @@ clean-stale: # Kill any stale uvicorn/backend processes
 	done
 	@echo "✅ Stale processes cleaned!"
 
-_start: clean-stale
+# On the host, in the foreground: Ctrl-C stops it.
+dev: clean-stale ## Start backend (fastapi with hot reload)
 	@if [ "$$(id -u)" = "0" ]; then \
 		echo "❌ Error: Do not run uvicorn as root!"; \
 		exit 1; \
 	fi
-	@echo "🚀 Starting backend..."
+	@echo "🚀 Starting backend on http://localhost:8000 (Ctrl-C to stop)..."
 	@echo "API docs running at http://localhost:8000/api/docs"
 	# Watch app/ only. Watching backend/ includes .venv and exhausts the kernel's
 	# inotify watch limit (fs.inotify.max_user_watches, 65536 by default).
 	uv run uvicorn app.main:app --reload --reload-dir app --no-server-header
-	@echo "✅ Backend started!"
-
-up: _start ## Start backend
-
-dev: _start ## Start backend (alias for up)
-
-down: ## Stop backend
-	@echo "🛑 Stopping backend..."
-	@PID=$$(pgrep -f "uvicorn app.main:app --reload" 2>/dev/null | head -1); \
-	if [ -n "$$PID" ]; then \
-		kill -TERM $$PID 2>/dev/null && echo "✅ API server stopped!" || echo "Failed to stop API server"; \
-	else \
-		echo "API server was not running"; \
-	fi
-	@echo "✅ Backend stopped!"
 
 ##@ Unit testing
 

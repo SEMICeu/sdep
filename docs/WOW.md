@@ -1,5 +1,13 @@
 <h1>Way of working (WoW)</h1>
 
+<h2>Table of contents</h2>
+
+- [Partnering](#partnering)
+- [Issue management](#issue-management)
+- [Issue labels](#issue-labels)
+- [Work in progress](#work-in-progress)
+- [Work completed](#work-completed)
+
 ## Partnering
 
 - Work technically together with actively participating EU Member States

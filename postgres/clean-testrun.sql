@@ -1,7 +1,8 @@
 -- Delete in FK order: children first, then parents
 -- activity -> area (FK), activity -> platform (FK)
 -- listing  -> area (FK), listing  -> platform (FK)
--- Also delete rows linked to sdep-test-* parents (e.g. auto-generated UUIDs)
+-- Test rows have UUIDs as functional id (supplied or generated), so they are found
+-- through their sdep-test-* parents. The id prefix matches older test rows.
 
 -- Delete activities in batches (10 000 rows per transaction) to avoid
 -- long-running transactions that can time out under load.

@@ -119,6 +119,12 @@ run_markdown() {
   step spell-check make --no-print-directory spell-check || return 1
 }
 
+# Before run_all, so the resumable backend test runs on fixed code and a fix on
+# dod-continue changes nothing in backend/.
+run_fix() {
+  step backend-fix make -C backend --no-print-directory fix || return 1
+}
+
 # Same order as `make all`: backend test and image scan (Docker only), then the stack
 # is started and Keycloak provisioned for the suites that need it. Resumable.
 run_all() {
@@ -146,7 +152,7 @@ else
   echo "🧪 Definition of Done (incl. clean-keep-keep-clean test-cycle for full and perf; all logs go in $LOG_DIR/)"
 fi
 echo ""
-run_docs_checks && run_api && run_markdown && run_all
+run_docs_checks && run_api && run_markdown && run_fix && run_all
 echo ""
 if [ -n "$FAILED" ]; then
   echo "$FAILED" > "$LOG_DIR/failed"

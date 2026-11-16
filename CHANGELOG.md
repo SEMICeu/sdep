@@ -4,6 +4,50 @@
 
 *See also the [API](./docs/API_TECH.md) documentation and the [API version diff](./docs/API_DIFF_TECH.md).*
 
+<h1>1.10.1</h1>
+
+- Resolved CVE-2026-114605 (denial of service in `dnspython`), by raising its minimum version to 2.9.0
+- Hardened the backend image: run as numeric non-root UID `10001` in group `0`, without setuid/setgid binaries (defense in-depth)
+- Improved makefile targets ("urls", client-signed JWT, check/fix)
+- Added hot reload to the fullstack (`make up`)
+- Improved anticipation for client-supplied functional IDs in API (`areaId`, `listingId`, `activityId`):
+  - A lowercase UUID ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562)) is now **recommended** instead of suggested (in the future mandatory, finalizing discussion in the technical working group [#79](https://github.com/SEMICeu/sdep/issues/79))
+  - This builds further on 1.9.0, where a functional id became owned by one client
+  - Now to avoid unexpected rejections due to IDs that are taken by other clients [#101](https://github.com/SEMICeu/sdep/issues/101)
+- Improved anticipation for client-supplied functional IDs in the SDEP-NL impl: already validate the UUID format of a new supplied ID
+  - Format: lowercase, `8-4-4-4-12` hexadecimal characters, any version (e.g. random UUIDv4 or deterministic UUIDv5/v8)
+  - Any other new ID is refused: `422` (`business_logic_error`) on `POST /areas`, or item NOK (`business_logic_error`) on bulk writes
+  - An existing ID of the same owner can still be resubmitted, so existing records can still be updated or corrected
+  - Added the setting `FUNCTIONAL_ID_UUID_REQUIRED` (default `true`)
+  - Updated the documentation for [ID management](./docs/ARCHITECTURE_TECH.md#id-management), [getting started in PRE](./docs/GET_STARTED_PRE.md) and [getting started in PRD](./docs/GET_STARTED_PRD.md)
+  - Integration and performance tests now supply UUIDs as functional ID
+
+---
+
+**Impact**
+
+---
+
+v1:
+
+| Scope             | Domain | Version | Meta     | Delta                | Notes                                                                 |
+| ----------------- | ------ | ------- | -------- | -------------------- | --------------------------------------------------------------------- |
+| **EU-harmonized** | `STR`  | `v1`    | `stable` | **Narrowed** **[1]** | POST activities: a new supplied `activityId` must be a lowercase UUID |
+| Country-specific  | `CA`   | `v1`    | `stable` | Narrowed **[1]**     | POST areas: a new supplied `areaId` must be a lowercase UUID          |
+
+[1] The API contract is unchanged: it recommends a lowercase UUID (in the future mandatory). SDEP-NL, as reference implementation, already refuses a new supplied ID in another format, to avoid unexpected rejections due to IDs taken by other clients. An existing ID of the same owner stays accepted.
+
+---
+
+v2:
+
+| Scope             | Domain | Version | Meta    | Delta                        | Notes                                                                                        |
+| ----------------- | ------ | ------- | ------- | ---------------------------- | -------------------------------------------------------------------------------------------- |
+| **EU-harmonized** | `STR`  | `v2`    | `alpha` | **Narrowed** **[1]** **[2]** | POST activities, listings: a new supplied `activityId`, `listingId` must be a lowercase UUID |
+| Country-specific  | `CA`   | `v2`    | `alpha` | Narrowed **[1]** **[2]**     | POST areas: a new supplied `areaId` must be a lowercase UUID                                 |
+
+[2] Work in progress (alpha)
+
 <h1>1.10.0</h1>
 
 - Implemented idempotency for network failures: same records sent again do not create duplicates ([#91](https://github.com/SEMICeu/sdep/issues/91))

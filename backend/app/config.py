@@ -198,6 +198,17 @@ class Settings(BaseSettings):
         description="HMAC key of the generated functional IDs (min 32 chars outside DEV)",
     )
 
+    # A new functional ID that the caller supplies must be a lowercase UUID, so it
+    # cannot be taken by another client already. An existing ID of the same owner
+    # stays accepted (see app/services/functional_id.py, refused_ids).
+    FUNCTIONAL_ID_UUID_REQUIRED: bool = Field(
+        default=True,
+        description=(
+            "Require the lowercase UUID format (RFC 9562) for a new, supplied areaId, "
+            "listingId or activityId. Enabled by default."
+        ),
+    )
+
     @model_validator(mode="after")
     def _no_alpha_in_production(self) -> Self:
         """Refuse to start PRD with alpha versions enabled (see API_ALPHA_ENABLED)."""

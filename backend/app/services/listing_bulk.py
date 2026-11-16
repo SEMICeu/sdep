@@ -4,8 +4,9 @@ Application-First Validation flow, as for activities:
 
 1. Pydantic Check - validate each item individually, mark failures as NOK
 2. Referential Integrity Check - one SELECT for area IDs; an area must be
-   regulated for listings (`regulation_error` otherwise); then claim the
-   listing IDs, an ID of another platform is NOK (`duplicate_error`)
+   regulated for listings (`regulation_error` otherwise); a new, supplied
+   listing ID that is no lowercase UUID is NOK (`business_logic_error`); then claim
+   the listing IDs, an ID of another platform is NOK (`duplicate_error`)
 3. Versioning under lock - a listing that is identical to its current version
    is a resend: OK with the stored version, whatever its status; otherwise a
    resubmitted `listingId` is a correction, allowed while the current version
@@ -31,7 +32,13 @@ from app.enums import ListingStatus, Regulation
 from app.models.identity import ListingIdentity
 from app.schemas.listing import ListingBulkCreate, ListingRequest, ListingResponse
 from app.schemas.listing_bulk import ListingBulkResponse, ListingBulkResultItem
-from app.services.functional_id import content, generate_id, stored_content
+from app.services.functional_id import (
+    content,
+    generate_id,
+    refused_ids,
+    stored_content,
+    uuid_required_message,
+)
 from app.services.listing_bulk_common import (
     finish,
     last_wins,
@@ -118,6 +125,32 @@ async def create_listings_bulk(
                 msg=f"Area with areaId '{area_id_str}' is regulated for activity only",
                 error_type="regulation_error",
                 loc=["areaId"],
+            )
+        else:
+            still_valid.append(i)
+    valid_indexes = still_valid
+
+    # UUID format of new, supplied listing IDs (see services/functional_id.py)
+    refused = await refused_ids(
+        session,
+        ListingIdentity,
+        [
+            validated_items[i].validated_listing_id
+            for i in valid_indexes
+            if i not in generated
+        ],
+    )
+    still_valid = []
+    for i in valid_indexes:
+        listing_id = validated_items[i].validated_listing_id
+        if i not in generated and listing_id in refused:
+            results[i] = nok_item(
+                ListingBulkResultItem,
+                i,
+                client_supplied_ids[i],
+                msg=uuid_required_message("listingId", listing_id),
+                error_type="business_logic_error",
+                loc=["listingId"],
             )
         else:
             still_valid.append(i)

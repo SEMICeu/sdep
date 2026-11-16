@@ -71,10 +71,17 @@ Submitted by the platform (`POST /activities/bulk`).
 | `address`            | Rental address (the `Address` composite, shared with listings)                                          |
 | `registrationNumber` | Registration number of the rental address                                                               |
 | `numberOfGuests`     | Number of guests; must match the length of `countryOfGuests`                                            |
-| `countryOfGuests`    | One ISO 3166-1 alpha-3 code per guest, or `N/A`                                                         |
+| `countryOfGuests`    | One ISO 3166-1 alpha-3 code per guest, or `N/A` **[2]**                                                 |
 | `temporal`           | The rental period (`startDatetime`, `endDatetime`); UTC                                                 |
 
 [1] `activityId` belongs to one platform and is unique across all platforms, see [Identity](./DATAMODEL_TECH.md#identity). Each version of it has its own `createdAt`. A resubmitted ID with other content is a correction, see [characteristics](#characteristics). A generated ID is deterministic: an identical activity resent without an ID gets the same ID, see [ID management](./ARCHITECTURE_TECH.md#id-management).
+
+[2] `countryOfGuests` holds one element per guest, so its length equals `numberOfGuests`:
+
+- Guests from the same country: repeat the code, e.g. 3 guests from the Netherlands give `["NLD", "NLD", "NLD"]`
+- A guest whose country the platform does not know: `N/A`, e.g. `["NLD", "DEU", "N/A"]`
+- No guest's country known: `N/A` for each guest, e.g. `["N/A", "N/A"]`
+- Uppercase only: `nld` and `n/a` are rejected
 
 ---
 
@@ -142,6 +149,7 @@ B. Steps:
    - Invalid items are marked NOK with their errors; valid items continue
    - The original client-supplied `activityId` (or `None`) is preserved for the response
    - For valid items, a missing `activityId` is generated after step 2, because the platform is part of it: a deterministic UUIDv8, see [ID management](./ARCHITECTURE_TECH.md#id-management). An ID whose activity is deactivated is skipped (the next generation).
+   - A supplied `activityId` that is new and not a lowercase UUID is marked NOK (`business_logic_error`) right before the ownership claim, see [ID management](./ARCHITECTURE_TECH.md#id-management). An existing `activityId` of the same platform stays accepted.
 
 2. Resolve or version the `Platform` once per batch (on a platform rename, its identity row is locked first, see [Locking](./ARCHITECTURE_TECH.md#locking)):
 

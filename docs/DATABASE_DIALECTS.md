@@ -60,7 +60,7 @@ For built-in enum support, prefer SQLAlchemy's `Enum(..., native_enum=True)` ove
 
 **Why functional IDs are `VARCHAR(64)` and not `UUID`**
 
-Clients are allowed to submit their own functional IDs (alphanumeric with hyphens, ≤ 64 chars, e.g. `"amsterdam-area0363"`). These are not required to be UUIDs, so the column type must accept arbitrary short strings.
+Clients are allowed to submit their own functional IDs (alphanumeric with hyphens, ≤ 64 chars). A new ID must be a lowercase UUID, but existing IDs such as `"amsterdam-area0363"` stay valid, so the column type must accept arbitrary short strings. See [ID management](./ARCHITECTURE_TECH.md#id-management).
 
 ## PostgreSQL-specific constraints
 

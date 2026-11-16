@@ -162,7 +162,9 @@ Every area, listing and activity has a **functional ID** (`areaId`, `listingId`,
 As competent authority (**CA**) or short-term rental platform (**STR**), you can either:
 
 - **Create (and submit) functional IDs by yourself**
-  - Suggestion: random UUID v4, or deterministic UUID v5/v8 ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562))
+  - Recommended (in the future mandatory): a lowercase UUID, random (UUID v4) or deterministic (UUID v5/v8) ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562))
+  - Motivation: to avoid unexpected rejections due to IDs that are taken by other clients
+  - SDEP-NL already validates this: a new ID that is not a lowercase UUID is refused (an existing ID of your own can still be resubmitted)
 - **Let SDEP create the functional IDs** (you leave them out on initial submission)
   - SDEP will generate and return the IDs (as deterministic UUID v8)
 
@@ -203,10 +205,19 @@ Motivation:
 - A new random check of the same listing only needs a new (your) ID
   - Without an ID, an identical listing returns the stored one, and no new check starts
 
-Suggested approach:
+Recommended approach (in the future mandatory):
 
-- Generate a UUID for each new record, e.g. random UUIDv4 or deterministic UUIDv5/v8 ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562))
-- Store it, and use the same ID for every update or correction of that record
+- Generate a lowercase UUID for each new record, e.g. random UUIDv4 or deterministic UUIDv5/v8 ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562))
+- Use the same ID for every update or correction of that record
+
+Choose between random or deterministic:
+
+- A random UUID must be stored with your record (or in a mapping table)
+  - Advantage: the structure or values of any field may change later
+- A deterministic UUID is derived from (a selection of) your record's own data
+  - Advantage: no need to store the mapping
+  - Disadvantage: the structure or values of the fields that the UUID is derived from may never change afterwards (a change gives another UUID)
+  - And derive the UUID from a stable key, not from content that can change
 
 In short: one record, one ID, for its whole lifecycle.
 

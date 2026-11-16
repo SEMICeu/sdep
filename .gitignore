@@ -263,7 +263,7 @@ dist-ssr/
 # Docker
 .dockerignore
 Dockerfile.dev
-docker-compose.override.yml
+docker-compose.override.y*ml
 
 # IDE
 .vscode/

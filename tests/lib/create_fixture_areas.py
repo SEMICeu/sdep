@@ -6,12 +6,13 @@
 # ]
 # ///
 
-# Creates N fixture areas with sdep-test-* IDs using CA credentials.
+# Creates N fixture areas using CA credentials. Each areaId is a UUID, derived from
+# the prefix (a new functional ID must be a UUID).
 # Usage: create_fixture_areas.py [count] [prefix]
 # Outputs area IDs to stdout (one per line). Errors to stderr.
 # Requires env: BACKEND_BASE_URL, API_VERSION (defaults to v1), CA1_CLIENT_ID, CA1_CLIENT_SECRET
-# Uses the ephemeral test CA client (sdep-test-ca.01) so all created rows match
-# sdep-test-* for cleanup. Gets the CA token locally only - it does NOT touch
+# Uses the ephemeral test CA client (sdep-test-ca.01) so the cleanup finds all
+# created rows through their sdep-test-* owner. Gets the CA token locally only - it does NOT touch
 # ./tmp/.bearer_token. Both the stdout (area IDs) and stderr (errors) contracts
 # are relied on by the performance path in the consuming deployment repository.
 
@@ -21,6 +22,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from pathlib import Path
 
 import httpx
@@ -28,6 +30,11 @@ import httpx
 
 # Shapefile is a static sdep-app asset anchored to the repo root (tests/lib -> repo).
 SHAPEFILE_PATH = Path(__file__).resolve().parents[2] / "test-data" / "shapefiles" / "Amsterdam.zip"
+
+
+def as_uuid(name: str) -> str:
+    """Return the UUIDv5 of a readable test name: a new functional ID must be a UUID."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, name))
 
 
 def env(name: str) -> str:
@@ -64,7 +71,7 @@ def main() -> int:
     api_version = os.getenv("API_VERSION", "v1")
 
     timestamp = int(time.time() * 1000)
-    area_ids = [f"{prefix}-{timestamp}-{index}" for index in range(1, count + 1)]
+    area_ids = [as_uuid(f"{prefix}-{timestamp}-{index}") for index in range(1, count + 1)]
 
     with httpx.Client(timeout=30.0) as client:
         ca_token = auth_token(
