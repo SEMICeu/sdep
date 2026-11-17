@@ -178,18 +178,21 @@ In either case it is recommended:
 
 What happens when you submit a record:
 
-| When        | With functional ID            | With content (other fields) as ... | Result                                                                            |
-| ----------- | ----------------------------- | ---------------------------------- | --------------------------------------------------------------------------------- |
-| Submitted   | Empty (ID is created by SDEP) | New                                | A new record, new ID is created and returned by SDEP                              |
-| Resubmitted | Empty (ID is created by SDEP) | Same as before                     | No new record, same ID is returned by SDEP (**idempotency**)                      |
-| Resubmitted | Empty (ID is created by SDEP) | Different from before              | A new record, new ID is created and returned by SDEP                              |
-| Submitted   | New, as created by you        | New                                | A new record, the supplied ID is returned by SDEP                                 |
-| Resubmitted | Existing **[1]**              | Same as before                     | No new record, same ID is returned by SDEP (**idempotency**)                      |
-| Resubmitted | Existing                      | Different from before              | A new version of the record (**versioning**), same ID is returned by SDEP **[2]** |
+| When        | With functional ID                  | With content as ...                     | Result                                                                            |
+| ----------- | ----------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------- |
+| Submitted   | Empty                               | New                                     | A new record, new ID is created and returned by SDEP                              |
+| Resubmitted | Empty                               | Same as before                          | No new record, same ID is returned by SDEP (**idempotency**)                      |
+| Resubmitted | Empty                               | Other value in key field(s) **[1]**     | A new record, new ID is created and returned by SDEP                              |
+| Resubmitted | Empty                               | Other value in non-key field(s) **[1]** | A new version of the record (**versioning**), same ID is returned by SDEP **[3]** |
+| Submitted   | New, as created by the client (you) | New                                     | A new record, the supplied ID is returned as-is by SDEP                           |
+| Resubmitted | Existing **[2]**                    | Same as before                          | No new record, same ID is returned by SDEP (**idempotency**)                      |
+| Resubmitted | Existing                            | Different from before                   | A new version of the record (**versioning**), same ID is returned by SDEP **[3]** |
 
-[1] Earlier created by SDEP and kept by you, or earlier created by you.
+[1] SDEP creates the ID from the key fields of the record: for an area all its fields, for an activity `registrationNumber`, `startDatetime`, `endDatetime` and `url`, for a listing `url`. See [ID management](./ARCHITECTURE_TECH.md#id-management).
 
-[2] This represents an update or correction, e.g. a corrected shapefile for an area (CA), or another number of guests for an activity (STR). A listing can only be corrected while it is `pending`.
+[2] Earlier created by SDEP and kept by you, or earlier created by you.
+
+[3] This represents an update or correction, e.g. a corrected shapefile for an area (CA), or another number of guests for an activity (STR). A listing can only be corrected while it is `pending`: once screened, a listing without ID gets a new ID (a new listing), a listing with an existing ID is refused (`conflict_error`).
 
 ---
 

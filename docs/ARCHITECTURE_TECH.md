@@ -652,7 +652,12 @@ Why a key, not all fields (activity, listing):
 - The registration number alone is not enough: registration numbers are public, so a bad actor can copy one
   - The `url` keeps a real and a copied listing apart, the owner keeps two platforms apart
 - Area keeps all its fields as key: its content is its identity, and production data depends on its IDs
-- Until 1.10.x, the ID of an activity or listing came from all its fields (input version 1)
+- Up to 1.10.1, the ID of an activity or listing came from all its fields (input version 1)
+
+Why both dates in the activity key:
+
+- An activity is one stay, and a listing has many stays over time: the dates tell the stays apart
+- A key without dates (`url`, `registrationNumber`, owner) identifies the listing, not the stay
 
 Why a secret key (seed):
 
@@ -687,15 +692,15 @@ The approach: harden SDEP against network failures, while keeping the [versionin
 - **Versioning:** a record with the same ID and other content must still create a new version (an update or correction).
 - **Rule:** only the content decides. An identical record is stored only once, a changed record with the same ID is a new version.
 
-| When        | With functional ID         | With content as            | Then for Area                        | Then for Activity                    | Then for Listing                                                |
-| ----------- | -------------------------- | -------------------------- | ------------------------------------ | ------------------------------------ | --------------------------------------------------------------- |
-| Submitted   | Empty                      | New                        | New ID (created by SDEP), new record | New ID (created by SDEP), new record | New ID (created by SDEP), new record (`pending`)                |
-| Resubmitted | Empty                      | Same as before             | Same ID, same record **[1]**         | Same ID, same record **[1]**         | Same ID, same record **[1]**, whatever its status               |
-| Resubmitted | Empty                      | Other value in a key field | New ID (created by SDEP), new record | New ID (created by SDEP), new record | New ID (created by SDEP), new record (`pending`)                |
-| Resubmitted | Empty                      | Same key, other details    | n/a **[4]**                          | Same ID, new record version **[2]**  | New version **[2]** while `pending`, otherwise a new ID **[5]** |
-| Submitted   | New, created by the client | New                        | Submitted ID, new record             | Submitted ID, new record             | Submitted ID, new record (`pending`)                            |
-| Resubmitted | Existing **[3]**           | Same as before             | Same ID, same record **[1]**         | Same ID, same record **[1]**         | Same ID, same record **[1]**, whatever its status               |
-| Resubmitted | Existing                   | Different from before      | Same ID, new record version **[2]**  | Same ID, new record version **[2]**  | New version **[2]** while `pending`, otherwise `conflict_error` |
+| When        | With functional ID         | With content as                 | Then for Area                        | Then for Activity                    | Then for Listing                                                |
+| ----------- | -------------------------- | ------------------------------- | ------------------------------------ | ------------------------------------ | --------------------------------------------------------------- |
+| Submitted   | Empty                      | New                             | New ID (created by SDEP), new record | New ID (created by SDEP), new record | New ID (created by SDEP), new record (`pending`)                |
+| Resubmitted | Empty                      | Same as before                  | Same ID, same record **[1]**         | Same ID, same record **[1]**         | Same ID, same record **[1]**, whatever its status               |
+| Resubmitted | Empty                      | Other value in key field(s)     | New ID (created by SDEP), new record | New ID (created by SDEP), new record | New ID (created by SDEP), new record (`pending`)                |
+| Resubmitted | Empty                      | Other value in non-key field(s) | n/a **[4]**                          | Same ID, new record version **[2]**  | New version **[2]** while `pending`, otherwise a new ID **[5]** |
+| Submitted   | New, created by the client | New                             | Submitted ID, new record             | Submitted ID, new record             | Submitted ID, new record (`pending`)                            |
+| Resubmitted | Existing **[3]**           | Same as before                  | Same ID, same record **[1]**         | Same ID, same record **[1]**         | Same ID, same record **[1]**, whatever its status               |
+| Resubmitted | Existing                   | Different from before           | Same ID, new record version **[2]**  | Same ID, new record version **[2]**  | New version **[2]** while `pending`, otherwise `conflict_error` |
 
 [1] SDEP answers OK with the stored version (same ID, same `createdAt`), and writes nothing (**idempotency**).
 

@@ -104,6 +104,7 @@ An activity that is sent without `activityId` gets an ID from SDEP, see [ID mana
 - SDEP makes the ID from the key of the activity: the registration number, the start and end date, and the URL of the listing.
 - Modified data with the same key, without an `activityId`, is a correction: a new version of the existing activity (e.g. a corrected number of guests).
 - Modified dates without an `activityId` give another key, so a new activity. To correct the dates, the platform must provide the `activityId`.
+- The dates are part of the key, because a listing has many stays (activities) over time: without the dates, every new stay would replace the previous one. See [ID management](./ARCHITECTURE_TECH.md#id-management).
 - As a result, two distinct rentals (stays) with the same key are treated as a single activity, e.g. two rooms behind one listing on the same dates. Platforms that need to distinguish such stays must provide their own `activityId`.
 
 As discussed in the EU technical working group:
