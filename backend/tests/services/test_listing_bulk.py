@@ -67,8 +67,8 @@ class TestListingBulkServices:
             [
                 _listing(areas["all"], listingId="l-ok"),
                 {"areaId": areas["all"]},
-                _listing("missing-area"),
-                _listing(areas["activity"]),
+                _listing("missing-area", url="http://example.com/missing"),
+                _listing(areas["activity"], url="http://example.com/activity"),
                 _listing(areas["all"], listingId="dup"),
                 _listing(areas["all"], listingId="dup"),
                 _listing(areas["listing"], listingId=""),
@@ -354,10 +354,10 @@ class TestListingBulkServices:
         )
         assert (again.listing_name, again.registration_number) == ("Name", "REG1")
 
-    async def test_other_content_or_platform_gives_another_listing(
+    async def test_other_key_or_platform_gives_another_listing(
         self, async_session, areas
     ):
-        """Other content or another platform: another generated listingId."""
+        """Another key (`url`) or another platform: another generated listingId."""
         posts = [
             (_listing(areas["all"]), "str-1"),
             (_listing(areas["all"], url="http://example.com/y"), "str-1"),
@@ -371,6 +371,88 @@ class TestListingBulkServices:
             assert response.results[0].listing is not None
             ids.add(response.results[0].listing.listing_id)
         assert len(ids) == 3
+
+    async def test_same_url_other_details_while_pending_is_a_new_version(
+        self, async_session, areas
+    ):
+        """A correction without listingId versions the pending listing of the same url."""
+        scope = ListingScope(platform_client_id="str-1")
+        first = await create_listings_bulk(
+            async_session, [_listing(areas["all"])], "str-1", "STR 1"
+        )
+        corrected = await create_listings_bulk(
+            async_session,
+            [_listing(areas["all"], listingName="Corrected")],
+            "str-1",
+            "STR 1",
+        )
+        stored, again = first.results[0].listing, corrected.results[0].listing
+        assert stored is not None and again is not None
+        assert again.listing_id == stored.listing_id
+        assert again.status == ListingStatus.pending
+        assert again.listing_name == "Corrected"
+        assert (
+            await listing_service.count_current_listings(async_session, scope=scope)
+            == 1
+        )
+
+    async def test_same_url_other_details_after_screening_is_a_new_check(
+        self, async_session, areas
+    ):
+        """A screened listing is closed: a change without listingId gets a new ID."""
+        scope = ListingScope(platform_client_id="str-1")
+        first = await create_listings_bulk(
+            async_session, [_listing(areas["all"])], "str-1", "STR 1"
+        )
+        stored = first.results[0].listing
+        assert stored is not None
+        current = await listing_service.get_listing_list(async_session, scope=scope)
+        await screen_listings_bulk(
+            async_session,
+            [
+                {
+                    "platformId": stored.platform_id,
+                    "listingId": stored.listing_id,
+                    "createdAt": _token(current[0]) + "Z",
+                    "flags": ["UNK"],
+                }
+            ],
+        )
+
+        changed = _listing(areas["all"], listingName="Renamed")
+        new = (
+            await create_listings_bulk(async_session, [changed], "str-1", "STR 1")
+        ).results[0]
+        assert new.status == "OK", new
+        assert new.listing is not None
+        assert new.listing.listing_id != stored.listing_id
+        assert new.listing.status == ListingStatus.pending
+        assert uuid.UUID(new.listing.listing_id).version == 8
+
+        # A resend of the change lands on the new ID, of the original on the old one
+        again = await create_listings_bulk(async_session, [changed], "str-1", "STR 1")
+        original = await create_listings_bulk(
+            async_session, [_listing(areas["all"])], "str-1", "STR 1"
+        )
+        assert again.results[0].listing is not None
+        assert again.results[0].listing.listing_id == new.listing.listing_id
+        assert original.results[0].listing is not None
+        assert original.results[0].listing.listing_id == stored.listing_id
+        assert original.results[0].listing.status == ListingStatus.flagged
+
+        # The new listing is pending, so a next change versions it
+        corrected = await create_listings_bulk(
+            async_session,
+            [_listing(areas["all"], listingName="Corrected")],
+            "str-1",
+            "STR 1",
+        )
+        assert corrected.results[0].listing is not None
+        assert corrected.results[0].listing.listing_id == new.listing.listing_id
+        assert (
+            await listing_service.count_current_listings(async_session, scope=scope)
+            == 2
+        )
 
     async def test_platform_rename_keeps_listing_findable(self, async_session, areas):
         """A client_name change versions the platform; its listings stay one current row."""

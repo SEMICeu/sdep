@@ -96,11 +96,15 @@ Activities are [versioned](./ARCHITECTURE_TECH.md#versioning):
 - A changed activity with the same `activityId` creates a new version (e.g. a cancellation).
 - An identical activity with the same `activityId` returns the existing activity, without storing a new version (see [Idempotency](./ARCHITECTURE_TECH.md#idempotency)).
 
+> **Deprecated:** functional ID generation by SDEP (a functional ID left empty) is deprecated, in favour of a client-supplied lowercase UUID. It stays supported until that UUID becomes mandatory (finalizing discussion in the technical working group), see [ID management](./ARCHITECTURE_TECH.md#id-management).
+
 An activity that is sent without `activityId` gets an ID from SDEP, see [ID management](./ARCHITECTURE_TECH.md#id-management):
 
 - If an identical activity is submitted again without an `activityId` (e.g. after a lost response), SDEP returns the existing activity with the same ID without storing a duplicate.
-- As a result, two distinct rentals (stays) with identical data are treated as a single activity. Platforms that need to distinguish such stays must provide their own `activityId`.
-- To correct or cancel an existing activity, the platform must provide its `activityId`. Submitting modified data without an `activityId` creates a new activity rather than updating the existing one.
+- SDEP makes the ID from the key of the activity: the registration number, the start and end date, and the URL of the listing.
+- Modified data with the same key, without an `activityId`, is a correction: a new version of the existing activity (e.g. a corrected number of guests).
+- Modified dates without an `activityId` give another key, so a new activity. To correct the dates, the platform must provide the `activityId`.
+- As a result, two distinct rentals (stays) with the same key are treated as a single activity, e.g. two rooms behind one listing on the same dates. Platforms that need to distinguish such stays must provide their own `activityId`.
 
 As discussed in the EU technical working group:
 

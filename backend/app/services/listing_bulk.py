@@ -10,12 +10,14 @@ Application-First Validation flow, as for activities:
 3. Versioning under lock - a listing that is identical to its current version
    is a resend: OK with the stored version, whatever its status; otherwise a
    resubmitted `listingId` is a correction, allowed while the current version
-   is `pending` (`conflict_error` otherwise)
+   is `pending` (`conflict_error` otherwise); a generated ID of a screened
+   listing never gets here, it moves to the next generation
 4. Feedback - per-item OK/NOK response preserving original order
 
 Transaction management: see app/services/activity_bulk.py.
 """
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -34,8 +36,9 @@ from app.schemas.listing import ListingBulkCreate, ListingRequest, ListingRespon
 from app.schemas.listing_bulk import ListingBulkResponse, ListingBulkResultItem
 from app.services.functional_id import (
     content,
-    generate_id,
+    key,
     refused_ids,
+    resolve_ids,
     stored_content,
     uuid_required_message,
 )
@@ -80,15 +83,41 @@ async def create_listings_bulk(
     platform = await ensure_platform(session, client_id, platform_name)
 
     # ── Generated listing IDs (deterministic, see services/functional_id.py)
-    # The platform is part of the ID. A listing is never deleted, so the first
-    # generation is always the one (no generation chain as for areas).
+    # The platform is part of the ID, the key is the `url`. A screened listing with
+    # other content moves to the next generation: a new ID and a new random check,
+    # see docs/LISTING_TECH.md, "Generated listing ID".
     generated = {i for i in valid_indexes if validated_items[i].listing_id is None}
-    for i in generated:
-        validated_items[i].listing_id = generate_id(
-            "listing",
-            platform.platform_id,
-            content(validated_items[i], "listing_id"),
+
+    async def never_deleted(_ids: list[str]) -> set[str]:
+        return set()
+
+    async def screened_other(ids_by_index: Mapping[int, str]) -> set[int]:
+        current = await listing_crud.get_current_by_listing_ids(
+            session, list(set(ids_by_index.values())), platform.platform_id
         )
+        return {
+            i
+            for i, listing_id in ids_by_index.items()
+            if (row := current.get(listing_id)) is not None
+            and row.status != ListingStatus.pending
+            and content(validated_items[i], "listing_id")
+            != stored_content(
+                ListingRequest, ListingResponse.model_validate(row), "listing_id"
+            )
+        }
+
+    generated_ids = await resolve_ids(
+        "listing",
+        platform.platform_id,
+        {
+            i: key("listing", content(validated_items[i], "listing_id"))
+            for i in generated
+        },
+        never_deleted,
+        screened_other,
+    )
+    for i, listing_id in generated_ids.items():
+        validated_items[i].listing_id = listing_id
 
     # ── Intra-batch duplicate handling (last-wins) ──────────────────────
     valid_indexes = last_wins(

@@ -4,6 +4,21 @@
 
 *See also the [API](./docs/API_TECH.md) documentation and the [API version diff](./docs/API_DIFF_TECH.md).*
 
+<h1>1.10.2</h1>
+
+- Added a deprecation notice for functional ID generation by SDEP, in favour of client-supplied functional UUIDs [#79](https://github.com/SEMICeu/sdep/issues/79)
+- Sharpened functional ID generation by SDEP [#91](https://github.com/SEMICeu/sdep/issues/91) (albeit deprecated)
+  - Generated IDs are now based on a stable set of key fields instead of all fields:
+    - Activity: `registrationNumber`, `startDatetime`, `endDatetime`, and `url`
+    - Listing: `url`
+    - Area: Unchanged
+  - Corrections submitted without an ID now also create a new version
+  - Adding or modifying non-key fields no longer changes the generated ID, including when new fields are introduced in the future.
+  - Changes to a screened listing's key fields result in a new generated ID, triggering a new random check (proposal, see [Generated listing ID](./docs/LISTING_TECH.md#generated-listing-id)).
+  - Two different activities with the same key, without ID, are now stored as one: supply an own `activityId` per activity to keep them apart
+- Updated the documentation on [ID management](./docs/ARCHITECTURE_TECH.md#id-management) and [Idempotency](./docs/ARCHITECTURE_TECH.md#idempotency).
+- No impact on the API contract: only the descriptions of `POST /activities/bulk` and `POST /listings/bulk` changed
+
 <h1>1.10.1</h1>
 
 - Resolved CVE-2026-114605 (denial of service in `dnspython`), by raising its minimum version to 2.9.0

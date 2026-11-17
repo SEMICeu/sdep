@@ -74,7 +74,7 @@ class ActivityRequest(BaseModel):
     """Activity request schema for creating rental activities.
 
     Activity ID:
-    - Optional: If not provided, will be auto-generated (RFC 9562 UUID)
+    - Optional: If not provided, will be auto-generated (RFC 9562 UUID, deprecated)
     - A new provided ID is a lowercase UUID (see services/functional_id.py)
 
     Activity Name:
@@ -98,7 +98,7 @@ class ActivityRequest(BaseModel):
     ] = Field(
         None,
         alias="activityId",
-        description="Functional ID identifying the activity (optionally supplied: a lowercase UUID RFC 9562 for a new ID, alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars; auto-generated as deterministic UUIDv8 RFC 9562 if not supplied)",
+        description="Functional ID identifying the activity (optionally supplied: a lowercase UUID RFC 9562 for a new ID, alphanumeric with hyphens `^[A-Za-z0-9\\-]+$`, max 64 chars; auto-generated as deterministic UUIDv8 RFC 9562 if not supplied, deprecated)",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )  # Functional ID
 

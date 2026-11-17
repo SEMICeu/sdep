@@ -48,6 +48,7 @@ More things are specific to activities:
 - Timestamps must be UTC (offset `Z` or `+00:00`; no other offsets, no date-only values), in STR v1 and v2
 - A resubmitted `activityId` with other content is a correction: it versions the previous record instead of creating a duplicate
 - An identical activity, with or without its `activityId`, returns the stored version and writes nothing, which makes the bulk write safe to retry (see [Idempotency](./ARCHITECTURE_TECH.md#idempotency))
+- Without `activityId`, an activity with the same key (`registrationNumber`, `startDatetime`, `endDatetime`, `url`) and other content is a correction as well: a new version of the same ID
 
 ## Data
 
@@ -61,20 +62,20 @@ The tables below name the fields and say what they are for.
 
 Submitted by the platform (`POST /activities/bulk`).
 
-| Field                | Description                                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------------------- |
-| `activityId`         | Functional ID identifying the activity (optionally supplied and versioned, else auto-generated **[1]**) |
-| `activityName`       | Display name (optional)                                                                                 |
-| `status`             | `finished` (default) or `cancelled`                                                                     |
-| `areaId`             | Functional ID referencing the area the rental address is in                                             |
-| `url`                | References the advertisement online                                                                     |
-| `address`            | Rental address (the `Address` composite, shared with listings)                                          |
-| `registrationNumber` | Registration number of the rental address                                                               |
-| `numberOfGuests`     | Number of guests; must match the length of `countryOfGuests`                                            |
-| `countryOfGuests`    | One ISO 3166-1 alpha-3 code per guest, or `N/A` **[2]**                                                 |
-| `temporal`           | The rental period (`startDatetime`, `endDatetime`); UTC                                                 |
+| Field                | Description                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `activityId`         | Functional ID identifying the activity (optionally supplied and versioned, else auto-generated, deprecated **[1]**) |
+| `activityName`       | Display name (optional)                                                                                             |
+| `status`             | `finished` (default) or `cancelled`                                                                                 |
+| `areaId`             | Functional ID referencing the area the rental address is in                                                         |
+| `url`                | References the advertisement online                                                                                 |
+| `address`            | Rental address (the `Address` composite, shared with listings)                                                      |
+| `registrationNumber` | Registration number of the rental address                                                                           |
+| `numberOfGuests`     | Number of guests; must match the length of `countryOfGuests`                                                        |
+| `countryOfGuests`    | One ISO 3166-1 alpha-3 code per guest, or `N/A` **[2]**                                                             |
+| `temporal`           | The rental period (`startDatetime`, `endDatetime`); UTC                                                             |
 
-[1] `activityId` belongs to one platform and is unique across all platforms, see [Identity](./DATAMODEL_TECH.md#identity). Each version of it has its own `createdAt`. A resubmitted ID with other content is a correction, see [characteristics](#characteristics). A generated ID is deterministic: an identical activity resent without an ID gets the same ID, see [ID management](./ARCHITECTURE_TECH.md#id-management).
+[1] `activityId` belongs to one platform and is unique across all platforms, see [Identity](./DATAMODEL_TECH.md#identity). Each version of it has its own `createdAt`. A resubmitted ID with other content is a correction, see [characteristics](#characteristics). Generation by SDEP is deprecated, in favour of a supplied lowercase UUID. A generated ID is deterministic and comes from the key (`registrationNumber`, `startDatetime`, `endDatetime`, `url`): an activity resent without an ID, with the same key, gets the same ID, see [ID management](./ARCHITECTURE_TECH.md#id-management). A date correction without an ID gives another key, so a new activity: supply the `activityId` to correct the dates.
 
 [2] `countryOfGuests` holds one element per guest, so its length equals `numberOfGuests`:
 
@@ -148,7 +149,7 @@ B. Steps:
 
    - Invalid items are marked NOK with their errors; valid items continue
    - The original client-supplied `activityId` (or `None`) is preserved for the response
-   - For valid items, a missing `activityId` is generated after step 2, because the platform is part of it: a deterministic UUIDv8, see [ID management](./ARCHITECTURE_TECH.md#id-management). An ID whose activity is deactivated is skipped (the next generation).
+   - For valid items, a missing `activityId` is generated after step 2, because the platform is part of it: a deterministic UUIDv8 from the key, see [ID management](./ARCHITECTURE_TECH.md#id-management). An ID whose activity is deactivated is skipped (the next generation).
    - A supplied `activityId` that is new and not a lowercase UUID is marked NOK (`business_logic_error`) right before the ownership claim, see [ID management](./ARCHITECTURE_TECH.md#id-management). An existing `activityId` of the same platform stays accepted.
 
 2. Resolve or version the `Platform` once per batch (on a platform rename, its identity row is locked first, see [Locking](./ARCHITECTURE_TECH.md#locking)):

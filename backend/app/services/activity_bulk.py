@@ -43,6 +43,7 @@ from app.schemas.common import supplied_id
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.services.functional_id import (
     content,
+    key,
     refused_ids,
     resolve_ids,
     stored_content,
@@ -123,12 +124,16 @@ async def create_activities_bulk(
     platform = await ensure_platform(session, client_id, platform_name)
 
     # ── Generated activity IDs (deterministic, see services/functional_id.py)
-    # The platform is part of the ID, so this runs after its resolution.
+    # The platform is part of the ID, so this runs after its resolution. The ID
+    # comes from the key, so a correction of the other fields is a new version.
     generated = {i for i in valid_indexes if validated_items[i].activity_id is None}
     generated_ids = await resolve_ids(
         "activity",
         platform.platform_id,
-        {i: content(validated_items[i], "activity_id") for i in generated},
+        {
+            i: key("activity", content(validated_items[i], "activity_id"))
+            for i in generated
+        },
         lambda ids: activity_crud.get_deactivated_activity_ids(
             session, ids, platform.platform_id
         ),

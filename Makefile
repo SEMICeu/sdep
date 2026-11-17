@@ -181,10 +181,14 @@ postgres-size: ## Show database size
 
 ##@ Postgres (data)
 
-postgres-auditlog: ## Show audit log
+# Sorted by timestamp, oldest first. SORT=latest shows the latest rows first.
+# id breaks ties between rows with the same timestamp.
+AUDITLOG_ORDER = $(if $(filter latest,$(SORT)),DESC,ASC)
+postgres-auditlog: ## Show audit log (SORT=latest, default oldest first)
 	@set -a && source .env && set +a && \
 	echo "🔍 Showing audit log for database $$POSTGRES_DB_NAME..." && \
-	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c "SELECT * FROM audit_log"
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c \
+	    "SELECT * FROM audit_log ORDER BY timestamp $(AUDITLOG_ORDER), id $(AUDITLOG_ORDER)"
 
 # Requests to paths that match no API route (action 'unknown'), grouped per path.
 # Shows whether they come from scanners (e.g. /.env) or a client using a wrong URL.

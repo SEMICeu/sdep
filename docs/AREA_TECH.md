@@ -66,14 +66,14 @@ There is no `Area.Request` class. `POST /areas` takes `multipart/form-data`, so 
 generates a `Body_postArea` schema, renamed to `Area.Request` by the OpenAPI hook, see
 [OpenAPI document](./API_TECH.md#openapi-document).
 
-| Field        | Description                                                                   |
-| ------------ | ----------------------------------------------------------------------------- |
-| `file`       | The shapefile, `.zip` only, at most 1 MiB, filename at most 64 characters     |
-| `areaId`     | Functional ID identifying the area (optional **[3]**, else generated **[2]**) |
-| `areaName`   | Display name (optional)                                                       |
-| `regulation` | `listing`, `activity` or `all` (optional, defaults to `all`)                  |
+| Field        | Description                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| `file`       | The shapefile, `.zip` only, at most 1 MiB, filename at most 64 characters                 |
+| `areaId`     | Functional ID identifying the area (optional **[3]**, else generated, deprecated **[2]**) |
+| `areaName`   | Display name (optional)                                                                   |
+| `regulation` | `listing`, `activity` or `all` (optional, defaults to `all`)                              |
 
-[2] A deterministic UUIDv8: an identical upload (`areaName`, `regulation`, filename and file content) gets the same ID, so a resend returns the stored area. After a delete, an identical upload is a new area with a new ID. See [ID management](./ARCHITECTURE_TECH.md#id-management). An identical upload with a supplied `areaId` also returns the stored area, see [Idempotency](./ARCHITECTURE_TECH.md#idempotency).
+[2] Deprecated, in favour of a supplied lowercase UUID. A deterministic UUIDv8: an identical upload (`areaName`, `regulation`, filename and file content) gets the same ID, so a resend returns the stored area. After a delete, an identical upload is a new area with a new ID. See [ID management](./ARCHITECTURE_TECH.md#id-management). An identical upload with a supplied `areaId` also returns the stored area, see [Idempotency](./ARCHITECTURE_TECH.md#idempotency).
 
 [3] A new supplied `areaId` must be a lowercase UUID, an existing `areaId` of the same CA stays accepted. See [ID management](./ARCHITECTURE_TECH.md#id-management).
 

@@ -128,6 +128,7 @@ As competent authority (**CA**) or short-term rental platform (**STR**), you can
   - SDEP-NL already validates this: a new ID that is not a lowercase UUID is refused (an existing ID of your own can still be resubmitted)
 - **Let SDEP create the functional IDs** (you leave them out on initial submission)
   - SDEP will generate and return the IDs (as deterministic UUID v8)
+  - Deprecated, in favour of your own lowercase UUIDs: it stays supported until that UUID becomes mandatory (finalizing discussion in the technical working group)
 
 In either case it is recommended:
 
@@ -171,14 +172,14 @@ Recommended approach (in the future mandatory):
 - Generate a lowercase UUID for each new record, e.g. random UUIDv4 or deterministic UUIDv5/v8 ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562))
 - Use the same ID for every update or correction of that record
 
-Choose between random or deterministic:
+Choice between random or deterministic UUIDs:
 
 - A random UUID must be stored with your record (or in a mapping table)
   - Advantage: the structure or values of any field may change later
 - A deterministic UUID is derived from (a selection of) your record's own data
   - Advantage: no need to store the mapping
   - Disadvantage: the structure or values of the fields that the UUID is derived from may never change afterwards (a change gives another UUID)
-  - And derive the UUID from a stable key, not from content that can change
+  - Rule: derive the UUID from a stable key, not from content that may change over time
 
 In short: one record, one ID, for its whole lifecycle.
 

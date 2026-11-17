@@ -137,9 +137,11 @@ Remarks:
   - `acknowledged`: final, no corrections (the acknowledgement carries no data, SDEP cannot undo it)
 - A platform that (still) wants an already screened listing (`clear`, `flagged`, `acknowledged`) corrected, submits it under a new `listingId` (this just becomes a new random check in a separate lifecycle)
 - An identical listing that is resubmitted with the same `listingId` is not a correction: SDEP returns the existing listing, whatever its state (see [Idempotency](./ARCHITECTURE_TECH.md#idempotency)).
-- A listing that is sent without `listingId` gets an ID from SDEP, see [ID management](./ARCHITECTURE_TECH.md#id-management):
+- A listing that is sent without `listingId` gets an ID from SDEP (deprecated, in favour of a `listingId` supplied by the platform), see [ID management](./ARCHITECTURE_TECH.md#id-management):
   - If an identical listing is submitted again without a `listingId` (e.g. after a lost response), SDEP returns the existing listing with the same ID, whatever its state, and starts no new random check.
   - As a result, a new random check of a listing with identical data requires a new `listingId` from the platform.
+  - If a listing with the same `url` but other data is submitted without a `listingId`, SDEP treats it as a correction while the listing is `pending`.
+  - Once the listing is screened, SDEP gives it a new ID instead, and it becomes a new random check. The alternative, refusing it (`conflict_error`), is described in [Generated listing ID](./LISTING_TECH.md#generated-listing-id), with the motivation for this choice.
 - Flags raised in the `flagged` state are retained after acknowledgement, so `acknowledged` does not erase the screening outcome.
 - The correction edges (`pending --> pending` for the platform, `clear|flagged --> clear|flagged` for SDEP) are left out of the diagram for readability.
 

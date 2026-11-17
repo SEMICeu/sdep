@@ -558,8 +558,8 @@ shape, the five audience reads the second. What differs per listing endpoint is 
 - Can be resubmitted, to update or correct (see [Versioning](#versioning) below)
 - Are unique and belong to one owner
   - For example: when a platform gets a shapefile by `areaId`, this unambiguously belongs to exactly one CA
-- Can be created by the client (recommended)
-- Can be created by SDEP, when the client leaves the ID initially empty (alternative)
+- Can be created by the client (recommended, as UUID)
+- Can be created by SDEP, when the client leaves the ID initially empty (alternative, deprecated)
 
 **Functional IDs created by the client** (recommended)
 
@@ -576,27 +576,28 @@ Motivation:
 - A new random check of the same listing only needs a new (your) ID
   - Without an ID, an identical listing returns the stored one, and no new check starts
 
-Format: a lowercase UUID following [RFC 9562](https://www.rfc-editor.org/rfc/rfc9562), recommended (in the future mandatory: finalizing discussion in the technical working group).
+Recommended format: a lowercase UUID following [RFC 9562](https://www.rfc-editor.org/rfc/rfc9562) (in the future mandatory, finalizing discussion in technical working group)
 
 - Motivation: to avoid unexpected rejections due to IDs that are taken by other clients
   - An ID belongs to one owner (first come, first served), so a simple ID such as `area-1` may be taken already (`duplicate_error`)
-- **Random UUIDs** (UUIDv4, section 5.4)
-- **Deterministic UUIDs** (UUIDv5, section 5.5, or UUIDv8 with SHA-256, section 5.8)
-  - UUIDv5: use a private namespace to avoid recomputation by others
-  - UUIDv8: use a secret key (seed) with HMAC-SHA-256 for even stronger protection
+- Option: **random UUIDs**
+  - **UUIDv4** (section 5.4)
+- Option: **deterministic UUIDs**
+  - **General rule:** derive UUIDs from a stable key, not from content that may change over time
+  - **UUIDv5** (section 5.5): use a private namespace, to make recomputation by others more difficult
+  - **UUIDv8 with SHA-256** (section 5.8): use HMAC-SHA-256 with a secret key instead of plain SHA-256, for stronger protection against recomputation by others
 
 UUIDs are regarded as "collision-resistant" rather than 100% guaranteed unique
 
 - However the probability of a duplicate is so infinite small that it is treated as [zero](https://en.wikipedia.org/wiki/Universally_unique_identifier)
 
-Choose between random or deterministic:
+Choice between random or deterministic UUIDs:
 
 - A random UUID must be stored with the record (or in a mapping table)
   - Advantage: the structure or values of any field may change later
 - A deterministic UUID is derived from (a selection of) the record's own data
   - Advantage: no need to store the mapping
   - Disadvantage: the structure or values of the fields that the UUID is derived from may never change afterwards (a change gives another UUID)
-  - And derive the UUID from a stable key, not from content that can change
 
 UUID format check in SDEP-NL:
 
@@ -615,7 +616,9 @@ Functional IDs are case-sensitive:
 - SDEP preserves and returns IDs exactly as submitted.
 - Existing non-UUID identifiers that differ only in capitalization are treated as distinct IDs (e.g. `Amsterdam-Centrum` and `amsterdam-centrum`).
 
-**Functional IDs created by SDEP** (alternative)
+**Functional IDs created by SDEP** (alternative, deprecated)
+
+> **Deprecated:** functional ID generation by SDEP (a functional ID left empty) is deprecated, in favour of a client-supplied lowercase UUID. It stays supported until that UUID becomes mandatory (finalizing discussion in the technical working group).
 
 When the functional ID is left empty, SDEP creates one and returns it:
 
@@ -624,18 +627,32 @@ When the functional ID is left empty, SDEP creates one and returns it:
   - A secret key as seed (`FUNCTIONAL_ID_SECRET`)
   - The record type (`area`, `listing` or `activity`)
   - The owner (`competentAuthorityId` or `platformId`)
-  - The record fields (content): for a listing or activity all validated fields, for an area `areaName`, `regulation`, the filename and the SHA-256 of the file
+  - The key fields of the record, per type:
+    - Area: `areaName`, `regulation`, the filename and the SHA-256 of the file
+    - Activity: `registrationNumber`, `startDatetime`, `endDatetime` and `url`
+    - Listing: `url`
   - A generation number (see "Delete, then resubmit" below)
-- The record fields go in after validation, in one normalized form:
+- The key fields go in after validation, in one normalized form:
   - Optional text is trimmed, and `""`, only spaces, `null` and a left-out field all mean "no value" (see [NULL-values](#null-values) below)
   - Equal values are written one way, e.g. the UTC offsets `Z` and `+00:00` in a timestamp, or an omitted `status` and `finished`
   - So `" Name "` and `"Name"` give the same ID
-- Result: an identical record of the same owner always gets the same ID (see [Idempotency](#idempotency) below)
-- Implementation: `app/services/functional_id.py`
+- Result: a record with the same key of the same owner always gets the same ID (see [Idempotency](#idempotency) below)
+- Implementation: `app/services/functional_id.py` (`KEY_FIELDS`, `key`)
 
 Why deterministic:
 
 - [Idempotency](#idempotency) on network failure
+
+Why a key, not all fields (activity, listing):
+
+- A key follows the general rule above: derive UUIDs from a stable key, not from content that may change over time
+- A correction without an ID becomes a new version, instead of a duplicate record
+  - E.g. a corrected `numberOfGuests` keeps its `activityId`
+- A new field leaves the ID unchanged, also when fields are added in the future
+- The registration number alone is not enough: registration numbers are public, so a bad actor can copy one
+  - The `url` keeps a real and a copied listing apart, the owner keeps two platforms apart
+- Area keeps all its fields as key: its content is its identity, and production data depends on its IDs
+- Until 1.10.x, the ID of an activity or listing came from all its fields (input version 1)
 
 Why a secret key (seed):
 
@@ -648,6 +665,7 @@ Delete, then resubmit:
 - A deleted ID stays deleted, because an ID has one owner for good
 - So SDEP takes the next generation (0, 1, 2, ...): an identical record becomes a new record with a new ID
 - A resend of that new record lands on the same new ID
+- A screened listing follows the same path: a changed listing becomes a new listing with a new ID (a new random check), see [Generated listing ID](./LISTING_TECH.md#generated-listing-id)
 
 The public `competentAuthorityId` and `platformId` stay random UUIDv4
 
@@ -656,7 +674,7 @@ The public `competentAuthorityId` and `platformId` stay random UUIDv4
 Other:
 
 - A listing that is resent for a new random check returns yet the stored listing (WIP)
-- Give two different records with exactly the same data their own IDs: without an ID, SDEP stores them as one
+- Give two different records with the same key their own IDs: without an ID, SDEP stores them as one, the last as a version of the first
 - After a key rotation, a record that is resent without an ID gets a new ID, so it is stored again (avoid this)
 
 ---
@@ -669,14 +687,15 @@ The approach: harden SDEP against network failures, while keeping the [versionin
 - **Versioning:** a record with the same ID and other content must still create a new version (an update or correction).
 - **Rule:** only the content decides. An identical record is stored only once, a changed record with the same ID is a new version.
 
-| When        | With functional ID            | With content (other fields) as ... | For Area & Activity | For Listing                                                     |
-| ----------- | ----------------------------- | ---------------------------------- | ------------------- | --------------------------------------------------------------- |
-| Submitted   | Empty (ID is created by SDEP) | New                                | New record, new ID  | New record (`pending`), new ID                                  |
-| Resubmitted | Empty (ID is created by SDEP) | Same as before                     | Same record **[1]** | Same record **[1]**, whatever its status                        |
-| Resubmitted | Empty (ID is created by SDEP) | Different from before              | New record, new ID  | New record (`pending`), new ID                                  |
-| Submitted   | New, created by the client    | New                                | New record          | New record (`pending`)                                          |
-| Resubmitted | Existing **[3]**              | Same as before                     | Same record **[1]** | Same record **[1]**, whatever its status                        |
-| Resubmitted | Existing                      | Different from before              | New version **[2]** | New version **[2]** while `pending`, otherwise `conflict_error` |
+| When        | With functional ID         | With content as            | Then for Area                        | Then for Activity                    | Then for Listing                                                |
+| ----------- | -------------------------- | -------------------------- | ------------------------------------ | ------------------------------------ | --------------------------------------------------------------- |
+| Submitted   | Empty                      | New                        | New ID (created by SDEP), new record | New ID (created by SDEP), new record | New ID (created by SDEP), new record (`pending`)                |
+| Resubmitted | Empty                      | Same as before             | Same ID, same record **[1]**         | Same ID, same record **[1]**         | Same ID, same record **[1]**, whatever its status               |
+| Resubmitted | Empty                      | Other value in a key field | New ID (created by SDEP), new record | New ID (created by SDEP), new record | New ID (created by SDEP), new record (`pending`)                |
+| Resubmitted | Empty                      | Same key, other details    | n/a **[4]**                          | Same ID, new record version **[2]**  | New version **[2]** while `pending`, otherwise a new ID **[5]** |
+| Submitted   | New, created by the client | New                        | Submitted ID, new record             | Submitted ID, new record             | Submitted ID, new record (`pending`)                            |
+| Resubmitted | Existing **[3]**           | Same as before             | Same ID, same record **[1]**         | Same ID, same record **[1]**         | Same ID, same record **[1]**, whatever its status               |
+| Resubmitted | Existing                   | Different from before      | Same ID, new record version **[2]**  | Same ID, new record version **[2]**  | New version **[2]** while `pending`, otherwise `conflict_error` |
 
 [1] SDEP answers OK with the stored version (same ID, same `createdAt`), and writes nothing (**idempotency**).
 
@@ -684,7 +703,15 @@ The approach: harden SDEP against network failures, while keeping the [versionin
 
 [3] Created earlier by SDEP and kept by the client, or created by the client.
 
-The content (the other fields) means:
+[4] Every field of an area is a key field.
+
+[5] A screened listing is closed, so SDEP takes the next generation: a new ID, a new `pending` listing (a new random check). See [Generated listing ID](./LISTING_TECH.md#generated-listing-id).
+
+The key (it makes the generated ID) means:
+
+- See "Functional IDs created by SDEP" in [ID management](#id-management)
+
+The content (it decides on a resend) means:
 
 - Listing, activity: all fields of the item, except its ID
 - Area: `areaName`, `regulation`, the filename and the file content
@@ -692,10 +719,13 @@ The content (the other fields) means:
 
 Other cases:
 
-- Same content after a delete (area) or deactivation (activity), without an ID: a new record with a new ID, see "Delete, then resubmit" above
+- Same key after a delete (area) or deactivation (activity), without an ID: a new record with a new ID, see "Delete, then resubmit" above
 - Same ID after a delete or deactivation: refused, the ID stays deleted
 - Same content of another owner: a new record of that owner (without an ID), or `duplicate_error` (with the ID of the first owner)
 - The same record twice in one batch: the last one counts, the earlier one is NOK (`duplicate_error`), see [Bulk](#bulk)
+- Two items with the same key in one batch, without an ID: the same rule, the last one counts
+- Two different activities with the same key, e.g. two rooms behind one listing on the same dates: without an ID, the second becomes a version of the first. Supply an own `activityId` per activity to keep them apart.
+- A changed `url` gives a new key, so a new record
 
 ---
 
@@ -703,7 +733,7 @@ Other cases:
 
 SDEP detects a resend by comparing its content with the current version of the functional ID:
 
-- Without an ID: the HMAC-SHA-256 of the content only makes the ID, a resend lands on the same ID (see "Functional IDs created by SDEP" in [ID management](#id-management)). SDEP never stores the HMAC.
+- Without an ID: the HMAC-SHA-256 of the key only makes the ID, a resend lands on the same ID (see "Functional IDs created by SDEP" in [ID management](#id-management)). SDEP never stores the HMAC.
 - With an ID: SDEP uses the ID as supplied, a client ID can be anything
 - In both cases: SDEP loads the current version of that ID and compares the content field by field
 
@@ -1412,9 +1442,12 @@ Result:
 | **D9**  | **Lifecycle status on activities** - `status` is `finished` (default) or `cancelled`; resubmitting as `cancelled` adds a version           | Platforms correct previously submitted stays without a change to the versioning model                |
 | **D10** | **State precondition and version token on listing writes** - refused per item on a wrong state or a stale `createdAt` **[2]**              | Several actors write the same listing asynchronously; one version's flags must never land on another |
 | **D11** | **Resend detection: field comparison, no stored hash** - a resend is compared field by field with the current version **[3]**              | Always normalized the same way on both sides; no migration or backfill                               |
+| **D12** | **Generated ID from a key** - an activity or listing without an ID gets an ID from its key fields, not from all fields **[4]**             | Corrections become versions, new fields leave IDs unchanged                                          |
 
 [1] Combined with pessimistic locking ([Locking](#locking)): when two concurrent batches contain the same `activityId`, `SELECT ... FOR UPDATE` serializes them, so the second batch waits for the first to commit and then overwrites it. Last-wins holds within a batch and across requests.
 
 [2] The check runs on the locked current version: the state must be the one the write expects, and the submitted `createdAt` must still be current. D1 to D8 hold unchanged for the three listing bulk endpoints. D9 has no listing equivalent: a listing's `status` is not set by the caller but derived from the write, see [Transitions](./LISTING_TECH.md#transitions). D10 is the one concept activities do not have, because an activity has a single writer (the platform) while a listing has three (platform, LSA, platform again).
 
 [3] Holds for areas, listings and activities, on the single and the bulk endpoints. Rationale and when to look at it again: [Idempotency](#idempotency), "Recomputation".
+
+[4] Key fields and motivation: "Functional IDs created by SDEP" in [ID management](#id-management). An area keeps all its fields as key.

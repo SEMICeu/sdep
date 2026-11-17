@@ -744,18 +744,13 @@ class TestGeneratedActivityId:
         assert uuid.UUID(stored.activity_id).version == 8
         assert await _version_count(async_session, stored.activity_id) == 1
 
-    async def test_other_content_or_platform_gives_another_activity(
+    async def test_other_key_or_platform_gives_another_activity(
         self, async_session: AsyncSession
     ):
         area = await AreaFactory.create_async(async_session, area_id="gen-area-2")
         base = await self._post(async_session, [_without_id(area.area_id)])
         changed = await self._post(
-            async_session,
-            [
-                _without_id(
-                    area.area_id, numberOfGuests=2, countryOfGuests=["NLD", "NLD"]
-                )
-            ],
+            async_session, [_without_id(area.area_id, registrationNumber="REG-other")]
         )
         other = await self._post(async_session, [_without_id(area.area_id)], "str-2")
 
@@ -765,6 +760,80 @@ class TestGeneratedActivityId:
             if r.results[0].activity is not None
         }
         assert len(ids) == 3
+
+    async def test_same_key_other_details_is_a_new_version(
+        self, async_session: AsyncSession
+    ):
+        """A correction without activityId versions the activity of the same key."""
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-key")
+        first = await self._post(async_session, [_without_id(area.area_id)])
+        corrected = await self._post(
+            async_session,
+            [
+                _without_id(
+                    area.area_id, numberOfGuests=2, countryOfGuests=["NLD", "NLD"]
+                )
+            ],
+        )
+
+        stored, again = first.results[0].activity, corrected.results[0].activity
+        assert stored is not None and again is not None
+        assert again.activity_id == stored.activity_id
+        assert again.number_of_guests == 2
+        assert await _version_count(async_session, stored.activity_id) == 2
+
+    async def test_other_dates_without_id_is_a_new_activity(
+        self, async_session: AsyncSession
+    ):
+        """The dates are part of the key: without activityId, a new activity."""
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-dt")
+        first = await self._post(async_session, [_without_id(area.area_id)])
+        moved = _without_id(area.area_id)
+        moved["temporal"] = {
+            "startDatetime": "2025-06-02T14:00:00Z",
+            "endDatetime": "2025-06-07T11:00:00Z",
+        }
+        second = await self._post(async_session, [moved])
+
+        stored, new = first.results[0].activity, second.results[0].activity
+        assert stored is not None and new is not None
+        assert new.activity_id != stored.activity_id
+        assert await _version_count(async_session, stored.activity_id) == 1
+
+    async def test_other_dates_with_its_id_is_a_new_version(
+        self, async_session: AsyncSession
+    ):
+        """With its activityId, a date correction versions the activity."""
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-dt2")
+        first = await self._post(async_session, [_without_id(area.area_id)])
+        stored = first.results[0].activity
+        assert stored is not None
+        moved = _without_id(area.area_id, activityId=stored.activity_id)
+        moved["temporal"] = {
+            "startDatetime": "2025-06-02T14:00:00Z",
+            "endDatetime": "2025-06-07T11:00:00Z",
+        }
+        second = await self._post(async_session, [moved])
+
+        assert second.results[0].status == "OK"
+        assert await _version_count(async_session, stored.activity_id) == 2
+
+    async def test_two_items_with_the_same_key_in_one_batch_last_wins(
+        self, async_session: AsyncSession
+    ):
+        area = await AreaFactory.create_async(async_session, area_id="gen-area-kb")
+        response = await self._post(
+            async_session,
+            [
+                _without_id(area.area_id),
+                _without_id(
+                    area.area_id, numberOfGuests=2, countryOfGuests=["NLD", "NLD"]
+                ),
+            ],
+        )
+        assert [r.status for r in response.results] == ["NOK", "OK"]
+        assert response.results[0].errors is not None
+        assert response.results[0].errors.detail[0].type == "duplicate_error"
 
     async def test_two_identical_items_in_one_batch_last_wins(
         self, async_session: AsyncSession

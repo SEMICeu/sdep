@@ -21,6 +21,7 @@ The generic patterns behind the choices below are in [Architecture](./ARCHITECTU
   - [Schema names and envelope](#schema-names-and-envelope)
 - [Data flow](#data-flow)
   - [`POST /listings/bulk` (STR)](#post-listingsbulk-str)
+  - [Generated listing ID](#generated-listing-id)
   - [`POST /listing-screenings/bulk` (LSA)](#post-listing-screeningsbulk-lsa)
   - [`POST /listing-acknowledgements/bulk` (STR)](#post-listing-acknowledgementsbulk-str)
   - [`GET /listings` (all audiences)](#get-listings-all-audiences)
@@ -79,6 +80,7 @@ A listing is **one thing with a lifecycle** (see [States](./LISTING_FUNC.md#stat
 | Filters are declared per audience, never refused at runtime | Each audience has its own API and OpenAPI document; a filter it may not use is simply not declared there.                                                                                   |
 | Data scope comes from the bearer token, not from a filter   | A platform sees its own listings, a competent authority its own areas, LSA/LMA/STA everything - decided by `client_id`. A caller cannot widen its scope with a filter.                      |
 | API names are not database names                            | Three `POST` lists outside, one `Listing` table inside, where every `POST` adds a version of the same listing. See [Transitions](#transitions).                                             |
+| A generated `listingId` comes from the `url`                | A correction while `pending` keeps its ID; once screened, a change gets a new ID and a new check, see [Generated listing ID](#generated-listing-id).                                        |
 | The STR read has no `status` filter                         | An STR does not need the full lifecycle of its own listings; the router fixes `flagged`. It can still be added later, backward compatibly.                                                  |
 
 Filters are listed per audience in [API](./API_TECH.md#filtering); they are declared in the
@@ -101,21 +103,22 @@ following the Activity pattern (`Activity.Request`, `Activity.Response`, `Activi
 
 Submitted by the platform (`POST /listings/bulk`).
 
-| Field                       | Description                                                                                           |
-| --------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `listingId`                 | Functional ID identifying the listing (optionally supplied/versioned, else auto-generated **[1][2]**) |
-| `listingName`               | Display name (optional)                                                                               |
-| `areaId`                    | Functional ID referencing the area where the listing is posted                                        |
-| `url`                       | References the listing online                                                                         |
-| `address`                   | Listing address (same composite as activities)                                                        |
-| `declaredAsShortTermRental` | Host self-declaration (yes/no)                                                                        |
-| `registrationNumber`        | Listing registration number (optional)                                                                |
+| Field                       | Description                                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `listingId`                 | Functional ID identifying the listing (optionally supplied/versioned, else auto-generated, deprecated **[1][2]**) |
+| `listingName`               | Display name (optional)                                                                                           |
+| `areaId`                    | Functional ID referencing the area where the listing is posted                                                    |
+| `url`                       | References the listing online                                                                                     |
+| `address`                   | Listing address (same composite as activities)                                                                    |
+| `declaredAsShortTermRental` | Host self-declaration (yes/no)                                                                                    |
+| `registrationNumber`        | Listing registration number (optional)                                                                            |
 
 [1] This allows the listing to be submitted as either:
 
 - A correction (same id, other content): allowed in `pending` only, creates a new version that stays `pending`
 - A recurrence of the listing in a new random check (new id)
 - A resend of an identical listing (e.g. after a lost response), with its id or without one: SDEP returns the stored listing, whatever its status, and writes nothing (see [Idempotency](./ARCHITECTURE_TECH.md#idempotency)). Without an id, the generated id is deterministic, so an identical listing gets the same id. This starts no new random check: for that, supply a new id.
+- Without an id, a listing with the same `url` and other content: a correction while `pending`, otherwise a new listing with a new id (a new random check), see [Generated listing ID](#generated-listing-id)
 
 [2] `listingId` belongs to one platform and is unique across all platforms (as `activityId`), see [Identity](./DATAMODEL_TECH.md#identity).
 
@@ -235,11 +238,11 @@ A. Inputs:
 
 B. Steps:
 
-1. Per-item Pydantic validation, as for activities. Invalid items are NOK, the batch continues. A missing `listingId` is generated after step 2, because the platform is part of it: a deterministic UUIDv8, see [ID management](./ARCHITECTURE_TECH.md#id-management). A supplied `listingId` that is new and not a lowercase UUID is NOK (`business_logic_error`) after step 4; an existing `listingId` of the same platform stays accepted.
+1. Per-item Pydantic validation, as for activities. Invalid items are NOK, the batch continues. A missing `listingId` is generated after step 2, because the platform is part of it: a deterministic UUIDv8 from the `url`, see [ID management](./ARCHITECTURE_TECH.md#id-management). An ID whose listing is screened and has other content is skipped (the next generation), see [Generated listing ID](#generated-listing-id). A supplied `listingId` that is new and not a lowercase UUID is NOK (`business_logic_error`) after step 4; an existing `listingId` of the same platform stays accepted.
 2. Resolve or version the `Platform` once per batch (`ensure_platform`), exactly as the activity bulk does.
 3. Intra-batch deduplication on `listingId` (last-wins), as the activity bulk does: earlier occurrences are NOK (`duplicate_error`, "superseded by later item in batch at index N").
 4. Referential integrity, one query per batch: `areaId` must exist (`not_found_error`) and the area must be regulated for listings (`regulation_error`), see [Regulation](./AREA_TECH.md#regulation).
-5. Resolve each `Listing` row-locked (`FOR UPDATE` on `(listingId, platformId)`). No current version means a new listing. A current version with the same content means the same listing was sent before (a retry, with a generated or supplied `listingId`): OK with the stored version, whatever its status, and nothing is written. Otherwise a current version must be `pending`, else NOK (`conflict_error`). No version token here: the platform corrects its own `pending` listing, and the only thing that can interfere is the screening authority getting there first, which this check catches.
+5. Resolve each `Listing` row-locked (`FOR UPDATE` on `(listingId, platformId)`). No current version means a new listing. A current version with the same content means the same listing was sent before (a retry, with a generated or supplied `listingId`): OK with the stored version, whatever its status, and nothing is written. Otherwise a current version must be `pending`, else NOK (`conflict_error`); a generated `listingId` never gets here, it moved to the next generation in step 1. No version token here: the platform corrects its own `pending` listing, and the only thing that can interfere is the screening authority getting there first, which this check catches.
 6. Mark any current version ended (`endedAt = now()`) and insert the next version: `status` is `pending`, `submittedAt` is set, `flags` is empty.
 7. Commit at the API transaction boundary; per-item OK/NOK in the original order, every OK item embedding the listing as it now is.
 
@@ -248,6 +251,42 @@ Net effect:
 - 1 new `platform` row only when the platform is new or its name changed
 - N new `listing` rows (one per valid item that is not a retry), each with FKs to `platform` and `area`
 - Optionally M old `listing` rows marked ended, where a `listingId` that was resubmitted with other content had a current version
+
+---
+
+### Generated listing ID
+
+> **Deprecated:** functional ID generation by SDEP (a functional ID left empty) is deprecated, in favour of a client-supplied lowercase UUID. It stays supported until that UUID becomes mandatory (finalizing discussion in the technical working group), see [ID management](./ARCHITECTURE_TECH.md#id-management).
+
+A listing without `listingId` gets an ID from its key: the platform and the `url`, see [ID management](./ARCHITECTURE_TECH.md#id-management).
+
+- The same `url` gives the same ID, so a correction while `pending` is a new version, not a duplicate listing
+- A screened listing (`clear`, `flagged`, `acknowledged`) is closed for the platform, see [States](./LISTING_FUNC.md#states)
+
+This raises a question: a listing with the same `url` and other content, once screened. Two options:
+
+| Option                      | Result for the platform         | Random check |
+| --------------------------- | ------------------------------- | ------------ |
+| A. Refuse                   | NOK (`conflict_error`)          | None         |
+| B. Next generation (chosen) | OK, a new listing with a new ID | A new check  |
+
+Option A treats the generated ID as any supplied ID:
+
+- Simple: no extra rule
+- But a working update becomes an error: a platform that renames a screened listing gets `conflict_error`
+- The platform must then supply its own `listingId`, which an ID left empty is meant to avoid
+
+Option B treats a screened listing as closed, as a deleted area or deactivated activity (see "Delete, then resubmit" in [ID management](./ARCHITECTURE_TECH.md#id-management)):
+
+- SDEP takes the next generation of the ID (0, 1, 2, ...), until the ID is free, `pending`, or has the same content
+- The changed listing becomes a new `pending` listing, so it gets a new random check, as before the key was introduced
+- A resend still lands on the same ID: of the change on the new ID, of the original on the screened listing
+- A next correction, while the new listing is `pending`, versions the new listing
+
+Choice: option B, because it keeps the behaviour that platforms had, and corrections while `pending` still become versions.
+
+- A supplied `listingId` keeps option A: the same ID with other content, once screened, is NOK (`conflict_error`)
+- Implementation: `screened_other` in `app/services/listing_bulk.py`, `resolve_ids` (`closed`) in `app/services/functional_id.py`
 
 ---
 
