@@ -56,7 +56,7 @@ docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAM
   -t -A -F'|' < postgres/count-app.sql > "$RAW_COUNTS_FILE"
 
 while IFS='|' read -r tname tcount; do
-  printf "    %-25s %s\n" "$tname:" "$tcount"
+  printf "    %-30s %s\n" "$tname:" "$tcount"
 done < "$RAW_COUNTS_FILE"
 echo ""
 
@@ -94,7 +94,7 @@ docker exec -i sdep-postgres psql -U "$POSTGRES_SUPER_USER" -d "$POSTGRES_DB_NAM
   -t -A -F'|' < postgres/count-app.sql > "$AFTER_COUNTS_FILE"
 
 while IFS='|' read -r tname tcount; do
-  printf "    %-25s %s\n" "$tname:" "$tcount"
+  printf "    %-30s %s\n" "$tname:" "$tcount"
 done < "$AFTER_COUNTS_FILE"
 echo ""
 
@@ -137,9 +137,9 @@ else
     RAW_NOTE=""
     if [ "$RAW_COUNT" != "$BASELINE_COUNT" ]; then RAW_NOTE=" (before pre-clean: $RAW_COUNT)"; fi
     if [ "$BASELINE_COUNT" = "$AFTER_COUNT" ]; then
-      printf "    %-25s BEFORE=%-5s AFTER=%-5s ✅%s\n" "$TABLE_NAME:" "$BASELINE_COUNT" "$AFTER_COUNT" "$RAW_NOTE"
+      printf "    %-30s BEFORE=%-5s AFTER=%-5s ✅%s\n" "$TABLE_NAME:" "$BASELINE_COUNT" "$AFTER_COUNT" "$RAW_NOTE"
     else
-      printf "    %-25s BEFORE=%-5s AFTER=%-5s ❌%s\n" "$TABLE_NAME:" "$BASELINE_COUNT" "$AFTER_COUNT" "$RAW_NOTE"
+      printf "    %-30s BEFORE=%-5s AFTER=%-5s ❌%s\n" "$TABLE_NAME:" "$BASELINE_COUNT" "$AFTER_COUNT" "$RAW_NOTE"
       ISOLATION_OK=false
     fi
   done < "$BASELINE_COUNTS_FILE"

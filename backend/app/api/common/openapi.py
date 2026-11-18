@@ -287,6 +287,30 @@ def restore_null_examples(openapi_schema: dict[str, Any]) -> dict[str, Any]:
     return restore(openapi_schema)
 
 
+def prefer_parameter_examples_over_defaults(
+    openapi_schema: dict[str, Any],
+) -> dict[str, Any]:
+    """Drop the schema default of each parameter that has examples.
+
+    Swagger UI pre-fills "Try it out" with the schema default and ignores the
+    example. Without the default, it pre-fills the example (e.g. `limit` 10).
+    The runtime default is unchanged, and the parameter description states it.
+
+    Args:
+        openapi_schema: The generated OpenAPI schema dictionary
+
+    Returns:
+        Modified OpenAPI schema without defaults on parameters with examples
+    """
+    for path_item in openapi_schema.get("paths", {}).values():
+        for operation in path_item.values():
+            for parameter in operation.get("parameters", []):
+                if parameter.get("examples"):
+                    parameter.get("schema", {}).pop("default", None)
+
+    return openapi_schema
+
+
 def create_custom_openapi(app: FastAPI) -> Callable:
     """Factory function to create a custom OpenAPI schema generator.
 
@@ -328,6 +352,9 @@ def create_custom_openapi(app: FastAPI) -> Callable:
 
         # Turn NULL_EXAMPLE markers into a JSON null
         openapi_schema = restore_null_examples(openapi_schema)
+
+        # Let Swagger UI pre-fill parameter examples instead of schema defaults
+        openapi_schema = prefer_parameter_examples_over_defaults(openapi_schema)
 
         # When client-secret authentication is disabled, present a Bearer scheme in
         # the docs instead of the (non-functional) OAuth 2.0 Authorize flow.

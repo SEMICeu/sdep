@@ -66,15 +66,24 @@ def _build_token_response(response: httpx.Response) -> TokenResponse:
 )
 async def post_auth_token(
     request: Request,
-    client_id: str | None = Form(None, description="Client ID for M2M authentication"),
+    # Swagger examples: readable placeholders instead of "string"
+    client_id: str | None = Form(
+        None, description="Client ID for M2M authentication", examples=["my-client-id"]
+    ),
     client_secret: str | None = Form(
-        None, description="Client secret for M2M authentication"
+        None,
+        description="Client secret for M2M authentication",
+        examples=["my-client-secret"],
     ),
     client_signed_jwt: str | None = Form(
-        None, description="Client-signed JWT for M2M authentication"
+        None,
+        description="Client-signed JWT for M2M authentication",
+        examples=["my-client-signed-jwt"],
     ),
     grant_type: str | None = Form(
-        None, description="OAuth2 grant type (client_credentials)"
+        None,
+        description="OAuth2 grant type (client_credentials)",
+        examples=["client_credentials"],
     ),
 ) -> TokenResponse:
     """Issue a JWT bearer token for M2M authentication by forwarding the request to Keycloak

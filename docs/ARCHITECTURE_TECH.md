@@ -576,9 +576,9 @@ Motivation:
 - A new random check of the same listing only needs a new (your) ID
   - Without an ID, an identical listing returns the stored one, and no new check starts
 
-Recommended format: a lowercase UUID following [RFC 9562](https://www.rfc-editor.org/rfc/rfc9562) (in the future mandatory, finalizing discussion in technical working group)
+Recommended format: a lowercase UUID following [RFC 9562](https://www.rfc-editor.org/rfc/rfc9562) (in the future mandatory)
 
-- Motivation: to avoid unexpected rejections due to IDs that are taken by other clients
+- Motivation: UUIDs are regarded as practically unique. They avoid unexpected rejections due to IDs that are taken by other clients.
   - An ID belongs to one owner (first come, first served), so a simple ID such as `area-1` may be taken already (`duplicate_error`)
 - Option: **random UUIDs**
   - **UUIDv4** (section 5.4)
@@ -618,7 +618,7 @@ Functional IDs are case-sensitive:
 
 **Functional IDs created by SDEP** (alternative, deprecated)
 
-> **Deprecated:** functional ID generation by SDEP (a functional ID left empty) is deprecated, in favour of a client-supplied lowercase UUID. It stays supported until that UUID becomes mandatory (finalizing discussion in the technical working group).
+> **Deprecated:** functional ID generation by SDEP (a functional ID left empty) is deprecated, in favour of a client-supplied lowercase UUID. It stays supported until that UUID becomes mandatory.
 
 When the functional ID is left empty, SDEP creates one and returns it:
 
@@ -692,25 +692,34 @@ The approach: harden SDEP against network failures, while keeping the [versionin
 - **Versioning:** a record with the same ID and other content must still create a new version (an update or correction).
 - **Rule:** only the content decides. An identical record is stored only once, a changed record with the same ID is a new version.
 
-| When        | With functional ID         | With content as                 | Then for Area                        | Then for Activity                    | Then for Listing                                                |
-| ----------- | -------------------------- | ------------------------------- | ------------------------------------ | ------------------------------------ | --------------------------------------------------------------- |
-| Submitted   | Empty                      | New                             | New ID (created by SDEP), new record | New ID (created by SDEP), new record | New ID (created by SDEP), new record (`pending`)                |
-| Resubmitted | Empty                      | Same as before                  | Same ID, same record **[1]**         | Same ID, same record **[1]**         | Same ID, same record **[1]**, whatever its status               |
-| Resubmitted | Empty                      | Other value in key field(s)     | New ID (created by SDEP), new record | New ID (created by SDEP), new record | New ID (created by SDEP), new record (`pending`)                |
-| Resubmitted | Empty                      | Other value in non-key field(s) | n/a **[4]**                          | Same ID, new record version **[2]**  | New version **[2]** while `pending`, otherwise a new ID **[5]** |
-| Submitted   | New, created by the client | New                             | Submitted ID, new record             | Submitted ID, new record             | Submitted ID, new record (`pending`)                            |
-| Resubmitted | Existing **[3]**           | Same as before                  | Same ID, same record **[1]**         | Same ID, same record **[1]**         | Same ID, same record **[1]**, whatever its status               |
-| Resubmitted | Existing                   | Different from before           | Same ID, new record version **[2]**  | Same ID, new record version **[2]**  | New version **[2]** while `pending`, otherwise `conflict_error` |
+| When        | Supplied functional ID by client       | With content as                 | Then for Area                        | Then for Activity                    | Then for Listing                                                |
+| ----------- | -------------------------------------- | ------------------------------- | ------------------------------------ | ------------------------------------ | --------------------------------------------------------------- |
+| Submitted   | **New, lowercase UUID** **[1]**        | New                             | Submitted ID, new record             | Submitted ID, new record             | Submitted ID, new record (`pending`)                            |
+| Submitted   | New, other format (deprecated) **[2]** | New                             | Submitted ID, new record             | Submitted ID, new record             | Submitted ID, new record (`pending`)                            |
+| Resubmitted | **Existing, lowercase UUID** **[3]**   | Same as before                  | Same ID, same record **[4]**         | Same ID, same record **[4]**         | Same ID, same record **[4]**, whatever its status               |
+| Resubmitted | **Existing, lowercase UUID**           | Different from before           | Same ID, new record version **[5]**  | Same ID, new record version **[5]**  | New version **[5]** while `pending`, otherwise `conflict_error` |
+| Resubmitted | Existing, other format (deprecated)    | Same as before                  | Same ID, same record **[4]**         | Same ID, same record **[4]**         | Same ID, same record **[4]**, whatever its status               |
+| Resubmitted | Existing, other format (deprecated)    | Different from before           | Same ID, new record version **[5]**  | Same ID, new record version **[5]**  | New version **[5]** while `pending`, otherwise `conflict_error` |
+| Submitted   | Empty (deprecated)                     | New                             | New ID (created by SDEP), new record | New ID (created by SDEP), new record | New ID (created by SDEP), new record (`pending`)                |
+| Resubmitted | Empty (deprecated)                     | Same as before                  | Same ID, same record **[4]**         | Same ID, same record **[4]**         | Same ID, same record **[4]**, whatever its status               |
+| Resubmitted | Empty (deprecated)                     | Other value in key field(s)     | New ID (created by SDEP), new record | New ID (created by SDEP), new record | New ID (created by SDEP), new record (`pending`)                |
+| Resubmitted | Empty (deprecated)                     | Other value in non-key field(s) | n/a **[6]**                          | Same ID, new record version **[5]**  | New version **[5]** while `pending`, otherwise a new ID **[7]** |
 
-[1] SDEP answers OK with the stored version (same ID, same `createdAt`), and writes nothing (**idempotency**).
+[1] Unless taken by another owner (`duplicate_error`). This is checked for, but with a UUID this practically never happens.
 
-[2] See [Versioning](#versioning) below.
+[2] Unless taken by another owner (`duplicate_error`). A new ID in another format is not supported by the reference implementation SDEP-NL, only the UUID syntax is accepted (`business_logic_error`), see [ID management](#id-management).
 
-[3] Created earlier by SDEP and kept by the client, or created by the client.
+[3] Created by the client, or created earlier by SDEP and kept by the client.
 
-[4] Every field of an area is a key field.
+[4] SDEP answers OK with the stored version (same ID, same `createdAt`), and writes nothing (**idempotency**).
 
-[5] A screened listing is closed, so SDEP takes the next generation: a new ID, a new `pending` listing (a new random check). See [Generated listing ID](./LISTING_TECH.md#generated-listing-id).
+[5] See [Versioning](#versioning) below.
+
+[6] Every field of an area is a key field.
+
+[7] A screened listing is closed, so SDEP takes the next generation: a new ID, a new `pending` listing (a new random check). See [Generated listing ID](./LISTING_TECH.md#generated-listing-id).
+
+The empty ID rows come last, because leaving the ID empty is deprecated.
 
 The key (it makes the generated ID) means:
 
@@ -720,12 +729,13 @@ The content (it decides on a resend) means:
 
 - Listing, activity: all fields of the item, except its ID
 - Area: `areaName`, `regulation`, the filename and the file content
-- Equal values count as the same: the UTC offset `Z` equals `+00:00` in a timestamp, an omitted field equals its default (`status` `finished`, `regulation` `all`), and `""`, `null` and an omitted optional field all mean "no value" (see [NULL-values](#null-values) below)
+- Equal values count as the same: the UTC offset `Z` equals `+00:00` in a timestamp, an omitted field equals its default (`status` `finished`, `regulation` `all`), and `""`, only spaces, `null` and an omitted optional field all mean "no value" (see [NULL-values](#null-values) below)
 
 Other cases:
 
-- Same key after a delete (area) or deactivation (activity), without an ID: a new record with a new ID, see "Delete, then resubmit" above
-- Same ID after a delete or deactivation: refused, the ID stays deleted
+- Same key after a delete (area), without an ID: a new record with a new ID, see "Delete, then resubmit" above
+- Same ID after a delete (area): refused, the ID stays deleted
+- Both delete cases apply to areas only: activities and listings have no delete endpoint
 - Same content of another owner: a new record of that owner (without an ID), or `duplicate_error` (with the ID of the first owner)
 - The same record twice in one batch: the last one counts, the earlier one is NOK (`duplicate_error`), see [Bulk](#bulk)
 - Two items with the same key in one batch, without an ID: the same rule, the last one counts

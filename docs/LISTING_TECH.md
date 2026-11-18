@@ -256,7 +256,7 @@ Net effect:
 
 ### Generated listing ID
 
-> **Deprecated:** functional ID generation by SDEP (a functional ID left empty) is deprecated, in favour of a client-supplied lowercase UUID. It stays supported until that UUID becomes mandatory (finalizing discussion in the technical working group), see [ID management](./ARCHITECTURE_TECH.md#id-management).
+> **Deprecated:** functional ID generation by SDEP (a functional ID left empty) is deprecated, in favour of a client-supplied lowercase UUID. It stays supported until that UUID becomes mandatory, see [ID management](./ARCHITECTURE_TECH.md#id-management).
 
 A listing without `listingId` gets an ID from its key: the platform and the `url`, see [ID management](./ARCHITECTURE_TECH.md#id-management).
 

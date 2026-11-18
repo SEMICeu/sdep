@@ -96,7 +96,7 @@ Activities are [versioned](./ARCHITECTURE_TECH.md#versioning):
 - A changed activity with the same `activityId` creates a new version (e.g. a cancellation).
 - An identical activity with the same `activityId` returns the existing activity, without storing a new version (see [Idempotency](./ARCHITECTURE_TECH.md#idempotency)).
 
-> **Deprecated:** functional ID generation by SDEP (a functional ID left empty) is deprecated, in favour of a client-supplied lowercase UUID. It stays supported until that UUID becomes mandatory (finalizing discussion in the technical working group), see [ID management](./ARCHITECTURE_TECH.md#id-management).
+> **Deprecated:** functional ID generation by SDEP (a functional ID left empty) is deprecated, in favour of a client-supplied lowercase UUID. It stays supported until that UUID becomes mandatory, see [ID management](./ARCHITECTURE_TECH.md#id-management).
 
 An activity that is sent without `activityId` gets an ID from SDEP, see [ID management](./ARCHITECTURE_TECH.md#id-management):
 

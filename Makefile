@@ -6,7 +6,7 @@ SHELL := /bin/bash
 .PHONY: .build .clean-stale \
         postgres-up postgres-down \
         postgres-login postgres-status postgres-status-full .drop-database .migrate-database .load-test-data postgres-drop postgres-migrate postgres-load postgres-drop-migrate postgres-drop-migrate-load postgres-size \
-        postgres-auditlog postgres-auditlog-unknown postgres-areas postgres-activities postgres-count \
+        postgres-auditlog postgres-auditlog-unknown postgres-areas postgres-platforms postgres-activities postgres-activities-count postgres-count \
         postgres-prep-areas postgres-clean-testrun \
         dbgate-up dbgate-down dbgate-recreate dbgate-status \
         keycloak-up keycloak-down .keycloak-wait .keycloak-realm .keycloak-admin .keycloak-roles keycloak-generate-machine-clients keycloak-configure keycloak-show-client-public-key keycloak-match-client-public-keys .get-client-credentials \
@@ -216,15 +216,54 @@ postgres-areas: ## Show areas
 	    "SELECT id, area_id, area_name, regulation, competent_authority_id, filename, created_at, ended_at \
 	    FROM area ORDER BY competent_authority_id, id"
 
+# All versions, ended_at marks a replaced version (e.g. after a name change).
+postgres-platforms: ## Show platforms
+	@set -a && source .env && set +a && \
+	echo "🔍 Showing platforms for database $$POSTGRES_DB_NAME..." && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c \
+	    "SELECT id, platform_id, platform_name, created_at, ended_at FROM platform ORDER BY platform_id, id"
+
 # Key columns only (address and country_of_guests left out), newest first.
-# N limits the rows, as the activity table grows large (default 100).
-postgres-activities: ## Show activities (N=<rows>, default 100)
+# N limits the rows, as the activity table grows large (default 100, N=ALL for all).
+# PLATFORM_ID is the functional ID (platform.platform_id), it matches all platform versions.
+# activity.platform_id holds the technical key (platform.id), shown as platform_pk.
+# The value goes into the SQL, so CHECK_PLATFORM_ID allows only a safe charset.
+ACTIVITIES_WHERE = $(if $(PLATFORM_ID),WHERE p.platform_id = '$(PLATFORM_ID)')
+CHECK_PLATFORM_ID = @if [ -n "$(PLATFORM_ID)" ] && ! [[ "$(PLATFORM_ID)" =~ ^[A-Za-z0-9._:-]{1,64}$$ ]]; then \
+	echo "❌ Usage: make $@ PLATFORM_ID=<functional id> (max 64 of A-Z a-z 0-9 . _ : -)"; exit 1; fi
+postgres-activities: ## Show activities (N=<rows>|ALL, default 100, PLATFORM_ID=<functional id>)
+	$(CHECK_PLATFORM_ID)
+	@if [ -n "$(N)" ] && ! [[ "$(N)" =~ ^([0-9]+|ALL)$$ ]]; then echo "❌ Usage: make postgres-activities N=<rows>|ALL"; exit 1; fi
 	@set -a && source .env && set +a && \
 	echo "🔍 Showing activities for database $$POSTGRES_DB_NAME..." && \
 	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c \
-	    "SELECT id, activity_id, activity_name, status, platform_id, area_id, registration_number, \
-	    number_of_guests, temporal_start_date_time, temporal_end_date_time, created_at, ended_at \
-	    FROM activity ORDER BY id DESC LIMIT $(or $(N),100)"
+	    "SELECT a.id, a.activity_id, a.activity_name, a.status, a.platform_id AS platform_pk, p.platform_id, \
+	    a.area_id, a.registration_number, a.number_of_guests, a.temporal_start_date_time, a.temporal_end_date_time, \
+	    a.created_at, a.ended_at \
+	    FROM activity a JOIN platform p ON p.id = a.platform_id $(ACTIVITIES_WHERE) ORDER BY a.id DESC LIMIT $(or $(N),100)"
+
+# Counts per functional platform ID (all platform versions together), plus a total row.
+# Every delivery adds a row, an update ends the previous version (ended_at), so
+# delivered counts all versions and current only the rows that are not ended.
+# PLATFORM_ID limits the count to one platform, see postgres-activities.
+postgres-activities-count: ## Count activities, in total and per platform (PLATFORM_ID=<functional id>)
+	$(CHECK_PLATFORM_ID)
+	@set -a && source .env && set +a && \
+	echo "🔍 Counting activities for database $$POSTGRES_DB_NAME..." && \
+	docker exec sdep-postgres psql -U $$POSTGRES_DB_USER -d $$POSTGRES_DB_NAME -c \
+	    "SELECT CASE WHEN GROUPING(p.platform_id) = 1 THEN '(total)' ELSE p.platform_id END AS platform_id, \
+	    c.platform_name, COUNT(*) AS delivered, COUNT(*) FILTER (WHERE a.ended_at IS NULL) AS current, \
+	    COUNT(*) FILTER (WHERE a.ended_at IS NULL AND a.status = 'cancelled') AS current_cancelled \
+	    FROM activity a JOIN platform p ON p.id = a.platform_id \
+	    LEFT JOIN platform c ON c.platform_id = p.platform_id AND c.ended_at IS NULL $(ACTIVITIES_WHERE) \
+	    GROUP BY ROLLUP ((p.platform_id, c.platform_name)) \
+	    ORDER BY GROUPING(p.platform_id), delivered DESC"
+	@echo "Columns:"
+	@echo "  platform_id        functional ID of the platform, (total) for all platforms"
+	@echo "  platform_name      name of the current platform version"
+	@echo "  delivered          all activity rows, every version counts"
+	@echo "  current            activity rows that are not ended (ended_at is empty)"
+	@echo "  current_cancelled  current rows with status cancelled"
 
 postgres-count: ## Count rows in all tables
 	@echo "🔍 Counting rows in all tables..."

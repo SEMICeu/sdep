@@ -4,6 +4,17 @@
 
 *See also the [API](./docs/API_TECH.md) documentation and the [API version diff](./docs/API_DIFF_TECH.md).*
 
+<h1>1.10.3</h1>
+
+- Improved the Swagger documentation for id-pattern and versioning
+- Improved the Swagger examples
+  - String values are now "example" instead of "string"
+  - CA POST areas regulation type is now "all" instead of "listing"
+  - Pagination `limit` is now 10 iso. 1000 (to support a fast "Try it out" experience, the API default stays 1000)
+  - CA and STR POST examples now contain a UUID (as this is the recommended approach )
+- Updated the documentation for client-signed JWT (key rotation)
+- Added additional makefile targets to query the database
+
 <h1>1.10.2</h1>
 
 - Added a deprecation notice for functional ID generation by SDEP, in favour of client-supplied functional UUIDs [#79](https://github.com/SEMICeu/sdep/issues/79)

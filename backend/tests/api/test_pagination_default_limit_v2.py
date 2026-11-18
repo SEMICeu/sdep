@@ -1,7 +1,7 @@
 """STR and CA (v1, v2) list endpoints return at most 1000 records per call.
 
 Proven with 1001 rows: these apps return 1000 without a `limit`. The contract
-(declared default) is checked alongside.
+(default stated in the description, example 10 for Swagger UI) is checked alongside.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -210,10 +210,28 @@ class TestDefaultLimitContract:
     def test_limit_default_is_declared(self, app, path, default):
         parameters = app.openapi()["paths"][path]["get"]["parameters"]
         limit = next(p for p in parameters if p["name"] == "limit")
-        assert limit["schema"].get("default") == default
+        assert f"default: {default}" in limit["description"]
         assert (
             limit["schema"].get(
                 "maximum", limit["schema"].get("anyOf", [{}])[0].get("maximum")
             )
             == 1000
         )
+
+    def test_every_limit_has_small_swagger_example(self):
+        # Swagger UI pre-fills "Try it out" with the schema default when present,
+        # so the schema has none and the example (10) wins. Runtime default: above.
+        from tests.api.test_openapi_schema_frozen import DOMAIN_APPS
+
+        found = 0
+        for app in DOMAIN_APPS.values():
+            for operations in app.openapi()["paths"].values():
+                for operation in operations.values():
+                    for parameter in operation.get("parameters", []):
+                        if parameter["name"] != "limit":
+                            continue
+                        found += 1
+                        examples = parameter.get("examples", {})
+                        assert [e["value"] for e in examples.values()] == [10]
+                        assert "default" not in parameter["schema"]
+        assert found > 0

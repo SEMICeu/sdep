@@ -46,11 +46,11 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
   - [8g. Examples (STA)](#8g-examples-sta)
   - [8h. Examples (LSA, alpha, work in progress)](#8h-examples-lsa-alpha-work-in-progress)
   - [8i. Examples (LMA, alpha, work in progress)](#8i-examples-lma-alpha-work-in-progress)
-- [Step 9: Authenticate (as admin, in Swagger UI)](#step-9-authenticate-as-admin-in-swagger-ui)
+- [Step 9: In Swagger UI, authenticate (as admin)](#step-9-in-swagger-ui-authenticate-as-admin)
   - [9a. Local testing](#9a-local-testing)
   - [9b. PRE](#9b-pre)
   - [9c. PRD](#9c-prd)
-- [Step 10: Invoke the SDEP API (as admin, in Swagger UI)](#step-10-invoke-the-sdep-api-as-admin-in-swagger-ui)
+- [Step 10: In Swagger UI, invoke the SDEP API (as admin)](#step-10-in-swagger-ui-invoke-the-sdep-api-as-admin)
   - [10a. Local testing](#10a-local-testing)
   - [10b. PRE](#10b-pre)
   - [10c. PRD](#10c-prd)
@@ -965,7 +965,7 @@ Remarks:
 
 - LMA and STA v2 have the `status` and `flags` filters (comma-separated flag codes), CA v2 has `flags` only
 
-## Step 9: Authenticate (as admin, in Swagger UI)
+## Step 9: In Swagger UI, authenticate (as admin)
 
 ### 9a. Local testing
 
@@ -983,9 +983,15 @@ N/A in PRE for client-signed JWT, see [Client ID & secret authentication](./GET_
 
 ### 9c. PRD
 
-In Swagger UI, select **Authorize** and paste the `Bearer` token you programmatically obtained in [step 6c](#6c-prd).
+Option 1:
 
-## Step 10: Invoke the SDEP API (as admin, in Swagger UI)
+- In Swagger UI, select **Authorize** and paste the `Bearer` token you programmatically obtained in [step 6c](#6c-prd).
+
+Option 2:
+
+- First acquire a `Bearer` token via 
+
+## Step 10: In Swagger UI, invoke the SDEP API (as admin)
 
 ### 10a. Local testing
 
@@ -1028,8 +1034,10 @@ This allows integration partners to replace their signing keys without interrupt
 
 **Disclaimer**:
 
-- As integration partner, you are responsible ro rotate your keys periodically, e.g. every 6-12 months.
+- As integration partner, you are responsible to rotate your keys periodically, e.g. every 6-12 months.
 - SDEP-NL will expire keys, this process will be effectuated within 1 year after go-live (2026 > 2027)
+
+---
 
 ### 11a. Local testing
 

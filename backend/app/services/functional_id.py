@@ -68,8 +68,7 @@ def uuid_required_message(field: str, value: str) -> str:
     """Return the error message for a supplied ID that `refused_ids` refuses."""
     return (
         f"{field} '{value}' must be a lowercase UUID (RFC 9562), "
-        "e.g. '3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b'; "
-        "an existing ID of your own may still be resubmitted"
+        "e.g. '3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b'"
     )
 
 

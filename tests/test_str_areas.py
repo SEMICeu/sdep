@@ -426,11 +426,15 @@ def main() -> int:
         print("------------------------------------------------")
         stats.total += 1
         response = client.get(f"{base_url}/api/str/{api_version}/openapi.json")
+        # The default is stated in the description, the schema has none, so Swagger UI
+        # pre-fills the example (10). Runtime default: see test_pagination_default_limit_v2.
         declared = None
         try:
             for parameter in response.json()["paths"]["/areas"]["get"]["parameters"]:
                 if parameter.get("name") == "limit":
-                    declared = parameter.get("schema", {}).get("default")
+                    description = parameter.get("description", "")
+                    if "default: 1000" in description:
+                        declared = 1000
         except (json.JSONDecodeError, KeyError, TypeError):
             pass
         expected_default = 1000

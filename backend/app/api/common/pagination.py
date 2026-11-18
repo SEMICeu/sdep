@@ -26,6 +26,12 @@ async def limited_pagination_params(
             ge=1,
             le=1000,
             description="Maximum number of records to return (default: 1000, max: 1000)",
+            # Swagger UI pre-fills "Try it out" with this example, so a test call
+            # returns a small page. The API default stays 1000, see
+            # prefer_parameter_examples_over_defaults in openapi.py.
+            openapi_examples={
+                "small_page": {"summary": "10 records", "value": 10},
+            },
         ),
     ] = 1000,
 ) -> PaginationParams:

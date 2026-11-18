@@ -13,6 +13,9 @@
               }
             ],
             "description": "Client ID for M2M authentication",
+            "examples": [
+              "my-client-id"
+            ],
             "title": "Client Id"
           },
           "client_secret": {
@@ -25,6 +28,9 @@
               }
             ],
             "description": "Client secret for M2M authentication",
+            "examples": [
+              "my-client-secret"
+            ],
             "title": "Client Secret"
           },
           "client_signed_jwt": {
@@ -37,6 +43,9 @@
               }
             ],
             "description": "Client-signed JWT for M2M authentication",
+            "examples": [
+              "my-client-signed-jwt"
+            ],
             "title": "Client Signed Jwt"
           },
           "grant_type": {
@@ -49,6 +58,9 @@
               }
             ],
             "description": "OAuth2 grant type (client_credentials)",
+            "examples": [
+              "client_credentials"
+            ],
             "title": "Grant Type"
           }
         },

@@ -163,11 +163,11 @@ As competent authority (**CA**) or short-term rental platform (**STR**), you can
 
 - **Create (and submit) functional IDs by yourself**
   - Recommended (in the future mandatory): a lowercase UUID, random (UUID v4) or deterministic (UUID v5/v8) ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562))
-  - Motivation: to avoid unexpected rejections due to IDs that are taken by other clients
-  - SDEP-NL already validates this: a new ID that is not a lowercase UUID is refused (an existing ID of your own can still be resubmitted)
+  - Motivation: UUIDs are regarded as practically unique. They avoid unexpected rejections due to IDs that are taken by other clients.
+  - SDEP-NL already validates this: a new ID that is not a lowercase UUID is refused
 - **Let SDEP create the functional IDs** (you leave them out on initial submission)
   - SDEP will generate and return the IDs (as deterministic UUID v8)
-  - Deprecated, in favour of your own lowercase UUIDs: it stays supported until that UUID becomes mandatory (finalizing discussion in the technical working group)
+  - Deprecated, in favour of your own lowercase UUIDs: it stays supported until that UUID becomes mandatory
 
 In either case it is recommended:
 

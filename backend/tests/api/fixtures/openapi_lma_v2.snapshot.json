@@ -755,11 +755,16 @@
           },
           {
             "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "examples": {
+              "small_page": {
+                "summary": "10 records",
+                "value": 10
+              }
+            },
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 1000,
               "description": "Maximum number of records to return (default: 1000, max: 1000)",
               "maximum": 1000,
               "minimum": 1,
@@ -908,11 +913,16 @@
           },
           {
             "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "examples": {
+              "small_page": {
+                "summary": "10 records",
+                "value": 10
+              }
+            },
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 1000,
               "description": "Maximum number of records to return (default: 1000, max: 1000)",
               "maximum": 1000,
               "minimum": 1,
@@ -1048,11 +1058,16 @@
           },
           {
             "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "examples": {
+              "small_page": {
+                "summary": "10 records",
+                "value": 10
+              }
+            },
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 1000,
               "description": "Maximum number of records to return (default: 1000, max: 1000)",
               "maximum": 1000,
               "minimum": 1,
@@ -1563,11 +1578,16 @@
           },
           {
             "description": "Maximum number of records to return (default: 1000, max: 1000)",
+            "examples": {
+              "small_page": {
+                "summary": "10 records",
+                "value": 10
+              }
+            },
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 1000,
               "description": "Maximum number of records to return (default: 1000, max: 1000)",
               "maximum": 1000,
               "minimum": 1,
