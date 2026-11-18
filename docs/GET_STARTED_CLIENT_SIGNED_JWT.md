@@ -2,42 +2,42 @@
 
 This guide illustrates how to use **client-signed JWT authentication** with SDEP.
 
-- Practice in a local running SDEP environment (**Local**)
+- Practice in a local running SDEP environment (**Local testing**)
 - Operate against SDEP in pre-production (**PRE**) or production (**PRD**)
 
 <h2>Table of contents</h2>
 
 - [Overview](#overview)
 - [Step 1: Configure environment (as admin)](#step-1-configure-environment-as-admin)
-  - [1a. Local](#1a-local)
+  - [1a. Local testing](#1a-local-testing)
   - [1b. PRE](#1b-pre)
   - [1c. PRD](#1c-prd)
 - [Step 2: Configure keypair (as admin)](#step-2-configure-keypair-as-admin)
-  - [2a. Local](#2a-local)
+  - [2a. Local testing](#2a-local-testing)
   - [2b. PRE](#2b-pre)
   - [2c. PRD](#2c-prd)
 - [Step 3: Send public key (as admin)](#step-3-send-public-key-as-admin)
-  - [3a. Local](#3a-local)
+  - [3a. Local testing](#3a-local-testing)
   - [3b. PRE](#3b-pre)
   - [3c. PRD](#3c-prd)
 - [Step 4: Receive connection info (as admin)](#step-4-receive-connection-info-as-admin)
-  - [4a. Local](#4a-local)
+  - [4a. Local testing](#4a-local-testing)
   - [4b. PRE](#4b-pre)
   - [4c. PRD](#4c-prd)
 - [Step 5: Create a client-signed JWT (as machine)](#step-5-create-a-client-signed-jwt-as-machine)
-  - [5a. Local](#5a-local)
+  - [5a. Local testing](#5a-local-testing)
   - [5b. PRE](#5b-pre)
   - [5c. PRD](#5c-prd)
 - [Step 6: Authenticate (as machine)](#step-6-authenticate-as-machine)
-  - [6a. Local](#6a-local)
+  - [6a. Local testing](#6a-local-testing)
   - [6b. PRE](#6b-pre)
   - [6c. PRD](#6c-prd)
 - [Step 7: Ping (as machine)](#step-7-ping-as-machine)
-  - [7a. Local](#7a-local)
+  - [7a. Local testing](#7a-local-testing)
   - [7b. PRE](#7b-pre)
   - [7c. PRD](#7c-prd)
 - [Step 8: Invoke the SDEP API (as machine)](#step-8-invoke-the-sdep-api-as-machine)
-  - [8a. Local](#8a-local)
+  - [8a. Local testing](#8a-local-testing)
   - [8b. PRE](#8b-pre)
   - [8c. PRD](#8c-prd)
   - [8d. Examples (CA)](#8d-examples-ca)
@@ -47,15 +47,15 @@ This guide illustrates how to use **client-signed JWT authentication** with SDEP
   - [8h. Examples (LSA, alpha, work in progress)](#8h-examples-lsa-alpha-work-in-progress)
   - [8i. Examples (LMA, alpha, work in progress)](#8i-examples-lma-alpha-work-in-progress)
 - [Step 9: Authenticate (as admin, in Swagger UI)](#step-9-authenticate-as-admin-in-swagger-ui)
-  - [9a. Local](#9a-local)
+  - [9a. Local testing](#9a-local-testing)
   - [9b. PRE](#9b-pre)
   - [9c. PRD](#9c-prd)
 - [Step 10: Invoke the SDEP API (as admin, in Swagger UI)](#step-10-invoke-the-sdep-api-as-admin-in-swagger-ui)
-  - [10a. Local](#10a-local)
+  - [10a. Local testing](#10a-local-testing)
   - [10b. PRE](#10b-pre)
   - [10c. PRD](#10c-prd)
-- [Step 11: Rotate keys (as admin)](#step-11-rotate-keys-as-admin)
-  - [11a. Local](#11a-local)
+- [Step 11: Key rotation (as admin)](#step-11-key-rotation-as-admin)
+  - [11a. Local testing](#11a-local-testing)
   - [11b. PRE](#11b-pre)
   - [11c. PRD](#11c-prd)
 
@@ -101,7 +101,7 @@ The following actions are performed by **team SDEP** (e.g. SDEP-NL), and are fur
 
 ## Step 1: Configure environment (as admin)
 
-### 1a. Local
+### 1a. Local testing
 
 Start the local stack (postgres, keycloak, backend and test data), when not yet running:
 
@@ -140,7 +140,7 @@ N/A.
 
 ## Step 2: Configure keypair (as admin)
 
-### 2a. Local
+### 2a. Local testing
 
 In your local development environment, configuring a keypair is automated by `make up` (idempotent):
 
@@ -228,7 +228,7 @@ For each test client, verify that the public key stored in Keycloak matches the 
 make keycloak-match-client-public-keys
 ```
 
-Or show the public key for a single client instead (e.g. `sdep-test-str.jwt`, or any other client in the table of [step 2a](#2a-local))
+Or show the public key for a single client instead (e.g. `sdep-test-str.jwt`, or any other client in the table of [step 2a](#2a-local-testing))
 
 ```bash
 make keycloak-show-client-public-key CLIENT_ID=sdep-test-str.jwt
@@ -284,7 +284,7 @@ Same as [2b. PRE](#2b-pre).
 
 ## Step 3: Send public key (as admin)
 
-### 3a. Local
+### 3a. Local testing
 
 N/A.
 
@@ -314,7 +314,7 @@ Info comprises the public key ID to use (`kid`), as well as other connection det
 
 ---
 
-### 4a. Local
+### 4a. Local testing
 
 Public key ID and connection details are predefined.
 
@@ -338,7 +338,7 @@ export SDEP_TOKEN_URL="${SDEP_BASE_URL%/}/api/auth/v1/token"
 export CLIENT_SIGNED_JWT_AUDIENCE="${BACKEND_KC_BASE_URL%/}/realms/sdep/protocol/openid-connect/token"
 ```
 
-Then create the exports for one of the client-signed JWT test clients (e.g. `sdep-test-str.jwt`, or any other client in the table of [step 2a](#2a-local)):
+Then create the exports for one of the client-signed JWT test clients (e.g. `sdep-test-str.jwt`, or any other client in the table of [step 2a](#2a-local-testing)):
 
 ```bash
 export CLIENT_ID=sdep-test-str.jwt
@@ -422,9 +422,9 @@ To prepare for authentication.
 
 ---
 
-### 5a. Local
+### 5a. Local testing
 
-For one-time usage (defined by the authorization server, repeat for each new authentication in [step 6a](#6a-local)) and only valid for 60 seconds (defined by the invoked `create-client-signed-jwt.py`).
+For one-time usage (defined by the authorization server, repeat for each new authentication in [step 6a](#6a-local-testing)) and only valid for 60 seconds (defined by the invoked `create-client-signed-jwt.py`).
 
 Programmatically, by example:
 
@@ -455,17 +455,17 @@ Details:
 
 ### 5b. PRE
 
-Same as [5a. Local](#5a-local).
+Same as [5a. Local testing](#5a-local-testing).
 
 ---
 
 ### 5c. PRD
 
-Same as [5a. Local](#5a-local).
+Same as [5a. Local testing](#5a-local-testing).
 
 ## Step 6: Authenticate (as machine)
 
-### 6a. Local
+### 6a. Local testing
 
 Use the client-signed JWT within 60 seconds, and only once, to invoke the `/token` endpoint:
 
@@ -502,17 +502,17 @@ Remarks:
 
 ### 6b. PRE
 
-Same as [6a. Local](#6a-local).
+Same as [6a. Local testing](#6a-local-testing).
 
 ---
 
 ### 6c. PRD
 
-Same as [6a. Local](#6a-local).
+Same as [6a. Local testing](#6a-local-testing).
 
 ## Step 7: Ping (as machine)
 
-### 7a. Local
+### 7a. Local testing
 
 Verify the token with the role-agnostic ping endpoint:
 
@@ -530,17 +530,17 @@ Reuse the same `ACCESS_TOKEN` for as many calls as needed, until it expires afte
 
 ### 7b. PRE
 
-Same as [7a. Local](#7a-local).
+Same as [7a. Local testing](#7a-local-testing).
 
 ---
 
 ### 7c. PRD
 
-Same as [7a. Local](#7a-local).
+Same as [7a. Local testing](#7a-local-testing).
 
 ## Step 8: Invoke the SDEP API (as machine)
 
-### 8a. Local
+### 8a. Local testing
 
 See examples below, assume client environment is already set.
 
@@ -548,13 +548,13 @@ See examples below, assume client environment is already set.
 
 ### 8b. PRE
 
-Same as [8a. Local](#8a-local).
+Same as [8a. Local testing](#8a-local-testing).
 
 ---
 
 ### 8c. PRD
 
-Same as [8a. Local](#8a-local).
+Same as [8a. Local testing](#8a-local-testing).
 
 ---
 
@@ -967,11 +967,11 @@ Remarks:
 
 ## Step 9: Authenticate (as admin, in Swagger UI)
 
-### 9a. Local
+### 9a. Local testing
 
-Make sure your environment is prepared for client-signed JWT (see [step 1a](#1a-local)).
+Make sure your environment is prepared for client-signed JWT (see [step 1a](#1a-local-testing)).
 
-In Swagger UI, select **Authorize** and paste the `Bearer` token you programmatically obtained in [step 6a](#6a-local).
+In Swagger UI, select **Authorize** and paste the `Bearer` token you programmatically obtained in [step 6a](#6a-local-testing).
 
 ---
 
@@ -987,9 +987,9 @@ In Swagger UI, select **Authorize** and paste the `Bearer` token you programmati
 
 ## Step 10: Invoke the SDEP API (as admin, in Swagger UI)
 
-### 10a. Local
+### 10a. Local testing
 
-Once authorized in Swagger UI (see [step 9a](#9a-local)), try out the other endpoints of your role:
+Once authorized in Swagger UI (see [step 9a](#9a-local-testing)), try out the other endpoints of your role:
 
 - Open an endpoint, select **Try it out**, fill in the parameters, and select **Execute**
 - Swagger UI shows the request as a `curl` command, plus the response
@@ -1005,11 +1005,32 @@ N/A in PRE for client-signed JWT, see [Client ID & secret authentication](./GET_
 
 ### 10c. PRD
 
-Same as [10a. Local](#10a-local).
+Same as [10a. Local testing](#10a-local-testing).
 
-## Step 11: Rotate keys (as admin)
+## Step 11: Key rotation (as admin)
 
-### 11a. Local
+This allows integration partners to replace their signing keys without interrupting existing connections.
+
+**How it works:**
+
+1. You generate a new key pair and share the new public key with SDEP.
+2. SDEP registers the new public key alongside your existing key, with a new `kid` (Key ID), and sends you this new `kid`. Both keys will be accepted during the transition period.
+3. You switch to signing JWTs with your new private key, and include the new `kid` from step 2 in the JWT header.
+4. Once you confirm the switch is complete, SDEP removes the old public key.
+5. If not confirmed, the old key will be removed after 1 week (SDEP-NL)
+
+**Impact:**
+
+- No immediate changes will be required to your existing integration.
+- During a key rotation, both the old and new keys will be supported temporarily.
+- Your JWTs must include the correct `kid` during rotation to identify the signing key (supplying a `kid` is yet optional)
+- We will coordinate the rotation with you to avoid service interruptions.
+
+**Disclaimer**:
+
+- As integration partner, you are responsible ro rotate your keys periodically, e.g. every 6-12 months.
+
+### 11a. Local testing
 
 Delete the generated private keys:
 
