@@ -971,7 +971,16 @@ Remarks:
 
 Make sure your environment is prepared for client-signed JWT (see [step 1a](#1a-local-testing)).
 
-In Swagger UI, select **Authorize** and paste the `Bearer` token you programmatically obtained in [step 6a](#6a-local-testing).
+First obtain a `Bearer` token:
+
+- Programmatically, see [step 6a](#6a-local-testing); or
+- In the Swagger UI, via the token endpoint - http://localhost:8000/api/auth/v1/docs
+  - As `client_id`, enter a test client id
+  - As `client_secret`, make empty, so that "send empty value" gets checked
+  - As `client_signed_jwt`, enter a one-off client-signed JWT that you generated in [5a. Local testing](#5a-local-testing)
+  - As `grant_type`, keep it as `client_credentials`
+
+Then, in the Swagger UI, navigate to "your" endpoins (CA, STR, ...), select **Authorize** and paste the `Bearer` token.
 
 ---
 
