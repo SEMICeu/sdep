@@ -1029,6 +1029,7 @@ This allows integration partners to replace their signing keys without interrupt
 **Disclaimer**:
 
 - As integration partner, you are responsible ro rotate your keys periodically, e.g. every 6-12 months.
+- SDEP-NL will expire keys, this process will be effectuated within 1 year after go-live (2026 > 2027)
 
 ### 11a. Local testing
 
