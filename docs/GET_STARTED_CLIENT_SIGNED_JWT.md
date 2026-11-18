@@ -980,7 +980,9 @@ First obtain a `Bearer` token:
   - As `client_signed_jwt`, enter a one-off client-signed JWT that you generated in [5a. Local testing](#5a-local-testing)
   - As `grant_type`, keep it as `client_credentials`
 
-Then, in the Swagger UI, navigate to "your" endpoins (CA, STR, ...), select **Authorize** and paste the `Bearer` token.
+Then, in the Swagger UI, navigate to your endpoints page (CA, STR, ...), from http://localhost:8000/api/docs.
+
+At your endpoints page, select **Authorize** and paste the `Bearer` token.
 
 ---
 
@@ -1001,7 +1003,9 @@ First obtain a `Bearer` token:
   - As `client_signed_jwt`, enter a one-off client-signed JWT that you generated in [step 5c](#5c-prd)
   - As `grant_type`, keep it as `client_credentials`
 
-Then, in the Swagger UI, navigate to "your" endpoins (CA, STR, ...), select **Authorize** and paste the `Bearer` token.
+Then, in the Swagger UI, navigate to your endpoints (CA, STR, ...), from https://sdep.gov.nl/api/docs.
+
+At your endpoints page, select **Authorize** and paste the `Bearer` token.
 
 ## Step 10: In Swagger UI, invoke the SDEP API (optional, as admin)
 
